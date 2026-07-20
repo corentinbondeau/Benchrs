@@ -11,6 +11,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { User, Shield, Bell } from "lucide-react";
+import { ThemeToggle } from "@/components/layout/ThemeToggle";
 
 const roleLabels = {
   coach: "Coach",
@@ -66,10 +67,20 @@ export default function SettingsPage() {
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
             <Bell className="h-4 w-4" />
-            Notifications
+            Apparence & Notifications
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium">Thème sombre</p>
+              <p className="text-xs text-muted-foreground">
+                Basculer entre le thème clair et sombre
+              </p>
+            </div>
+            <ThemeToggle />
+          </div>
+          <Separator />
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium">Notifications push</p>

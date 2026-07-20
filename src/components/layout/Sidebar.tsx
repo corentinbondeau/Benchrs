@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
   CalendarCheck,
+  CalendarDays,
   BarChart3,
   Swords,
   MessageCircle,
@@ -15,6 +16,11 @@ import {
   Bell,
   Settings,
   LogOut,
+  Users,
+  ClipboardList,
+  Clock,
+  Image,
+  Shield,
 } from "lucide-react";
 import { useSession, signOut } from "next-auth/react";
 import { Button } from "@/components/ui/button";
@@ -23,33 +29,47 @@ import { Separator } from "@/components/ui/separator";
 
 const coachLinks = [
   { href: "/", label: "Tableau de bord", icon: LayoutDashboard },
+  { href: "/calendar", label: "Calendrier", icon: CalendarDays },
+  { href: "/schedule", label: "Planning", icon: Clock },
   { href: "/attendance", label: "Présences", icon: CalendarCheck },
+  { href: "/roster", label: "Effectif", icon: Users },
   { href: "/stats", label: "Statistiques", icon: BarChart3 },
   { href: "/tactics", label: "Tactique & Séances", icon: Swords },
+  { href: "/tasks", label: "Tâches", icon: ClipboardList },
   { href: "/chat", label: "Messages", icon: MessageCircle },
   { href: "/carpooling", label: "Covoiturage", icon: Car },
   { href: "/medical", label: "Infirmerie", icon: HeartPulse },
+  { href: "/gallery", label: "Galerie", icon: Image },
   { href: "/trophies", label: "Trophées", icon: Trophy },
   { href: "/notifications", label: "Notifications", icon: Bell },
+  { href: "/admin/players", label: "Gestion joueurs", icon: Shield },
 ];
 
 const playerLinks = [
   { href: "/", label: "Tableau de bord", icon: LayoutDashboard },
+  { href: "/calendar", label: "Calendrier", icon: CalendarDays },
+  { href: "/schedule", label: "Planning", icon: Clock },
   { href: "/attendance", label: "Présences", icon: CalendarCheck },
+  { href: "/roster", label: "Effectif", icon: Users },
   { href: "/stats", label: "Statistiques", icon: BarChart3 },
   { href: "/stats/my", label: "Mes Stats", icon: BarChart3 },
   { href: "/chat", label: "Messages", icon: MessageCircle },
   { href: "/carpooling", label: "Covoiturage", icon: Car },
   { href: "/medical", label: "Infirmerie", icon: HeartPulse },
+  { href: "/gallery", label: "Galerie", icon: Image },
   { href: "/trophies", label: "Trophées", icon: Trophy },
   { href: "/notifications", label: "Notifications", icon: Bell },
 ];
 
 const parentLinks = [
   { href: "/", label: "Tableau de bord", icon: LayoutDashboard },
+  { href: "/calendar", label: "Calendrier", icon: CalendarDays },
+  { href: "/schedule", label: "Planning", icon: Clock },
   { href: "/attendance", label: "Présences", icon: CalendarCheck },
   { href: "/chat", label: "Messages", icon: MessageCircle },
   { href: "/carpooling", label: "Covoiturage", icon: Car },
+  { href: "/tasks", label: "Tâches", icon: ClipboardList },
+  { href: "/gallery", label: "Galerie", icon: Image },
   { href: "/notifications", label: "Notifications", icon: Bell },
 ];
 

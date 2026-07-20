@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Bell, Menu } from "lucide-react";
 import Link from "next/link";
 import { MobileNav } from "./MobileNav";
+import { ThemeToggle } from "./ThemeToggle";
 
 const roleLabels = {
   coach: "Coach",
@@ -33,7 +34,9 @@ export function TopBar() {
         <h1 className="text-lg font-semibold hidden sm:block">SportPlus</h1>
       </div>
 
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2">
+        <ThemeToggle />
+
         <Link
           href="/notifications"
           className="relative rounded-full p-2 hover:bg-muted transition-colors"
