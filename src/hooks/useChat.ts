@@ -76,5 +76,35 @@ export function useChat(channelId: string) {
     [channelId, supabase]
   );
 
-  return { messages, loading, sendMessage, scrollRef };
+  const editMessage = useCallback(
+    async (messageId: string, content: string) => {
+      const { error } = await supabase
+        .from("chat_messages")
+        .update({ content, is_edited: true })
+        .eq("id", messageId);
+      if (!error) {
+        setMessages((prev) =>
+          prev.map((m) => (m.id === messageId ? { ...m, content, is_edited: true } : m))
+        );
+      }
+      return !error;
+    },
+    [supabase]
+  );
+
+  const deleteMessage = useCallback(
+    async (messageId: string) => {
+      const { error } = await supabase
+        .from("chat_messages")
+        .delete()
+        .eq("id", messageId);
+      if (!error) {
+        setMessages((prev) => prev.filter((m) => m.id !== messageId));
+      }
+      return !error;
+    },
+    [supabase]
+  );
+
+  return { messages, loading, sendMessage, editMessage, deleteMessage, scrollRef };
 }

@@ -1,9 +1,8 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -11,7 +10,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { RoleGuard } from "@/components/layout/RoleGuard";
+import { useToast } from "@/hooks/use-toast";
 
 interface PlayerPos {
   id: string;
@@ -21,7 +23,14 @@ interface PlayerPos {
   y: number;
 }
 
-const formations: Record<string, { name: string; positions: Omit<PlayerPos, "id" | "name" | "number">[] }> = {
+interface FormationRecord {
+  id: string;
+  name: string;
+  formation_data: { formation_type: string; positions: PlayerPos[] };
+  event_id: string | null;
+}
+
+const FORMATION_TEMPLATES: Record<string, { name: string; positions: Omit<PlayerPos, "id" | "name" | "number">[] }> = {
   "4-3-3": {
     name: "4-3-3",
     positions: [
@@ -55,23 +64,113 @@ const FIELD_WIDTH = 400;
 const FIELD_HEIGHT = 550;
 
 export function PitchEditor() {
-  const [formation, setFormation] = useState("4-3-3");
+  const { toast } = useToast();
   const [players, setPlayers] = useState<PlayerPos[]>([]);
   const [dragging, setDragging] = useState<string | null>(null);
+  const [savedFormations, setSavedFormations] = useState<FormationRecord[]>([]);
+  const [selectedFormationId, setSelectedFormationId] = useState<string>("new");
+  const [formationName, setFormationName] = useState("");
+  const [formationType, setFormationType] = useState("4-3-3");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
-  const applyFormation = useCallback((key: string) => {
-    setFormation(key);
-    const f = formations[key];
+  useEffect(() => {
+    Promise.all([
+      fetch("/api/admin/players").then((r) => r.json()),
+      fetch("/api/formations").then((r) => r.json()),
+    ]).then(([playersData, formationsData]) => {
+      if (Array.isArray(playersData)) {
+        const roster = playersData
+          .filter((p: { is_active?: boolean }) => p.is_active !== false)
+          .map((p: { id: string; first_name: string; last_name: string; shirt_number?: number }) => ({
+            id: p.id,
+            name: `${p.first_name} ${p.last_name}`,
+            number: p.shirt_number ?? 0,
+            x: 50,
+            y: 50,
+          }));
+        setPlayers(roster);
+      }
+      if (Array.isArray(formationsData)) {
+        setSavedFormations(formationsData);
+      }
+      setLoading(false);
+    });
+  }, []);
+
+  const applyTemplate = useCallback((key: string) => {
+    setFormationType(key);
+    const f = FORMATION_TEMPLATES[key];
     if (!f) return;
-    setPlayers(
+    setPlayers((prev) =>
       f.positions.map((pos, i) => ({
-        id: `player-${i}`,
-        name: `Joueur ${i + 1}`,
-        number: i + 1,
+        ...(prev[i] || { id: `player-${i}`, name: `Joueur ${i + 1}`, number: i + 1 }),
         ...pos,
       }))
     );
   }, []);
+
+  const loadSaved = useCallback((fId: string) => {
+    setSelectedFormationId(fId);
+    if (fId === "new") {
+      setFormationName("");
+      setFormationType("4-3-3");
+      applyTemplate("4-3-3");
+      return;
+    }
+    const found = savedFormations.find((f) => f.id === fId);
+    if (found) {
+      setFormationName(found.name);
+      setFormationType(found.formation_data.formation_type);
+      setPlayers(found.formation_data.positions);
+    }
+  }, [savedFormations, applyTemplate]);
+
+  const handleSave = useCallback(async () => {
+    if (!formationName.trim()) {
+      toast({ title: "Erreur", description: "Donnez un nom à la formation", variant: "destructive" });
+      return;
+    }
+    setSaving(true);
+    try {
+      const payload = {
+        name: formationName,
+        formation_type: formationType,
+        positions: players.map(({ x, y, id }) => ({ x, y, id })),
+      };
+      const isEdit = selectedFormationId && selectedFormationId !== "new";
+      const url = isEdit ? `/api/formations/${selectedFormationId}` : "/api/formations";
+      const method = isEdit ? "PUT" : "POST";
+
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+
+      toast({ title: "Sauvegardé", description: `"${formationName}" enregistrée` });
+      if (!isEdit) setSelectedFormationId(data.id);
+    } catch (e) {
+      toast({ title: "Erreur", description: String(e), variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  }, [formationName, formationType, players, selectedFormationId, toast]);
+
+  const handleDelete = useCallback(async () => {
+    if (!selectedFormationId || selectedFormationId === "new") return;
+    const res = await fetch(`/api/formations/${selectedFormationId}`, { method: "DELETE" });
+    if (res.ok) {
+      setSavedFormations((prev) => prev.filter((f) => f.id !== selectedFormationId));
+      setSelectedFormationId("new");
+      setFormationName("");
+      setFormationType("4-3-3");
+      applyTemplate("4-3-3");
+      toast({ title: "Supprimée" });
+    }
+  }, [selectedFormationId, applyTemplate, toast]);
 
   const handleMouseDown = (id: string) => (e: React.MouseEvent) => {
     e.preventDefault();
@@ -82,12 +181,8 @@ export function PitchEditor() {
     (e: React.MouseEvent<HTMLDivElement>) => {
       if (!dragging) return;
       const rect = e.currentTarget.getBoundingClientRect();
-      const x = Math.round(
-        ((e.clientX - rect.left) / rect.width) * 100
-      );
-      const y = Math.round(
-        ((e.clientY - rect.top) / rect.height) * 100
-      );
+      const x = Math.round(((e.clientX - rect.left) / rect.width) * 100);
+      const y = Math.round(((e.clientY - rect.top) / rect.height) * 100);
       setPlayers((prev) =>
         prev.map((p) =>
           p.id === dragging
@@ -99,35 +194,73 @@ export function PitchEditor() {
     [dragging]
   );
 
-  const handleMouseUp = useCallback(() => {
-    setDragging(null);
-  }, []);
+  const handleMouseUp = useCallback(() => setDragging(null), []);
+
+  if (loading) {
+    return (
+      <Card>
+        <CardContent className="flex items-center justify-center h-64">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-[var(--royal)] border-t-transparent" />
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <RoleGuard allowedRoles={["coach"]}>
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Éditeur de terrain</CardTitle>
-          <div className="flex gap-3 mt-2">
-            <Select value={formation} onValueChange={(v) => v && applyFormation(v)}>
-              <SelectTrigger className="w-40">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.keys(formations).map((key) => (
-                  <SelectItem key={key} value={key}>
-                    {key}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => applyFormation(formation)}
-            >
-              Réinitialiser
-            </Button>
+          <div className="flex flex-col gap-3 mt-2">
+            <div className="flex flex-wrap gap-2 items-end">
+              <div className="flex-1 min-w-[140px]">
+                <Label className="text-xs">Sauvegardée</Label>
+                <Select value={selectedFormationId} onValueChange={(v) => v && loadSaved(v)}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Nouvelle" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="new">+ Nouvelle formation</SelectItem>
+                    {savedFormations.map((f) => (
+                      <SelectItem key={f.id} value={f.id}>
+                        {f.name} ({f.formation_data.formation_type})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex-1 min-w-[140px]">
+                <Label className="text-xs">Nom</Label>
+                <Input
+                  placeholder="Ex: Match vs Valence"
+                  value={formationName}
+                  onChange={(e) => setFormationName(e.target.value)}
+                />
+              </div>
+              <div className="flex-1 min-w-[120px]">
+                <Label className="text-xs">Modèle</Label>
+                <Select value={formationType} onValueChange={(v) => v && applyTemplate(v)}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.keys(FORMATION_TEMPLATES).map((key) => (
+                      <SelectItem key={key} value={key}>
+                        {key}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button size="sm" onClick={handleSave} disabled={saving}>
+                {saving ? "..." : "Sauvegarder"}
+              </Button>
+              {selectedFormationId && selectedFormationId !== "new" && (
+                <Button size="sm" variant="destructive" onClick={handleDelete}>
+                  Supprimer
+                </Button>
+              )}
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -137,38 +270,28 @@ export function PitchEditor() {
               width: FIELD_WIDTH,
               height: FIELD_HEIGHT,
               maxWidth: "100%",
-              background:
-                "repeating-linear-gradient(0deg, #1a7a3a, #1a7a3a 10px, #1d8a40 10px, #1d8a40 20px)",
+              background: "repeating-linear-gradient(0deg, #1a7a3a, #1a7a3a 10px, #1d8a40 10px, #1d8a40 20px)",
             }}
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseUp}
           >
-            {/* Field markings */}
             <div className="absolute inset-0">
-              {/* Center line */}
               <div className="absolute left-0 right-0 top-1/2 h-px bg-white/60" />
-              {/* Center circle */}
               <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-24 rounded-full border border-white/60" />
-              {/* Penalty areas */}
               <div className="absolute left-1/4 right-1/4 top-0 h-16 border border-white/60" />
               <div className="absolute left-1/4 right-1/4 bottom-0 h-16 border border-white/60" />
             </div>
-
-            {/* Players */}
             {players.map((player) => (
               <div
                 key={player.id}
                 className="absolute -translate-x-1/2 -translate-y-1/2 cursor-grab active:cursor-grabbing z-10"
-                style={{
-                  left: `${player.x}%`,
-                  top: `${player.y}%`,
-                }}
+                style={{ left: `${player.x}%`, top: `${player.y}%` }}
                 onMouseDown={handleMouseDown(player.id)}
               >
                 <div className="flex flex-col items-center">
                   <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--gold)] text-[var(--gold-foreground)] text-xs font-bold shadow-lg border-2 border-white">
-                    {player.number}
+                    {player.number || "?"}
                   </div>
                   <span className="text-[10px] text-white bg-black/50 rounded px-1 mt-0.5 whitespace-nowrap">
                     {player.name}

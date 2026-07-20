@@ -1,6 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import { useSession } from "next-auth/react";
+import { createClient } from "@/lib/supabase/client";
 import {
   Card,
   CardContent,
@@ -9,9 +11,13 @@ import {
 } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { User, Shield, Bell } from "lucide-react";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
+import { useToast } from "@/hooks/use-toast";
 
 const roleLabels = {
   coach: "Coach",
@@ -21,7 +27,41 @@ const roleLabels = {
 
 export default function SettingsPage() {
   const { data: session } = useSession();
+  const { toast } = useToast();
   const user = session?.user;
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [changingPassword, setChangingPassword] = useState(false);
+
+  async function handleChangePassword() {
+    if (!currentPassword || !newPassword) {
+      toast({ title: "Erreur", description: "Remplissez tous les champs", variant: "destructive" });
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast({ title: "Erreur", description: "Les mots de passe ne correspondent pas", variant: "destructive" });
+      return;
+    }
+    if (newPassword.length < 8) {
+      toast({ title: "Erreur", description: "Minimum 8 caractères", variant: "destructive" });
+      return;
+    }
+    setChangingPassword(true);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+      toast({ title: "Mot de passe mis à jour" });
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (e) {
+      toast({ title: "Erreur", description: String(e), variant: "destructive" });
+    } finally {
+      setChangingPassword(false);
+    }
+  }
 
   return (
     <div className="space-y-6 max-w-2xl">
@@ -114,10 +154,40 @@ export default function SettingsPage() {
             Sécurité
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">
-            Gestion du mot de passe et du compte disponible prochainement.
-          </p>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label>Mot de passe actuel</Label>
+            <Input
+              type="password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              placeholder="Mot de passe actuel"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Nouveau mot de passe</Label>
+            <Input
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              placeholder="Minimum 8 caractères"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Confirmer le mot de passe</Label>
+            <Input
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="Retapez le nouveau mot de passe"
+            />
+          </div>
+          <Button
+            onClick={handleChangePassword}
+            disabled={changingPassword || !currentPassword || !newPassword}
+          >
+            {changingPassword ? "Mise à jour..." : "Changer le mot de passe"}
+          </Button>
         </CardContent>
       </Card>
     </div>

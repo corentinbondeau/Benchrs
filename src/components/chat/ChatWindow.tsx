@@ -68,7 +68,7 @@ export function ChannelList({
 
 export function ChatWindow({ channelId }: { channelId: string }) {
   const { data: session } = useSession();
-  const { messages, loading, sendMessage, scrollRef } = useChat(channelId);
+  const { messages, loading, sendMessage, editMessage, deleteMessage, scrollRef } = useChat(channelId);
 
   async function handleSend(content: string) {
     if (!session?.user?.id) return;
@@ -92,6 +92,8 @@ export function ChatWindow({ channelId }: { channelId: string }) {
               key={msg.id}
               message={msg}
               isOwn={msg.sender_id === session?.user?.id}
+              onEdit={editMessage}
+              onDelete={deleteMessage}
             />
           ))}
           <div ref={scrollRef} />

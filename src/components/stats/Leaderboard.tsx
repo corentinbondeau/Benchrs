@@ -10,26 +10,39 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Trophy, Medal, Award } from "lucide-react";
+import { Trophy, Medal, Shield, Clock, Target, Users } from "lucide-react";
 
 interface LeaderboardEntry {
   player_id: string;
   first_name: string;
   last_name: string;
   shirt_number: number | null;
-  avatar_url: string | null;
   goals: number;
   assists: number;
-  matches_played: number;
+  yellow_cards: number;
+  red_cards: number;
+  clean_sheets: number;
   minutes_played: number;
+  matches_played: number;
   attendance_rate: number;
 }
 
-type SortKey = "goals" | "assists" | "attendance_rate";
+type SortKey = "goals" | "assists" | "yellow_cards" | "red_cards" | "attendance_rate" | "minutes_played";
+
+interface TeamSummary {
+  totalGoals: number;
+  totalAssists: number;
+  totalCleanSheets: number;
+  avgAttendance: number;
+  matchesPlayed: number;
+  totalPlayers: number;
+}
 
 export function Leaderboard() {
   const [data, setData] = useState<LeaderboardEntry[]>([]);
+  const [summary, setSummary] = useState<TeamSummary | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("goals");
   const [loading, setLoading] = useState(true);
 
@@ -41,8 +54,12 @@ export function Leaderboard() {
         player_id,
         goals,
         assists,
+        yellow_cards,
+        red_cards,
+        clean_sheet,
+        minutes_played,
         event_id,
-        player:profiles!match_stats_player_id_fkey(id, first_name, last_name, shirt_number, avatar_url)
+        player:profiles!match_stats_player_id_fkey(id, first_name, last_name, shirt_number)
       `);
 
       if (!statsData) {
@@ -51,6 +68,10 @@ export function Leaderboard() {
       }
 
       const playerMap = new Map<string, LeaderboardEntry>();
+      let totalGoals = 0;
+      let totalAssists = 0;
+      let totalCleanSheets = 0;
+      const matchIds = new Set<string>();
 
       for (const stat of statsData) {
         const pid = stat.player_id as string;
@@ -59,9 +80,7 @@ export function Leaderboard() {
           first_name: string;
           last_name: string;
           shirt_number: number | null;
-          avatar_url: string | null;
         };
-
         if (!player) continue;
 
         if (!playerMap.has(pid)) {
@@ -70,11 +89,13 @@ export function Leaderboard() {
             first_name: player.first_name,
             last_name: player.last_name,
             shirt_number: player.shirt_number,
-            avatar_url: player.avatar_url,
             goals: 0,
             assists: 0,
-            matches_played: 0,
+            yellow_cards: 0,
+            red_cards: 0,
+            clean_sheets: 0,
             minutes_played: 0,
+            matches_played: 0,
             attendance_rate: 0,
           });
         }
@@ -82,18 +103,27 @@ export function Leaderboard() {
         const entry = playerMap.get(pid)!;
         entry.goals += (stat.goals as number) || 0;
         entry.assists += (stat.assists as number) || 0;
+        entry.yellow_cards += (stat.yellow_cards as number) || 0;
+        entry.red_cards += (stat.red_cards as number) || 0;
+        entry.clean_sheets += (stat.clean_sheet as boolean) ? 1 : 0;
+        entry.minutes_played += (stat.minutes_played as number) || 0;
         entry.matches_played += 1;
+
+        totalGoals += (stat.goals as number) || 0;
+        totalAssists += (stat.assists as number) || 0;
+        if (stat.clean_sheet) totalCleanSheets += 1;
+        if (stat.event_id) matchIds.add(stat.event_id as string);
       }
 
       const { data: attendanceData } = await supabase
         .from("attendances")
         .select("user_id, status");
 
+      let totalPresent = 0;
+      let totalAttendance = 0;
+
       if (attendanceData) {
-        const playerAttendance = new Map<
-          string,
-          { total: number; present: number }
-        >();
+        const playerAttendance = new Map<string, { total: number; present: number }>();
 
         for (const att of attendanceData) {
           const uid = att.user_id as string;
@@ -102,8 +132,10 @@ export function Leaderboard() {
           }
           const pa = playerAttendance.get(uid)!;
           pa.total += 1;
+          totalAttendance += 1;
           if (att.status === "present" || att.status === "late") {
             pa.present += 1;
+            totalPresent += 1;
           }
         }
 
@@ -115,6 +147,21 @@ export function Leaderboard() {
         }
       }
 
+      const { count: playerCount } = await supabase
+        .from("profiles")
+        .select("id", { count: "exact", head: true })
+        .eq("role", "player")
+        .eq("is_active", true);
+
+      setSummary({
+        totalGoals,
+        totalAssists,
+        totalCleanSheets: Math.floor(totalCleanSheets / Math.max(matchIds.size, 1)),
+        avgAttendance: totalAttendance > 0 ? Math.round((totalPresent / totalAttendance) * 100) : 0,
+        matchesPlayed: matchIds.size,
+        totalPlayers: playerCount || 0,
+      });
+
       setData(Array.from(playerMap.values()));
       setLoading(false);
     }
@@ -125,12 +172,20 @@ export function Leaderboard() {
   const sorted = [...data].sort((a, b) => b[sortKey] - a[sortKey]);
 
   const rankIcon = (index: number) => {
-    if (index === 0)
-      return <Trophy className="h-5 w-5 text-[var(--gold)]" />;
+    if (index === 0) return <Trophy className="h-5 w-5 text-[var(--gold)]" />;
     if (index === 1) return <Medal className="h-5 w-5 text-gray-400" />;
     if (index === 2) return <Medal className="h-5 w-5 text-amber-600" />;
     return <span className="text-sm text-muted-foreground w-5 text-center">{index + 1}</span>;
   };
+
+  const sortOptions: [SortKey, string, typeof Trophy][] = [
+    ["goals", "Buteurs", Target],
+    ["assists", "Passeurs", Target],
+    ["yellow_cards", "Cartons", Shield],
+    ["red_cards", "Rouges", Shield],
+    ["minutes_played", "Temps", Clock],
+    ["attendance_rate", "Assiduité", Users],
+  ];
 
   if (loading) {
     return (
@@ -141,25 +196,50 @@ export function Leaderboard() {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex gap-2">
-        {([["goals", "Buteurs"], ["assists", "Passeurs"], ["attendance_rate", "Assiduité"]] as const).map(
-          ([key, label]) => (
-            <button
-              key={key}
-              onClick={() => setSortKey(key)}
-              className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-                sortKey === key
-                  ? "bg-[var(--royal)] text-white"
-                  : "bg-muted text-muted-foreground hover:bg-muted/80"
-              }`}
-            >
-              {label}
-            </button>
-          )
-        )}
+    <div className="space-y-6">
+      {/* Team Summary */}
+      {summary && (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+          {[
+            { label: "Buts", value: summary.totalGoals, icon: Target, color: "text-green-600" },
+            { label: "Passes", value: summary.totalAssists, icon: Target, color: "text-blue-500" },
+            { label: "Clean Sheets", value: summary.totalCleanSheets, icon: Shield, color: "text-[var(--royal)]" },
+            { label: "Matchs", value: summary.matchesPlayed, icon: Trophy, color: "text-[var(--gold)]" },
+            { label: "Joueurs", value: summary.totalPlayers, icon: Users, color: "text-purple-500" },
+            { label: "Présence moy.", value: `${summary.avgAttendance}%`, icon: Users, color: "text-emerald-500" },
+          ].map((item) => (
+            <Card key={item.label}>
+              <CardContent className="p-3 flex items-center gap-3">
+                <item.icon className={`h-5 w-5 ${item.color}`} />
+                <div>
+                  <p className="text-lg font-bold">{item.value}</p>
+                  <p className="text-xs text-muted-foreground">{item.label}</p>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Sort tabs */}
+      <div className="flex flex-wrap gap-2">
+        {sortOptions.map(([key, label, Icon]) => (
+          <button
+            key={key}
+            onClick={() => setSortKey(key)}
+            className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+              sortKey === key
+                ? "bg-[var(--royal)] text-white"
+                : "bg-muted text-muted-foreground hover:bg-muted/80"
+            }`}
+          >
+            <Icon className="h-3.5 w-3.5" />
+            {label}
+          </button>
+        ))}
       </div>
 
+      {/* Leaderboard table */}
       <div className="rounded-lg border">
         <Table>
           <TableHeader>
@@ -168,9 +248,10 @@ export function Leaderboard() {
               <TableHead>Joueur</TableHead>
               {sortKey === "goals" && <TableHead className="text-right">Buts</TableHead>}
               {sortKey === "assists" && <TableHead className="text-right">Passes</TableHead>}
-              {sortKey === "attendance_rate" && (
-                <TableHead className="text-right">Présence</TableHead>
-              )}
+              {sortKey === "yellow_cards" && <TableHead className="text-right">Jaunes</TableHead>}
+              {sortKey === "red_cards" && <TableHead className="text-right">Rouges</TableHead>}
+              {sortKey === "minutes_played" && <TableHead className="text-right">Minutes</TableHead>}
+              {sortKey === "attendance_rate" && <TableHead className="text-right">Présence</TableHead>}
               <TableHead className="text-right">Matchs</TableHead>
             </TableRow>
           </TableHeader>
@@ -181,33 +262,45 @@ export function Leaderboard() {
                 <TableCell>
                   <div className="flex items-center gap-3">
                     <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--royal)]/10 text-[var(--royal)] text-xs font-bold">
-                      {player.first_name[0]}
-                      {player.last_name[0]}
+                      {player.first_name[0]}{player.last_name[0]}
                     </div>
                     <div>
-                      <p className="font-medium">
-                        {player.first_name} {player.last_name}
-                      </p>
+                      <p className="font-medium">{player.first_name} {player.last_name}</p>
                       {player.shirt_number && (
-                        <p className="text-xs text-muted-foreground">
-                          #{player.shirt_number}
-                        </p>
+                        <p className="text-xs text-muted-foreground">#{player.shirt_number}</p>
                       )}
                     </div>
                   </div>
                 </TableCell>
                 {sortKey === "goals" && (
                   <TableCell className="text-right">
-                    <Badge className="bg-[var(--gold)] text-[var(--gold-foreground)]">
-                      {player.goals}
-                    </Badge>
+                    <Badge className="bg-[var(--gold)] text-[var(--gold-foreground)]">{player.goals}</Badge>
                   </TableCell>
                 )}
                 {sortKey === "assists" && (
                   <TableCell className="text-right">
-                    <Badge className="bg-[var(--royal)] text-[var(--royal-foreground)]">
-                      {player.assists}
-                    </Badge>
+                    <Badge className="bg-[var(--royal)] text-[var(--royal-foreground)]">{player.assists}</Badge>
+                  </TableCell>
+                )}
+                {sortKey === "yellow_cards" && (
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      <div className="h-3 w-2 rounded-sm bg-yellow-400" />
+                      <span className="text-sm font-medium">{player.yellow_cards}</span>
+                    </div>
+                  </TableCell>
+                )}
+                {sortKey === "red_cards" && (
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      <div className="h-3 w-2 rounded-sm bg-red-600" />
+                      <span className="text-sm font-medium">{player.red_cards}</span>
+                    </div>
+                  </TableCell>
+                )}
+                {sortKey === "minutes_played" && (
+                  <TableCell className="text-right">
+                    <span className="text-sm font-medium">{player.minutes_played}&apos;</span>
                   </TableCell>
                 )}
                 {sortKey === "attendance_rate" && (

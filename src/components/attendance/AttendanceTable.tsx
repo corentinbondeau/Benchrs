@@ -16,9 +16,10 @@ import type { Attendance, Event, Profile, AttendanceStatus } from "@/types";
 
 interface AttendanceTableProps {
   eventId?: string;
+  eventType?: "match" | "training";
 }
 
-export function AttendanceTable({ eventId }: AttendanceTableProps) {
+export function AttendanceTable({ eventId, eventType }: AttendanceTableProps) {
   const [attendances, setAttendances] = useState<
     (Attendance & { profile: Profile; event: Event })[]
   >([]);
@@ -37,10 +38,14 @@ export function AttendanceTable({ eventId }: AttendanceTableProps) {
       query = query.eq("event_id", eventId);
     }
 
+    if (eventType) {
+      query = query.eq("event.type", eventType);
+    }
+
     const { data } = await query.limit(200);
     setAttendances((data as (Attendance & { profile: Profile; event: Event })[]) || []);
     setLoading(false);
-  }, [eventId, supabase]);
+  }, [eventId, eventType, supabase]);
 
   useEffect(() => {
     fetchAttendances();

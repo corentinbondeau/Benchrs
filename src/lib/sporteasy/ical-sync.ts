@@ -1,5 +1,6 @@
 import ical from "node-ical";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { notifyNewEvent } from "@/lib/notifications/events";
 import type { EventType } from "@/types";
 
 interface ParsedEvent {
@@ -120,7 +121,21 @@ export async function syncFromIcal(
           .update(eventData)
           .eq("id", existing.id);
       } else {
-        await supabase.from("events").insert(eventData);
+        const { data: newEvent } = await supabase
+          .from("events")
+          .insert(eventData)
+          .select("id")
+          .single();
+
+        if (newEvent) {
+          await notifyNewEvent({
+            id: newEvent.id,
+            title: event.summary,
+            type: eventType,
+            event_date: event.dtstart.toISOString(),
+            location: event.location,
+          });
+        }
       }
 
       eventsSynced++;

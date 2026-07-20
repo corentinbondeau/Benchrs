@@ -26,10 +26,10 @@ export default function AttendancePage() {
           <AttendanceTable />
         </TabsContent>
         <TabsContent value="training">
-          <AttendanceTable />
+          <AttendanceTable eventType="training" />
         </TabsContent>
         <TabsContent value="match">
-          <AttendanceTable />
+          <AttendanceTable eventType="match" />
         </TabsContent>
       </Tabs>
     </div>
