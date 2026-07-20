@@ -1,0 +1,12 @@
+{
+  "cron": [
+    {
+      "path": "/api/sporteasy/ical-cron",
+      "schedule": "*/30 * * * *"
+    },
+    {
+      "path": "/api/notifications/cron",
+      "schedule": "0 20 * * *"
+    }
+  ]
+}
