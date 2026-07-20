@@ -27,6 +27,12 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const supabase = createAdminClient();
+  await supabase.from("team_settings").upsert(
+    { key: "sporteasy_ical_url", value: icalUrl, updated_at: new Date().toISOString() },
+    { onConflict: "key" }
+  );
+
   const result = await syncFromIcal(icalUrl);
 
   if (result.error) {

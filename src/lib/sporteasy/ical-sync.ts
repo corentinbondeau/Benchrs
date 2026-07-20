@@ -59,7 +59,8 @@ export async function syncFromIcal(
   let eventsSynced = 0;
 
   try {
-    const data = await ical.async.fromURL(icalUrl);
+    const url = icalUrl.replace(/^webcal:\/\//, "https://");
+    const data = await ical.async.fromURL(url);
 
     const events: ParsedEvent[] = [];
 
