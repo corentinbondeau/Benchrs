@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/auth";
 
 export default function StatsPage() {
   const { user } = useAuth();
+  const isCoach = user?.profile?.role === "coach";
 
   return (
     <div className="space-y-6">
@@ -20,14 +21,16 @@ export default function StatsPage() {
       <Tabs defaultValue="general" className="space-y-4">
         <TabsList>
           <TabsTrigger value="general">Generales</TabsTrigger>
-          <TabsTrigger value="me">Mon profil</TabsTrigger>
+          {!isCoach && <TabsTrigger value="me">Mon profil</TabsTrigger>}
         </TabsList>
         <TabsContent value="general">
           <Leaderboard />
         </TabsContent>
-        <TabsContent value="me">
-          {user?.id && <PlayerProfile playerId={user.id} />}
-        </TabsContent>
+        {!isCoach && (
+          <TabsContent value="me">
+            {user?.id && <PlayerProfile playerId={user.id} />}
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );

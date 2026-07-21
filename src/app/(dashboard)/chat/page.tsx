@@ -51,25 +51,49 @@ export default function ChatPage() {
 
     const channel = supabase
       .channel(`chat:${selectedChannel}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "chat_messages", filter: `channel_id=eq.${selectedChannel}` }, (payload) => {
-        setMessages((prev) => [...prev, payload.new as MessageWithSender]);
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "chat_messages", filter: `channel_id=eq.${selectedChannel}` }, async (payload) => {
+        const msg = payload.new as MessageWithSender;
+        if (msg.sender_id === user?.id) return;
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("first_name, last_name")
+          .eq("id", msg.sender_id)
+          .single();
+        setMessages((prev) => [...prev, { ...msg, sender: profile }]);
       })
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [selectedChannel]);
+  }, [selectedChannel, user?.id]);
 
   async function sendMessage(e: React.FormEvent) {
     e.preventDefault();
     if (!newMessage.trim() || !selectedChannel || !user?.id) return;
 
-    const supabase = createClient();
-    await supabase.from("chat_messages").insert({
+    const content = newMessage.trim();
+    setNewMessage("");
+
+    const optimisticMsg: MessageWithSender = {
+      id: crypto.randomUUID(),
       channel_id: selectedChannel,
       sender_id: user.id,
-      content: newMessage.trim(),
+      content,
+      is_edited: false,
+      created_at: new Date().toISOString(),
+      sender: user.profile ? { first_name: user.profile.first_name, last_name: user.profile.last_name } : null,
+    };
+    setMessages((prev) => [...prev, optimisticMsg]);
+
+    const supabase = createClient();
+    const { error } = await supabase.from("chat_messages").insert({
+      channel_id: selectedChannel,
+      sender_id: user.id,
+      content,
     });
-    setNewMessage("");
+
+    if (error) {
+      setMessages((prev) => prev.filter((m) => m.id !== optimisticMsg.id));
+    }
   }
 
   if (loading) {

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,7 +23,13 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { ChevronLeft, ChevronRight, Plus, CalendarDays } from "lucide-react";
+import { toast } from "sonner";
 import type { Event } from "@/types";
+import type { Profile } from "@/types";
+
+type Recurrence = "none" | "weekly" | "biweekly" | "monthly";
+
+type EventWithMeeting = Event & { meeting_time: string | null };
 
 const DAYS_FR = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 const MONTHS_FR = [
@@ -31,19 +37,40 @@ const MONTHS_FR = [
   "Juillet", "Aout", "Septembre", "Octobre", "Novembre", "Decembre",
 ];
 
+function computeRecurrenceDates(eventDate: Date, recurrence: Recurrence, endDate: string): Date[] {
+  const dates: Date[] = [new Date(eventDate)];
+  if (recurrence === "none") return dates;
+  const end = new Date(endDate);
+  end.setHours(23, 59, 59, 999);
+  let current = new Date(eventDate);
+  while (true) {
+    if (recurrence === "weekly") current.setDate(current.getDate() + 7);
+    else if (recurrence === "biweekly") current.setDate(current.getDate() + 14);
+    else if (recurrence === "monthly") current.setMonth(current.getMonth() + 1);
+    if (current > end) break;
+    dates.push(new Date(current));
+  }
+  return dates;
+}
+
 export default function CalendarPage() {
   const { user } = useAuth();
   const [view, setView] = useState<"month" | "week">("month");
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [events, setEvents] = useState<Event[]>([]);
+  const [events, setEvents] = useState<EventWithMeeting[]>([]);
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
+  const [players, setPlayers] = useState<Profile[]>([]);
   const [form, setForm] = useState({
     title: "",
     type: "training" as "match" | "training",
     event_date: "",
+    end_date: "",
+    meeting_time: "",
     location: "",
     opponent: "",
+    recurrence: "none" as Recurrence,
+    selected_player_ids: [] as string[],
   });
 
   const isCoach = user?.profile?.role === "coach";
@@ -55,13 +82,27 @@ export default function CalendarPage() {
       .select("*")
       .order("event_date", { ascending: true })
       .then(({ data }) => {
-        setEvents((data as Event[]) || []);
+        setEvents((data as EventWithMeeting[]) || []);
         setLoading(false);
+      });
+  }
+
+  function fetchPlayers() {
+    const supabase = createClient();
+    supabase
+      .from("profiles")
+      .select("*")
+      .eq("role", "player")
+      .eq("is_active", true)
+      .order("last_name", { ascending: true })
+      .then(({ data }) => {
+        setPlayers((data as Profile[]) || []);
       });
   }
 
   useEffect(() => {
     fetchEvents();
+    fetchPlayers();
   }, []);
 
   const year = currentDate.getFullYear();
@@ -73,7 +114,7 @@ export default function CalendarPage() {
 
   function getFirstDayOfMonth(y: number, m: number) {
     const day = new Date(y, m, 1).getDay();
-    return day === 0 ? 6 : day - 1; // Monday-based
+    return day === 0 ? 6 : day - 1;
   }
 
   function getWeekStart(date: Date) {
@@ -128,21 +169,70 @@ export default function CalendarPage() {
     });
   }
 
+  function formatTime(timeStr: string) {
+    if (!timeStr) return null;
+    const [h, m] = timeStr.split(":");
+    return `${h}:${m}`;
+  }
+
+  function togglePlayer(playerId: string) {
+    setForm((prev) => {
+      const ids = prev.selected_player_ids.includes(playerId)
+        ? prev.selected_player_ids.filter((id) => id !== playerId)
+        : [...prev.selected_player_ids, playerId];
+      return { ...prev, selected_player_ids: ids };
+    });
+  }
+
   async function handleCreateEvent(e: React.FormEvent) {
     e.preventDefault();
     const supabase = createClient();
-    await supabase.from("events").insert({
+    const eventDate = new Date(form.event_date);
+    const dates = computeRecurrenceDates(eventDate, form.recurrence, form.end_date);
+
+    const rows = dates.map((d) => ({
       title: form.title,
       type: form.type,
-      event_date: form.event_date,
+      event_date: d.toISOString(),
+      meeting_time: form.meeting_time || null,
       location: form.location || null,
       opponent: form.type === "match" ? form.opponent || null : null,
-      status: "upcoming",
+      status: "upcoming" as const,
       created_by: user?.id,
-    });
+    }));
+
+    const { data: inserted, error } = await supabase.from("events").insert(rows).select("id");
+
+    if (!error && inserted && form.type === "match" && form.selected_player_ids.length > 0) {
+      const attendanceRows = inserted.flatMap((evt) =>
+        form.selected_player_ids.map((pid) => ({
+          event_id: evt.id,
+          user_id: pid,
+          status: "pending" as const,
+        }))
+      );
+      await supabase.from("attendances").insert(attendanceRows);
+    }
+
     setCreateOpen(false);
-    setForm({ title: "", type: "training", event_date: "", location: "", opponent: "" });
+    setForm({
+      title: "",
+      type: "training",
+      event_date: "",
+      end_date: "",
+      meeting_time: "",
+      location: "",
+      opponent: "",
+      recurrence: "none",
+      selected_player_ids: [],
+    });
     fetchEvents();
+
+    if (dates.length === 1) {
+      toast.success("Evenement cree !");
+    } else {
+      toast.success(`${dates.length} evenements crees !`);
+    }
   }
 
   function getEventBadgeColor(event: Event) {
@@ -153,6 +243,23 @@ export default function CalendarPage() {
       return "bg-blue-100 text-blue-700 border-blue-200";
     }
     return "bg-purple-100 text-purple-700 border-purple-200";
+  }
+
+  function EventTimeDisplay({ event }: { event: EventWithMeeting }) {
+    const start = formatTime(
+      new Date(event.event_date).toLocaleTimeString("fr-FR", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      })
+    );
+    const rdv = event.meeting_time ? formatTime(event.meeting_time) : null;
+    if (!start) return null;
+    return (
+      <span className="text-xs text-muted-foreground">
+        {rdv ? `RDV: ${rdv} | Debut: ${start}` : start}
+      </span>
+    );
   }
 
   if (loading) {
@@ -203,6 +310,10 @@ export default function CalendarPage() {
                   <Input type="datetime-local" value={form.event_date} onChange={(e) => setForm({ ...form, event_date: e.target.value })} required />
                 </div>
                 <div className="space-y-2">
+                  <Label>Heure de RDV</Label>
+                  <Input type="time" value={form.meeting_time} onChange={(e) => setForm({ ...form, meeting_time: e.target.value })} placeholder="Heure d arrivee" />
+                </div>
+                <div className="space-y-2">
                   <Label>Lieu</Label>
                   <Input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} placeholder="Stade, terrain..." />
                 </div>
@@ -210,6 +321,52 @@ export default function CalendarPage() {
                   <div className="space-y-2">
                     <Label>Adversaire</Label>
                     <Input value={form.opponent} onChange={(e) => setForm({ ...form, opponent: e.target.value })} placeholder="Nom de l'equipe adverse" />
+                  </div>
+                )}
+                <div className="space-y-2">
+                  <Label>Recurrence</Label>
+                  <Select value={form.recurrence} onValueChange={(v) => v && setForm({ ...form, recurrence: v as Recurrence })}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Aucune</SelectItem>
+                      <SelectItem value="weekly">Hebdomadaire</SelectItem>
+                      <SelectItem value="biweekly">Bimensuel</SelectItem>
+                      <SelectItem value="monthly">Mensuel</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {form.recurrence !== "none" && (
+                  <div className="space-y-2">
+                    <Label>Date de fin *</Label>
+                    <Input type="date" value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} required />
+                  </div>
+                )}
+                {form.type === "match" && players.length > 0 && (
+                  <div className="space-y-2">
+                    <Label>Convocations</Label>
+                    <div className="max-h-48 overflow-y-auto rounded-md border p-2 space-y-1">
+                      {players.map((player) => (
+                        <label key={player.id} className="flex items-center gap-2 cursor-pointer py-0.5">
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4 rounded border-gray-300 text-[var(--color-royal)] focus:ring-[var(--color-royal)]"
+                            checked={form.selected_player_ids.includes(player.id)}
+                            onChange={() => togglePlayer(player.id)}
+                          />
+                          <span className="text-sm">
+                            {player.first_name} {player.last_name}
+                            {player.shirt_number ? ` (#${player.shirt_number})` : ""}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                    {form.selected_player_ids.length > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        {form.selected_player_ids.length} joueur{form.selected_player_ids.length > 1 ? "s" : ""} convoque{form.selected_player_ids.length > 1 ? "s" : ""}
+                      </p>
+                    )}
                   </div>
                 )}
                 <Button type="submit" className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] font-semibold">
@@ -315,9 +472,7 @@ export default function CalendarPage() {
                           {event.type === "match" ? "Match" : "Entrainement"}
                         </Badge>
                         <span className="font-medium">{event.title}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {new Date(event.event_date).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
-                        </span>
+                        <EventTimeDisplay event={event} />
                         {event.location && (
                           <span className="text-xs text-muted-foreground">- {event.location}</span>
                         )}
