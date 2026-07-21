@@ -8,7 +8,7 @@ import { MessageBubble } from "./MessageBubble";
 import { MessageInput } from "./MessageInput";
 import { useChat } from "@/hooks/useChat";
 import type { ChatChannel } from "@/types";
-import { Hash, Users } from "lucide-react";
+import { Hash } from "lucide-react";
 
 interface ChannelListProps {
   selectedChannelId: string | null;
@@ -20,7 +20,6 @@ export function ChannelList({
   onSelectChannel,
 }: ChannelListProps) {
   const [channels, setChannels] = useState<ChatChannel[]>([]);
-  const { data: session } = useSession();
 
   useEffect(() => {
     const supabase = createClient();

@@ -57,6 +57,7 @@ export interface Attendance {
   user_id: string;
   status: AttendanceStatus;
   minutes_played: number;
+  absence_reason: string | null;
   responded_at: string | null;
   created_at: string;
   event?: Event;
@@ -92,6 +93,7 @@ export interface Injury {
   id: string;
   player_id: string;
   description: string;
+  injury_type: string | null;
   injury_date: string;
   expected_return: string | null;
   status: InjuryStatus;
@@ -260,4 +262,67 @@ export interface SporteasySyncLog {
   records_synced: number;
   error_message: string | null;
   synced_at: string;
+}
+
+export interface MatchLineup {
+  id: string;
+  event_id: string;
+  player_id: string;
+  position_label: string | null;
+  is_starter: boolean;
+  entered_at_minute: number | null;
+  exited_at_minute: number | null;
+  created_at: string;
+  player?: Profile;
+}
+
+export interface MatchEventRecord {
+  id: string;
+  event_id: string;
+  event_type: string;
+  player_id: string | null;
+  related_player_id: string | null;
+  minute: number | null;
+  notes: string | null;
+  created_by: string | null;
+  created_at: string;
+  player?: Profile;
+  related_player?: Profile;
+}
+
+export interface Licence {
+  id: string;
+  player_id: string;
+  season: string;
+  status: "valid" | "pending_documents" | "expired";
+  documents_received: string[];
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Cotisation {
+  id: string;
+  player_id: string;
+  season: string;
+  amount_expected: number;
+  amount_paid: number;
+  status: "paid" | "pending" | "partial";
+  payment_method: string | null;
+  payment_date: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PaymentHistory {
+  id: string;
+  cotisation_id: string;
+  amount: number;
+  payment_method: string | null;
+  payment_date: string | null;
+  recorded_by: string | null;
+  notes: string | null;
+  created_at: string;
+  recorded_by_user?: Profile;
 }

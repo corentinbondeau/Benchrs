@@ -209,7 +209,7 @@ export function SessionEditor() {
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-3 gap-3">
                   <div className="space-y-1">
                     <Label className="text-xs">Nom</Label>
                     <Input
@@ -225,6 +225,23 @@ export function SessionEditor() {
                       value={ex.duration}
                       onChange={(e) => updateExercise(index, "duration", parseInt(e.target.value) || 0)}
                     />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Type</Label>
+                    <select
+                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                      value={ex.drill_type}
+                      onChange={(e) => updateExercise(index, "drill_type", e.target.value)}
+                    >
+                      <option value="warmup">Échauffement</option>
+                      <option value="technique">Technique</option>
+                      <option value="tactique">Tactique</option>
+                      <option value="physique">Physique</option>
+                      <option value="jeu">Jeu</option>
+                      <option value="tir">Tir / Finition</option>
+                      <option value="cohesion">Cohésion</option>
+                      <option value="other">Autre</option>
+                    </select>
                   </div>
                 </div>
                 <div className="space-y-1">

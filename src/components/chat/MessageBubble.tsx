@@ -18,8 +18,9 @@ export function MessageBubble({ message, isOwn, onEdit, onDelete }: MessageBubbl
   const [editing, setEditing] = useState(false);
   const [editContent, setEditContent] = useState(message.content);
 
-  const senderName = message.sender
-    ? `${(message.sender as unknown as { first_name: string }).first_name} ${(message.sender as unknown as { last_name: string }).last_name}`
+  const senderProfile = message.sender as { first_name?: string; last_name?: string } | undefined;
+  const senderName = senderProfile?.first_name
+    ? `${senderProfile.first_name} ${senderProfile.last_name || ""}`.trim()
     : "Utilisateur";
 
   const initials = senderName

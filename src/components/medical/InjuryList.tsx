@@ -14,15 +14,20 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { HeartPulse, AlertTriangle, Plus, Activity } from "lucide-react";
+import { HeartPulse, AlertTriangle, Activity } from "lucide-react";
 import type { Injury, Profile } from "@/types";
+
+const injuryTypes = [
+  "Entorse",
+  "Foulure",
+  "Déchirure musculaire",
+  "Élongation",
+  "Fracture",
+  "Contusion",
+  "Tendinite",
+  "Lésion méniscale",
+  "Autre",
+];
 
 export function InjuryList() {
   const [injuries, setInjuries] = useState<(Injury & { player: Profile })[]>([]);
@@ -82,7 +87,12 @@ export function InjuryList() {
                   <p className="text-xs text-muted-foreground mt-1">
                     {injury.description}
                   </p>
-                  <div className="flex gap-2 mt-2">
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {injury.injury_type && (
+                      <Badge variant="secondary" className="text-xs">
+                        {injury.injury_type}
+                      </Badge>
+                    )}
                     <Badge variant="outline" className="text-xs">
                       Depuis le{" "}
                       {new Date(injury.injury_date).toLocaleDateString("fr-FR")}
@@ -111,6 +121,7 @@ export function InjuryForm({ onClose }: { onClose: () => void }) {
   const [players, setPlayers] = useState<Profile[]>([]);
   const [formData, setFormData] = useState({
     playerId: "",
+    injuryType: "",
     description: "",
     injuryDate: new Date().toISOString().split("T")[0],
     expectedReturn: "",
@@ -136,6 +147,7 @@ export function InjuryForm({ onClose }: { onClose: () => void }) {
 
     await supabase.from("injuries").insert({
       player_id: formData.playerId,
+      injury_type: formData.injuryType || null,
       description: formData.description,
       injury_date: formData.injuryDate,
       expected_return: formData.expectedReturn || null,
@@ -163,6 +175,21 @@ export function InjuryForm({ onClose }: { onClose: () => void }) {
             <option key={p.id} value={p.id}>
               {p.first_name} {p.last_name}
             </option>
+          ))}
+        </select>
+      </div>
+      <div className="space-y-2">
+        <Label>Type de blessure</Label>
+        <select
+          className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+          value={formData.injuryType}
+          onChange={(e) =>
+            setFormData({ ...formData, injuryType: e.target.value })
+          }
+        >
+          <option value="">— Sélectionner —</option>
+          {injuryTypes.map((t) => (
+            <option key={t} value={t}>{t}</option>
           ))}
         </select>
       </div>

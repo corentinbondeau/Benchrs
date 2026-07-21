@@ -10,23 +10,22 @@ export function useChat(channelId: string) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const supabase = createClient();
 
-  const fetchMessages = useCallback(async () => {
-    const { data, error } = await supabase
-      .from("chat_messages")
-      .select("*, sender:profiles!chat_messages_sender_id_fkey(first_name, last_name, avatar_url)")
-      .eq("channel_id", channelId)
-      .order("created_at", { ascending: true })
-      .limit(100);
-
-    if (!error && data) {
-      setMessages(data as ChatMessage[]);
-    }
-    setLoading(false);
-  }, [channelId, supabase]);
-
   useEffect(() => {
-    fetchMessages();
-  }, [fetchMessages]);
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from("chat_messages")
+        .select("*, sender:profiles!chat_messages_sender_id_fkey(first_name, last_name, avatar_url)")
+        .eq("channel_id", channelId)
+        .order("created_at", { ascending: true })
+        .limit(100);
+      if (!cancelled && !error && data) {
+        setMessages(data as ChatMessage[]);
+        setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [channelId]);
 
   useEffect(() => {
     const channel = supabase

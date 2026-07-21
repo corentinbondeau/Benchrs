@@ -11,8 +11,10 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Trophy, Star, Vote } from "lucide-react";
-import type { Event, Profile, MotmVote } from "@/types";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { TrophyIcon, Star, Vote, Plus, Trash2 } from "lucide-react";
+import type { Event, Profile, Trophy } from "@/types";
 
 export function MotmVoting() {
   const { data: session } = useSession();
@@ -176,25 +178,63 @@ export function MotmVoting() {
 }
 
 export function TrophyCase() {
-  const [trophies, setTrophies] = useState<
-    { id: string; title: string; description: string | null; icon: string | null; recipient?: Profile }[]
-  >([]);
+  const { data: session } = useSession();
+  const isCoach = session?.user?.role === "coach";
+  const [dbTrophies, setDbTrophies] = useState<Trophy[]>([]);
+  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [newTrophy, setNewTrophy] = useState({ title: "", description: "", icon: "🏆", awarded_to: "" });
+  const [players, setPlayers] = useState<Profile[]>([]);
 
   useEffect(() => {
     const supabase = createClient();
-    async function fetchTrophies() {
+    async function fetchData() {
       const { data } = await supabase
         .from("trophies")
         .select("*, recipient:profiles!trophies_awarded_to_fkey(first_name, last_name)")
         .order("created_at", { ascending: false })
-        .limit(20);
+        .limit(50);
+      setDbTrophies((data as Trophy[]) || []);
 
-      setTrophies(
-        (data as { id: string; title: string; description: string | null; icon: string | null; recipient?: Profile }[]) || []
-      );
+      if (isCoach) {
+        const { data: squad } = await supabase
+          .from("profiles")
+          .select("id, first_name, last_name")
+          .eq("role", "player")
+          .eq("is_active", true)
+          .order("last_name");
+        setPlayers((squad as Profile[]) || []);
+      }
     }
-    fetchTrophies();
-  }, []);
+    fetchData();
+  }, [isCoach]);
+
+  async function addTrophy() {
+    if (!newTrophy.title.trim()) return;
+    const supabase = createClient();
+    const { error } = await supabase.from("trophies").insert({
+      title: newTrophy.title,
+      description: newTrophy.description || null,
+      icon: newTrophy.icon,
+      awarded_to: newTrophy.awarded_to || null,
+      awarded_by: session?.user?.id || null,
+    });
+    if (!error) {
+      const { data: refetched } = await supabase
+        .from("trophies")
+        .select("*, recipient:profiles!trophies_awarded_to_fkey(first_name, last_name)")
+        .order("created_at", { ascending: false })
+        .limit(50);
+      setDbTrophies((refetched as Trophy[]) || []);
+      setNewTrophy({ title: "", description: "", icon: "🏆", awarded_to: "" });
+      setShowAddDialog(false);
+    }
+  }
+
+  async function deleteTrophy(id: string) {
+    const supabase = createClient();
+    await supabase.from("trophies").delete().eq("id", id);
+    setDbTrophies((prev) => prev.filter((t) => t.id !== id));
+  }
 
   const funTrophies = [
     { title: "Plus beau but", icon: "⚽" },
@@ -208,14 +248,95 @@ export function TrophyCase() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base flex items-center gap-2">
-          <Trophy className="h-4 w-4 text-[var(--gold)]" />
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-base flex items-center gap-2">
+          <TrophyIcon className="h-4 w-4 text-[var(--gold)]" />
           Galerie de Trophées
-        </CardTitle>
+          </CardTitle>
+          {isCoach && (
+            <Button size="sm" className="bg-[var(--gold)] text-[var(--gold-foreground)] hover:bg-[var(--gold)]/90" onClick={() => setShowAddDialog(!showAddDialog)}>
+              <Plus className="h-4 w-4 mr-1" />
+              Attribuer
+            </Button>
+          )}
+        </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-4">
+        {showAddDialog && (
+          <div className="rounded-lg border p-4 space-y-3 bg-muted/30">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">Titre</Label>
+                <Input
+                  placeholder="Ex: Plus beau but"
+                  value={newTrophy.title}
+                  onChange={(e) => setNewTrophy({ ...newTrophy, title: e.target.value })}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Icône</Label>
+                <Input
+                  value={newTrophy.icon}
+                  onChange={(e) => setNewTrophy({ ...newTrophy, icon: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Description</Label>
+              <Input
+                placeholder="Description optionnelle"
+                value={newTrophy.description}
+                onChange={(e) => setNewTrophy({ ...newTrophy, description: e.target.value })}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Attribué à</Label>
+              <select
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={newTrophy.awarded_to}
+                onChange={(e) => setNewTrophy({ ...newTrophy, awarded_to: e.target.value })}
+              >
+                <option value="">— Aucun joueur —</option>
+                {players.map((p) => (
+                  <option key={p.id} value={p.id}>{p.first_name} {p.last_name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex gap-2">
+              <Button size="sm" onClick={addTrophy}>Enregistrer</Button>
+              <Button size="sm" variant="ghost" onClick={() => setShowAddDialog(false)}>Annuler</Button>
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-          {funTrophies.map((trophy) => (
+          {dbTrophies.map((trophy) => (
+            <div
+              key={trophy.id}
+              className="flex flex-col items-center gap-2 rounded-lg border p-4 hover:bg-muted/50 transition-colors relative group"
+            >
+              {isCoach && (
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-5 w-5 absolute top-1 right-1 opacity-0 group-hover:opacity-100 text-destructive"
+                  onClick={() => deleteTrophy(trophy.id)}
+                >
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              )}
+              <span className="text-3xl">{trophy.icon || "🏆"}</span>
+              <span className="text-xs font-medium text-center">
+                {trophy.title}
+              </span>
+              {trophy.recipient && (
+                <span className="text-[10px] text-muted-foreground text-center">
+                  {trophy.recipient.first_name} {trophy.recipient.last_name}
+                </span>
+              )}
+            </div>
+          ))}
+          {dbTrophies.length === 0 && funTrophies.map((trophy) => (
             <div
               key={trophy.title}
               className="flex flex-col items-center gap-2 rounded-lg border p-4 hover:bg-muted/50 transition-colors"

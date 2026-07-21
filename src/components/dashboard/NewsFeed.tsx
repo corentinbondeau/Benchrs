@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Trophy, Calendar, AlertCircle } from "lucide-react";
+import { Trophy, Calendar } from "lucide-react";
 import type { Event } from "@/types";
 
 export function NewsFeed() {

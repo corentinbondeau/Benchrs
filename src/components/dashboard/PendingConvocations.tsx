@@ -6,6 +6,8 @@ import { useSession } from "next-auth/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Check, X, Clock } from "lucide-react";
 import type { Attendance, Event } from "@/types";
 
@@ -15,6 +17,8 @@ export function PendingConvocations() {
     (Attendance & { event: Event })[]
   >([]);
   const [loading, setLoading] = useState(true);
+  const [absenceReason, setAbsenceReason] = useState("");
+  const [pendingAbsentId, setPendingAbsentId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!session?.user?.id) return;
@@ -37,15 +41,27 @@ export function PendingConvocations() {
 
   async function respond(
     attendanceId: string,
-    status: "present" | "absent" | "late"
+    status: "present" | "absent" | "late",
+    reason?: string
   ) {
+    if (status === "absent" && !reason) {
+      setPendingAbsentId(attendanceId);
+      return;
+    }
+
     const supabase = createClient();
     await supabase
       .from("attendances")
-      .update({ status, responded_at: new Date().toISOString() })
+      .update({
+        status,
+        responded_at: new Date().toISOString(),
+        absence_reason: status === "absent" ? reason || null : null,
+      })
       .eq("id", attendanceId);
 
     setAttendances((prev) => prev.filter((a) => a.id !== attendanceId));
+    setPendingAbsentId(null);
+    setAbsenceReason("");
   }
 
   if (loading) {
@@ -83,44 +99,78 @@ export function PendingConvocations() {
             {attendances.map((att) => (
               <div
                 key={att.id}
-                className="flex items-center justify-between rounded-lg border p-3"
+                className="rounded-lg border p-3 space-y-2"
               >
-                <div>
-                  <p className="font-medium text-sm">{att.event?.title}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {new Date(att.event?.event_date).toLocaleDateString("fr-FR", {
-                      weekday: "long",
-                      day: "numeric",
-                      month: "long",
-                    })}
-                  </p>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-sm">{att.event?.title}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(att.event?.event_date).toLocaleDateString("fr-FR", {
+                        weekday: "long",
+                        day: "numeric",
+                        month: "long",
+                      })}
+                    </p>
+                  </div>
+                  {pendingAbsentId !== att.id && (
+                    <div className="flex gap-1.5">
+                      <Button
+                        size="icon"
+                        variant="outline"
+                        className="h-8 w-8 text-green-600 hover:bg-green-50 hover:text-green-700"
+                        onClick={() => respond(att.id, "present")}
+                      >
+                        <Check className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="outline"
+                        className="h-8 w-8 text-amber-600 hover:bg-amber-50 hover:text-amber-700"
+                        onClick={() => respond(att.id, "late")}
+                      >
+                        <Clock className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="outline"
+                        className="h-8 w-8 text-red-600 hover:bg-red-50 hover:text-red-700"
+                        onClick={() => respond(att.id, "absent")}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  )}
                 </div>
-                <div className="flex gap-1.5">
-                  <Button
-                    size="icon"
-                    variant="outline"
-                    className="h-8 w-8 text-green-600 hover:bg-green-50 hover:text-green-700"
-                    onClick={() => respond(att.id, "present")}
-                  >
-                    <Check className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    size="icon"
-                    variant="outline"
-                    className="h-8 w-8 text-amber-600 hover:bg-amber-50 hover:text-amber-700"
-                    onClick={() => respond(att.id, "late")}
-                  >
-                    <Clock className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    size="icon"
-                    variant="outline"
-                    className="h-8 w-8 text-red-600 hover:bg-red-50 hover:text-red-700"
-                    onClick={() => respond(att.id, "absent")}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
+                {pendingAbsentId === att.id && (
+                  <div className="space-y-2 pt-1">
+                    <Label className="text-xs">Motif d&apos;absence (obligatoire)</Label>
+                    <Input
+                      placeholder="Ex: Blessure, travail, raison familiale..."
+                      value={absenceReason}
+                      onChange={(e) => setAbsenceReason(e.target.value)}
+                      className="text-sm h-8"
+                      autoFocus
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        className="h-7 text-xs"
+                        disabled={!absenceReason.trim()}
+                        onClick={() => respond(att.id, "absent", absenceReason.trim())}
+                      >
+                        Confirmer l&apos;absence
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 text-xs"
+                        onClick={() => { setPendingAbsentId(null); setAbsenceReason(""); }}
+                      >
+                        Annuler
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>

@@ -6,23 +6,13 @@ import { useSession } from "next-auth/react";
 import {
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Car, Users, MapPin, Plus } from "lucide-react";
-import type { CarpoolingTrip, Event, Profile } from "@/types";
+import { Car, Users, MapPin } from "lucide-react";
+import type { CarpoolingTrip } from "@/types";
 
 export function TripCard({ trip }: { trip: CarpoolingTrip }) {
   const { data: session } = useSession();

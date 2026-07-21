@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
   Table,
@@ -26,30 +26,27 @@ export function AttendanceTable({ eventId, eventType }: AttendanceTableProps) {
   const [loading, setLoading] = useState(true);
   const supabase = createClient();
 
-  const fetchAttendances = useCallback(async () => {
-    let query = supabase
-      .from("attendances")
-      .select(
-        "*, profile:profiles!attendances_user_id_fkey(*), event:events!attendances_event_id_fkey(*)"
-      )
-      .order("created_at", { ascending: false });
-
-    if (eventId) {
-      query = query.eq("event_id", eventId);
-    }
-
-    if (eventType) {
-      query = query.eq("event.type", eventType);
-    }
-
-    const { data } = await query.limit(200);
-    setAttendances((data as (Attendance & { profile: Profile; event: Event })[]) || []);
-    setLoading(false);
-  }, [eventId, eventType, supabase]);
-
   useEffect(() => {
-    fetchAttendances();
-  }, [fetchAttendances]);
+    let cancelled = false;
+    (async () => {
+      let query = supabase
+        .from("attendances")
+        .select(
+          "*, profile:profiles!attendances_user_id_fkey(*), event:events!attendances_event_id_fkey(*)"
+        )
+        .order("created_at", { ascending: false });
+
+      if (eventId) query = query.eq("event_id", eventId);
+      if (eventType) query = query.eq("event.type", eventType);
+
+      const { data } = await query.limit(200);
+      if (!cancelled) {
+        setAttendances((data as (Attendance & { profile: Profile; event: Event })[]) || []);
+        setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [eventId, eventType]);
 
   function handleStatusChange(attendanceId: string, newStatus: AttendanceStatus) {
     setAttendances((prev) =>

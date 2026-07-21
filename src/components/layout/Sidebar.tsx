@@ -43,6 +43,7 @@ const coachLinks = [
   { href: "/trophies", label: "Trophées", icon: Trophy },
   { href: "/notifications", label: "Notifications", icon: Bell },
   { href: "/admin/players", label: "Gestion joueurs", icon: Shield },
+  { href: "/admin/cotisations", label: "Cotisations", icon: ClipboardList },
 ];
 
 const playerLinks = [

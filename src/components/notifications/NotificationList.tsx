@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useSession } from "next-auth/react";
 import {
@@ -17,24 +17,24 @@ export function NotificationList() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchNotifications = useCallback(async () => {
-    if (!session?.user?.id) return;
-    const supabase = createClient();
-
-    const { data } = await supabase
-      .from("notifications")
-      .select("*")
-      .eq("user_id", session.user.id)
-      .order("created_at", { ascending: false })
-      .limit(50);
-
-    setNotifications((data as Notification[]) || []);
-    setLoading(false);
-  }, [session?.user?.id]);
-
   useEffect(() => {
-    fetchNotifications();
-  }, [fetchNotifications]);
+    let cancelled = false;
+    (async () => {
+      if (!session?.user?.id) return;
+      const supabase = createClient();
+      const { data } = await supabase
+        .from("notifications")
+        .select("*")
+        .eq("user_id", session.user.id)
+        .order("created_at", { ascending: false })
+        .limit(50);
+      if (!cancelled) {
+        setNotifications((data as Notification[]) || []);
+        setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [session?.user?.id]);
 
   useEffect(() => {
     if (!session?.user?.id) return;

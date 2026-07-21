@@ -3,10 +3,11 @@
 import { useSession } from "next-auth/react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Bell, Menu } from "lucide-react";
+import { Bell } from "lucide-react";
 import Link from "next/link";
 import { MobileNav } from "./MobileNav";
 import { ThemeToggle } from "./ThemeToggle";
+import { ChildPicker } from "./ChildPicker";
 
 const roleLabels = {
   coach: "Coach",
@@ -35,6 +36,7 @@ export function TopBar() {
       </div>
 
       <div className="flex items-center gap-2">
+        <ChildPicker />
         <ThemeToggle />
 
         <Link

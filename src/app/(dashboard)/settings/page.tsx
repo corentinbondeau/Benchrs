@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -15,9 +15,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
 import { User, Shield, Bell } from "lucide-react";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { useToast } from "@/hooks/use-toast";
+import {
+  registerPushSubscription,
+  unregisterPushSubscription,
+  isPushSubscribed,
+} from "@/components/PwaRegistrar";
 
 const roleLabels = {
   coach: "Coach",
@@ -33,6 +39,61 @@ export default function SettingsPage() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [changingPassword, setChangingPassword] = useState(false);
+  const [pushEnabled, setPushEnabled] = useState(false);
+  const [emailEnabled, setEmailEnabled] = useState(false);
+  const [pushLoading, setPushLoading] = useState(false);
+
+  useEffect(() => {
+    isPushSubscribed().then(setPushEnabled);
+    if (user?.id) {
+      const supabase = createClient();
+      supabase
+        .from("profiles")
+        .select("email_notifications")
+        .eq("id", user.id)
+        .single()
+        .then(({ data }) => {
+          if (data) setEmailEnabled(data.email_notifications ?? true);
+        });
+    }
+  }, [user?.id]);
+
+  async function handlePushToggle(checked: boolean) {
+    setPushLoading(true);
+    try {
+      if (checked) {
+        const permission = await Notification.requestPermission();
+        if (permission !== "granted") {
+          toast({ title: "Permission refusée", description: "Activez les notifications dans les paramètres du navigateur", variant: "destructive" });
+          setPushLoading(false);
+          return;
+        }
+        const ok = await registerPushSubscription();
+        setPushEnabled(ok);
+        if (ok) toast({ title: "Notifications activées" });
+      } else {
+        await unregisterPushSubscription();
+        setPushEnabled(false);
+        toast({ title: "Notifications désactivées" });
+      }
+    } catch {
+      toast({ title: "Erreur", description: "Impossible de modifier les notifications", variant: "destructive" });
+    } finally {
+      setPushLoading(false);
+    }
+  }
+
+  async function handleEmailToggle(checked: boolean) {
+    setEmailEnabled(checked);
+    if (user?.id) {
+      const supabase = createClient();
+      await supabase
+        .from("profiles")
+        .update({ email_notifications: checked })
+        .eq("id", user.id);
+      toast({ title: checked ? "Emails activés" : "Emails désactivés" });
+    }
+  }
 
   async function handleChangePassword() {
     if (!currentPassword || !newPassword) {
@@ -128,9 +189,11 @@ export default function SettingsPage() {
                 Recevoir les alertes dans le navigateur
               </p>
             </div>
-            <button className="relative inline-flex h-6 w-11 items-center rounded-full bg-[var(--royal)]">
-              <span className="inline-block h-4 w-4 translate-x-6 rounded-full bg-white transition-transform" />
-            </button>
+            <Switch
+              checked={pushEnabled}
+              onCheckedChange={handlePushToggle}
+              disabled={pushLoading}
+            />
           </div>
           <Separator />
           <div className="flex items-center justify-between">
@@ -140,9 +203,10 @@ export default function SettingsPage() {
                 Rappels pour les convocations en attente
               </p>
             </div>
-            <button className="relative inline-flex h-6 w-11 items-center rounded-full bg-[var(--royal)]">
-              <span className="inline-block h-4 w-4 translate-x-6 rounded-full bg-white transition-transform" />
-            </button>
+            <Switch
+              checked={emailEnabled}
+              onCheckedChange={handleEmailToggle}
+            />
           </div>
         </CardContent>
       </Card>

@@ -4,7 +4,7 @@ import type { UserRole } from "@/types";
 
 export async function POST(req: NextRequest) {
   try {
-    const { email, password, firstName, lastName, role, phone, parentId } =
+    const { email, password, firstName, lastName, role, phone, parentId, childEmail } =
       await req.json();
 
     if (!email || !password || !firstName || !lastName || !role) {
@@ -44,11 +44,31 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (role === "parent" && parentId) {
-      await supabase.from("parent_student").insert({
-        parent_id: authData.user.id,
-        student_id: parentId,
-      });
+    if (role === "parent") {
+      let studentId = parentId;
+
+      // If childEmail provided, look up the player by email
+      if (!studentId && childEmail) {
+        const { data: childUser } = await supabase.auth.admin.listUsers();
+        const child = childUser?.users?.find((u) => u.email === childEmail);
+        if (child) {
+          const { data: childProfile } = await supabase
+            .from("profiles")
+            .select("id, role")
+            .eq("id", child.id)
+            .single();
+          if (childProfile?.role === "player") {
+            studentId = child.id;
+          }
+        }
+      }
+
+      if (studentId) {
+        await supabase.from("parent_student").insert({
+          parent_id: authData.user.id,
+          student_id: studentId,
+        });
+      }
     }
 
     return NextResponse.json({

@@ -3,7 +3,7 @@
 import { useCountdown } from "@/hooks/useCountdown";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, MapPin, Clock } from "lucide-react";
+import { MapPin, Clock } from "lucide-react";
 
 interface CountdownTimerProps {
   targetDate: string;

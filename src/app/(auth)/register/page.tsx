@@ -31,6 +31,7 @@ export default function RegisterPage() {
     confirmPassword: "",
     role: "" as "coach" | "player" | "parent" | "",
     phone: "",
+    childEmail: "",
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -63,6 +64,7 @@ export default function RegisterPage() {
           password: formData.password,
           role: formData.role,
           phone: formData.phone || undefined,
+          childEmail: formData.role === "parent" ? formData.childEmail || undefined : undefined,
         }),
       });
 
@@ -172,6 +174,24 @@ export default function RegisterPage() {
               }
             />
           </div>
+
+          {formData.role === "parent" && (
+            <div className="space-y-2">
+              <Label htmlFor="childEmail">Email de votre enfant (joueur)</Label>
+              <Input
+                id="childEmail"
+                type="email"
+                placeholder="email@enfant.com"
+                value={formData.childEmail}
+                onChange={(e) =>
+                  setFormData({ ...formData, childEmail: e.target.value })
+                }
+              />
+              <p className="text-xs text-muted-foreground">
+                L&apos;adresse email du compte joueur de votre enfant
+              </p>
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="password">Mot de passe</Label>
