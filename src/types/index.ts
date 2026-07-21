@@ -22,6 +22,7 @@ export interface Profile {
   position: string | null;
   shirt_number: number | null;
   is_active: boolean;
+  email_notifications?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -74,6 +75,7 @@ export interface MatchStat {
   red_cards: number;
   clean_sheet: boolean;
   saves: number;
+  minutes_played: number;
   created_at: string;
   event?: Event;
   profile?: Profile;
@@ -212,7 +214,7 @@ export interface MotmVote {
   candidate?: Profile;
 }
 
-export interface Trophy {
+export interface TrophyItem {
   id: string;
   title: string;
   description: string | null;
@@ -253,15 +255,6 @@ export interface PushSubscription {
   p256dh: string;
   auth: string;
   created_at: string;
-}
-
-export interface SporteasySyncLog {
-  id: string;
-  sync_type: string;
-  status: string;
-  records_synced: number;
-  error_message: string | null;
-  synced_at: string;
 }
 
 export interface MatchLineup {
@@ -325,4 +318,10 @@ export interface PaymentHistory {
   notes: string | null;
   created_at: string;
   recorded_by_user?: Profile;
+}
+
+export interface User {
+  id: string;
+  email: string;
+  profile: Profile;
 }

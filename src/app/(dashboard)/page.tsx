@@ -1,6 +1,6 @@
 "use client";
 
-import { useSession } from "next-auth/react";
+import { useAuth } from "@/lib/auth";
 import { NextEventCard } from "@/components/dashboard/NextEventCard";
 import { PendingConvocations } from "@/components/dashboard/PendingConvocations";
 import { NewsFeed } from "@/components/dashboard/NewsFeed";
@@ -9,17 +9,16 @@ import { RecentResults } from "@/components/dashboard/RecentResults";
 import { SeasonSummary } from "@/components/dashboard/SeasonSummary";
 
 export default function DashboardPage() {
-  const { data: session } = useSession();
-  const user = session?.user;
+  const { user } = useAuth();
 
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold">
-          Bonjour, {user?.firstName} 👋
+          Bonjour, {user?.profile?.first_name} 👋
         </h2>
         <p className="text-muted-foreground mt-1">
-          Voici un résumé de votre équipe
+          Voici un resume de votre equipe
         </p>
       </div>
 

@@ -21,78 +21,65 @@ export function SeasonSummary() {
 
   useEffect(() => {
     const supabase = createClient();
+    supabase
+      .from("events")
+      .select("match_result, score_us, score_them")
+      .eq("type", "match")
+      .eq("status", "completed")
+      .then(({ data: matches }) => {
+        if (!matches || matches.length === 0) {
+          setLoading(false);
+          return;
+        }
 
-    async function fetchSeasonStats() {
-      const { data: matches } = await supabase
-        .from("events")
-        .select("match_result, score_us, score_them")
-        .eq("type", "match")
-        .eq("status", "completed");
+        const season: SeasonStats = {
+          played: matches.length,
+          won: 0,
+          drawn: 0,
+          lost: 0,
+          goalsFor: 0,
+          goalsAgainst: 0,
+          cleanSheets: 0,
+        };
 
-      if (!matches) {
+        for (const m of matches) {
+          if (m.match_result === "win") season.won++;
+          else if (m.match_result === "draw") season.drawn++;
+          else if (m.match_result === "loss") season.lost++;
+          season.goalsFor += m.score_us || 0;
+          season.goalsAgainst += m.score_them || 0;
+          if ((m.score_them || 0) === 0) season.cleanSheets++;
+        }
+
+        setStats(season);
         setLoading(false);
-        return;
-      }
-
-      let cleanSheets = 0;
-      const season: SeasonStats = {
-        played: matches.length,
-        won: 0,
-        drawn: 0,
-        lost: 0,
-        goalsFor: 0,
-        goalsAgainst: 0,
-        cleanSheets: 0,
-      };
-
-      for (const m of matches) {
-        if (m.match_result === "win") season.won++;
-        else if (m.match_result === "draw") season.drawn++;
-        else if (m.match_result === "loss") season.lost++;
-
-        season.goalsFor += m.score_us || 0;
-        season.goalsAgainst += m.score_them || 0;
-
-        if ((m.score_them || 0) === 0) cleanSheets++;
-      }
-
-      season.cleanSheets = cleanSheets;
-      setStats(season);
-      setLoading(false);
-    }
-
-    fetchSeasonStats();
+      });
   }, []);
 
   if (loading) {
     return (
       <Card>
         <CardContent className="p-6">
-          <div className="flex items-center justify-center h-24">
-            <div className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--royal)] border-t-transparent" />
-          </div>
+          <div className="h-24 animate-pulse rounded-lg bg-muted" />
         </CardContent>
       </Card>
     );
   }
 
-  if (!stats || stats.played === 0) {
-    return null;
-  }
+  if (!stats || stats.played === 0) return null;
 
   const goalDiff = stats.goalsFor - stats.goalsAgainst;
-  const winRate = stats.played > 0 ? Math.round((stats.won / stats.played) * 100) : 0;
+  const winRate = Math.round((stats.won / stats.played) * 100);
 
   return (
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="text-base flex items-center gap-2">
-          <Shield className="h-4 w-4 text-[var(--royal)]" />
+          <Shield className="h-4 w-4 text-[var(--color-royal)]" />
           Bilan de la saison
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Record W-D-L */}
         <div className="flex items-center justify-center gap-4">
           <div className="text-center">
             <span className="text-2xl font-bold text-green-600">{stats.won}</span>
@@ -109,8 +96,6 @@ export function SeasonSummary() {
             <p className="text-[10px] text-muted-foreground uppercase tracking-wide">D</p>
           </div>
         </div>
-
-        {/* Stats grid */}
         <div className="grid grid-cols-2 gap-2 text-center">
           <div className="rounded-lg bg-muted/50 p-2">
             <p className="text-lg font-bold">{stats.played}</p>
@@ -126,7 +111,7 @@ export function SeasonSummary() {
               <span className="text-xs text-muted-foreground">-</span>
               <span className="text-lg font-bold">{stats.goalsAgainst}</span>
             </div>
-            <p className="text-[10px] text-muted-foreground">Buts (±{goalDiff > 0 ? "+" : ""}{goalDiff})</p>
+            <p className="text-[10px] text-muted-foreground">Buts (+{goalDiff})</p>
           </div>
           <div className="rounded-lg bg-muted/50 p-2">
             <div className="flex items-center justify-center gap-1">

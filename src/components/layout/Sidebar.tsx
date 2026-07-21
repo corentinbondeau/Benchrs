@@ -1,152 +1,115 @@
 "use client";
 
+import { useAuth } from "@/lib/auth";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
-  CalendarCheck,
-  CalendarDays,
+  Calendar,
+  Users,
   BarChart3,
-  Swords,
-  MessageCircle,
+  ClipboardCheck,
+  MessageSquare,
+  Heart,
   Car,
-  HeartPulse,
+  ListTodo,
+  Swords,
+  Image,
   Trophy,
   Bell,
   Settings,
-  LogOut,
-  Users,
-  ClipboardList,
-  Clock,
-  Image,
-  Shield,
   Medal,
+  Shield,
+  UserCog,
+  Wallet,
 } from "lucide-react";
-import { useSession, signOut } from "next-auth/react";
-import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
 
-const coachLinks = [
+const navItems = [
   { href: "/", label: "Tableau de bord", icon: LayoutDashboard },
-  { href: "/calendar", label: "Calendrier", icon: CalendarDays },
-  { href: "/schedule", label: "Planning", icon: Clock },
-  { href: "/attendance", label: "Présences", icon: CalendarCheck },
+  { href: "/calendar", label: "Calendrier", icon: Calendar },
   { href: "/roster", label: "Effectif", icon: Users },
   { href: "/stats", label: "Statistiques", icon: BarChart3 },
-  { href: "/championship", label: "Championnat", icon: Medal },
-  { href: "/tactics", label: "Tactique & Séances", icon: Swords },
-  { href: "/tasks", label: "Tâches", icon: ClipboardList },
-  { href: "/chat", label: "Messages", icon: MessageCircle },
+  { href: "/attendance", label: "Presences", icon: ClipboardCheck },
+  { href: "/chat", label: "Messagerie", icon: MessageSquare },
+  { href: "/medical", label: "Infirmerie", icon: Heart },
   { href: "/carpooling", label: "Covoiturage", icon: Car },
-  { href: "/medical", label: "Infirmerie", icon: HeartPulse },
+  { href: "/tasks", label: "Taches", icon: ListTodo },
+  { href: "/tactics", label: "Tactique", icon: Swords },
   { href: "/gallery", label: "Galerie", icon: Image },
-  { href: "/trophies", label: "Trophées", icon: Trophy },
-  { href: "/notifications", label: "Notifications", icon: Bell },
-  { href: "/admin/players", label: "Gestion joueurs", icon: Shield },
-  { href: "/admin/cotisations", label: "Cotisations", icon: ClipboardList },
-];
-
-const playerLinks = [
-  { href: "/", label: "Tableau de bord", icon: LayoutDashboard },
-  { href: "/calendar", label: "Calendrier", icon: CalendarDays },
-  { href: "/schedule", label: "Planning", icon: Clock },
-  { href: "/attendance", label: "Présences", icon: CalendarCheck },
-  { href: "/roster", label: "Effectif", icon: Users },
-  { href: "/stats", label: "Statistiques", icon: BarChart3 },
-  { href: "/stats/my", label: "Mes Stats", icon: BarChart3 },
+  { href: "/trophies", label: "Trophees", icon: Trophy },
   { href: "/championship", label: "Championnat", icon: Medal },
-  { href: "/chat", label: "Messages", icon: MessageCircle },
-  { href: "/carpooling", label: "Covoiturage", icon: Car },
-  { href: "/medical", label: "Infirmerie", icon: HeartPulse },
-  { href: "/gallery", label: "Galerie", icon: Image },
-  { href: "/trophies", label: "Trophées", icon: Trophy },
   { href: "/notifications", label: "Notifications", icon: Bell },
 ];
 
-const parentLinks = [
-  { href: "/", label: "Tableau de bord", icon: LayoutDashboard },
-  { href: "/calendar", label: "Calendrier", icon: CalendarDays },
-  { href: "/schedule", label: "Planning", icon: Clock },
-  { href: "/attendance", label: "Présences", icon: CalendarCheck },
-  { href: "/chat", label: "Messages", icon: MessageCircle },
-  { href: "/carpooling", label: "Covoiturage", icon: Car },
-  { href: "/tasks", label: "Tâches", icon: ClipboardList },
-  { href: "/gallery", label: "Galerie", icon: Image },
-  { href: "/notifications", label: "Notifications", icon: Bell },
+const coachItems = [
+  { href: "/admin/players", label: "Gestion joueurs", icon: UserCog },
+  { href: "/admin/cotisations", label: "Cotisations", icon: Wallet },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { data: session } = useSession();
-  const role = session?.user?.role;
-
-  const links =
-    role === "coach"
-      ? coachLinks
-      : role === "player"
-      ? playerLinks
-      : parentLinks;
+  const { user } = useAuth();
+  const isCoach = user?.profile?.role === "coach";
 
   return (
-    <aside className="hidden lg:flex lg:flex-col lg:w-64 lg:border-r lg:bg-sidebar lg:text-sidebar-foreground">
-      <div className="flex h-16 items-center gap-2 px-6 border-b border-sidebar-border">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--gold)] text-[var(--gold-foreground)] font-bold text-sm">
-          SP
-        </div>
-        <span className="text-lg font-bold tracking-tight">SportPlus</span>
+    <aside className="hidden lg:flex lg:w-64 lg:flex-col bg-[var(--color-navy)] text-white">
+      <div className="flex h-14 items-center gap-2 px-4 border-b border-white/10">
+        <Shield className="h-6 w-6 text-[var(--color-gold)]" />
+        <span className="text-lg font-bold">SportPlus</span>
       </div>
+      <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
+        {navItems.map((item) => {
+          const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                active
+                  ? "bg-white/15 text-white"
+                  : "text-white/60 hover:bg-white/10 hover:text-white"
+              }`}
+            >
+              <item.icon className="h-4 w-4 shrink-0" />
+              {item.label}
+            </Link>
+          );
+        })}
 
-      <ScrollArea className="flex-1 px-3 py-4">
-        <nav className="flex flex-col gap-1">
-          {links.map((link) => {
-            const isActive =
-              link.href === "/"
-                ? pathname === "/"
-                : pathname.startsWith(link.href);
-            return (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                  isActive
-                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                    : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
-                )}
-              >
-                <link.icon className="h-4 w-4 shrink-0" />
-                {link.label}
-              </Link>
-            );
-          })}
-        </nav>
-      </ScrollArea>
-
-      <Separator className="bg-sidebar-border" />
-
-      <div className="p-3">
+        {isCoach && (
+          <>
+            <div className="my-3 border-t border-white/10" />
+            <p className="px-3 py-1 text-xs font-semibold text-white/40 uppercase tracking-wider">
+              Admin
+            </p>
+            {coachItems.map((item) => {
+              const active = pathname.startsWith(item.href);
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                    active
+                      ? "bg-white/15 text-white"
+                      : "text-white/60 hover:bg-white/10 hover:text-white"
+                  }`}
+                >
+                  <item.icon className="h-4 w-4 shrink-0" />
+                  {item.label}
+                </Link>
+              );
+            })}
+          </>
+        )}
+      </nav>
+      <div className="border-t border-white/10 p-3">
         <Link
           href="/settings"
-          className={cn(
-            "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-            pathname === "/settings"
-              ? "bg-sidebar-accent text-sidebar-accent-foreground"
-              : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
-          )}
+          className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-white/60 hover:bg-white/10 hover:text-white transition-colors"
         >
-          <Settings className="h-4 w-4 shrink-0" />
-          Paramètres
+          <Settings className="h-4 w-4" />
+          Parametres
         </Link>
-        <Button
-          variant="ghost"
-          className="w-full justify-start gap-3 text-sidebar-foreground/70 hover:text-sidebar-accent-foreground"
-          onClick={() => signOut({ callbackUrl: "/login" })}
-        >
-          <LogOut className="h-4 w-4 shrink-0" />
-          Déconnexion
-        </Button>
       </div>
     </aside>
   );
