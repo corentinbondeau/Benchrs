@@ -21,6 +21,7 @@ import {
   Clock,
   Image,
   Shield,
+  Medal,
 } from "lucide-react";
 import { useSession, signOut } from "next-auth/react";
 import { Button } from "@/components/ui/button";
@@ -34,6 +35,7 @@ const coachLinks = [
   { href: "/attendance", label: "Présences", icon: CalendarCheck },
   { href: "/roster", label: "Effectif", icon: Users },
   { href: "/stats", label: "Statistiques", icon: BarChart3 },
+  { href: "/championship", label: "Championnat", icon: Medal },
   { href: "/tactics", label: "Tactique & Séances", icon: Swords },
   { href: "/tasks", label: "Tâches", icon: ClipboardList },
   { href: "/chat", label: "Messages", icon: MessageCircle },
@@ -54,6 +56,7 @@ const playerLinks = [
   { href: "/roster", label: "Effectif", icon: Users },
   { href: "/stats", label: "Statistiques", icon: BarChart3 },
   { href: "/stats/my", label: "Mes Stats", icon: BarChart3 },
+  { href: "/championship", label: "Championnat", icon: Medal },
   { href: "/chat", label: "Messages", icon: MessageCircle },
   { href: "/carpooling", label: "Covoiturage", icon: Car },
   { href: "/medical", label: "Infirmerie", icon: HeartPulse },

@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect, useTransition } from "react";
+import { useState, useEffect, useTransition, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { CalendarHeader } from "@/components/calendar/CalendarHeader";
 import { MonthView } from "@/components/calendar/MonthView";
 import { WeekView } from "@/components/calendar/WeekView";
+import { EventForm } from "@/components/calendar/EventForm";
 import type { Event } from "@/types";
 
 export default function CalendarPage() {
@@ -13,24 +14,22 @@ export default function CalendarPage() {
   const [events, setEvents] = useState<Event[]>([]);
   const [isPending, startTransition] = useTransition();
 
-  useEffect(() => {
-    let cancelled = false;
+  const fetchEvents = useCallback(() => {
     const supabase = createClient();
-
     supabase
       .from("events")
       .select("*")
       .order("event_date", { ascending: true })
       .then(({ data }) => {
-        if (!cancelled) {
-          startTransition(() => {
-            setEvents((data as Event[]) || []);
-          });
-        }
+        startTransition(() => {
+          setEvents((data as Event[]) || []);
+        });
       });
-
-    return () => { cancelled = true; };
   }, []);
+
+  useEffect(() => {
+    fetchEvents();
+  }, [fetchEvents]);
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -91,9 +90,12 @@ export default function CalendarPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold">Calendrier</h2>
-        <p className="text-muted-foreground mt-1">Planning de l&apos;équipe</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold">Calendrier</h2>
+          <p className="text-muted-foreground mt-1">Planning de l&apos;équipe</p>
+        </div>
+        <EventForm onCreated={fetchEvents} />
       </div>
 
       <CalendarHeader
