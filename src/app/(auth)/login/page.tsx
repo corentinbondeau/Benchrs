@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,13 +28,13 @@ export default function LoginPage() {
     setError("");
     setLoading(true);
 
-    const result = await signIn("credentials", {
+    const supabase = createClient();
+    const { error: authError } = await supabase.auth.signInWithPassword({
       email,
       password,
-      redirect: false,
     });
 
-    if (result?.error) {
+    if (authError) {
       setError("Email ou mot de passe incorrect");
       setLoading(false);
     } else {
@@ -46,7 +46,7 @@ export default function LoginPage() {
   return (
     <Card className="w-full max-w-md">
       <CardHeader className="text-center">
-        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--gold)] text-[var(--gold-foreground)] font-bold text-lg mx-auto mb-2 lg:hidden">
+        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--color-gold)] text-[var(--color-navy)] font-bold text-lg mx-auto mb-2">
           SP
         </div>
         <CardTitle className="text-2xl">Connexion</CardTitle>
@@ -87,14 +87,14 @@ export default function LoginPage() {
         <CardFooter className="flex flex-col gap-4">
           <Button
             type="submit"
-            className="w-full bg-[var(--gold)] text-[var(--gold-foreground)] hover:bg-[var(--gold)]/90"
+            className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
             disabled={loading}
           >
             {loading ? "Connexion..." : "Se connecter"}
           </Button>
           <p className="text-sm text-muted-foreground text-center">
             Pas encore de compte ?{" "}
-            <Link href="/register" className="text-[var(--royal)] hover:underline font-medium">
+            <Link href="/register" className="text-[var(--color-royal)] hover:underline font-medium">
               Créer un compte
             </Link>
           </p>

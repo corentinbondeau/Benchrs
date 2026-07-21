@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { useSession } from "next-auth/react";
+import { useAuth } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,38 +12,29 @@ import { Check, X, Clock } from "lucide-react";
 import type { Attendance, Event } from "@/types";
 
 export function PendingConvocations() {
-  const { data: session } = useSession();
-  const [attendances, setAttendances] = useState<
-    (Attendance & { event: Event })[]
-  >([]);
+  const { user } = useAuth();
+  const [attendances, setAttendances] = useState<(Attendance & { event: Event })[]>([]);
   const [loading, setLoading] = useState(true);
   const [absenceReason, setAbsenceReason] = useState("");
   const [pendingAbsentId, setPendingAbsentId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!session?.user?.id) return;
+    if (!user?.id) return;
     const supabase = createClient();
 
-    async function fetchPending() {
-      const { data } = await supabase
-        .from("attendances")
-        .select("*, event:events!attendances_event_id_fkey(*)")
-        .eq("user_id", session!.user!.id)
-        .eq("status", "pending")
-        .order("created_at", { ascending: false });
+    supabase
+      .from("attendances")
+      .select("*, event:events!attendances_event_id_fkey(*)")
+      .eq("user_id", user.id)
+      .eq("status", "pending")
+      .order("created_at", { ascending: false })
+      .then(({ data }) => {
+        setAttendances((data as (Attendance & { event: Event })[]) || []);
+        setLoading(false);
+      });
+  }, [user?.id]);
 
-      setAttendances((data as (Attendance & { event: Event })[]) || []);
-      setLoading(false);
-    }
-
-    fetchPending();
-  }, [session?.user?.id]);
-
-  async function respond(
-    attendanceId: string,
-    status: "present" | "absent" | "late",
-    reason?: string
-  ) {
+  async function respond(attendanceId: string, status: "present" | "absent" | "late", reason?: string) {
     if (status === "absent" && !reason) {
       setPendingAbsentId(attendanceId);
       return;
@@ -68,9 +59,7 @@ export function PendingConvocations() {
     return (
       <Card>
         <CardContent className="p-6">
-          <div className="flex items-center justify-center h-24">
-            <div className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--royal)] border-t-transparent" />
-          </div>
+          <div className="h-24 animate-pulse rounded-lg bg-muted" />
         </CardContent>
       </Card>
     );
@@ -83,7 +72,7 @@ export function PendingConvocations() {
           <Clock className="h-4 w-4 text-amber-500" />
           Convocations en attente
           {attendances.length > 0 && (
-            <Badge className="bg-[var(--gold)] text-[var(--gold-foreground)]">
+            <Badge className="bg-[var(--color-gold)] text-[var(--color-navy)]">
               {attendances.length}
             </Badge>
           )}
@@ -97,10 +86,7 @@ export function PendingConvocations() {
         ) : (
           <div className="space-y-3">
             {attendances.map((att) => (
-              <div
-                key={att.id}
-                className="rounded-lg border p-3 space-y-2"
-              >
+              <div key={att.id} className="rounded-lg border p-3 space-y-2">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="font-medium text-sm">{att.event?.title}</p>
@@ -114,28 +100,13 @@ export function PendingConvocations() {
                   </div>
                   {pendingAbsentId !== att.id && (
                     <div className="flex gap-1.5">
-                      <Button
-                        size="icon"
-                        variant="outline"
-                        className="h-8 w-8 text-green-600 hover:bg-green-50 hover:text-green-700"
-                        onClick={() => respond(att.id, "present")}
-                      >
+                      <Button size="icon" variant="outline" className="h-8 w-8 text-green-600 hover:bg-green-50" onClick={() => respond(att.id, "present")}>
                         <Check className="h-4 w-4" />
                       </Button>
-                      <Button
-                        size="icon"
-                        variant="outline"
-                        className="h-8 w-8 text-amber-600 hover:bg-amber-50 hover:text-amber-700"
-                        onClick={() => respond(att.id, "late")}
-                      >
+                      <Button size="icon" variant="outline" className="h-8 w-8 text-amber-600 hover:bg-amber-50" onClick={() => respond(att.id, "late")}>
                         <Clock className="h-4 w-4" />
                       </Button>
-                      <Button
-                        size="icon"
-                        variant="outline"
-                        className="h-8 w-8 text-red-600 hover:bg-red-50 hover:text-red-700"
-                        onClick={() => respond(att.id, "absent")}
-                      >
+                      <Button size="icon" variant="outline" className="h-8 w-8 text-red-600 hover:bg-red-50" onClick={() => respond(att.id, "absent")}>
                         <X className="h-4 w-4" />
                       </Button>
                     </div>
@@ -145,27 +116,17 @@ export function PendingConvocations() {
                   <div className="space-y-2 pt-1">
                     <Label className="text-xs">Motif d&apos;absence (obligatoire)</Label>
                     <Input
-                      placeholder="Ex: Blessure, travail, raison familiale..."
+                      placeholder="Ex: Blessure, travail..."
                       value={absenceReason}
                       onChange={(e) => setAbsenceReason(e.target.value)}
                       className="text-sm h-8"
                       autoFocus
                     />
                     <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        className="h-7 text-xs"
-                        disabled={!absenceReason.trim()}
-                        onClick={() => respond(att.id, "absent", absenceReason.trim())}
-                      >
-                        Confirmer l&apos;absence
+                      <Button size="sm" className="h-7 text-xs" disabled={!absenceReason.trim()} onClick={() => respond(att.id, "absent", absenceReason.trim())}>
+                        Confirmer
                       </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-7 text-xs"
-                        onClick={() => { setPendingAbsentId(null); setAbsenceReason(""); }}
-                      >
+                      <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => { setPendingAbsentId(null); setAbsenceReason(""); }}>
                         Annuler
                       </Button>
                     </div>

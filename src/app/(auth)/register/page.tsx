@@ -45,7 +45,6 @@ export default function RegisterPage() {
       setError("Les mots de passe ne correspondent pas");
       return;
     }
-
     if (!formData.role) {
       setError("Veuillez sélectionner un rôle");
       return;
@@ -86,7 +85,7 @@ export default function RegisterPage() {
   return (
     <Card className="w-full max-w-md">
       <CardHeader className="text-center">
-        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--gold)] text-[var(--gold-foreground)] font-bold text-lg mx-auto mb-2 lg:hidden">
+        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--color-gold)] text-[var(--color-navy)] font-bold text-lg mx-auto mb-2">
           SP
         </div>
         <CardTitle className="text-2xl">Créer un compte</CardTitle>
@@ -109,9 +108,7 @@ export default function RegisterPage() {
                 id="firstName"
                 placeholder="Jean"
                 value={formData.firstName}
-                onChange={(e) =>
-                  setFormData({ ...formData, firstName: e.target.value })
-                }
+                onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
                 required
               />
             </div>
@@ -121,9 +118,7 @@ export default function RegisterPage() {
                 id="lastName"
                 placeholder="Dupont"
                 value={formData.lastName}
-                onChange={(e) =>
-                  setFormData({ ...formData, lastName: e.target.value })
-                }
+                onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
                 required
               />
             </div>
@@ -136,15 +131,13 @@ export default function RegisterPage() {
               type="email"
               placeholder="votre@email.com"
               value={formData.email}
-              onChange={(e) =>
-                setFormData({ ...formData, email: e.target.value })
-              }
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               required
             />
           </div>
 
           <div className="space-y-2">
-            <Label>Rôle</Label>
+            <Label>Role</Label>
             <Select
               value={formData.role}
               onValueChange={(value) =>
@@ -155,9 +148,9 @@ export default function RegisterPage() {
                 <SelectValue placeholder="Sélectionnez votre rôle" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="coach">🧢 Coach</SelectItem>
-                <SelectItem value="player">🏃 Joueur</SelectItem>
-                <SelectItem value="parent">👨‍👩‍👧 Parent</SelectItem>
+                <SelectItem value="coach">Coach</SelectItem>
+                <SelectItem value="player">Joueur</SelectItem>
+                <SelectItem value="parent">Parent</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -169,9 +162,7 @@ export default function RegisterPage() {
               type="tel"
               placeholder="06 12 34 56 78"
               value={formData.phone}
-              onChange={(e) =>
-                setFormData({ ...formData, phone: e.target.value })
-              }
+              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
             />
           </div>
 
@@ -183,9 +174,7 @@ export default function RegisterPage() {
                 type="email"
                 placeholder="email@enfant.com"
                 value={formData.childEmail}
-                onChange={(e) =>
-                  setFormData({ ...formData, childEmail: e.target.value })
-                }
+                onChange={(e) => setFormData({ ...formData, childEmail: e.target.value })}
               />
               <p className="text-xs text-muted-foreground">
                 L&apos;adresse email du compte joueur de votre enfant
@@ -200,9 +189,7 @@ export default function RegisterPage() {
               type="password"
               placeholder="••••••••"
               value={formData.password}
-              onChange={(e) =>
-                setFormData({ ...formData, password: e.target.value })
-              }
+              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
               required
               minLength={8}
             />
@@ -215,9 +202,7 @@ export default function RegisterPage() {
               type="password"
               placeholder="••••••••"
               value={formData.confirmPassword}
-              onChange={(e) =>
-                setFormData({ ...formData, confirmPassword: e.target.value })
-              }
+              onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
               required
             />
           </div>
@@ -225,14 +210,14 @@ export default function RegisterPage() {
         <CardFooter className="flex flex-col gap-4">
           <Button
             type="submit"
-            className="w-full bg-[var(--gold)] text-[var(--gold-foreground)] hover:bg-[var(--gold)]/90"
+            className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
             disabled={loading}
           >
             {loading ? "Création..." : "Créer mon compte"}
           </Button>
           <p className="text-sm text-muted-foreground text-center">
             Déjà un compte ?{" "}
-            <Link href="/login" className="text-[var(--royal)] hover:underline font-medium">
+            <Link href="/login" className="text-[var(--color-royal)] hover:underline font-medium">
               Se connecter
             </Link>
           </p>

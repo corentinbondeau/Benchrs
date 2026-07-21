@@ -9,8 +9,7 @@ export function proxy(request: NextRequest) {
   const isPublic = isAuthPage || isApiAuth;
 
   const sessionToken =
-    request.cookies.get("authjs.session-token")?.value ||
-    request.cookies.get("__Secure-authjs.session-token")?.value;
+    request.cookies.get("sb-gxksycbwylhkhihcvddw-auth-token")?.value;
 
   const isLoggedIn = !!sessionToken;
 

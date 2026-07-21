@@ -3,6 +3,7 @@ const STATIC_ASSETS = [
   "/",
   "/login",
   "/manifest.json",
+  "/icons/icon.svg",
 ];
 
 self.addEventListener("install", (event) => {
@@ -23,7 +24,6 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
-  if (event.request.url.includes("/api/")) return;
 
   event.respondWith(
     caches.match(event.request).then((cached) => {
@@ -41,35 +41,18 @@ self.addEventListener("fetch", (event) => {
 });
 
 self.addEventListener("push", (event) => {
-  const data = event.data?.json() || {};
-  const title = data.title || "SportPlus";
-  const body = data.body || "";
-  const url = data.url || "/";
-
+  const data = event.data?.json() || { title: "SportPlus", body: "Nouvelle notification" };
   event.waitUntil(
-    self.registration.showNotification(title, {
-      body,
+    self.registration.showNotification(data.title, {
+      body: data.body,
       icon: "/icons/icon-192.png",
-      badge: "/icons/icon-192.png",
-      data: { url },
-      actions: [
-        { action: "open", title: "Ouvrir" },
-      ],
+      badge: "/icons/icon.svg",
+      data: data.url || "/",
     })
   );
 });
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const url = event.notification.data?.url || "/";
-  event.waitUntil(
-    self.clients.matchAll({ type: "window" }).then((clients) => {
-      for (const client of clients) {
-        if (client.url.includes(url) && "focus" in client) {
-          return client.focus();
-        }
-      }
-      return self.clients.openWindow(url);
-    })
-  );
+  event.waitUntil(clients.openWindow(event.notification.data));
 });

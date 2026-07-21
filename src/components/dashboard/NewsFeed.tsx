@@ -13,29 +13,23 @@ export function NewsFeed() {
 
   useEffect(() => {
     const supabase = createClient();
-
-    async function fetchRecentEvents() {
-      const { data } = await supabase
-        .from("events")
-        .select("*")
-        .in("status", ["completed", "upcoming"])
-        .order("event_date", { ascending: false })
-        .limit(5);
-
-      setEvents((data as Event[]) || []);
-      setLoading(false);
-    }
-
-    fetchRecentEvents();
+    supabase
+      .from("events")
+      .select("*")
+      .in("status", ["completed", "upcoming"])
+      .order("event_date", { ascending: false })
+      .limit(5)
+      .then(({ data }) => {
+        setEvents((data as Event[]) || []);
+        setLoading(false);
+      });
   }, []);
 
   if (loading) {
     return (
       <Card>
         <CardContent className="p-6">
-          <div className="flex items-center justify-center h-24">
-            <div className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--royal)] border-t-transparent" />
-          </div>
+          <div className="h-24 animate-pulse rounded-lg bg-muted" />
         </CardContent>
       </Card>
     );
@@ -45,7 +39,7 @@ export function NewsFeed() {
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="text-base flex items-center gap-2">
-          <Trophy className="h-4 w-4 text-[var(--gold)]" />
+          <Trophy className="h-4 w-4 text-[var(--color-gold)]" />
           Actualités récentes
         </CardTitle>
       </CardHeader>
@@ -57,46 +51,28 @@ export function NewsFeed() {
         ) : (
           <div className="space-y-3">
             {events.map((event) => (
-              <div
-                key={event.id}
-                className="flex items-start gap-3 rounded-lg border p-3"
-              >
+              <div key={event.id} className="flex items-start gap-3 rounded-lg border p-3">
                 <div className="mt-0.5">
                   {event.type === "match" ? (
-                    <Trophy className="h-4 w-4 text-[var(--gold)]" />
+                    <Trophy className="h-4 w-4 text-[var(--color-gold)]" />
                   ) : (
-                    <Calendar className="h-4 w-4 text-[var(--royal)]" />
+                    <Calendar className="h-4 w-4 text-[var(--color-royal)]" />
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <p className="font-medium text-sm truncate">
-                      {event.title}
-                    </p>
-                    <Badge
-                      variant="secondary"
-                      className={
-                        event.status === "completed"
-                          ? "bg-green-100 text-green-700"
-                          : "bg-blue-100 text-blue-700"
-                      }
-                    >
+                    <p className="font-medium text-sm truncate">{event.title}</p>
+                    <Badge variant="secondary" className={event.status === "completed" ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"}>
                       {event.status === "completed" ? "Terminé" : "À venir"}
                     </Badge>
                   </div>
                   <p className="text-xs text-muted-foreground mt-1">
-                    {new Date(event.event_date).toLocaleDateString("fr-FR", {
-                      weekday: "long",
-                      day: "numeric",
-                      month: "long",
-                    })}
-                    {event.type === "match" &&
-                      event.score_us !== null &&
-                      event.score_them !== null && (
-                        <span className="ml-2 font-semibold">
-                          {event.score_us} - {event.score_them}
-                        </span>
-                      )}
+                    {new Date(event.event_date).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}
+                    {event.type === "match" && event.score_us !== null && event.score_them !== null && (
+                      <span className="ml-2 font-semibold">
+                        {event.score_us} - {event.score_them}
+                      </span>
+                    )}
                   </p>
                 </div>
               </div>

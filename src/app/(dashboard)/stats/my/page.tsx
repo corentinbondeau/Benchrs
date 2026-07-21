@@ -1,23 +1,20 @@
 "use client";
 
-import { useSession } from "next-auth/react";
+import { useAuth } from "@/lib/auth";
 import { PlayerProfile } from "@/components/stats/PlayerProfile";
 
 export default function MyStatsPage() {
-  const { data: session } = useSession();
-  const playerId = session?.user?.id;
+  const { user } = useAuth();
 
-  if (!playerId) return null;
+  if (!user?.id) return null;
 
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold">Mes Statistiques</h2>
-        <p className="text-muted-foreground mt-1">
-          Votre fiche individuelle
-        </p>
+        <p className="text-muted-foreground mt-1">Votre fiche individuelle</p>
       </div>
-      <PlayerProfile playerId={playerId} />
+      <PlayerProfile playerId={user.id} />
     </div>
   );
 }

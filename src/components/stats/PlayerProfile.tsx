@@ -4,13 +4,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import {
-  Trophy,
-  Target,
-  Clock,
-  CalendarCheck,
-  Zap,
-} from "lucide-react";
+import { Trophy, Target, Clock, CalendarCheck, Zap } from "lucide-react";
 
 interface PlayerStats {
   player_id: string;
@@ -48,7 +42,7 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
 
       const { data: matchStats } = await supabase
         .from("match_stats")
-        .select("goals, assists, yellow_cards, red_cards, minutes_played, event_id")
+        .select("goals, assists, yellow_cards, red_cards, minutes_played")
         .eq("player_id", playerId);
 
       const { data: attendanceData } = await supabase
@@ -56,12 +50,7 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
         .select("status")
         .eq("user_id", playerId);
 
-      let totalGoals = 0;
-      let totalAssists = 0;
-      let totalMinutes = 0;
-      let yellowCards = 0;
-      let redCards = 0;
-
+      let totalGoals = 0, totalAssists = 0, totalMinutes = 0, yellowCards = 0, redCards = 0;
       if (matchStats) {
         for (const s of matchStats) {
           totalGoals += (s.goals as number) || 0;
@@ -74,9 +63,7 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
 
       let attendanceRate = 0;
       if (attendanceData && attendanceData.length > 0) {
-        const present = attendanceData.filter(
-          (a) => a.status === "present" || a.status === "late"
-        ).length;
+        const present = attendanceData.filter((a) => a.status === "present" || a.status === "late").length;
         attendanceRate = Math.round((present / attendanceData.length) * 100);
       }
 
@@ -103,58 +90,27 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-48">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-[var(--royal)] border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-[var(--color-royal)] border-t-transparent" />
       </div>
     );
   }
 
   if (!stats) return null;
 
+  const positionLabels: Record<string, string> = {
+    goalkeeper: "Gardien", defender: "Défenseur", midfielder: "Milieu", forward: "Attaquant",
+  };
+
   const statCards = [
+    { icon: Trophy, label: "Buts", value: stats.total_goals, color: "text-[var(--color-gold)]", bg: "bg-amber-50" },
+    { icon: Target, label: "Passes", value: stats.total_assists, color: "text-[var(--color-royal)]", bg: "bg-blue-50" },
+    { icon: CalendarCheck, label: "Matchs", value: stats.matches_played, color: "text-green-600", bg: "bg-green-50" },
+    { icon: Clock, label: "Minutes", value: stats.total_minutes, color: "text-purple-600", bg: "bg-purple-50" },
     {
-      icon: Trophy,
-      label: "Buts",
-      value: stats.total_goals,
-      color: "text-[var(--gold)]",
-      bg: "bg-amber-50",
-    },
-    {
-      icon: Target,
-      label: "Passes",
-      value: stats.total_assists,
-      color: "text-[var(--royal)]",
-      bg: "bg-blue-50",
-    },
-    {
-      icon: CalendarCheck,
-      label: "Matchs",
-      value: stats.matches_played,
-      color: "text-green-600",
-      bg: "bg-green-50",
-    },
-    {
-      icon: Clock,
-      label: "Minutes",
-      value: stats.total_minutes,
-      color: "text-purple-600",
-      bg: "bg-purple-50",
-    },
-    {
-      icon: Zap,
-      label: "Présence",
+      icon: Zap, label: "Présence",
       value: `${stats.attendance_rate}%`,
-      color:
-        stats.attendance_rate >= 80
-          ? "text-green-600"
-          : stats.attendance_rate >= 50
-          ? "text-amber-600"
-          : "text-red-600",
-      bg:
-        stats.attendance_rate >= 80
-          ? "bg-green-50"
-          : stats.attendance_rate >= 50
-          ? "bg-amber-50"
-          : "bg-red-50",
+      color: stats.attendance_rate >= 80 ? "text-green-600" : stats.attendance_rate >= 50 ? "text-amber-600" : "text-red-600",
+      bg: stats.attendance_rate >= 80 ? "bg-green-50" : stats.attendance_rate >= 50 ? "bg-amber-50" : "bg-red-50",
     },
   ];
 
@@ -167,21 +123,11 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
               {stats.shirt_number || "?"}
             </div>
             <div>
-              <h2 className="text-2xl font-bold">
-                {stats.first_name} {stats.last_name}
-              </h2>
-              <p className="text-blue-200 mt-1">{stats.position || "Joueur"}</p>
+              <h2 className="text-2xl font-bold">{stats.first_name} {stats.last_name}</h2>
+              <p className="text-blue-200 mt-1">{positionLabels[stats.position || ""] || "Joueur"}</p>
               <div className="flex gap-2 mt-2">
-                {stats.yellow_cards > 0 && (
-                  <Badge className="bg-yellow-400 text-yellow-900">
-                    🟨 {stats.yellow_cards}
-                  </Badge>
-                )}
-                {stats.red_cards > 0 && (
-                  <Badge className="bg-red-500 text-white">
-                    🟥 {stats.red_cards}
-                  </Badge>
-                )}
+                {stats.yellow_cards > 0 && <Badge className="bg-yellow-400 text-yellow-900">{stats.yellow_cards} jaunes</Badge>}
+                {stats.red_cards > 0 && <Badge className="bg-red-500 text-white">{stats.red_cards} rouges</Badge>}
               </div>
             </div>
           </div>
@@ -192,9 +138,7 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
         {statCards.map((stat) => (
           <Card key={stat.label}>
             <CardContent className="p-4 text-center">
-              <div
-                className={`flex h-10 w-10 items-center justify-center rounded-lg ${stat.bg} mx-auto mb-2`}
-              >
+              <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${stat.bg} mx-auto mb-2`}>
                 <stat.icon className={`h-5 w-5 ${stat.color}`} />
               </div>
               <p className="text-2xl font-bold">{stat.value}</p>

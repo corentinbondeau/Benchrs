@@ -1,45 +1,48 @@
-import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth/config";
-import { createClient } from "@/lib/supabase/server";
+import { NextResponse } from "next/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function GET() {
-  const supabase = await createClient();
-
-  const { data: championships, error } = await supabase
+  const supabase = createAdminClient();
+  const { data: championships } = await supabase
     .from("championships")
-    .select("*, teams:championship_teams(*, team_name)")
+    .select("*")
     .order("created_at", { ascending: false });
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json(championships || []);
+  if (!championships) {
+    return NextResponse.json([]);
+  }
+
+  const results = await Promise.all(
+    championships.map(async (c) => {
+      const { data: teams } = await supabase
+        .from("championship_standings")
+        .select("*")
+        .eq("championship_id", c.id);
+
+      return { ...c, teams: teams || [] };
+    })
+  );
+
+  return NextResponse.json(results);
 }
 
-export async function POST(req: NextRequest) {
-  const session = await auth();
-  if (!session?.user?.id || session.user.role !== "coach") {
-    return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
-  }
-
+export async function POST(req: Request) {
+  const supabase = createAdminClient();
   const body = await req.json();
-  const { name, season, level } = body;
-
-  if (!name || !season) {
-    return NextResponse.json({ error: "name et season requis" }, { status: 400 });
-  }
-
-  const supabase = await createClient();
 
   const { data, error } = await supabase
     .from("championships")
     .insert({
-      name,
-      season,
-      level: level || null,
-      created_by: session.user.id,
+      name: body.name,
+      season: body.season,
+      level: body.level || null,
     })
     .select()
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 400 });
+  }
+
   return NextResponse.json(data);
 }

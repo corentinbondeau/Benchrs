@@ -6,16 +6,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar, Users, Trophy } from "lucide-react";
 
 export function QuickStats() {
-  const [stats, setStats] = useState({
-    upcomingEvents: 0,
-    totalPlayers: 0,
-    recentWins: 0,
-  });
+  const [stats, setStats] = useState({ upcomingEvents: 0, totalPlayers: 0, recentWins: 0 });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const supabase = createClient();
-
     async function fetchStats() {
       const [eventsRes, playersRes, winsRes] = await Promise.all([
         supabase
@@ -32,10 +27,7 @@ export function QuickStats() {
           .from("events")
           .select("id", { count: "exact", head: true })
           .eq("match_result", "win")
-          .gte(
-            "event_date",
-            new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
-          ),
+          .gte("event_date", new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()),
       ]);
 
       setStats({
@@ -45,41 +37,20 @@ export function QuickStats() {
       });
       setLoading(false);
     }
-
     fetchStats();
   }, []);
 
   const items = [
-    {
-      icon: Calendar,
-      label: "Événements à venir",
-      value: stats.upcomingEvents,
-      color: "text-[var(--royal)]",
-      bg: "bg-[var(--royal)]/10",
-    },
-    {
-      icon: Users,
-      label: "Joueurs actifs",
-      value: stats.totalPlayers,
-      color: "text-green-600",
-      bg: "bg-green-50",
-    },
-    {
-      icon: Trophy,
-      label: "Victoires (30j)",
-      value: stats.recentWins,
-      color: "text-[var(--gold)]",
-      bg: "bg-amber-50",
-    },
+    { icon: Calendar, label: "Événements à venir", value: stats.upcomingEvents, color: "text-[var(--color-royal)]", bg: "bg-blue-50" },
+    { icon: Users, label: "Joueurs actifs", value: stats.totalPlayers, color: "text-green-600", bg: "bg-green-50" },
+    { icon: Trophy, label: "Victoires (30j)", value: stats.recentWins, color: "text-[var(--color-gold)]", bg: "bg-amber-50" },
   ];
 
   if (loading) {
     return (
       <Card>
         <CardContent className="p-6">
-          <div className="flex items-center justify-center h-24">
-            <div className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--royal)] border-t-transparent" />
-          </div>
+          <div className="h-24 animate-pulse rounded-lg bg-muted" />
         </CardContent>
       </Card>
     );
