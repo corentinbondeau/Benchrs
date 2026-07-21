@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <rect width="512" height="512" rx="96" fill="#0F172A"/>
+  <rect x="16" y="16" width="480" height="480" rx="80" fill="#1E40AF" fill-opacity="0.3"/>
+  <!-- Football/Soccer ball simplified -->
+  <circle cx="256" cy="230" r="110" fill="none" stroke="#FACC15" stroke-width="8"/>
+  <path d="M256 120 L256 340" stroke="#FACC15" stroke-width="4" stroke-opacity="0.5"/>
+  <path d="M146 230 L366 230" stroke="#FACC15" stroke-width="4" stroke-opacity="0.5"/>
+  <path d="M170 155 L342 305" stroke="#FACC15" stroke-width="4" stroke-opacity="0.3"/>
+  <path d="M342 155 L170 305" stroke="#FACC15" stroke-width="4" stroke-opacity="0.3"/>
+  <!-- Pentagon center -->
+  <polygon points="256,180 290,205 278,245 234,245 222,205" fill="#FACC15"/>
+  <!-- SP Text -->
+  <text x="256" y="395" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="72" font-weight="900" fill="#FACC15" letter-spacing="4">SP</text>
+  <!-- Subtle underline -->
+  <rect x="170" y="415" width="172" height="4" rx="2" fill="#FACC15" fill-opacity="0.6"/>
+</svg>
