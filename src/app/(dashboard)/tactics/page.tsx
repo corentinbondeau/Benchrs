@@ -34,6 +34,7 @@ import {
   Trash2,
   Shirt,
   Users,
+  Crown,
 } from "lucide-react";
 import { toast } from "sonner";
 import type {
@@ -106,6 +107,45 @@ const FORMATION_POSITIONS: Record<string, { x: number; y: number; label: string 
     { x: 85, y: 35, label: "Ailier Droit" },
     { x: 50, y: 15, label: "Buteur" },
   ],
+  "3-5-2": [
+    { x: 50, y: 90, label: "Gardien" },
+    { x: 25, y: 72, label: "Défenseur Central" },
+    { x: 50, y: 72, label: "Défenseur Central" },
+    { x: 75, y: 72, label: "Défenseur Central" },
+    { x: 10, y: 48, label: "Arrière Gauche" },
+    { x: 35, y: 48, label: "Milieu Central" },
+    { x: 50, y: 42, label: "Milieu Offensif" },
+    { x: 65, y: 48, label: "Milieu Central" },
+    { x: 90, y: 48, label: "Arrière Droit" },
+    { x: 38, y: 22, label: "Buteur" },
+    { x: 62, y: 22, label: "Buteur" },
+  ],
+  "5-3-2": [
+    { x: 50, y: 90, label: "Gardien" },
+    { x: 10, y: 72, label: "Arrière Gauche" },
+    { x: 30, y: 72, label: "Défenseur Central" },
+    { x: 50, y: 72, label: "Défenseur Central" },
+    { x: 70, y: 72, label: "Défenseur Central" },
+    { x: 90, y: 72, label: "Arrière Droit" },
+    { x: 30, y: 45, label: "Milieu Central" },
+    { x: 50, y: 42, label: "Milieu Offensif" },
+    { x: 70, y: 45, label: "Milieu Central" },
+    { x: 38, y: 22, label: "Buteur" },
+    { x: 62, y: 22, label: "Buteur" },
+  ],
+  "3-4-3": [
+    { x: 50, y: 90, label: "Gardien" },
+    { x: 25, y: 72, label: "Défenseur Central" },
+    { x: 50, y: 72, label: "Défenseur Central" },
+    { x: 75, y: 72, label: "Défenseur Central" },
+    { x: 10, y: 48, label: "Arrière Gauche" },
+    { x: 38, y: 48, label: "Milieu Central" },
+    { x: 62, y: 48, label: "Milieu Central" },
+    { x: 90, y: 48, label: "Arrière Droit" },
+    { x: 15, y: 25, label: "Ailier Gauche" },
+    { x: 50, y: 22, label: "Buteur" },
+    { x: 85, y: 25, label: "Ailier Droit" },
+  ],
 };
 
 function formatDate(dateStr: string) {
@@ -123,7 +163,7 @@ function formatTime(dateStr: string) {
   });
 }
 
-// ─── Séance Tab ─────────────────────────────────────────────────────────────
+// --- Séance Tab ----------------------------------------------------------------
 
 function SéanceTab() {
   const { user } = useAuth();
@@ -185,6 +225,22 @@ function SéanceTab() {
     setExercises(updated);
   }
 
+  async function handleDeleteSession() {
+    if (!selectedSession) return;
+    if (!confirm("Supprimer cette séance ?")) return;
+    const { error } = await supabase
+      .from("training_sessions")
+      .delete()
+      .eq("id", selectedSession.id);
+    if (error) {
+      toast.error("Erreur lors de la suppression");
+    } else {
+      toast.success("Séance supprimée");
+      setSelectedSession(null);
+      fetchData();
+    }
+  }
+
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     if (!form.event_id || !form.title) {
@@ -230,10 +286,18 @@ function SéanceTab() {
     const event = eventMap.get(selectedSession.event_id);
     return (
       <div className="space-y-4">
-        <Button variant="ghost" size="sm" onClick={() => setSelectedSession(null)}>
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Retour
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="sm" onClick={() => setSelectedSession(null)}>
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Retour
+          </Button>
+          {isCoach && (
+            <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={handleDeleteSession}>
+              <Trash2 className="mr-2 h-4 w-4" />
+              Supprimer
+            </Button>
+          )}
+        </div>
         <Card>
           <CardHeader>
             <div className="flex items-start justify-between">
@@ -537,7 +601,7 @@ function SéanceTab() {
   );
 }
 
-// ─── Feuillet Match Tab ─────────────────────────────────────────────────────
+// --- Feuillet Match Tab --------------------------------------------------------
 
 function FeuilletMatchTab() {
   const { user } = useAuth();
@@ -562,6 +626,7 @@ function FeuilletMatchTab() {
     formation_name: "4-3-3",
   });
   const [slotPlayerIds, setSlotPlayerIds] = useState<Record<number, string>>({});
+  const [captainId, setCaptainId] = useState("");
 
   const fetchData = useCallback(async () => {
     const [lineupsRes, formationsRes, eventsRes, playersRes] = await Promise.all([
@@ -624,6 +689,21 @@ function FeuilletMatchTab() {
     });
   }
 
+  async function handleDeleteFormation(formationId: string, eventId: string) {
+    if (!confirm("Supprimer ce feuillet de match ?")) return;
+    const [fErr] = await Promise.all([
+      supabase.from("formations").delete().eq("id", formationId),
+      supabase.from("match_lineups").delete().eq("event_id", eventId),
+    ]);
+    if (fErr) {
+      toast.error("Erreur lors de la suppression");
+    } else {
+      toast.success("Feuillet supprimé");
+      setSelectedLineup(null);
+      fetchData();
+    }
+  }
+
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     if (!form.event_id) {
@@ -643,13 +723,6 @@ function FeuilletMatchTab() {
 
     setSubmitting(true);
 
-    const existing = formations.find((f) => f.event_id === form.event_id);
-    if (existing) {
-      toast.error("Un feuillet existe déjà pour ce match");
-      setSubmitting(false);
-      return;
-    }
-
     const positions = FORMATION_POSITIONS[form.formation_name] || FORMATION_POSITIONS["4-3-3"];
     const starterIds = Object.values(slotPlayerIds);
 
@@ -660,6 +733,7 @@ function FeuilletMatchTab() {
         y: positions[i]?.y ?? 50,
         label: positions[i]?.label ?? "Joueur",
       })),
+      ...(captainId ? { captain_id: captainId } : {}),
     };
 
     const { data: formation, error: fErr } = await supabase
@@ -717,6 +791,7 @@ function FeuilletMatchTab() {
   function resetForm() {
     setForm({ event_id: "", formation_name: "4-3-3" });
     setSlotPlayerIds({});
+    setCaptainId("");
   }
 
   if (selectedLineup) {
@@ -724,13 +799,23 @@ function FeuilletMatchTab() {
     const starterLineups = eventLineups.filter((l) => l.is_starter);
     const subLineups = eventLineups.filter((l) => !l.is_starter);
     const positions = FORMATION_POSITIONS[formation.name] || FORMATION_POSITIONS["4-3-3"];
+    const fd = formation.formation_data as { positions: { player_id: string; x: number; y: number; label: string }[]; captain_id?: string } | null;
+    const captainIdVal = fd?.captain_id;
 
     return (
       <div className="space-y-4">
-        <Button variant="ghost" size="sm" onClick={() => setSelectedLineup(null)}>
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Retour
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="sm" onClick={() => setSelectedLineup(null)}>
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Retour
+          </Button>
+          {isCoach && (
+            <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => handleDeleteFormation(formation.id, event.id)}>
+              <Trash2 className="mr-2 h-4 w-4" />
+              Supprimer
+            </Button>
+          )}
+        </div>
         <Card>
           <CardHeader>
             <div className="flex items-start justify-between">
@@ -754,14 +839,16 @@ function FeuilletMatchTab() {
                 {starterLineups.map((lineup, i) => {
                   const pos = positions[i];
                   const player = lineup.player as Profile | undefined;
+                  const isCaptain = captainIdVal === lineup.player_id;
                   return (
                     <div
                       key={lineup.id}
                       className="absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center"
                       style={{ left: `${pos?.x ?? 50}%`, top: `${pos?.y ?? 50}%` }}
                     >
-                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold shadow-lg">
+                      <div className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold shadow-lg ${isCaptain ? "bg-yellow-500 text-black" : "bg-primary text-primary-foreground"}`}>
                         {player?.shirt_number ?? "?"}
+                        {isCaptain && <Crown className="ml-0.5 h-3 w-3" />}
                       </div>
                       <span className="mt-0.5 max-w-[80px] truncate text-center text-[10px] font-medium text-foreground drop-shadow-md">
                         {player
@@ -785,6 +872,7 @@ function FeuilletMatchTab() {
               <div className="space-y-1">
                 {starterLineups.map((lineup) => {
                   const player = lineup.player as Profile | undefined;
+                  const isCaptain = captainIdVal === lineup.player_id;
                   return (
                     <div
                       key={lineup.id}
@@ -797,6 +885,12 @@ function FeuilletMatchTab() {
                         <span>
                           {player?.first_name} {player?.last_name}
                         </span>
+                        {isCaptain && (
+                          <Badge variant="outline" className="border-yellow-500 text-yellow-600 text-xs">
+                            <Crown className="mr-1 h-3 w-3" />
+                            (C)
+                          </Badge>
+                        )}
                       </div>
                       <Badge variant="outline" className="text-xs">
                         {lineup.position_label}
@@ -874,18 +968,13 @@ function FeuilletMatchTab() {
                       <SelectValue placeholder="Sélectionner un match" />
                     </SelectTrigger>
                     <SelectContent>
-                      {events
-                        .filter(
-                          (ev) =>
-                            !formations.some((f) => f.event_id === ev.id)
-                        )
-                        .map((ev) => (
-                          <SelectItem key={ev.id} value={ev.id}>
-                            {ev.title}
-                            {ev.opponent ? ` vs ${ev.opponent}` : ""} —{" "}
-                            {formatDate(ev.event_date)}
-                          </SelectItem>
-                        ))}
+                      {events.map((ev) => (
+                        <SelectItem key={ev.id} value={ev.id}>
+                          {ev.title}
+                          {ev.opponent ? ` vs ${ev.opponent}` : ""} —{" "}
+                          {formatDate(ev.event_date)}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -905,6 +994,28 @@ function FeuilletMatchTab() {
                           {f}
                         </SelectItem>
                       ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Capitaine</Label>
+                  <Select
+                    value={captainId}
+                    onValueChange={(v) => setCaptainId(v ?? "")}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Aucun capitaine" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {players
+                        .filter((p) => assignedPlayerIds.includes(p.id))
+                        .map((player) => (
+                          <SelectItem key={player.id} value={player.id}>
+                            #{player.shirt_number ?? "?"} {player.first_name}{" "}
+                            {player.last_name}
+                          </SelectItem>
+                        ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -980,45 +1091,67 @@ function FeuilletMatchTab() {
         </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
-          {matchSheets.map((sheet) => (
-            <Card
-              key={sheet.formation.id}
-              className="cursor-pointer transition-colors hover:bg-accent/50"
-              onClick={() => setSelectedLineup(sheet)}
-            >
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1">
-                    <h3 className="font-medium">{sheet.event.title}</h3>
-                    <p className="text-sm text-muted-foreground">
-                      {sheet.event.opponent
-                        ? `vs ${sheet.event.opponent}`
-                        : "Adversaire inconnu"}{" "}
-                      — {formatDate(sheet.event.event_date)}
-                    </p>
+          {matchSheets.map((sheet) => {
+            const fd = sheet.formation.formation_data as { captain_id?: string } | null;
+            const captainIdVal = fd?.captain_id;
+            return (
+              <Card
+                key={sheet.formation.id}
+                className="cursor-pointer transition-colors hover:bg-accent/50"
+                onClick={() => setSelectedLineup(sheet)}
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between">
+                    <div className="space-y-1">
+                      <h3 className="font-medium">{sheet.event.title}</h3>
+                      <p className="text-sm text-muted-foreground">
+                        {sheet.event.opponent
+                          ? `vs ${sheet.event.opponent}`
+                          : "Adversaire inconnu"}{" "}
+                        — {formatDate(sheet.event.event_date)}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary">
+                        {sheet.formation.name}
+                        {captainIdVal && " (C)"}
+                      </Badge>
+                      {isCoach && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteFormation(sheet.formation.id, sheet.event.id);
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                  <Badge variant="secondary">{sheet.formation.name}</Badge>
-                </div>
-                <div className="mt-3 flex flex-wrap gap-1.5">
-                  <Badge variant="outline" className="text-xs">
-                    {sheet.lineups.filter((l) => l.is_starter).length} titulaire
-                    {sheet.lineups.filter((l) => l.is_starter).length !== 1 ? "s" : ""}
-                  </Badge>
-                  <Badge variant="outline" className="text-xs">
-                    {sheet.lineups.filter((l) => !l.is_starter).length} remplaçant
-                    {sheet.lineups.filter((l) => !l.is_starter).length !== 1 ? "s" : ""}
-                  </Badge>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    <Badge variant="outline" className="text-xs">
+                      {sheet.lineups.filter((l) => l.is_starter).length} titulaire
+                      {sheet.lineups.filter((l) => l.is_starter).length !== 1 ? "s" : ""}
+                    </Badge>
+                    <Badge variant="outline" className="text-xs">
+                      {sheet.lineups.filter((l) => !l.is_starter).length} remplaçant
+                      {sheet.lineups.filter((l) => !l.is_starter).length !== 1 ? "s" : ""}
+                    </Badge>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
     </div>
   );
 }
 
-// ─── Page ───────────────────────────────────────────────────────────────────
+// --- Page ----------------------------------------------------------------------
 
 export default function TacticsPage() {
   return (
