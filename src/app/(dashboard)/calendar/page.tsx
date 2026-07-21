@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
-
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,10 +21,17 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { ChevronLeft, ChevronRight, Plus, CalendarDays } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Plus,
+  CalendarDays,
+  Trash2,
+  Clock,
+  MoreVertical,
+} from "lucide-react";
 import { toast } from "sonner";
-import type { Event } from "@/types";
-import type { Profile } from "@/types";
+import type { Event, Profile } from "@/types";
 
 type Recurrence = "none" | "weekly" | "biweekly" | "monthly";
 
@@ -53,6 +59,22 @@ function computeRecurrenceDates(eventDate: Date, recurrence: Recurrence, endDate
   return dates;
 }
 
+function toLocalISOString(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  const h = String(date.getHours()).padStart(2, "0");
+  const min = String(date.getMinutes()).padStart(2, "0");
+  return `${y}-${m}-${d}T${h}:${min}:00`;
+}
+
+function toLocalDateStr(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
 export default function CalendarPage() {
   const { user } = useAuth();
   const [view, setView] = useState<"month" | "week">("month");
@@ -61,6 +83,9 @@ export default function CalendarPage() {
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
   const [players, setPlayers] = useState<Profile[]>([]);
+  const [eventMenuOpen, setEventMenuOpen] = useState<string | null>(null);
+  const [postponeOpen, setPostponeOpen] = useState<string | null>(null);
+  const [postponeDate, setPostponeDate] = useState("");
   const [form, setForm] = useState({
     title: "",
     type: "training" as "match" | "training",
@@ -155,24 +180,9 @@ export default function CalendarPage() {
 
   function getEventsForDate(dateStr: string) {
     return events.filter((e) => {
-      const eventDate = new Date(e.event_date);
-      return eventDate.toISOString().slice(0, 10) === dateStr;
-    });
-  }
-
-  function getEventsForWeek() {
-    const end = new Date(weekStart);
-    end.setDate(end.getDate() + 6);
-    return events.filter((e) => {
       const d = new Date(e.event_date);
-      return d >= weekStart && d <= end;
+      return toLocalDateStr(d) === dateStr;
     });
-  }
-
-  function formatTime(timeStr: string) {
-    if (!timeStr) return null;
-    const [h, m] = timeStr.split(":");
-    return `${h}:${m}`;
   }
 
   function togglePlayer(playerId: string) {
@@ -193,7 +203,7 @@ export default function CalendarPage() {
     const rows = dates.map((d) => ({
       title: form.title,
       type: form.type,
-      event_date: d.toISOString(),
+      event_date: toLocalISOString(d),
       meeting_time: form.meeting_time || null,
       location: form.location || null,
       opponent: form.type === "match" ? form.opponent || null : null,
@@ -203,7 +213,12 @@ export default function CalendarPage() {
 
     const { data: inserted, error } = await supabase.from("events").insert(rows).select("id");
 
-    if (!error && inserted && form.type === "match" && form.selected_player_ids.length > 0) {
+    if (error) {
+      toast.error("Erreur lors de la création");
+      return;
+    }
+
+    if (inserted && form.type === "match" && form.selected_player_ids.length > 0) {
       const attendanceRows = inserted.flatMap((evt) =>
         form.selected_player_ids.map((pid) => ({
           event_id: evt.id,
@@ -235,6 +250,35 @@ export default function CalendarPage() {
     }
   }
 
+  async function handleDeleteEvent(eventId: string) {
+    const supabase = createClient();
+    const { error } = await supabase.from("events").delete().eq("id", eventId);
+    if (error) {
+      toast.error("Erreur lors de la suppression");
+    } else {
+      toast.success("Evenement supprime");
+      setEvents(events.filter((e) => e.id !== eventId));
+      setEventMenuOpen(null);
+    }
+  }
+
+  async function handlePostponeEvent(eventId: string) {
+    if (!postponeDate) return;
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("events")
+      .update({ event_date: postponeDate })
+      .eq("id", eventId);
+    if (error) {
+      toast.error("Erreur lors du report");
+    } else {
+      toast.success("Evenement reporte");
+      setPostponeOpen(null);
+      setPostponeDate("");
+      fetchEvents();
+    }
+  }
+
   function getEventBadgeColor(event: Event) {
     if (event.type === "match") {
       if (event.match_result === "win") return "bg-green-100 text-green-700 border-green-200";
@@ -245,20 +289,68 @@ export default function CalendarPage() {
     return "bg-purple-100 text-purple-700 border-purple-200";
   }
 
+  function formatTimeDisplay(dateStr: string) {
+    return new Date(dateStr).toLocaleTimeString("fr-FR", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }
+
   function EventTimeDisplay({ event }: { event: EventWithMeeting }) {
-    const start = formatTime(
-      new Date(event.event_date).toLocaleTimeString("fr-FR", {
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: false,
-      })
-    );
-    const rdv = event.meeting_time ? formatTime(event.meeting_time) : null;
-    if (!start) return null;
+    const start = formatTimeDisplay(event.event_date);
+    const rdv = event.meeting_time;
     return (
       <span className="text-xs text-muted-foreground">
         {rdv ? `RDV: ${rdv} | Debut: ${start}` : start}
       </span>
+    );
+  }
+
+  function EventActions({ event }: { event: EventWithMeeting }) {
+    if (!isCoach) return null;
+    return (
+      <div className="relative">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-6 w-6"
+          onClick={(e) => {
+            e.stopPropagation();
+            setEventMenuOpen(eventMenuOpen === event.id ? null : event.id);
+          }}
+        >
+          <MoreVertical className="h-3 w-3" />
+        </Button>
+        {eventMenuOpen === event.id && (
+          <div className="absolute right-0 top-8 z-50 w-40 rounded-lg border bg-white shadow-lg dark:bg-slate-900">
+            <button
+              className="w-full text-left px-3 py-2 text-sm hover:bg-muted flex items-center gap-2"
+              onClick={(e) => {
+                e.stopPropagation();
+                const dt = new Date(event.event_date);
+                setPostponeDate(toLocalISOString(dt));
+                setPostponeOpen(event.id);
+                setEventMenuOpen(null);
+              }}
+            >
+              <Clock className="h-3.5 w-3.5" />
+              Reporter
+            </button>
+            <button
+              className="w-full text-left px-3 py-2 text-sm hover:bg-muted text-red-600 flex items-center gap-2"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (confirm("Supprimer cet evenement ?")) {
+                  handleDeleteEvent(event.id);
+                }
+              }}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Supprimer
+            </button>
+          </div>
+        )}
+      </div>
     );
   }
 
@@ -272,7 +364,7 @@ export default function CalendarPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" onClick={() => setEventMenuOpen(null)}>
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold">Calendrier</h2>
@@ -311,7 +403,7 @@ export default function CalendarPage() {
                 </div>
                 <div className="space-y-2">
                   <Label>Heure de RDV</Label>
-                  <Input type="time" value={form.meeting_time} onChange={(e) => setForm({ ...form, meeting_time: e.target.value })} placeholder="Heure d arrivee" />
+                  <Input type="time" value={form.meeting_time} onChange={(e) => setForm({ ...form, meeting_time: e.target.value })} />
                 </div>
                 <div className="space-y-2">
                   <Label>Lieu</Label>
@@ -351,7 +443,7 @@ export default function CalendarPage() {
                         <label key={player.id} className="flex items-center gap-2 cursor-pointer py-0.5">
                           <input
                             type="checkbox"
-                            className="h-4 w-4 rounded border-gray-300 text-[var(--color-royal)] focus:ring-[var(--color-royal)]"
+                            className="h-4 w-4 rounded border-gray-300"
                             checked={form.selected_player_ids.includes(player.id)}
                             onChange={() => togglePlayer(player.id)}
                           />
@@ -377,6 +469,32 @@ export default function CalendarPage() {
           </Dialog>
         )}
       </div>
+
+      {/* Postpone Dialog */}
+      <Dialog open={!!postponeOpen} onOpenChange={() => setPostponeOpen(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reporter l&apos;evenement</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Nouvelle date et heure</Label>
+              <Input
+                type="datetime-local"
+                value={postponeDate}
+                onChange={(e) => setPostponeDate(e.target.value)}
+              />
+            </div>
+            <Button
+              onClick={() => postponeOpen && handlePostponeEvent(postponeOpen)}
+              className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] font-semibold"
+              disabled={!postponeDate}
+            >
+              Reporter
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Navigation */}
       <div className="flex items-center justify-between">
@@ -421,7 +539,7 @@ export default function CalendarPage() {
               const day = i + 1;
               const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
               const dayEvents = getEventsForDate(dateStr);
-              const isToday = new Date().toISOString().slice(0, 10) === dateStr;
+              const isToday = toLocalDateStr(new Date()) === dateStr;
 
               return (
                 <div key={day} className={`h-24 border-b border-r p-1 overflow-hidden ${isToday ? "bg-blue-50 dark:bg-blue-950/20" : ""}`}>
@@ -430,8 +548,20 @@ export default function CalendarPage() {
                   </p>
                   <div className="space-y-0.5">
                     {dayEvents.slice(0, 2).map((event) => (
-                      <div key={event.id} className={`text-[10px] truncate rounded px-1 py-0.5 border ${getEventBadgeColor(event)}`}>
+                      <div
+                        key={event.id}
+                        className={`text-[10px] truncate rounded px-1 py-0.5 border cursor-pointer group relative ${getEventBadgeColor(event)}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (isCoach) setEventMenuOpen(eventMenuOpen === event.id ? null : event.id);
+                        }}
+                      >
                         {event.title}
+                        {isCoach && (
+                          <span className="absolute right-0.5 top-0.5 opacity-0 group-hover:opacity-100">
+                            <MoreVertical className="h-2.5 w-2.5" />
+                          </span>
+                        )}
                       </div>
                     ))}
                     {dayEvents.length > 2 && (
@@ -451,9 +581,9 @@ export default function CalendarPage() {
           {Array.from({ length: 7 }).map((_, i) => {
             const day = new Date(weekStart);
             day.setDate(day.getDate() + i);
-            const dateStr = day.toISOString().slice(0, 10);
+            const dateStr = toLocalDateStr(day);
             const dayEvents = getEventsForDate(dateStr);
-            const isToday = new Date().toISOString().slice(0, 10) === dateStr;
+            const isToday = toLocalDateStr(new Date()) === dateStr;
 
             return (
               <div key={i} className={`rounded-lg border p-3 ${isToday ? "bg-blue-50 dark:bg-blue-950/20 border-[var(--color-royal)]" : ""}`}>
@@ -467,7 +597,7 @@ export default function CalendarPage() {
                 ) : (
                   <div className="space-y-1">
                     {dayEvents.map((event) => (
-                      <div key={event.id} className="flex items-center gap-2 text-sm">
+                      <div key={event.id} className="flex items-center gap-2 text-sm group relative">
                         <Badge variant="outline" className={getEventBadgeColor(event)}>
                           {event.type === "match" ? "Match" : "Entrainement"}
                         </Badge>
@@ -479,6 +609,9 @@ export default function CalendarPage() {
                         {event.score_us !== null && event.score_them !== null && (
                           <span className="text-xs font-bold">{event.score_us}-{event.score_them}</span>
                         )}
+                        <div className="ml-auto">
+                          <EventActions event={event} />
+                        </div>
                       </div>
                     ))}
                   </div>

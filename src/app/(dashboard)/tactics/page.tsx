@@ -561,7 +561,7 @@ function FeuilletMatchTab() {
     event_id: "",
     formation_name: "4-3-3",
   });
-  const [starterIds, setStarterIds] = useState<string[]>([]);
+  const [slotPlayerIds, setSlotPlayerIds] = useState<Record<number, string>>({});
 
   const fetchData = useCallback(async () => {
     const [lineupsRes, formationsRes, eventsRes, playersRes] = await Promise.all([
@@ -598,7 +598,6 @@ function FeuilletMatchTab() {
 
   const eventMap = new Map(events.map((ev) => [ev.id, ev]));
 
-  // Group lineups by event_id to find existing match sheets
   const matchSheets = formations
     .filter((f) => {
       const ev = eventMap.get(f.event_id);
@@ -610,16 +609,18 @@ function FeuilletMatchTab() {
       return { event: ev, formation: f, lineups: eventLineups };
     });
 
-  function toggleStarter(playerId: string) {
-    setStarterIds((prev) => {
-      if (prev.includes(playerId)) {
-        return prev.filter((id) => id !== playerId);
+  const currentPositions = FORMATION_POSITIONS[form.formation_name] || FORMATION_POSITIONS["4-3-3"];
+  const assignedPlayerIds = Object.values(slotPlayerIds).filter(Boolean);
+
+  function setSlotPlayer(slotIndex: number, playerId: string | null) {
+    setSlotPlayerIds((prev) => {
+      const next = { ...prev };
+      if (playerId) {
+        next[slotIndex] = playerId;
+      } else {
+        delete next[slotIndex];
       }
-      if (prev.length >= 11) {
-        toast.error("Maximum 11 titulaires");
-        return prev;
-      }
-      return [...prev, playerId];
+      return next;
     });
   }
 
@@ -629,14 +630,19 @@ function FeuilletMatchTab() {
       toast.error("Sélectionnez un match");
       return;
     }
-    if (starterIds.length !== 11) {
-      toast.error("Sélectionnez exactement 11 titulaires");
+
+    const filledSlots = Object.values(slotPlayerIds).filter(Boolean);
+    if (filledSlots.length !== currentPositions.length) {
+      toast.error("Tous les postes doivent être remplis");
+      return;
+    }
+    if (new Set(filledSlots).size !== filledSlots.length) {
+      toast.error("Un joueur ne peut pas occuper deux postes");
       return;
     }
 
     setSubmitting(true);
 
-    // Check if a formation already exists for this event
     const existing = formations.find((f) => f.event_id === form.event_id);
     if (existing) {
       toast.error("Un feuillet existe déjà pour ce match");
@@ -645,6 +651,8 @@ function FeuilletMatchTab() {
     }
 
     const positions = FORMATION_POSITIONS[form.formation_name] || FORMATION_POSITIONS["4-3-3"];
+    const starterIds = Object.values(slotPlayerIds);
+
     const formationData = {
       positions: starterIds.map((pid, i) => ({
         player_id: pid,
@@ -672,7 +680,6 @@ function FeuilletMatchTab() {
       return;
     }
 
-    // Insert lineups
     const substituteIds = players
       .filter((p) => !starterIds.includes(p.id))
       .map((p) => p.id);
@@ -709,7 +716,7 @@ function FeuilletMatchTab() {
 
   function resetForm() {
     setForm({ event_id: "", formation_name: "4-3-3" });
-    setStarterIds([]);
+    setSlotPlayerIds({});
   }
 
   if (selectedLineup) {
@@ -737,14 +744,10 @@ function FeuilletMatchTab() {
             </div>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* Pitch visualization */}
             <div className="mx-auto max-w-md">
               <div className="relative aspect-[2/3] rounded-lg border-2 border-green-600 bg-green-700/20">
-                {/* Center line */}
                 <div className="absolute top-1/2 left-0 right-0 h-px bg-green-600/50" />
-                {/* Center circle */}
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-16 w-16 rounded-full border border-green-600/50" />
-                {/* Penalty areas */}
                 <div className="absolute top-0 left-1/4 right-1/4 h-[15%] border border-green-600/50 border-t-0" />
                 <div className="absolute bottom-0 left-1/4 right-1/4 h-[15%] border border-green-600/50 border-b-0" />
 
@@ -774,7 +777,6 @@ function FeuilletMatchTab() {
               </div>
             </div>
 
-            {/* Lineup table */}
             <div>
               <h4 className="mb-2 flex items-center gap-2 text-sm font-medium">
                 <Shirt className="h-4 w-4" />
@@ -909,38 +911,41 @@ function FeuilletMatchTab() {
 
                 <div className="space-y-2">
                   <Label>
-                    Titulaires ({starterIds.length}/11)
+                    Titulaires ({assignedPlayerIds.length}/{currentPositions.length})
                   </Label>
-                  <div className="max-h-64 space-y-1 overflow-y-auto rounded-lg border p-2">
-                    {players.map((player) => {
-                      const isStarter = starterIds.includes(player.id);
-                      return (
-                        <label
-                          key={player.id}
-                          className={`flex cursor-pointer items-center gap-3 rounded p-2 text-sm transition-colors hover:bg-accent/50 ${
-                            isStarter ? "bg-accent" : ""
-                          }`}
+                  <div className="max-h-64 space-y-2 overflow-y-auto rounded-lg border p-2">
+                    {currentPositions.map((pos, slotIndex) => (
+                      <div key={slotIndex} className="flex items-center gap-2">
+                        <span className="w-40 shrink-0 truncate text-sm text-muted-foreground">
+                          {pos.label}
+                        </span>
+                        <Select
+                          value={slotPlayerIds[slotIndex] ?? ""}
+                          onValueChange={(v) => setSlotPlayer(slotIndex, v)}
                         >
-                          <input
-                            type="checkbox"
-                            checked={isStarter}
-                            onChange={() => toggleStarter(player.id)}
-                            className="h-4 w-4 rounded border-gray-300"
-                          />
-                          <span className="flex h-6 w-6 items-center justify-center rounded bg-muted text-xs font-bold">
-                            {player.shirt_number ?? "?"}
-                          </span>
-                          <span className="flex-1">
-                            {player.first_name} {player.last_name}
-                          </span>
-                          {player.position && (
-                            <Badge variant="outline" className="text-xs">
-                              {player.position}
-                            </Badge>
-                          )}
-                        </label>
-                      );
-                    })}
+                          <SelectTrigger className="flex-1">
+                            <SelectValue placeholder="Choisir un joueur" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {players.map((player) => {
+                              const isAssignedElsewhere =
+                                assignedPlayerIds.includes(player.id) &&
+                                slotPlayerIds[slotIndex] !== player.id;
+                              return (
+                                <SelectItem
+                                  key={player.id}
+                                  value={player.id}
+                                  disabled={isAssignedElsewhere}
+                                >
+                                  #{player.shirt_number ?? "?"} {player.first_name}{" "}
+                                  {player.last_name}
+                                </SelectItem>
+                              );
+                            })}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    ))}
                   </div>
                 </div>
 

@@ -3,26 +3,11 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Plus, UserPlus } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { UserPlus, Shield, Users, Baby } from "lucide-react";
 import type { Profile } from "@/types";
 
 const positionLabels: Record<string, string> = {
@@ -32,71 +17,38 @@ const positionLabels: Record<string, string> = {
   forward: "Attaquant",
 };
 
+const roleLabels: Record<string, { label: string; color: string; icon: typeof Shield }> = {
+  coach: { label: "Coachs", color: "text-amber-600", icon: Shield },
+  player: { label: "Joueurs", color: "text-blue-600", icon: Users },
+  parent: { label: "Parents", color: "text-green-600", icon: Baby },
+};
+
 export default function RosterPage() {
   const { user } = useAuth();
-  const [players, setPlayers] = useState<Profile[]>([]);
+  const [allProfiles, setAllProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
-  const [addOpen, setAddOpen] = useState(false);
-  const [form, setForm] = useState({
-    firstName: "",
-    lastName: "",
-    email: "",
-    password: "",
-    position: "",
-    shirtNumber: "",
-  });
 
-  const isCoach = user?.profile?.role === "coach";
-
-  function fetchPlayers() {
+  useEffect(() => {
     const supabase = createClient();
     supabase
       .from("profiles")
       .select("*")
-      .eq("role", "player")
-      .eq("is_active", true)
       .order("last_name", { ascending: true })
       .then(({ data }) => {
-        setPlayers((data as Profile[]) || []);
+        setAllProfiles((data as Profile[]) || []);
         setLoading(false);
       });
-  }
-
-  useEffect(() => {
-    fetchPlayers();
   }, []);
 
-  async function handleAddPlayer(e: React.FormEvent) {
-    e.preventDefault();
-    const res = await fetch("/api/auth/register", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        firstName: form.firstName,
-        lastName: form.lastName,
-        email: form.email,
-        password: form.password,
-        role: "player",
-      }),
-    });
+  const coaches = allProfiles.filter((p) => p.role === "coach");
+  const players = allProfiles.filter((p) => p.role === "player");
+  const parents = allProfiles.filter((p) => p.role === "parent");
 
-    if (res.ok) {
-      // Update profile with extra fields
-      const data = await res.json();
-      const supabase = createClient();
-      await supabase
-        .from("profiles")
-        .update({
-          position: form.position || null,
-          shirt_number: form.shirtNumber ? parseInt(form.shirtNumber) : null,
-        })
-        .eq("id", data.user.id);
-
-      setAddOpen(false);
-      setForm({ firstName: "", lastName: "", email: "", password: "", position: "", shirtNumber: "" });
-      fetchPlayers();
-    }
-  }
+  const groupedByRole = [
+    { key: "coach", profiles: coaches, ...roleLabels.coach },
+    { key: "player", profiles: players, ...roleLabels.player },
+    { key: "parent", profiles: parents, ...roleLabels.parent },
+  ];
 
   if (loading) {
     return (
@@ -113,108 +65,119 @@ export default function RosterPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold">Effectif</h2>
-          <p className="text-muted-foreground mt-1">
-            {players.length} joueur{players.length > 1 ? "s" : ""} actif{players.length > 1 ? "s" : ""}
-          </p>
-        </div>
-        {isCoach && (
-          <Dialog open={addOpen} onOpenChange={setAddOpen}>
-            <DialogTrigger render={<Button className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold" />}>
-              <Plus className="h-4 w-4 mr-1" />
-              Ajouter
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Ajouter un joueur</DialogTitle>
-              </DialogHeader>
-              <form onSubmit={handleAddPlayer} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Prenom *</Label>
-                    <Input value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} required />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Nom *</Label>
-                    <Input value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} required />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label>Email *</Label>
-                  <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
-                </div>
-                <div className="space-y-2">
-                  <Label>Mot de passe *</Label>
-                  <Input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required minLength={8} />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Poste</Label>
-                    <Select value={form.position} onValueChange={(v) => v && setForm({ ...form, position: v })}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Choisir" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="goalkeeper">Gardien</SelectItem>
-                        <SelectItem value="defender">Defenseur</SelectItem>
-                        <SelectItem value="midfielder">Milieu</SelectItem>
-                        <SelectItem value="forward">Attaquant</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Numéro</Label>
-                    <Input type="number" min="1" max="99" value={form.shirtNumber} onChange={(e) => setForm({ ...form, shirtNumber: e.target.value })} />
-                  </div>
-                </div>
-                <Button type="submit" className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] font-semibold">
-                  Creer le compte
-                </Button>
-              </form>
-            </DialogContent>
-          </Dialog>
-        )}
+      <div>
+        <h2 className="text-2xl font-bold">Effectif</h2>
+        <p className="text-muted-foreground mt-1">
+          {coaches.length} coach{coaches.length > 1 ? "s" : ""}, {players.length} joueur{players.length > 1 ? "s" : ""}, {parents.length} parent{parents.length > 1 ? "s" : ""}
+        </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {players.map((player) => (
-          <Card key={player.id} className="hover:shadow-md transition-shadow">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-4">
-                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[var(--color-royal)]/10 text-[var(--color-royal)] text-lg font-bold">
-                  {player.shirt_number || "?"}
+      <Tabs defaultValue="all" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="all">Tous</TabsTrigger>
+          {groupedByRole.filter(r => r.profiles.length > 0).map((role) => (
+            <TabsTrigger key={role.key} value={role.key}>
+              {role.label} ({role.profiles.length})
+            </TabsTrigger>
+          ))}
+        </TabsList>
+
+        <TabsContent value="all">
+          <div className="space-y-6">
+            {groupedByRole.map((role) => {
+              if (role.profiles.length === 0) return null;
+              const Icon = role.icon;
+              return (
+                <div key={role.key}>
+                  <h3 className={`text-sm font-semibold mb-3 flex items-center gap-2 ${role.color}`}>
+                    <Icon className="h-4 w-4" />
+                    {role.label} ({role.profiles.length})
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {role.profiles.map((profile) => (
+                      <ProfileCard key={profile.id} profile={profile} roleKey={role.key} />
+                    ))}
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold truncate">
-                    {player.first_name} {player.last_name}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {positionLabels[player.position || ""] || "Joueur"}
-                  </p>
-                </div>
-                {player.position && (
-                  <Badge variant="secondary" className="shrink-0">
-                    {positionLabels[player.position] || player.position}
-                  </Badge>
-                )}
+              );
+            })}
+            {allProfiles.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <UserPlus className="h-12 w-12 text-muted-foreground mb-4" />
+                <h3 className="font-semibold text-lg">Aucun membre</h3>
+                <p className="text-muted-foreground text-sm mt-1">
+                  Les membres inscrits apparaitront ici.
+                </p>
               </div>
-            </CardContent>
-          </Card>
-        ))}
-        {players.length === 0 && (
-          <div className="col-span-full">
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <UserPlus className="h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="font-semibold text-lg">Aucun joueur</h3>
-              <p className="text-muted-foreground text-sm mt-1">
-                {isCoach ? "Ajoutez des joueurs pour commencer." : "Aucun joueur dans l'equipe."}
-              </p>
-            </div>
+            )}
           </div>
-        )}
-      </div>
+        </TabsContent>
+
+        {groupedByRole.map((role) => (
+          <TabsContent key={role.key} value={role.key}>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {role.profiles.map((profile) => (
+                <ProfileCard key={profile.id} profile={profile} roleKey={role.key} />
+              ))}
+              {role.profiles.length === 0 && (
+                <div className="col-span-full">
+                  <div className="flex flex-col items-center justify-center py-12 text-center">
+                    <UserPlus className="h-12 w-12 text-muted-foreground mb-4" />
+                    <h3 className="font-semibold text-lg">Aucun {role.label.toLowerCase().slice(0, -1)}</h3>
+                  </div>
+                </div>
+              )}
+            </div>
+          </TabsContent>
+        ))}
+      </Tabs>
     </div>
+  );
+}
+
+function ProfileCard({ profile, roleKey }: { profile: Profile; roleKey: string }) {
+  const roleColors: Record<string, string> = {
+    coach: "bg-amber-100 text-amber-700",
+    player: "bg-blue-100 text-blue-700",
+    parent: "bg-green-100 text-green-700",
+  };
+
+  const roleBadgeLabels: Record<string, string> = {
+    coach: "Coach",
+    player: "Joueur",
+    parent: "Parent",
+  };
+
+  return (
+    <Card className="hover:shadow-md transition-shadow">
+      <CardContent className="p-4">
+        <div className="flex items-center gap-4">
+          <div className={`flex h-14 w-14 items-center justify-center rounded-full text-lg font-bold ${
+            roleKey === "coach" ? "bg-amber-100 text-amber-700" :
+            roleKey === "player" ? "bg-blue-100 text-blue-700" :
+            "bg-green-100 text-green-700"
+          }`}>
+            {roleKey === "player" && profile.shirt_number
+              ? profile.shirt_number
+              : `${profile.first_name[0]}${profile.last_name[0]}`
+            }
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold truncate">
+              {profile.first_name} {profile.last_name}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              {roleKey === "player"
+                ? (positionLabels[profile.position || ""] || "Joueur")
+                : roleBadgeLabels[roleKey] || roleKey
+              }
+            </p>
+          </div>
+          <Badge variant="secondary" className={`shrink-0 ${roleColors[roleKey]}`}>
+            {roleBadgeLabels[roleKey]}
+          </Badge>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
