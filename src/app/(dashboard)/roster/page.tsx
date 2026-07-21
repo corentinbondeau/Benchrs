@@ -12,7 +12,7 @@ import type { Profile } from "@/types";
 
 const positionLabels: Record<string, string> = {
   goalkeeper: "Gardien",
-  defender: "Defenseur",
+  defender: "Défenseur",
   midfielder: "Milieu",
   forward: "Attaquant",
 };

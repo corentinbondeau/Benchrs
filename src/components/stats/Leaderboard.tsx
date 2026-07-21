@@ -108,7 +108,7 @@ export function Leaderboard() {
     ["yellow_cards", "Cartons", Shield],
     ["red_cards", "Rouges", Shield],
     ["minutes_played", "Temps", Clock],
-    ["attendance_rate", "Assiduite", Users],
+    ["attendance_rate", "Assiduité", Users],
   ];
 
   if (loading) {
@@ -149,7 +149,7 @@ export function Leaderboard() {
               {sortKey === "yellow_cards" && <TableHead className="text-right">Jaunes</TableHead>}
               {sortKey === "red_cards" && <TableHead className="text-right">Rouges</TableHead>}
               {sortKey === "minutes_played" && <TableHead className="text-right">Minutes</TableHead>}
-              {sortKey === "attendance_rate" && <TableHead className="text-right">Presence</TableHead>}
+              {sortKey === "attendance_rate" && <TableHead className="text-right">Présence</TableHead>}
               <TableHead className="text-right">Matchs</TableHead>
             </TableRow>
           </TableHeader>
@@ -220,7 +220,7 @@ export function Leaderboard() {
             {sorted.length === 0 && (
               <TableRow>
                 <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                  Aucune statistique disponible. Les donnees apparaissent apres les premiers matchs.
+                  Aucune statistique disponible. Les données apparaissent après les premiers matchs.
                 </TableCell>
               </TableRow>
             )}

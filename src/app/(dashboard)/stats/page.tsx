@@ -14,13 +14,13 @@ export default function StatsPage() {
       <div>
         <h2 className="text-2xl font-bold">Statistiques</h2>
         <p className="text-muted-foreground mt-1">
-          Classements et performances de l&apos;equipe
+          Classements et performances de l&apos;équipe
         </p>
       </div>
 
       <Tabs defaultValue="general" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="general">Generales</TabsTrigger>
+          <TabsTrigger value="general">Générales</TabsTrigger>
           {!isCoach && <TabsTrigger value="me">Mon profil</TabsTrigger>}
         </TabsList>
         <TabsContent value="general">

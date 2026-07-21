@@ -44,7 +44,7 @@ export function TopBar() {
           </div>
           <DropdownMenuItem onClick={() => router.push("/settings")}>
             <Settings className="mr-2 h-4 w-4" />
-            Parametres
+            Paramètres
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => router.push("/stats/my")}>
             <User className="mr-2 h-4 w-4" />
@@ -52,7 +52,7 @@ export function TopBar() {
           </DropdownMenuItem>
           <DropdownMenuItem onClick={signOut} className="text-destructive">
             <LogOut className="mr-2 h-4 w-4" />
-            Deconnexion
+            Déconnexion
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

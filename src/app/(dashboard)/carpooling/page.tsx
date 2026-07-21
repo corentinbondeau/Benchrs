@@ -84,9 +84,9 @@ export default function CarpoolingPage() {
             </DialogHeader>
             <form onSubmit={handleCreate} className="space-y-4">
               <div className="space-y-2">
-                <Label>Evenement *</Label>
+                <Label>Événement *</Label>
                 <Select value={form.eventId} onValueChange={(v) => setForm({ ...form, eventId: v ?? "" })}>
-                  <SelectTrigger><SelectValue placeholder="Selectionner" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="Sélectionner" /></SelectTrigger>
                   <SelectContent>
                     {events.map((e) => (
                       <SelectItem key={e.id} value={e.id}>{e.title} - {new Date(e.event_date).toLocaleDateString("fr-FR")}</SelectItem>
@@ -99,16 +99,16 @@ export default function CarpoolingPage() {
                 <Input type="number" min="1" max="9" value={form.seats} onChange={(e) => setForm({ ...form, seats: e.target.value })} />
               </div>
               <div className="space-y-2">
-                <Label>Lieu de depart</Label>
+                <Label>Lieu de départ</Label>
                 <Input value={form.departureLocation} onChange={(e) => setForm({ ...form, departureLocation: e.target.value })} placeholder="Adresse, parking..." />
               </div>
               <div className="space-y-2">
-                <Label>Heure de depart</Label>
+                <Label>Heure de départ</Label>
                 <Input type="time" value={form.departureTime} onChange={(e) => setForm({ ...form, departureTime: e.target.value })} />
               </div>
               <div className="space-y-2">
                 <Label>Notes</Label>
-                <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Infos complementaires..." />
+                <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Infos complémentaires..." />
               </div>
               <Button type="submit" className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] font-semibold" disabled={!form.eventId}>
                 Proposer le trajet
@@ -120,7 +120,7 @@ export default function CarpoolingPage() {
 
       {trips.length === 0 ? (
         <div className="flex h-48 items-center justify-center rounded-lg border border-dashed text-muted-foreground">
-          <p className="text-sm">Aucun trajet propose</p>
+          <p className="text-sm">Aucun trajet proposé</p>
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -129,7 +129,7 @@ export default function CarpoolingPage() {
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm flex items-center gap-2">
                   <Car className="h-4 w-4 text-[var(--color-royal)]" />
-                  {trip.event?.title || "Evenement"}
+                  {trip.event?.title || "Événement"}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">

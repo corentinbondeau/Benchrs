@@ -51,7 +51,7 @@ export default function LoginPage() {
         </div>
         <CardTitle className="text-2xl">Connexion</CardTitle>
         <CardDescription>
-          Connectez-vous a votre compte SportPlus
+          Connectez-vous à votre compte SportPlus
         </CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit}>
@@ -95,7 +95,7 @@ export default function LoginPage() {
           <p className="text-sm text-muted-foreground text-center">
             Pas encore de compte ?{" "}
             <Link href="/register" className="text-[var(--color-royal)] hover:underline font-medium">
-              Creer un compte
+              Créer un compte
             </Link>
           </p>
         </CardFooter>

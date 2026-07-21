@@ -46,7 +46,7 @@ export default function RegisterPage() {
       return;
     }
     if (!formData.role) {
-      setError("Veuillez selectionner un role");
+      setError("Veuillez sélectionner un rôle");
       return;
     }
 
@@ -88,7 +88,7 @@ export default function RegisterPage() {
         <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--color-gold)] text-[var(--color-navy)] font-bold text-lg mx-auto mb-2">
           SP
         </div>
-        <CardTitle className="text-2xl">Creer un compte</CardTitle>
+        <CardTitle className="text-2xl">Créer un compte</CardTitle>
         <CardDescription>
           Rejoignez SportPlus en quelques clics
         </CardDescription>
@@ -103,7 +103,7 @@ export default function RegisterPage() {
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="firstName">Prenom</Label>
+              <Label htmlFor="firstName">Prénom</Label>
               <Input
                 id="firstName"
                 placeholder="Jean"
@@ -145,7 +145,7 @@ export default function RegisterPage() {
               }
             >
               <SelectTrigger>
-                <SelectValue placeholder="Selectionnez votre role" />
+                <SelectValue placeholder="Sélectionnez votre rôle" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="coach">Coach</SelectItem>
@@ -156,7 +156,7 @@ export default function RegisterPage() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="phone">Telephone (optionnel)</Label>
+            <Label htmlFor="phone">Téléphone (optionnel)</Label>
             <Input
               id="phone"
               type="tel"
@@ -213,10 +213,10 @@ export default function RegisterPage() {
             className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
             disabled={loading}
           >
-            {loading ? "Creation..." : "Creer mon compte"}
+            {loading ? "Création..." : "Créer mon compte"}
           </Button>
           <p className="text-sm text-muted-foreground text-center">
-            Deja un compte ?{" "}
+            Déjà un compte ?{" "}
             <Link href="/login" className="text-[var(--color-royal)] hover:underline font-medium">
               Se connecter
             </Link>

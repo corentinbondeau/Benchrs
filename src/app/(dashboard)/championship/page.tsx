@@ -80,7 +80,7 @@ export default function ChampionshipPage() {
       body: JSON.stringify(form),
     });
     if (res.ok) {
-      toast.success("Championnat cree");
+      toast.success("Championnat créé");
       setCreateOpen(false);
       setForm({ name: "", season: "2025-2026", level: "" });
       const data = await fetch("/api/championships").then((r) => r.json());
@@ -107,7 +107,7 @@ export default function ChampionshipPage() {
         return;
       }
       setScrapedTeams(data.teams);
-      toast.success(`${data.teams.length} equipes importees`);
+      toast.success(`${data.teams.length} équipes importées`);
     } catch {
       toast.error("Erreur de connexion");
     } finally {
@@ -133,7 +133,7 @@ export default function ChampionshipPage() {
         }),
       });
       if (!createRes.ok) {
-        toast.error("Erreur lors de la creation du championnat");
+        toast.error("Erreur lors de la création du championnat");
         return;
       }
       const championship = await createRes.json();
@@ -152,7 +152,7 @@ export default function ChampionshipPage() {
         });
       }
 
-      toast.success("Championnat importe avec succes");
+      toast.success("Championnat importé avec succès");
       setFffOpen(false);
       resetFffDialog();
       const data = await fetch("/api/championships").then((r) => r.json());
@@ -192,7 +192,7 @@ export default function ChampionshipPage() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold">Championnat</h2>
-          <p className="text-muted-foreground mt-1">Classement et resultats</p>
+          <p className="text-muted-foreground mt-1">Classement et résultats</p>
         </div>
         {isCoach && (
           <div className="flex gap-2">
@@ -265,14 +265,14 @@ export default function ChampionshipPage() {
                         </div>
                       </div>
                       <p className="text-sm text-muted-foreground">
-                        {scrapedTeams.length} equipes trouvees
+                        {scrapedTeams.length} équipes trouvées
                       </p>
                       <div className="max-h-60 overflow-y-auto rounded-lg border">
                         <table className="w-full text-xs">
                           <thead className="bg-muted/50 sticky top-0">
                             <tr>
                               <th className="p-1.5 text-left">#</th>
-                              <th className="p-1.5 text-left">Equipe</th>
+                              <th className="p-1.5 text-left">Équipe</th>
                               <th className="p-1.5 text-center">J</th>
                               <th className="p-1.5 text-center">V</th>
                               <th className="p-1.5 text-center">N</th>
@@ -327,7 +327,7 @@ export default function ChampionshipPage() {
                 Championnat
               </DialogTrigger>
               <DialogContent>
-                <DialogHeader><DialogTitle>Creer un championnat</DialogTitle></DialogHeader>
+                <DialogHeader><DialogTitle>Créer un championnat</DialogTitle></DialogHeader>
                 <form onSubmit={handleCreate} className="space-y-4">
                   <div className="space-y-2">
                     <Label>Nom *</Label>
@@ -343,7 +343,7 @@ export default function ChampionshipPage() {
                       <Input value={form.level} onChange={(e) => setForm({ ...form, level: e.target.value })} />
                     </div>
                   </div>
-                  <Button type="submit" className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] font-semibold">Creer</Button>
+                  <Button type="submit" className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] font-semibold">Créer</Button>
                 </form>
               </DialogContent>
             </Dialog>
@@ -357,7 +357,7 @@ export default function ChampionshipPage() {
             <Trophy className="h-12 w-12 text-muted-foreground mb-4" />
             <h3 className="font-semibold text-lg">Aucun championnat</h3>
             <p className="text-muted-foreground text-sm mt-1">
-              {isCoach ? "Creez un championnat ou importez depuis la FFF." : "Pas encore de championnat."}
+              {isCoach ? "Créez un championnat ou importez depuis la FFF." : "Pas encore de championnat."}
             </p>
           </CardContent>
         </Card>
@@ -383,7 +383,7 @@ export default function ChampionshipPage() {
               <CardContent>
                 {sortedTeams.length === 0 ? (
                   <p className="text-muted-foreground text-sm text-center py-6">
-                    Aucune equipe dans le classement
+                    Aucune équipe dans le classement
                   </p>
                 ) : (
                   <div className="rounded-lg border overflow-hidden">
@@ -391,7 +391,7 @@ export default function ChampionshipPage() {
                       <thead className="bg-muted/50">
                         <tr>
                           <th className="p-2 text-left">#</th>
-                          <th className="p-2 text-left">Equipe</th>
+                          <th className="p-2 text-left">Équipe</th>
                           <th className="p-2 text-center">J</th>
                           <th className="p-2 text-center">V</th>
                           <th className="p-2 text-center">N</th>

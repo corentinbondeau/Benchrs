@@ -167,8 +167,8 @@ export default function ChatPage() {
       ) : (
         <div className="flex-1 flex items-center justify-center text-muted-foreground">
           <div className="text-center">
-            <p className="text-lg">Selectionnez un canal</p>
-            <p className="text-sm mt-1">pour commencer a discuter</p>
+            <p className="text-lg">Sélectionnez un canal</p>
+            <p className="text-sm mt-1">pour commencer à discuter</p>
           </div>
         </div>
       )}

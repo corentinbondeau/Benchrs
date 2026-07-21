@@ -98,7 +98,7 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
   if (!stats) return null;
 
   const positionLabels: Record<string, string> = {
-    goalkeeper: "Gardien", defender: "Defenseur", midfielder: "Milieu", forward: "Attaquant",
+    goalkeeper: "Gardien", defender: "Défenseur", midfielder: "Milieu", forward: "Attaquant",
   };
 
   const statCards = [
@@ -107,7 +107,7 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
     { icon: CalendarCheck, label: "Matchs", value: stats.matches_played, color: "text-green-600", bg: "bg-green-50" },
     { icon: Clock, label: "Minutes", value: stats.total_minutes, color: "text-purple-600", bg: "bg-purple-50" },
     {
-      icon: Zap, label: "Presence",
+      icon: Zap, label: "Présence",
       value: `${stats.attendance_rate}%`,
       color: stats.attendance_rate >= 80 ? "text-green-600" : stats.attendance_rate >= 50 ? "text-amber-600" : "text-red-600",
       bg: stats.attendance_rate >= 80 ? "bg-green-50" : stats.attendance_rate >= 50 ? "bg-amber-50" : "bg-red-50",

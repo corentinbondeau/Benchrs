@@ -130,7 +130,7 @@ export default function GalleryPage() {
         <div>
           <h2 className="text-2xl font-bold">Galerie</h2>
           <p className="text-muted-foreground mt-1">
-            Photos et videos de l&apos;equipe
+            Photos et vidéos de l&apos;équipe
           </p>
         </div>
         {user && (
@@ -145,7 +145,7 @@ export default function GalleryPage() {
             </DialogTrigger>
             <DialogContent className="sm:max-w-md">
               <DialogHeader>
-                <DialogTitle>Ajouter un media</DialogTitle>
+                <DialogTitle>Ajouter un média</DialogTitle>
               </DialogHeader>
               <div className="space-y-4">
                 <div className="space-y-2">
@@ -202,7 +202,7 @@ export default function GalleryPage() {
         <div className="flex h-48 items-center justify-center rounded-lg border border-dashed text-muted-foreground">
           <div className="text-center">
             <ImageIcon className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <h3 className="font-semibold text-lg">Aucun media</h3>
+            <h3 className="font-semibold text-lg">Aucun média</h3>
             <p className="text-sm mt-1">
               Les photos et videos apparaitront ici
             </p>

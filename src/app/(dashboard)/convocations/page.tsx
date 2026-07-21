@@ -39,10 +39,10 @@ const statusColors: Record<string, string> = {
 };
 
 const statusLabels: Record<string, string> = {
-  present: "Present",
+  present: "Présent",
   absent: "Absent",
   late: "En retard",
-  excused: "Excuse",
+  excused: "Excusé",
   pending: "En attente",
 };
 
@@ -104,7 +104,7 @@ export default function ConvocationsPage() {
       toast.error("Erreur lors de l'ajout de la convocation");
       return;
     }
-    toast.success("Convocation ajoutee");
+    toast.success("Convocation ajoutée");
     setAddPlayerEventId(null);
     fetchData();
   }
@@ -118,7 +118,7 @@ export default function ConvocationsPage() {
       .filter((p) => !convokedIds.has(p.id))
       .map((p) => ({ event_id: eventId, user_id: p.id, status: "pending" }));
     if (toInsert.length === 0) {
-      toast.info("Tous les joueurs sont deja convoques");
+      toast.info("Tous les joueurs sont déjà convoqués");
       return;
     }
     const { error } = await supabase.from("attendances").insert(toInsert);
@@ -126,7 +126,7 @@ export default function ConvocationsPage() {
       toast.error("Erreur lors de la convocation");
       return;
     }
-    toast.success(`${toInsert.length} joueur(s) convoque(s)`);
+    toast.success(`${toInsert.length} joueur(s) convoqué(s)`);
     fetchData();
   }
 
@@ -137,7 +137,7 @@ export default function ConvocationsPage() {
       toast.error("Erreur lors de la suppression");
       return;
     }
-    toast.success("Convocation supprimee");
+    toast.success("Convocation supprimée");
     fetchData();
   }
 
@@ -152,10 +152,10 @@ export default function ConvocationsPage() {
     }
     const { error } = await supabase.from("attendances").update(update).eq("id", attendanceId);
     if (error) {
-      toast.error("Erreur lors de la reponse");
+      toast.error("Erreur lors de la réponse");
       return;
     }
-    toast.success(status === "present" ? "Presence confirmee" : "Absence signalee");
+    toast.success(status === "present" ? "Présence confirmée" : "Absence signalée");
     fetchData();
   }
 
@@ -172,7 +172,7 @@ export default function ConvocationsPage() {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold">Convocations</h2>
-        <p className="text-muted-foreground mt-1">Gestion des convocations aux evenements</p>
+        <p className="text-muted-foreground mt-1">Gestion des convocations aux événements</p>
       </div>
 
       {isCoach ? (
@@ -221,7 +221,7 @@ function CoachView({
         <Card>
           <CardContent className="py-12 text-center text-muted-foreground">
             <Calendar className="h-12 w-12 mx-auto mb-3 opacity-40" />
-            <p>Aucun evenement a venir</p>
+            <p>Aucun événement à venir</p>
           </CardContent>
         </Card>
       ) : (
@@ -242,7 +242,7 @@ function CoachView({
                 </div>
                 <div className="flex items-center gap-2">
                   <Badge variant={event.type === "match" ? "default" : "secondary"}>
-                    {event.type === "match" ? "Match" : "Entrainement"}
+                    {event.type === "match" ? "Match" : "Entraînement"}
                   </Badge>
                 </div>
               </div>
@@ -278,7 +278,7 @@ function CoachView({
                           }}
                         >
                           <SelectTrigger>
-                            <SelectValue placeholder="Selectionner un joueur" />
+                            <SelectValue placeholder="Sélectionner un joueur" />
                           </SelectTrigger>
                           <SelectContent>
                             {players
@@ -326,7 +326,7 @@ function CoachView({
                 </div>
               ) : (
                 <p className="text-sm text-muted-foreground text-center py-4">
-                  Aucun joueur convoque
+                  Aucun joueur convoqué
                 </p>
               )}
             </CardContent>
@@ -400,7 +400,7 @@ function PlayerView({
                         onClick={() => respondToConvocation(att.id, "present")}
                       >
                         <Check className="h-4 w-4 mr-1" />
-                        Present
+                        Présent
                       </Button>
                       <Button
                         size="sm"

@@ -46,7 +46,7 @@ export default function NotificationsPage() {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold">Notifications</h2>
-        <p className="text-muted-foreground mt-1">Alertes et messages de l&apos;equipe</p>
+        <p className="text-muted-foreground mt-1">Alertes et messages de l&apos;équipe</p>
       </div>
 
       <Card>

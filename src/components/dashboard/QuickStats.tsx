@@ -41,7 +41,7 @@ export function QuickStats() {
   }, []);
 
   const items = [
-    { icon: Calendar, label: "Evenements a venir", value: stats.upcomingEvents, color: "text-[var(--color-royal)]", bg: "bg-blue-50" },
+    { icon: Calendar, label: "Événements à venir", value: stats.upcomingEvents, color: "text-[var(--color-royal)]", bg: "bg-blue-50" },
     { icon: Users, label: "Joueurs actifs", value: stats.totalPlayers, color: "text-green-600", bg: "bg-green-50" },
     { icon: Trophy, label: "Victoires (30j)", value: stats.recentWins, color: "text-[var(--color-gold)]", bg: "bg-amber-50" },
   ];
@@ -59,7 +59,7 @@ export function QuickStats() {
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="text-base">Apercu rapide</CardTitle>
+        <CardTitle className="text-base">Aperçu rapide</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         {items.map((item) => (

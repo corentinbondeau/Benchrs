@@ -18,7 +18,7 @@ export default function DashboardPage() {
           Bonjour, {user?.profile?.first_name} 👋
         </h2>
         <p className="text-muted-foreground mt-1">
-          Voici un resume de votre equipe
+          Voici un résumé de votre équipe
         </p>
       </div>
 

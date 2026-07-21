@@ -43,8 +43,8 @@ type EventWithMeeting = Event & { meeting_time: string | null };
 
 const DAYS_FR = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 const MONTHS_FR = [
-  "Janvier", "Fevrier", "Mars", "Avril", "Mai", "Juin",
-  "Juillet", "Aout", "Septembre", "Octobre", "Novembre", "Decembre",
+  "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
+  "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre",
 ];
 
 function computeRecurrenceDates(eventDate: Date, recurrence: Recurrence, endDate: string): Date[] {
@@ -250,9 +250,9 @@ export default function CalendarPage() {
     fetchEvents();
 
     if (dates.length === 1) {
-      toast.success("Evenement cree !");
+      toast.success("Événement créé !");
     } else {
-      toast.success(`${dates.length} evenements crees !`);
+      toast.success(`${dates.length} événements créés !`);
     }
   }
 
@@ -262,7 +262,7 @@ export default function CalendarPage() {
     if (error) {
       toast.error("Erreur lors de la suppression");
     } else {
-      toast.success("Evenement supprime");
+      toast.success("Événement supprimé");
       setEvents(events.filter((e) => e.id !== eventId));
       setConfirmDelete(null);
       setSelectedEvent(null);
@@ -278,7 +278,7 @@ export default function CalendarPage() {
     if (error) {
       toast.error("Erreur lors de l'annulation");
     } else {
-      toast.success("Entrainement annule");
+      toast.success("Entraînement annulé");
       setEvents((prev) =>
         prev.map((e) => (e.id === eventId ? { ...e, status: "cancelled" } : e))
       );
@@ -297,7 +297,7 @@ export default function CalendarPage() {
     if (error) {
       toast.error("Erreur lors du report");
     } else {
-      toast.success("Evenement reporte");
+      toast.success("Événement reporté");
       setPostponeOpen(null);
       setSelectedEvent(null);
       setPostponeDate("");
@@ -339,7 +339,7 @@ export default function CalendarPage() {
     const rdv = event.meeting_time;
     return (
       <span className="text-xs text-muted-foreground">
-        {rdv ? `RDV: ${rdv} | Debut: ${start}` : start}
+        {rdv ? `RDV: ${rdv} | Début: ${start}` : start}
       </span>
     );
   }
@@ -377,22 +377,22 @@ export default function CalendarPage() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold">Calendrier</h2>
-          <p className="text-muted-foreground mt-1">Planning de l&apos;equipe</p>
+          <p className="text-muted-foreground mt-1">Planning de l&apos;équipe</p>
         </div>
         {isCoach && (
           <Dialog open={createOpen} onOpenChange={setCreateOpen}>
             <DialogTrigger render={<Button className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold" />}>
               <Plus className="h-4 w-4 mr-1" />
-              Evenement
+              Événement
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Nouvel evenement</DialogTitle>
+                <DialogTitle>Nouvel événement</DialogTitle>
               </DialogHeader>
               <form onSubmit={handleCreateEvent} className="space-y-4">
                 <div className="space-y-2">
                   <Label>Titre *</Label>
-                  <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Ex: Entrainement" required />
+                  <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Ex: Entraînement" required />
                 </div>
                 <div className="space-y-2">
                   <Label>Type *</Label>
@@ -401,7 +401,7 @@ export default function CalendarPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="training">Entrainement</SelectItem>
+                      <SelectItem value="training">Entraînement</SelectItem>
                       <SelectItem value="match">Match</SelectItem>
                     </SelectContent>
                   </Select>
@@ -421,11 +421,11 @@ export default function CalendarPage() {
                 {form.type === "match" && (
                   <div className="space-y-2">
                     <Label>Adversaire</Label>
-                    <Input value={form.opponent} onChange={(e) => setForm({ ...form, opponent: e.target.value })} placeholder="Nom de l'equipe adverse" />
+                    <Input value={form.opponent} onChange={(e) => setForm({ ...form, opponent: e.target.value })} placeholder="Nom de l'équipe adverse" />
                   </div>
                 )}
                 <div className="space-y-2">
-                  <Label>Recurrence</Label>
+                  <Label>Récurrence</Label>
                   <Select value={form.recurrence} onValueChange={(v) => v && setForm({ ...form, recurrence: v as Recurrence })}>
                     <SelectTrigger>
                       <SelectValue />
@@ -471,7 +471,7 @@ export default function CalendarPage() {
                   </div>
                 )}
                 <Button type="submit" className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] font-semibold">
-                  Creer
+                  Créer
                 </Button>
               </form>
             </DialogContent>
@@ -485,9 +485,9 @@ export default function CalendarPage() {
           <DialogHeader>
             <DialogTitle>{selectedEvent?.title}</DialogTitle>
             <DialogDescription>
-              {selectedEvent?.type === "match" ? "Match" : "Entrainement"}
+              {selectedEvent?.type === "match" ? "Match" : "Entraînement"}
               {selectedEvent?.status === "cancelled" && (
-                <span className="ml-2 text-gray-500">(Annule)</span>
+                <span className="ml-2 text-gray-500">(Annulé)</span>
               )}
             </DialogDescription>
           </DialogHeader>
@@ -584,7 +584,7 @@ export default function CalendarPage() {
       <Dialog open={!!confirmDelete} onOpenChange={() => setConfirmDelete(null)}>
         <DialogContent className="sm:max-w-xs">
           <DialogHeader>
-            <DialogTitle>Supprimer l&apos;evenement</DialogTitle>
+            <DialogTitle>Supprimer l&apos;événement</DialogTitle>
             <DialogDescription>
               Voulez-vous vraiment supprimer <strong>{confirmDelete?.title}</strong> ?
             </DialogDescription>
@@ -607,7 +607,7 @@ export default function CalendarPage() {
       <Dialog open={!!confirmCancel} onOpenChange={() => setConfirmCancel(null)}>
         <DialogContent className="sm:max-w-xs">
           <DialogHeader>
-            <DialogTitle>Annuler l&apos;entrainement</DialogTitle>
+            <DialogTitle>Annuler l&apos;entraînement</DialogTitle>
             <DialogDescription>
               Voulez-vous vraiment annuler <strong>{confirmCancel?.title}</strong> ?
             </DialogDescription>
@@ -630,7 +630,7 @@ export default function CalendarPage() {
       <Dialog open={!!postponeOpen} onOpenChange={() => setPostponeOpen(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Reporter l&apos;evenement</DialogTitle>
+            <DialogTitle>Reporter l&apos;événement</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
@@ -744,13 +744,13 @@ export default function CalendarPage() {
                   </p>
                 </div>
                 {dayEvents.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">Aucun evenement</p>
+                  <p className="text-xs text-muted-foreground">Aucun événement</p>
                 ) : (
                   <div className="space-y-1">
                     {dayEvents.map((event) => (
                       <div key={event.id} className="flex items-center gap-2 text-sm group relative">
                         <Badge variant="outline" className={getEventBadgeColor(event)}>
-                          {event.type === "match" ? "Match" : "Entrainement"}
+                          {event.type === "match" ? "Match" : "Entraînement"}
                         </Badge>
                         <span className="font-medium">{event.title}</span>
                         <EventTimeDisplay event={event} />

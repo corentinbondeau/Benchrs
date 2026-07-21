@@ -9,7 +9,7 @@ const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"]
 
 export const metadata: Metadata = {
   title: "SportPlus",
-  description: "Gestion d'equipe de football amateur",
+  description: "Gestion d'équipe de football amateur",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,

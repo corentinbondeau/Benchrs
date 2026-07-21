@@ -21,8 +21,8 @@ export default function CotisationsPage() {
           <div className="flex h-48 items-center justify-center rounded-lg border border-dashed text-muted-foreground">
             <div className="text-center">
               <Wallet className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <h3 className="font-semibold text-lg">Bientot disponible</h3>
-              <p className="text-sm mt-1">Le suivi des cotisations sera implemente prochainement</p>
+              <h3 className="font-semibold text-lg">Bientôt disponible</h3>
+              <p className="text-sm mt-1">Le suivi des cotisations sera implémenté prochainement</p>
             </div>
           </div>
         </CardContent>

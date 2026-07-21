@@ -104,7 +104,7 @@ export default function MedicalPage() {
                 <div className="space-y-2">
                   <Label>Joueur *</Label>
                   <Select value={form.playerId} onValueChange={(v) => v && setForm({ ...form, playerId: v })}>
-                    <SelectTrigger><SelectValue placeholder="Selectionner" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder="Sélectionner" /></SelectTrigger>
                     <SelectContent>
                       {players.map((p) => (
                         <SelectItem key={p.id} value={p.id}>{p.first_name} {p.last_name}</SelectItem>
@@ -126,7 +126,7 @@ export default function MedicalPage() {
                     <Input type="date" value={form.injuryDate} onChange={(e) => setForm({ ...form, injuryDate: e.target.value })} required />
                   </div>
                   <div className="space-y-2">
-                    <Label>Retour prevu</Label>
+                    <Label>Retour prévu</Label>
                     <Input type="date" value={form.expectedReturn} onChange={(e) => setForm({ ...form, expectedReturn: e.target.value })} />
                   </div>
                 </div>
@@ -160,7 +160,7 @@ export default function MedicalPage() {
                     </div>
                     {isCoach && (
                       <Button size="sm" variant="outline" onClick={() => markRecovered(injury.id)}>
-                        Recupere
+                        Récupéré
                       </Button>
                     )}
                   </div>
@@ -177,7 +177,7 @@ export default function MedicalPage() {
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
               <Heart className="h-4 w-4 text-green-500" />
-              Recuperes ({recoveredInjuries.length})
+              Récupérés ({recoveredInjuries.length})
             </CardTitle>
           </CardHeader>
           <CardContent>

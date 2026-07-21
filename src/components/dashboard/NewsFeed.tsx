@@ -40,13 +40,13 @@ export function NewsFeed() {
       <CardHeader className="pb-3">
         <CardTitle className="text-base flex items-center gap-2">
           <Trophy className="h-4 w-4 text-[var(--color-gold)]" />
-          Actualites recentes
+          Actualités récentes
         </CardTitle>
       </CardHeader>
       <CardContent>
         {events.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-4">
-            Aucune actualite recente
+            Aucune actualité récente
           </p>
         ) : (
           <div className="space-y-3">
@@ -63,7 +63,7 @@ export function NewsFeed() {
                   <div className="flex items-center gap-2">
                     <p className="font-medium text-sm truncate">{event.title}</p>
                     <Badge variant="secondary" className={event.status === "completed" ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"}>
-                      {event.status === "completed" ? "Termine" : "A venir"}
+                      {event.status === "completed" ? "Terminé" : "À venir"}
                     </Badge>
                   </div>
                   <p className="text-xs text-muted-foreground mt-1">

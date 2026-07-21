@@ -23,7 +23,7 @@ export default function SettingsPage() {
 
   async function handleChangePassword() {
     if (!newPassword || newPassword.length < 8) {
-      toast.error("Minimum 8 caracteres");
+      toast.error("Minimum 8 caractères");
       return;
     }
     setChangingPassword(true);
@@ -31,7 +31,7 @@ export default function SettingsPage() {
       const supabase = createClient();
       const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) throw error;
-      toast.success("Mot de passe mis a jour");
+      toast.success("Mot de passe mis à jour");
       setNewPassword("");
     } catch (e) {
       toast.error(String(e));
@@ -43,8 +43,8 @@ export default function SettingsPage() {
   return (
     <div className="space-y-6 max-w-2xl">
       <div>
-        <h2 className="text-2xl font-bold">Parametres</h2>
-        <p className="text-muted-foreground mt-1">Gerez votre profil et vos preferences</p>
+        <h2 className="text-2xl font-bold">Paramètres</h2>
+        <p className="text-muted-foreground mt-1">Gérez votre profil et vos préférences</p>
       </div>
 
       <Card>
@@ -84,8 +84,8 @@ export default function SettingsPage() {
         <CardContent>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium">Theme sombre</p>
-              <p className="text-xs text-muted-foreground">Basculer entre le theme clair et sombre</p>
+              <p className="text-sm font-medium">Thème sombre</p>
+              <p className="text-xs text-muted-foreground">Basculer entre le thème clair et sombre</p>
             </div>
             <ThemeToggle />
           </div>
@@ -96,7 +96,7 @@ export default function SettingsPage() {
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
             <Shield className="h-4 w-4" />
-            Securite
+            Sécurité
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -106,11 +106,11 @@ export default function SettingsPage() {
               type="password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              placeholder="Minimum 8 caracteres"
+              placeholder="Minimum 8 caractères"
             />
           </div>
           <Button onClick={handleChangePassword} disabled={changingPassword || !newPassword}>
-            {changingPassword ? "Mise a jour..." : "Changer le mot de passe"}
+            {changingPassword ? "Mise à jour..." : "Changer le mot de passe"}
           </Button>
         </CardContent>
       </Card>
@@ -118,7 +118,7 @@ export default function SettingsPage() {
       <Card>
         <CardContent className="pt-6">
           <Button variant="destructive" className="w-full" onClick={signOut}>
-            Se deconnecter
+            Se déconnecter
           </Button>
         </CardContent>
       </Card>

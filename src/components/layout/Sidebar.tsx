@@ -29,15 +29,15 @@ const navItems = [
   { href: "/calendar", label: "Calendrier", icon: Calendar },
   { href: "/roster", label: "Effectif", icon: Users },
   { href: "/stats", label: "Statistiques", icon: BarChart3 },
-  { href: "/attendance", label: "Presences", icon: ClipboardCheck },
+  { href: "/attendance", label: "Présences", icon: ClipboardCheck },
   { href: "/convocations", label: "Convocations", icon: Users },
   { href: "/chat", label: "Messagerie", icon: MessageSquare },
   { href: "/medical", label: "Infirmerie", icon: Heart },
   { href: "/carpooling", label: "Covoiturage", icon: Car },
-  { href: "/tasks", label: "Taches", icon: ListTodo },
+  { href: "/tasks", label: "Tâches", icon: ListTodo },
   { href: "/tactics", label: "Tactique", icon: Swords },
   { href: "/gallery", label: "Galerie", icon: Image },
-  { href: "/trophies", label: "Trophees", icon: Trophy },
+  { href: "/trophies", label: "Trophées", icon: Trophy },
   { href: "/championship", label: "Championnat", icon: Medal },
   { href: "/notifications", label: "Notifications", icon: Bell },
 ];
@@ -109,7 +109,7 @@ export function Sidebar() {
           className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-white/60 hover:bg-white/10 hover:text-white transition-colors"
         >
           <Settings className="h-4 w-4" />
-          Parametres
+          Paramètres
         </Link>
       </div>
     </aside>

@@ -58,7 +58,7 @@ export default function AttendancePage() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <h2 className="text-2xl font-bold">Presences</h2>
+        <h2 className="text-2xl font-bold">Présences</h2>
         <div className="h-64 animate-pulse rounded-lg bg-muted" />
       </div>
     );
@@ -67,14 +67,14 @@ export default function AttendancePage() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold">Presences</h2>
-        <p className="text-muted-foreground mt-1">Suivi des presences aux entrainements et matchs</p>
+        <h2 className="text-2xl font-bold">Présences</h2>
+        <p className="text-muted-foreground mt-1">Suivi des présences aux entraînements et matchs</p>
       </div>
 
       <Tabs defaultValue="all" onValueChange={(v) => setFilter((v ?? "all") as typeof filter)}>
         <TabsList>
           <TabsTrigger value="all">Tous</TabsTrigger>
-          <TabsTrigger value="training">Entrainements</TabsTrigger>
+          <TabsTrigger value="training">Entraînements</TabsTrigger>
           <TabsTrigger value="match">Matchs</TabsTrigger>
         </TabsList>
         <TabsContent value={filter}>
@@ -88,7 +88,7 @@ export default function AttendancePage() {
             <CardContent>
               {filtered.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-8">
-                  Aucune presence enregistree
+                  Aucune présence enregistrée
                 </p>
               ) : (
                 <div className="space-y-2">
@@ -104,10 +104,10 @@ export default function AttendancePage() {
                       </div>
                       <div className="flex items-center gap-2">
                         <Badge className={statusColors[att.status] || "bg-gray-100"}>
-                          {att.status === "present" ? "Present" :
+                          {att.status === "present" ? "Présent" :
                            att.status === "absent" ? "Absent" :
                            att.status === "late" ? "En retard" :
-                           att.status === "excused" ? "Excuse" : "En attente"}
+                           att.status === "excused" ? "Excusé" : "En attente"}
                         </Badge>
                         {isCoach && att.status === "pending" && (
                           <div className="flex gap-1">

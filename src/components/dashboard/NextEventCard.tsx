@@ -41,7 +41,7 @@ export function NextEventCard() {
       <div className="flex h-48 items-center justify-center rounded-lg border border-dashed text-muted-foreground">
         <div className="text-center">
           <Calendar className="h-8 w-8 mx-auto mb-2 opacity-50" />
-          <p className="text-sm">Aucun evenement a venir</p>
+          <p className="text-sm">Aucun événement à venir</p>
         </div>
       </div>
     );
@@ -56,7 +56,7 @@ export function NextEventCard() {
   let countdown = "";
   if (diffDays > 0) countdown = `${diffDays}j ${diffHours}h`;
   else if (diffHours > 0) countdown = `${diffHours}h`;
-  else countdown = "Bientot";
+  else countdown = "Bientôt";
 
   return (
     <Card className="bg-gradient-to-r from-[var(--color-navy)] to-[var(--color-royal)] text-white">

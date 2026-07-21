@@ -69,7 +69,7 @@ export default function TasksPage() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <h2 className="text-2xl font-bold">Taches</h2>
+        <h2 className="text-2xl font-bold">Tâches</h2>
         <div className="h-64 animate-pulse rounded-lg bg-muted" />
       </div>
     );
@@ -82,17 +82,17 @@ export default function TasksPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold">Taches</h2>
+          <h2 className="text-2xl font-bold">Tâches</h2>
           <p className="text-muted-foreground mt-1">Organisation des goûters, maillots et benevolat</p>
         </div>
         {isCoach && (
           <Dialog open={addOpen} onOpenChange={setAddOpen}>
             <DialogTrigger render={<Button className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold" />}>
               <Plus className="h-4 w-4 mr-1" />
-              Tache
+              Tâche
             </DialogTrigger>
             <DialogContent>
-              <DialogHeader><DialogTitle>Nouvelle tache</DialogTitle></DialogHeader>
+              <DialogHeader><DialogTitle>Nouvelle tâche</DialogTitle></DialogHeader>
               <form onSubmit={handleCreate} className="space-y-4">
                 <div className="space-y-2">
                   <Label>Titre *</Label>
@@ -103,9 +103,9 @@ export default function TasksPage() {
                   <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
                 </div>
                 <div className="space-y-2">
-                  <Label>Assigner a</Label>
+                  <Label>Assigner à</Label>
                   <Select value={form.assignedTo} onValueChange={(v) => setForm({ ...form, assignedTo: v ?? "" })}>
-                    <SelectTrigger><SelectValue placeholder="Non assigne" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder="Non assigné" /></SelectTrigger>
                     <SelectContent>
                       {players.map((p) => (
                         <SelectItem key={p.id} value={p.id}>{p.first_name} {p.last_name}</SelectItem>
@@ -113,7 +113,7 @@ export default function TasksPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                <Button type="submit" className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] font-semibold">Creer</Button>
+                <Button type="submit" className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] font-semibold">Créer</Button>
               </form>
             </DialogContent>
           </Dialog>
@@ -130,7 +130,7 @@ export default function TasksPage() {
         </CardHeader>
         <CardContent>
           {pendingTasks.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-4">Aucune tache en cours</p>
+            <p className="text-sm text-muted-foreground text-center py-4">Aucune tâche en cours</p>
           ) : (
             <div className="space-y-2">
               {pendingTasks.map((task) => (
@@ -141,7 +141,7 @@ export default function TasksPage() {
                     {task.description && <p className="text-xs text-muted-foreground">{task.description}</p>}
                     {task.assignee && (
                       <p className="text-xs text-muted-foreground mt-1">
-                        Assigne a: {task.assignee.first_name} {task.assignee.last_name}
+                        Assigné à: {task.assignee.first_name} {task.assignee.last_name}
                       </p>
                     )}
                   </div>
@@ -157,7 +157,7 @@ export default function TasksPage() {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base text-muted-foreground">
-              Terminees ({completedTasks.length})
+              Terminées ({completedTasks.length})
             </CardTitle>
           </CardHeader>
           <CardContent>
