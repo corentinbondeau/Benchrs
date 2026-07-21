@@ -20,6 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import {
   ChevronLeft,
@@ -29,6 +30,9 @@ import {
   Trash2,
   Clock,
   MoreVertical,
+  Ban,
+  MapPin,
+  Swords,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { Event, Profile } from "@/types";
@@ -83,8 +87,10 @@ export default function CalendarPage() {
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
   const [players, setPlayers] = useState<Profile[]>([]);
-  const [eventMenuOpen, setEventMenuOpen] = useState<string | null>(null);
-  const [postponeOpen, setPostponeOpen] = useState<string | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<EventWithMeeting | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<EventWithMeeting | null>(null);
+  const [confirmCancel, setConfirmCancel] = useState<EventWithMeeting | null>(null);
+  const [postponeOpen, setPostponeOpen] = useState<EventWithMeeting | null>(null);
   const [postponeDate, setPostponeDate] = useState("");
   const [form, setForm] = useState({
     title: "",
@@ -258,7 +264,26 @@ export default function CalendarPage() {
     } else {
       toast.success("Evenement supprime");
       setEvents(events.filter((e) => e.id !== eventId));
-      setEventMenuOpen(null);
+      setConfirmDelete(null);
+      setSelectedEvent(null);
+    }
+  }
+
+  async function handleCancelEvent(eventId: string) {
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("events")
+      .update({ status: "cancelled" })
+      .eq("id", eventId);
+    if (error) {
+      toast.error("Erreur lors de l'annulation");
+    } else {
+      toast.success("Entrainement annule");
+      setEvents((prev) =>
+        prev.map((e) => (e.id === eventId ? { ...e, status: "cancelled" } : e))
+      );
+      setConfirmCancel(null);
+      setSelectedEvent(null);
     }
   }
 
@@ -274,6 +299,7 @@ export default function CalendarPage() {
     } else {
       toast.success("Evenement reporte");
       setPostponeOpen(null);
+      setSelectedEvent(null);
       setPostponeDate("");
       fetchEvents();
     }
@@ -286,7 +312,19 @@ export default function CalendarPage() {
       if (event.match_result === "draw") return "bg-amber-100 text-amber-700 border-amber-200";
       return "bg-blue-100 text-blue-700 border-blue-200";
     }
+    if (event.status === "cancelled") return "bg-gray-100 text-gray-500 border-gray-200 line-through";
     return "bg-purple-100 text-purple-700 border-purple-200";
+  }
+
+  function formatDateTime(dateStr: string) {
+    return new Date(dateStr).toLocaleDateString("fr-FR", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   }
 
   function formatTimeDisplay(dateStr: string) {
@@ -316,40 +354,11 @@ export default function CalendarPage() {
           className="h-6 w-6"
           onClick={(e) => {
             e.stopPropagation();
-            setEventMenuOpen(eventMenuOpen === event.id ? null : event.id);
+            setSelectedEvent(event);
           }}
         >
           <MoreVertical className="h-3 w-3" />
         </Button>
-        {eventMenuOpen === event.id && (
-          <div className="absolute right-0 top-8 z-50 w-40 rounded-lg border bg-white shadow-lg dark:bg-slate-900">
-            <button
-              className="w-full text-left px-3 py-2 text-sm hover:bg-muted flex items-center gap-2"
-              onClick={(e) => {
-                e.stopPropagation();
-                const dt = new Date(event.event_date);
-                setPostponeDate(toLocalISOString(dt));
-                setPostponeOpen(event.id);
-                setEventMenuOpen(null);
-              }}
-            >
-              <Clock className="h-3.5 w-3.5" />
-              Reporter
-            </button>
-            <button
-              className="w-full text-left px-3 py-2 text-sm hover:bg-muted text-red-600 flex items-center gap-2"
-              onClick={(e) => {
-                e.stopPropagation();
-                if (confirm("Supprimer cet evenement ?")) {
-                  handleDeleteEvent(event.id);
-                }
-              }}
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-              Supprimer
-            </button>
-          </div>
-        )}
       </div>
     );
   }
@@ -364,7 +373,7 @@ export default function CalendarPage() {
   }
 
   return (
-    <div className="space-y-6" onClick={() => setEventMenuOpen(null)}>
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold">Calendrier</h2>
@@ -470,6 +479,153 @@ export default function CalendarPage() {
         )}
       </div>
 
+      {/* Event Detail Dialog (monthly view) */}
+      <Dialog open={!!selectedEvent} onOpenChange={() => setSelectedEvent(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{selectedEvent?.title}</DialogTitle>
+            <DialogDescription>
+              {selectedEvent?.type === "match" ? "Match" : "Entrainement"}
+              {selectedEvent?.status === "cancelled" && (
+                <span className="ml-2 text-gray-500">(Annule)</span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          {selectedEvent && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <CalendarDays className="h-4 w-4 shrink-0" />
+                <span>{formatDateTime(selectedEvent.event_date)}</span>
+              </div>
+              {selectedEvent.meeting_time && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Clock className="h-4 w-4 shrink-0" />
+                  <span>Rendez-vous : {selectedEvent.meeting_time}</span>
+                </div>
+              )}
+              {selectedEvent.location && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <MapPin className="h-4 w-4 shrink-0" />
+                  <span>{selectedEvent.location}</span>
+                </div>
+              )}
+              {selectedEvent.type === "match" && selectedEvent.opponent && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Swords className="h-4 w-4 shrink-0" />
+                  <span>Adversaire : {selectedEvent.opponent}</span>
+                </div>
+              )}
+              {selectedEvent.type === "match" && selectedEvent.score_us !== null && selectedEvent.score_them !== null && (
+                <div className="rounded-md bg-muted p-2 text-center text-sm font-bold">
+                  {selectedEvent.score_us} - {selectedEvent.score_them}
+                </div>
+              )}
+              {isCoach && (
+                <div className="flex gap-2 pt-2">
+                  {selectedEvent.status !== "cancelled" && (
+                    <>
+                      <Button
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() => {
+                          const dt = new Date(selectedEvent.event_date);
+                          setPostponeDate(toLocalISOString(dt));
+                          setPostponeOpen(selectedEvent);
+                          setSelectedEvent(null);
+                        }}
+                      >
+                        <Clock className="h-4 w-4 mr-1" />
+                        Reporter
+                      </Button>
+                      {selectedEvent.type === "training" && (
+                        <Button
+                          variant="outline"
+                          className="flex-1 text-orange-600 border-orange-200 hover:bg-orange-50"
+                          onClick={() => {
+                            setConfirmCancel(selectedEvent);
+                          }}
+                        >
+                          <Ban className="h-4 w-4 mr-1" />
+                          Annuler
+                        </Button>
+                      )}
+                      <Button
+                        variant="outline"
+                        className="flex-1 text-red-600 border-red-200 hover:bg-red-50"
+                        onClick={() => {
+                          setConfirmDelete(selectedEvent);
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4 mr-1" />
+                        Supprimer
+                      </Button>
+                    </>
+                  )}
+                  {selectedEvent.status === "cancelled" && (
+                    <Button
+                      variant="outline"
+                      className="flex-1 text-red-600 border-red-200 hover:bg-red-50"
+                      onClick={() => {
+                        setConfirmDelete(selectedEvent);
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4 mr-1" />
+                      Supprimer
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirm Delete Dialog */}
+      <Dialog open={!!confirmDelete} onOpenChange={() => setConfirmDelete(null)}>
+        <DialogContent className="sm:max-w-xs">
+          <DialogHeader>
+            <DialogTitle>Supprimer l&apos;evenement</DialogTitle>
+            <DialogDescription>
+              Voulez-vous vraiment supprimer <strong>{confirmDelete?.title}</strong> ?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-2 pt-2">
+            <Button variant="outline" className="flex-1" onClick={() => setConfirmDelete(null)}>
+              Annuler
+            </Button>
+            <Button
+              className="flex-1 bg-red-600 text-white hover:bg-red-700"
+              onClick={() => confirmDelete && handleDeleteEvent(confirmDelete.id)}
+            >
+              Supprimer
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirm Cancel Training Dialog */}
+      <Dialog open={!!confirmCancel} onOpenChange={() => setConfirmCancel(null)}>
+        <DialogContent className="sm:max-w-xs">
+          <DialogHeader>
+            <DialogTitle>Annuler l&apos;entrainement</DialogTitle>
+            <DialogDescription>
+              Voulez-vous vraiment annuler <strong>{confirmCancel?.title}</strong> ?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-2 pt-2">
+            <Button variant="outline" className="flex-1" onClick={() => setConfirmCancel(null)}>
+              Non
+            </Button>
+            <Button
+              className="flex-1 bg-orange-600 text-white hover:bg-orange-700"
+              onClick={() => confirmCancel && handleCancelEvent(confirmCancel.id)}
+            >
+              Annuler
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Postpone Dialog */}
       <Dialog open={!!postponeOpen} onOpenChange={() => setPostponeOpen(null)}>
         <DialogContent>
@@ -486,7 +642,7 @@ export default function CalendarPage() {
               />
             </div>
             <Button
-              onClick={() => postponeOpen && handlePostponeEvent(postponeOpen)}
+              onClick={() => postponeOpen && handlePostponeEvent(postponeOpen.id)}
               className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] font-semibold"
               disabled={!postponeDate}
             >
@@ -550,18 +706,13 @@ export default function CalendarPage() {
                     {dayEvents.slice(0, 2).map((event) => (
                       <div
                         key={event.id}
-                        className={`text-[10px] truncate rounded px-1 py-0.5 border cursor-pointer group relative ${getEventBadgeColor(event)}`}
+                        className={`text-[10px] truncate rounded px-1 py-0.5 border cursor-pointer hover:opacity-80 ${getEventBadgeColor(event)}`}
                         onClick={(e) => {
                           e.stopPropagation();
-                          if (isCoach) setEventMenuOpen(eventMenuOpen === event.id ? null : event.id);
+                          setSelectedEvent(event);
                         }}
                       >
                         {event.title}
-                        {isCoach && (
-                          <span className="absolute right-0.5 top-0.5 opacity-0 group-hover:opacity-100">
-                            <MoreVertical className="h-2.5 w-2.5" />
-                          </span>
-                        )}
                       </div>
                     ))}
                     {dayEvents.length > 2 && (

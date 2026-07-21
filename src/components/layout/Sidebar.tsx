@@ -30,6 +30,7 @@ const navItems = [
   { href: "/roster", label: "Effectif", icon: Users },
   { href: "/stats", label: "Statistiques", icon: BarChart3 },
   { href: "/attendance", label: "Presences", icon: ClipboardCheck },
+  { href: "/convocations", label: "Convocations", icon: Users },
   { href: "/chat", label: "Messagerie", icon: MessageSquare },
   { href: "/medical", label: "Infirmerie", icon: Heart },
   { href: "/carpooling", label: "Covoiturage", icon: Car },
