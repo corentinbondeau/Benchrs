@@ -1070,7 +1070,7 @@ function FeuilletMatchTab() {
             <div className="relative aspect-[2/3] rounded-lg overflow-hidden shadow-lg">
               {/* Grass base */}
               <div
-                className="absolute inset-0 bg-green-700"
+                className="absolute inset-0 bg-green-700 pointer-events-none"
                 style={{
                   backgroundImage:
                     "repeating-linear-gradient(180deg, rgba(255,255,255,0.04) 0px, rgba(255,255,255,0.04) 40px, transparent 40px, transparent 80px)",
@@ -1080,7 +1080,7 @@ function FeuilletMatchTab() {
               {/* Field markings SVG */}
               <svg
                 viewBox="0 0 300 450"
-                className="absolute inset-0 h-full w-full"
+                className="absolute inset-0 h-full w-full pointer-events-none"
                 preserveAspectRatio="none"
               >
                 {/* Boundary */}
@@ -1467,7 +1467,7 @@ function FeuilletMatchTab() {
             <div className="mx-auto max-w-sm">
               <div className="relative aspect-[2/3] rounded-lg overflow-hidden shadow-lg">
                 <div
-                  className="absolute inset-0 bg-green-700"
+                  className="absolute inset-0 bg-green-700 pointer-events-none"
                   style={{
                     backgroundImage:
                       "repeating-linear-gradient(180deg, rgba(255,255,255,0.04) 0px, rgba(255,255,255,0.04) 40px, transparent 40px, transparent 80px)",
@@ -1475,7 +1475,7 @@ function FeuilletMatchTab() {
                 />
                 <svg
                   viewBox="0 0 300 450"
-                  className="absolute inset-0 h-full w-full"
+                  className="absolute inset-0 h-full w-full pointer-events-none"
                   preserveAspectRatio="none"
                 >
                   <rect x="8" y="8" width="284" height="434" fill="none" stroke="rgba(255,255,255,0.45)" strokeWidth="2" rx="2" />
