@@ -197,7 +197,7 @@ export default function ChampionshipPage() {
         {isCoach && (
           <div className="flex gap-2">
             <Dialog open={fffOpen} onOpenChange={(open) => { setFffOpen(open); if (!open) resetFffDialog(); }}>
-              <DialogTrigger render={<Button variant="outline" className="border-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/10 font-semibold" />}>
+              <DialogTrigger render={<Button className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold" />}>
                 <Download className="h-4 w-4 mr-1" />
                 Scraper FFF
               </DialogTrigger>

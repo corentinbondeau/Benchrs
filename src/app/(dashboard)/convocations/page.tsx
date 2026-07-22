@@ -255,8 +255,7 @@ function CoachView({
                 <div className="flex gap-2">
                   <Button
                     size="sm"
-                    variant="outline"
-                    className="border-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/10"
+                    className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
                     onClick={() => convocateAll(event.id)}
                   >
                     <Users className="h-4 w-4 mr-1" />
