@@ -55,7 +55,7 @@ export function Sidebar() {
   return (
     <aside className="hidden lg:flex lg:w-64 lg:flex-col bg-[var(--color-navy)] text-white">
       <div className="flex h-14 items-center gap-2 px-4 border-b border-white/10">
-        <Shield className="h-6 w-6 text-[var(--color-gold)]" />
+        <img src="/logo.svg" alt="SportPlus" className="h-6 w-6" />
         <span className="text-lg font-bold">SportPlus</span>
       </div>
       <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">

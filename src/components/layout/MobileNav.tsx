@@ -51,7 +51,7 @@ export function MobileNav() {
       <SheetContent side="left" className="w-64 p-0 bg-[var(--color-navy)]">
         <div className="flex h-14 items-center justify-between px-4 border-b border-white/10">
           <div className="flex items-center gap-2">
-            <Shield className="h-6 w-6 text-[var(--color-gold)]" />
+            <img src="/logo.svg" alt="SportPlus" className="h-6 w-6" />
             <span className="text-lg font-bold text-white">SportPlus</span>
           </div>
           <button onClick={() => setOpen(false)} className="text-white/60 hover:text-white">

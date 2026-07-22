@@ -24,6 +24,7 @@ export function TopBar() {
   return (
     <header className="flex h-14 items-center gap-4 border-b bg-background px-4 lg:px-6">
       <MobileNav />
+      <img src="/logo.svg" alt="SportPlus" className="h-6 w-6 lg:hidden" />
       <div className="flex-1" />
       <DropdownMenu>
         <DropdownMenuTrigger render={<Button variant="ghost" className="relative h-9 w-9 rounded-full" />}>
