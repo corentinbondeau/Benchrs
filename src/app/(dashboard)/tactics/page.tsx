@@ -1048,19 +1048,19 @@ function FeuilletMatchTab() {
               <path d="M 284 442 A 8 8 0 0 0 292 434" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" />
             </svg>
 
-            {/* Player position slots */}
-            {currentPositions.map((pos, i) => {
-              const slotKey = `slot-${i}`;
-              const pid = assignments[slotKey];
-              const player = pid ? players.find((p) => p.id === pid) : null;
-              const isCapt = captainId === pid;
-              const isSelected = selectedPlayerId !== null;
-              return (
-                <div
-                  key={i}
-                  className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center"
-                  style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
-                >
+              {/* Player position slots */}
+              {currentPositions.map((pos, i) => {
+                const slotKey = `slot-${i}`;
+                const pid = assignments[slotKey];
+                const player = pid ? players.find((p) => p.id === pid) : null;
+                const isCapt = captainId === pid;
+                const isSelected = selectedPlayerId !== null;
+                return (
+                  <div
+                    key={i}
+                    className="absolute z-10 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center"
+                    style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
+                  >
                   <button
                     type="button"
                     onClick={() => handleSlotClick(slotKey)}
@@ -1375,7 +1375,7 @@ function FeuilletMatchTab() {
                   return (
                     <div
                       key={lineup.id}
-                      className="absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center"
+                      className="absolute z-10 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center"
                       style={{
                         left: `${pos?.x ?? 50}%`,
                         top: `${pos?.y ?? 50}%`,
