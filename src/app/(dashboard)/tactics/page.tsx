@@ -35,21 +35,7 @@ import {
   Shirt,
   Users,
   Crown,
-  GripVertical,
 } from "lucide-react";
-import {
-  DndContext,
-  DragEndEvent,
-  DragOverlay,
-  DragStartEvent,
-  useDraggable,
-  useDroppable,
-  useSensor,
-  useSensors,
-  PointerSensor,
-  TouchSensor,
-  closestCenter,
-} from "@dnd-kit/core";
 import { toast } from "sonner";
 import type {
   TrainingSession,
@@ -266,59 +252,6 @@ function formatTime(dateStr: string) {
     hour: "2-digit",
     minute: "2-digit",
   });
-}
-
-// --- DnD Helpers --------------------------------------------------------------
-
-function DraggablePlayer({
-  id,
-  children,
-  className,
-}: {
-  id: string;
-  children: React.ReactNode;
-  className?: string;
-}) {
-  const { attributes, listeners, setNodeRef, transform } = useDraggable({ id });
-  const style = transform
-    ? { transform: `translate(${transform.x}px, ${transform.y}px)`, zIndex: 50 }
-    : undefined;
-
-  return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      {...listeners}
-      {...attributes}
-      className={className}
-    >
-      {children}
-    </div>
-  );
-}
-
-function DroppableSlot({
-  id,
-  children,
-  className,
-}: {
-  id: string;
-  children: React.ReactNode;
-  className?: string;
-}) {
-  const { isOver, setNodeRef } = useDroppable({ id });
-
-  return (
-    <div
-      ref={setNodeRef}
-      className={`relative ${className || ""}`}
-    >
-      {children}
-      {isOver && (
-        <div className="absolute -inset-1 rounded-full ring-2 ring-[var(--color-gold)] ring-offset-1 pointer-events-none" />
-      )}
-    </div>
-  );
 }
 
 // --- Séance Tab ----------------------------------------------------------------
@@ -784,12 +717,7 @@ function FeuilletMatchTab() {
   const [assignments, setAssignments] = useState<Record<string, string>>({});
   const [captainId, setCaptainId] = useState("");
 
-  const [activeId, setActiveId] = useState<string | null>(null);
-  const activePlayer = activeId ? players.find((p) => p.id === activeId) : null;
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 5 } })
-  );
+  const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     const [lineupsRes, formationsRes, eventsRes, playersRes] = await Promise.all([
@@ -851,44 +779,56 @@ function FeuilletMatchTab() {
     return entry ? entry[0] : null;
   });
 
-  function handleDragStart(event: DragStartEvent) {
-    setActiveId(event.active.id as string);
+  function handlePlayerClick(playerId: string) {
+    if (selectedPlayerId === playerId) {
+      setSelectedPlayerId(null);
+    } else {
+      setSelectedPlayerId(playerId);
+    }
   }
 
-  function handleDragEnd(event: DragEndEvent) {
-    setActiveId(null);
-    const { active, over } = event;
-    const playerId = active.id as string;
-
-    if (!over) {
-      setAssignments((prev) => {
-        const next = { ...prev };
-        delete next[playerId];
-        return next;
-      });
+  function handleSlotClick(slotKey: string) {
+    if (!selectedPlayerId) {
+      const occupant = assignments[slotKey];
+      if (occupant) {
+        setSelectedPlayerId(occupant);
+        setAssignments((prev) => {
+          const next = { ...prev };
+          delete next[occupant];
+          return next;
+        });
+      }
       return;
     }
 
-    const targetId = over.id as string;
-    if (!targetId.startsWith("slot-") && !targetId.startsWith("bench-")) return;
-
     setAssignments((prev) => {
       const next = { ...prev };
-      const sourceLocation = next[playerId] || "pool";
-
-      const targetOccupant = Object.entries(next).find(
-        ([id, loc]) => loc === targetId && id !== playerId
+      const sourceLocation = next[selectedPlayerId];
+      const currentOccupant = Object.entries(next).find(
+        ([id, loc]) => loc === slotKey && id !== selectedPlayerId
       )?.[0];
 
-      next[playerId] = targetId;
+      next[selectedPlayerId] = slotKey;
 
-      if (targetOccupant) {
-        next[targetOccupant] =
-          sourceLocation === targetId ? "pool" : sourceLocation;
+      if (currentOccupant) {
+        next[currentOccupant] =
+          sourceLocation === slotKey ? "pool" : sourceLocation || "pool";
       }
 
       return next;
     });
+    setSelectedPlayerId(null);
+  }
+
+  function handleRemovePlayer(playerId: string) {
+    setAssignments((prev) => {
+      const next = { ...prev };
+      delete next[playerId];
+      return next;
+    });
+    if (selectedPlayerId === playerId) {
+      setSelectedPlayerId(null);
+    }
   }
 
   async function handleCreate() {
@@ -1002,406 +942,336 @@ function FeuilletMatchTab() {
     }
   }
 
-  // --- Create Mode (DnD) ---
+  // --- Create Mode (Click-based) ---
 
   if (createMode) {
     return (
-      <DndContext
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
-        sensors={sensors}
-        collisionDetection={closestCenter}
-      >
-        <div className="space-y-5">
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={resetCreateMode}>
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Retour
-            </Button>
+      <div className="space-y-5">
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="sm" onClick={resetCreateMode}>
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Retour
+          </Button>
+        </div>
+
+        {selectedPlayerId && (
+          <div className="rounded-lg border border-[var(--color-gold)] bg-[var(--color-gold)]/10 px-4 py-2 text-sm text-[var(--color-gold)]">
+            {(() => {
+              const sp = players.find((p) => p.id === selectedPlayerId);
+              return sp
+                ? `Sélectionné : ${sp.first_name} ${sp.last_name} — cliquez sur un poste ou le banc pour y placer ce joueur.`
+                : "Joueur sélectionné — cliquez sur un poste.";
+            })()}
           </div>
+        )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Match *</Label>
-              <Select
-                value={selectedEventId}
-                onValueChange={(v) => setSelectedEventId(v ?? "")}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Sélectionner un match" />
-                </SelectTrigger>
-                <SelectContent>
-                  {events.map((ev) => (
-                    <SelectItem key={ev.id} value={ev.id}>
-                      {ev.title}
-                      {ev.opponent ? ` vs ${ev.opponent}` : ""} —{" "}
-                      {formatDate(ev.event_date)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Formation</Label>
-              <Select
-                value={formationName}
-                onValueChange={(v) => {
-                  setFormationName(v ?? "4-3-3");
-                  setAssignments({});
-                  setCaptainId("");
-                }}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.keys(FORMATION_POSITIONS).map((f) => (
-                    <SelectItem key={f} value={f}>
-                      {f}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label>Match *</Label>
+            <Select
+              value={selectedEventId}
+              onValueChange={(v) => setSelectedEventId(v ?? "")}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Sélectionner un match" />
+              </SelectTrigger>
+              <SelectContent>
+                {events.map((ev) => (
+                  <SelectItem key={ev.id} value={ev.id}>
+                    {ev.title}
+                    {ev.opponent ? ` vs ${ev.opponent}` : ""} —{" "}
+                    {formatDate(ev.event_date)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-
-          {/* Pitch */}
-          <div className="mx-auto max-w-sm">
-            <div className="relative aspect-[2/3] rounded-lg overflow-hidden shadow-lg">
-              {/* Grass base */}
-              <div
-                className="absolute inset-0 bg-green-700 pointer-events-none"
-                style={{
-                  backgroundImage:
-                    "repeating-linear-gradient(180deg, rgba(255,255,255,0.04) 0px, rgba(255,255,255,0.04) 40px, transparent 40px, transparent 80px)",
-                }}
-              />
-
-              {/* Field markings SVG */}
-              <svg
-                viewBox="0 0 300 450"
-                className="absolute inset-0 h-full w-full pointer-events-none"
-                preserveAspectRatio="none"
-              >
-                {/* Boundary */}
-                <rect
-                  x="8"
-                  y="8"
-                  width="284"
-                  height="434"
-                  fill="none"
-                  stroke="rgba(255,255,255,0.45)"
-                  strokeWidth="2"
-                  rx="2"
-                />
-                {/* Halfway line */}
-                <line
-                  x1="8"
-                  y1="225"
-                  x2="292"
-                  y2="225"
-                  stroke="rgba(255,255,255,0.45)"
-                  strokeWidth="1.5"
-                />
-                {/* Center circle */}
-                <circle
-                  cx="150"
-                  cy="225"
-                  r="50"
-                  fill="none"
-                  stroke="rgba(255,255,255,0.45)"
-                  strokeWidth="1.5"
-                />
-                <circle cx="150" cy="225" r="3" fill="rgba(255,255,255,0.5)" />
-                {/* Top penalty area */}
-                <rect
-                  x="75"
-                  y="8"
-                  width="150"
-                  height="80"
-                  fill="none"
-                  stroke="rgba(255,255,255,0.45)"
-                  strokeWidth="1.5"
-                />
-                {/* Top goal area */}
-                <rect
-                  x="105"
-                  y="8"
-                  width="90"
-                  height="35"
-                  fill="none"
-                  stroke="rgba(255,255,255,0.45)"
-                  strokeWidth="1.5"
-                />
-                {/* Top penalty spot */}
-                <circle cx="150" cy="55" r="3" fill="rgba(255,255,255,0.5)" />
-                {/* Top penalty arc */}
-                <path
-                  d="M 115 88 Q 150 72 185 88"
-                  fill="none"
-                  stroke="rgba(255,255,255,0.45)"
-                  strokeWidth="1.5"
-                />
-                {/* Top goal */}
-                <rect
-                  x="120"
-                  y="0"
-                  width="60"
-                  height="8"
-                  fill="none"
-                  stroke="rgba(255,255,255,0.35)"
-                  strokeWidth="2"
-                />
-                {/* Bottom penalty area */}
-                <rect
-                  x="75"
-                  y="362"
-                  width="150"
-                  height="80"
-                  fill="none"
-                  stroke="rgba(255,255,255,0.45)"
-                  strokeWidth="1.5"
-                />
-                {/* Bottom goal area */}
-                <rect
-                  x="105"
-                  y="407"
-                  width="90"
-                  height="35"
-                  fill="none"
-                  stroke="rgba(255,255,255,0.45)"
-                  strokeWidth="1.5"
-                />
-                {/* Bottom penalty spot */}
-                <circle cx="150" cy="395" r="3" fill="rgba(255,255,255,0.5)" />
-                {/* Bottom penalty arc */}
-                <path
-                  d="M 115 362 Q 150 378 185 362"
-                  fill="none"
-                  stroke="rgba(255,255,255,0.45)"
-                  strokeWidth="1.5"
-                />
-                {/* Bottom goal */}
-                <rect
-                  x="120"
-                  y="442"
-                  width="60"
-                  height="8"
-                  fill="none"
-                  stroke="rgba(255,255,255,0.35)"
-                  strokeWidth="2"
-                />
-                {/* Corner arcs */}
-                <path
-                  d="M 8 16 A 8 8 0 0 1 16 8"
-                  fill="none"
-                  stroke="rgba(255,255,255,0.4)"
-                  strokeWidth="1.5"
-                />
-                <path
-                  d="M 284 8 A 8 8 0 0 1 292 16"
-                  fill="none"
-                  stroke="rgba(255,255,255,0.4)"
-                  strokeWidth="1.5"
-                />
-                <path
-                  d="M 8 434 A 8 8 0 0 0 16 442"
-                  fill="none"
-                  stroke="rgba(255,255,255,0.4)"
-                  strokeWidth="1.5"
-                />
-                <path
-                  d="M 284 442 A 8 8 0 0 0 292 434"
-                  fill="none"
-                  stroke="rgba(255,255,255,0.4)"
-                  strokeWidth="1.5"
-                />
-              </svg>
-
-              {/* Player position slots */}
-              {currentPositions.map((pos, i) => {
-                const pid = assignments[`slot-${i}`];
-                const player = pid ? players.find((p) => p.id === pid) : null;
-                const isCapt = captainId === pid;
-                return (
-                  <div
-                    key={i}
-                    className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center"
-                    style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
-                  >
-                    <DroppableSlot id={`slot-${i}`}>
-                      {player ? (
-                        <DraggablePlayer id={player.id}>
-                          <div
-                            className={`flex h-10 w-10 items-center justify-center rounded-full text-xs font-bold shadow-lg cursor-grab active:cursor-grabbing transition-all ${
-                              isCapt
-                                ? "bg-yellow-400 text-black ring-2 ring-yellow-300"
-                                : "bg-[var(--color-royal)] text-white"
-                            }`}
-                          >
-                            {player.shirt_number ?? "?"}
-                            {isCapt && (
-                              <Crown className="ml-0.5 h-3 w-3" />
-                            )}
-                          </div>
-                        </DraggablePlayer>
-                      ) : (
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-dashed border-white/30 text-[9px] text-white/50 font-medium">
-                          {pos.label
-                            .split(" ")
-                            .map((w) => w[0])
-                            .join("")
-                            .slice(0, 2)}
-                        </div>
-                      )}
-                    </DroppableSlot>
-                    <span className="mt-0.5 text-[9px] font-medium text-white/80 text-center max-w-[70px] truncate drop-shadow">
-                      {player
-                        ? `${player.first_name.charAt(0)}. ${player.last_name}`
-                        : pos.label}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Bench */}
-          <div className="rounded-xl border bg-muted/20 p-4">
-            <h4 className="text-sm font-semibold text-muted-foreground mb-3 flex items-center gap-2">
-              <Users className="h-4 w-4" />
-              Banc — Remplaçants ({benchPlayerIds.filter(Boolean).length}/3)
-            </h4>
-            <div className="grid grid-cols-3 gap-3">
-              {[0, 1, 2].map((i) => {
-                const pid = benchPlayerIds[i];
-                const player = pid ? players.find((p) => p.id === pid) : null;
-                return (
-                  <DroppableSlot key={i} id={`bench-${i}`}>
-                    {player ? (
-                      <DraggablePlayer id={player.id}>
-                        <div className="flex items-center gap-2 rounded-lg border bg-card p-2.5 cursor-grab active:cursor-grabbing shadow-sm">
-                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--color-royal)] text-white text-xs font-bold">
-                            {player.shirt_number ?? "?"}
-                          </div>
-                          <div className="min-w-0">
-                            <p className="truncate text-xs font-medium">
-                              {player.first_name} {player.last_name}
-                            </p>
-                          </div>
-                          <GripVertical className="ml-auto h-3 w-3 text-muted-foreground/40" />
-                        </div>
-                      </DraggablePlayer>
-                    ) : (
-                      <div className="flex h-[52px] items-center justify-center rounded-lg border-2 border-dashed border-muted-foreground/20 text-xs text-muted-foreground/40 font-medium">
-                        R{i + 1}
-                      </div>
-                    )}
-                  </DroppableSlot>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Player pool */}
-          <div>
-            <h4 className="text-sm font-semibold text-muted-foreground mb-2 flex items-center gap-2">
-              <Shirt className="h-4 w-4" />
-              Joueurs disponibles ({poolPlayers.length})
-            </h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-72 overflow-y-auto rounded-xl border p-3">
-              {poolPlayers.map((player) => {
-                const isCapt = captainId === player.id;
-                return (
-                  <DraggablePlayer key={player.id} id={player.id}>
-                    <div
-                      className={`flex items-center gap-2.5 rounded-lg border bg-card p-2.5 cursor-grab active:cursor-grabbing shadow-sm transition-all ${
-                        isCapt ? "ring-2 ring-yellow-400" : ""
-                      }`}
-                    >
-                      <div
-                        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
-                          isCapt
-                            ? "bg-yellow-400 text-black"
-                            : "bg-[var(--color-royal)] text-white"
-                        }`}
-                      >
-                        {player.shirt_number ?? "?"}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium">
-                          {player.first_name} {player.last_name}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {player.position || "Joueur"}
-                        </p>
-                      </div>
-                      {isCapt && (
-                        <Crown className="h-3.5 w-3.5 text-yellow-500 shrink-0" />
-                      )}
-                      <GripVertical className="h-3.5 w-3.5 text-muted-foreground/30 shrink-0" />
-                    </div>
-                  </DraggablePlayer>
-                );
-              })}
-              {poolPlayers.length === 0 && (
-                <p className="col-span-full text-center text-sm text-muted-foreground py-6">
-                  Tous les joueurs sont assignés
-                </p>
-              )}
-            </div>
-          </div>
-
-          {/* Captain + actions */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-end gap-4 justify-between pt-2 border-t">
-            <div className="space-y-2 w-full sm:w-auto">
-              <Label>Capitaine</Label>
-              <Select
-                value={captainId}
-                onValueChange={(v) => setCaptainId(v ?? "")}
-              >
-                <SelectTrigger className="w-full sm:w-64">
-                  <SelectValue placeholder="Aucun capitaine" />
-                </SelectTrigger>
-                <SelectContent>
-                  {players
-                    .filter((p) => assignedPlayerIds.has(p.id))
-                    .map((player) => (
-                      <SelectItem key={player.id} value={player.id}>
-                        #{player.shirt_number ?? "?"} {player.first_name}{" "}
-                        {player.last_name}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex gap-2 w-full sm:w-auto">
-              <Button
-                variant="outline"
-                onClick={resetCreateMode}
-                className="flex-1 sm:flex-initial"
-              >
-                Annuler
-              </Button>
-              <Button
-                onClick={handleCreate}
-                disabled={submitting}
-                className="flex-1 sm:flex-initial bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
-              >
-                {submitting ? "Création..." : "Créer le feuillet"}
-              </Button>
-            </div>
+          <div className="space-y-2">
+            <Label>Formation</Label>
+            <Select
+              value={formationName}
+              onValueChange={(v) => {
+                setFormationName(v ?? "4-3-3");
+                setAssignments({});
+                setCaptainId("");
+              }}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.keys(FORMATION_POSITIONS).map((f) => (
+                  <SelectItem key={f} value={f}>
+                    {f}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
-        <DragOverlay>
-          {activePlayer ? (
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--color-gold)] text-[var(--color-navy)] text-xs font-bold shadow-2xl">
-              {activePlayer.shirt_number ?? "?"}
-            </div>
-          ) : null}
-        </DragOverlay>
-      </DndContext>
+        {/* Pitch */}
+        <div className="mx-auto max-w-sm">
+          <div className="relative aspect-[2/3] rounded-lg overflow-hidden shadow-lg">
+            {/* Grass base */}
+            <div
+              className="absolute inset-0 bg-green-700 pointer-events-none"
+              style={{
+                backgroundImage:
+                  "repeating-linear-gradient(180deg, rgba(255,255,255,0.04) 0px, rgba(255,255,255,0.04) 40px, transparent 40px, transparent 80px)",
+              }}
+            />
+
+            {/* Field markings SVG */}
+            <svg
+              viewBox="0 0 300 450"
+              className="absolute inset-0 h-full w-full pointer-events-none"
+              preserveAspectRatio="none"
+            >
+              <rect x="8" y="8" width="284" height="434" fill="none" stroke="rgba(255,255,255,0.45)" strokeWidth="2" rx="2" />
+              <line x1="8" y1="225" x2="292" y2="225" stroke="rgba(255,255,255,0.45)" strokeWidth="1.5" />
+              <circle cx="150" cy="225" r="50" fill="none" stroke="rgba(255,255,255,0.45)" strokeWidth="1.5" />
+              <circle cx="150" cy="225" r="3" fill="rgba(255,255,255,0.5)" />
+              <rect x="75" y="8" width="150" height="80" fill="none" stroke="rgba(255,255,255,0.45)" strokeWidth="1.5" />
+              <rect x="105" y="8" width="90" height="35" fill="none" stroke="rgba(255,255,255,0.45)" strokeWidth="1.5" />
+              <circle cx="150" cy="55" r="3" fill="rgba(255,255,255,0.5)" />
+              <path d="M 115 88 Q 150 72 185 88" fill="none" stroke="rgba(255,255,255,0.45)" strokeWidth="1.5" />
+              <rect x="120" y="0" width="60" height="8" fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="2" />
+              <rect x="75" y="362" width="150" height="80" fill="none" stroke="rgba(255,255,255,0.45)" strokeWidth="1.5" />
+              <rect x="105" y="407" width="90" height="35" fill="none" stroke="rgba(255,255,255,0.45)" strokeWidth="1.5" />
+              <circle cx="150" cy="395" r="3" fill="rgba(255,255,255,0.5)" />
+              <path d="M 115 362 Q 150 378 185 362" fill="none" stroke="rgba(255,255,255,0.45)" strokeWidth="1.5" />
+              <rect x="120" y="442" width="60" height="8" fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="2" />
+              <path d="M 8 16 A 8 8 0 0 1 16 8" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" />
+              <path d="M 284 8 A 8 8 0 0 1 292 16" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" />
+              <path d="M 8 434 A 8 8 0 0 0 16 442" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" />
+              <path d="M 284 442 A 8 8 0 0 0 292 434" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" />
+            </svg>
+
+            {/* Player position slots */}
+            {currentPositions.map((pos, i) => {
+              const slotKey = `slot-${i}`;
+              const pid = assignments[slotKey];
+              const player = pid ? players.find((p) => p.id === pid) : null;
+              const isCapt = captainId === pid;
+              const isSelected = selectedPlayerId !== null;
+              return (
+                <div
+                  key={i}
+                  className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center"
+                  style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => handleSlotClick(slotKey)}
+                    className={`relative flex h-10 w-10 items-center justify-center rounded-full text-xs font-bold shadow-lg transition-all ${
+                      isSelected && !player
+                        ? "ring-2 ring-[var(--color-gold)] ring-offset-2 ring-offset-green-700"
+                        : ""
+                    } ${
+                      player
+                        ? isCapt
+                          ? "bg-yellow-400 text-black ring-2 ring-yellow-300"
+                          : "bg-[var(--color-royal)] text-white"
+                        : "border-2 border-dashed border-white/30 text-[9px] text-white/50"
+                    }`}
+                  >
+                    {player ? (
+                      <>
+                        {player.shirt_number ?? "?"}
+                        {isCapt && <Crown className="ml-0.5 h-3 w-3" />}
+                      </>
+                    ) : (
+                      pos.label
+                        .split(" ")
+                        .map((w) => w[0])
+                        .join("")
+                        .slice(0, 2)
+                    )}
+                    {player && (
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRemovePlayer(pid!);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.stopPropagation();
+                            handleRemovePlayer(pid!);
+                          }
+                        }}
+                        className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-white text-[8px] leading-none font-bold hover:bg-red-600"
+                      >
+                        ×
+                      </span>
+                    )}
+                  </button>
+                  <span className="mt-0.5 text-[9px] font-medium text-white/80 text-center max-w-[70px] truncate drop-shadow">
+                    {player
+                      ? `${player.first_name.charAt(0)}. ${player.last_name}`
+                      : pos.label}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Bench */}
+        <div className="rounded-xl border bg-muted/20 p-4">
+          <h4 className="text-sm font-semibold text-muted-foreground mb-3 flex items-center gap-2">
+            <Users className="h-4 w-4" />
+            Banc — Remplaçants ({benchPlayerIds.filter(Boolean).length}/3)
+          </h4>
+          <div className="grid grid-cols-3 gap-3">
+            {[0, 1, 2].map((i) => {
+              const benchKey = `bench-${i}`;
+              const pid = benchPlayerIds[i];
+              const player = pid ? players.find((p) => p.id === pid) : null;
+              const isSelected = selectedPlayerId !== null;
+              return (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => handleSlotClick(benchKey)}
+                  className={`relative ${isSelected && !player ? "ring-2 ring-[var(--color-gold)] ring-offset-1 rounded-lg" : ""}`}
+                >
+                  {player ? (
+                    <div className="flex items-center gap-2 rounded-lg border bg-card p-2.5 shadow-sm">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--color-royal)] text-white text-xs font-bold">
+                        {player.shirt_number ?? "?"}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="truncate text-xs font-medium">
+                          {player.first_name} {player.last_name}
+                        </p>
+                      </div>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRemovePlayer(pid!);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.stopPropagation();
+                            handleRemovePlayer(pid!);
+                          }
+                        }}
+                        className="ml-auto flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-red-500 text-white text-[10px] leading-none font-bold hover:bg-red-600"
+                      >
+                        ×
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="flex h-[52px] items-center justify-center rounded-lg border-2 border-dashed border-muted-foreground/20 text-xs text-muted-foreground/40 font-medium">
+                      R{i + 1}
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Player pool */}
+        <div>
+          <h4 className="text-sm font-semibold text-muted-foreground mb-2 flex items-center gap-2">
+            <Shirt className="h-4 w-4" />
+            Joueurs disponibles ({poolPlayers.length})
+          </h4>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-72 overflow-y-auto rounded-xl border p-3">
+            {poolPlayers.map((player) => {
+              const isCapt = captainId === player.id;
+              const isSelected = selectedPlayerId === player.id;
+              return (
+                <button
+                  key={player.id}
+                  type="button"
+                  onClick={() => handlePlayerClick(player.id)}
+                  className={`flex items-center gap-2.5 rounded-lg border bg-card p-2.5 shadow-sm transition-all text-left ${
+                    isSelected
+                      ? "ring-2 ring-[var(--color-gold)] bg-[var(--color-gold)]/5"
+                      : isCapt
+                        ? "ring-2 ring-yellow-400"
+                        : ""
+                  }`}
+                >
+                  <div
+                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+                      isCapt
+                        ? "bg-yellow-400 text-black"
+                        : "bg-[var(--color-royal)] text-white"
+                    }`}
+                  >
+                    {player.shirt_number ?? "?"}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">
+                      {player.first_name} {player.last_name}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {player.position || "Joueur"}
+                    </p>
+                  </div>
+                  {isCapt && (
+                    <Crown className="h-3.5 w-3.5 text-yellow-500 shrink-0" />
+                  )}
+                </button>
+              );
+            })}
+            {poolPlayers.length === 0 && (
+              <p className="col-span-full text-center text-sm text-muted-foreground py-6">
+                Tous les joueurs sont assignés
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Captain + actions */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-end gap-4 justify-between pt-2 border-t">
+          <div className="space-y-2 w-full sm:w-auto">
+            <Label>Capitaine</Label>
+            <Select
+              value={captainId}
+              onValueChange={(v) => setCaptainId(v ?? "")}
+            >
+              <SelectTrigger className="w-full sm:w-64">
+                <SelectValue placeholder="Aucun capitaine" />
+              </SelectTrigger>
+              <SelectContent>
+                {players
+                  .filter((p) => assignedPlayerIds.has(p.id))
+                  .map((player) => (
+                    <SelectItem key={player.id} value={player.id}>
+                      #{player.shirt_number ?? "?"} {player.first_name}{" "}
+                      {player.last_name}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex gap-2 w-full sm:w-auto">
+            <Button
+              variant="outline"
+              onClick={resetCreateMode}
+              className="flex-1 sm:flex-initial"
+            >
+              Annuler
+            </Button>
+            <Button
+              onClick={handleCreate}
+              disabled={submitting}
+              className="flex-1 sm:flex-initial bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
+            >
+              {submitting ? "Création..." : "Créer le feuillet"}
+            </Button>
+          </div>
+        </div>
+      </div>
     );
   }
 
