@@ -9,7 +9,7 @@ import { EventForm } from "@/components/calendar/EventForm";
 import type { Event } from "@/types";
 
 export default function CalendarPage() {
-  const [view, setView] = useState<"month" | "week">("month");
+  const [view, setView] = useState<"month" | "week">("week");
   const [currentDate, setCurrentDate] = useState(new Date());
   const [events, setEvents] = useState<Event[]>([]);
   const [isPending, startTransition] = useTransition();

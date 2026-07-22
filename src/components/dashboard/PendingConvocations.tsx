@@ -11,7 +11,11 @@ import { Label } from "@/components/ui/label";
 import { Check, X, Clock } from "lucide-react";
 import type { Attendance, Event } from "@/types";
 
-export function PendingConvocations() {
+interface PendingConvocationsProps {
+  showChild?: boolean;
+}
+
+export function PendingConvocations({ showChild }: PendingConvocationsProps) {
   const { data: session } = useSession();
   const [attendances, setAttendances] = useState<
     (Attendance & { event: Event })[]
@@ -25,10 +29,27 @@ export function PendingConvocations() {
     const supabase = createClient();
 
     async function fetchPending() {
+      let targetUserId = session!.user!.id;
+
+      if (showChild) {
+        const { data: links } = await supabase
+          .from("parent_student")
+          .select("student_id")
+          .eq("parent_id", session!.user!.id)
+          .limit(1)
+          .single();
+        if (links) {
+          targetUserId = links.student_id;
+        } else {
+          setLoading(false);
+          return;
+        }
+      }
+
       const { data } = await supabase
         .from("attendances")
         .select("*, event:events!attendances_event_id_fkey(*)")
-        .eq("user_id", session!.user!.id)
+        .eq("user_id", targetUserId)
         .eq("status", "pending")
         .order("created_at", { ascending: false });
 
@@ -37,7 +58,7 @@ export function PendingConvocations() {
     }
 
     fetchPending();
-  }, [session?.user?.id]);
+  }, [session?.user?.id, showChild]);
 
   async function respond(
     attendanceId: string,

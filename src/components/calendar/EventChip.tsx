@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 import type { Event } from "@/types";
 import { cn } from "@/lib/utils";
 import {
@@ -7,6 +9,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { Users } from "lucide-react";
 
 interface EventChipProps {
   event: Event;
@@ -19,6 +22,29 @@ export function EventChip({ event, compact }: EventChipProps) {
     hour: "2-digit",
     minute: "2-digit",
   });
+  const [attendance, setAttendance] = useState<{ present: number; total: number } | null>(null);
+
+  useEffect(() => {
+    const supabase = createClient();
+    async function fetchAttendance() {
+      const { count: total } = await supabase
+        .from("attendances")
+        .select("id", { count: "exact", head: true })
+        .eq("event_id", event.id);
+
+      const { count: present } = await supabase
+        .from("attendances")
+        .select("id", { count: "exact", head: true })
+        .eq("event_id", event.id)
+        .in("status", ["present", "late"]);
+
+      setAttendance({
+        present: present || 0,
+        total: total || 0,
+      });
+    }
+    fetchAttendance();
+  }, [event.id]);
 
   const chip = (
     <div
@@ -30,6 +56,12 @@ export function EventChip({ event, compact }: EventChipProps) {
       )}
     >
       {compact ? time : `${time} ${event.title}`}
+      {attendance && attendance.total > 0 && (
+        <span className="ml-1 inline-flex items-center gap-0.5 text-[10px] opacity-75">
+          <Users className="h-2.5 w-2.5" />
+          {attendance.present}/{attendance.total}
+        </span>
+      )}
     </div>
   );
 
@@ -63,6 +95,12 @@ export function EventChip({ event, compact }: EventChipProps) {
             <p>⏰ {time}</p>
             {event.location && <p>📍 {event.location}</p>}
             {event.opponent && <p>🆚 {event.opponent}</p>}
+            {attendance && attendance.total > 0 && (
+              <p className="flex items-center gap-1 font-medium text-foreground">
+                <Users className="h-3 w-3" />
+                Présences : {attendance.present}/{attendance.total}
+              </p>
+            )}
             {event.status === "completed" && event.match_result && (
               <p className="font-medium text-foreground">
                 Résultat : {event.score_us} - {event.score_them}

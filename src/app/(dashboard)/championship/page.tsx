@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import {
   Card,
@@ -18,15 +18,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trophy, Medal, ArrowUpDown } from "lucide-react";
+import { Plus, Trophy, Medal, Download, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface ChampionshipTeam {
@@ -57,7 +50,10 @@ export default function ChampionshipPage() {
   const [selectedId, setSelectedId] = useState<string>("");
   const [createOpen, setCreateOpen] = useState(false);
   const [resultOpen, setResultOpen] = useState(false);
+  const [scrapeOpen, setScrapeOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [scraping, setScraping] = useState(false);
+  const [scrapeUrl, setScrapeUrl] = useState("");
 
   const [createForm, setCreateForm] = useState({ name: "", season: "2025-2026", level: "" });
   const [resultForm, setResultForm] = useState({
@@ -135,6 +131,32 @@ export default function ChampionshipPage() {
     }
   }
 
+  async function handleScrapeFff(e: React.FormEvent) {
+    e.preventDefault();
+    if (!scrapeUrl.trim()) return;
+    setScraping(true);
+    try {
+      const res = await fetch("/api/championships/scrape-fff", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: scrapeUrl, championship_id: selectedId }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Erreur lors de l'import");
+      }
+      const data = await res.json();
+      toast({ title: "Import réussi", description: `${data.imported || 0} résultats importés` });
+      setScrapeOpen(false);
+      setScrapeUrl("");
+      refetch();
+    } catch (err) {
+      toast({ title: "Erreur", description: String(err), variant: "destructive" });
+    } finally {
+      setScraping(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -146,14 +168,52 @@ export default function ChampionshipPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-2xl font-bold">Championnat</h2>
           <p className="text-muted-foreground mt-1">Classement et résultats</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {isCoach && (
             <>
+              <Dialog open={scrapeOpen} onOpenChange={setScrapeOpen}>
+                <DialogTrigger render={<Button className="bg-[var(--royal)] text-white hover:bg-[var(--royal)]/90" />}>
+                  <Download className="h-4 w-4 mr-1.5" />
+                  Importer FFF
+                </DialogTrigger>
+                <DialogContent className="max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>Importer depuis la FFF</DialogTitle>
+                  </DialogHeader>
+                  <form onSubmit={handleScrapeFff} className="space-y-4">
+                    <p className="text-sm text-muted-foreground">
+                      Collez l&apos;URL de la page championnat sur le site de la FFF pour importer automatiquement les classements et résultats.
+                    </p>
+                    <div className="space-y-2">
+                      <Label>URL FFF *</Label>
+                      <Input
+                        value={scrapeUrl}
+                        onChange={(e) => setScrapeUrl(e.target.value)}
+                        placeholder="https://www.fff.fr/championnat/..."
+                        required
+                      />
+                    </div>
+                    <div className="flex gap-2 justify-end">
+                      <Button type="button" variant="ghost" onClick={() => setScrapeOpen(false)}>
+                        Annuler
+                      </Button>
+                      <Button type="submit" disabled={scraping || !scrapeUrl.trim()} className="bg-[var(--royal)] text-white">
+                        {scraping ? (
+                          <><Loader2 className="h-4 w-4 mr-1 animate-spin" />Import en cours...</>
+                        ) : (
+                          <><Download className="h-4 w-4 mr-1" />Importer</>
+                        )}
+                      </Button>
+                    </div>
+                  </form>
+                </DialogContent>
+              </Dialog>
+
               <Dialog open={resultOpen} onOpenChange={setResultOpen}>
                 <DialogTrigger render={<Button variant="outline" />}>
                   <Plus className="h-4 w-4 mr-1" />
@@ -194,7 +254,7 @@ export default function ChampionshipPage() {
               </Dialog>
 
               <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-                <DialogTrigger render={<Button className="bg-[var(--gold)] text-[var(--gold-foreground)] hover:bg-[var(--gold)]/90" />}>
+                <DialogTrigger render={<Button variant="outline" />}>
                   <Plus className="h-4 w-4 mr-1" />
                   Championnat
                 </DialogTrigger>
@@ -234,7 +294,7 @@ export default function ChampionshipPage() {
             <Trophy className="h-12 w-12 text-muted-foreground mb-4" />
             <h3 className="font-semibold text-lg">Aucun championnat</h3>
             <p className="text-muted-foreground text-sm mt-1">
-              Créez un championnat pour suivre les classements de votre équipe.
+              Créez un championnat ou importez-en un depuis la FFF.
             </p>
           </CardContent>
         </Card>
@@ -266,7 +326,7 @@ export default function ChampionshipPage() {
               <CardContent>
                 {sortedTeams.length === 0 ? (
                   <p className="text-muted-foreground text-sm text-center py-6">
-                    Aucune équipe dans le classement. Ajoutez des résultats pour commencer.
+                    Aucune équipe dans le classement. Ajoutez des résultats ou importez depuis la FFF.
                   </p>
                 ) : (
                   <div className="overflow-x-auto">

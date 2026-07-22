@@ -4,6 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PitchEditor } from "@/components/tactics/PitchEditor";
 import { SessionEditor } from "@/components/tactics/SessionEditor";
 import { MatchSheet } from "@/components/tactics/MatchSheet";
+import { MatchLineupEditor } from "@/components/tactics/MatchLineupEditor";
 
 export default function TacticsPage() {
   return (
@@ -15,12 +16,16 @@ export default function TacticsPage() {
         </p>
       </div>
 
-      <Tabs defaultValue="pitch" className="space-y-4">
+      <Tabs defaultValue="lineup" className="space-y-4">
         <TabsList>
+          <TabsTrigger value="lineup">Composition</TabsTrigger>
           <TabsTrigger value="pitch">Terrain</TabsTrigger>
           <TabsTrigger value="session">Séance</TabsTrigger>
           <TabsTrigger value="match">Feuillet match</TabsTrigger>
         </TabsList>
+        <TabsContent value="lineup">
+          <MatchLineupEditor />
+        </TabsContent>
         <TabsContent value="pitch">
           <PitchEditor />
         </TabsContent>
