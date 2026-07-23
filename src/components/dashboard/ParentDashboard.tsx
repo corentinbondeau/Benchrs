@@ -67,6 +67,12 @@ export function ParentDashboard() {
         setChild(childProfile as ChildProfile);
       }
 
+      const { data: trainingEvents } = await supabase
+        .from("events")
+        .select("id")
+        .eq("type", "training");
+      const trainingIds = (trainingEvents || []).map((e) => e.id);
+
       const [nextEventRes, attRes, convsRes] = await Promise.all([
         supabase
           .from("events")
@@ -76,10 +82,13 @@ export function ParentDashboard() {
           .order("event_date", { ascending: true })
           .limit(1)
           .single(),
-        supabase
-          .from("attendances")
-          .select("status")
-          .eq("user_id", link.student_id),
+        trainingIds.length > 0
+          ? supabase
+              .from("attendances")
+              .select("status")
+              .eq("user_id", link.student_id)
+              .in("event_id", trainingIds)
+          : Promise.resolve({ data: [] }),
         supabase
           .from("attendances")
           .select("*, event:events!attendances_event_id_fkey(*)")

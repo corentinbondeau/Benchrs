@@ -26,11 +26,20 @@ export function PlayerDashboard() {
     const supabase = createClient();
 
     async function fetchPlayerStats() {
+      const { data: trainingEvents } = await supabase
+        .from("events")
+        .select("id")
+        .eq("type", "training");
+      const trainingIds = (trainingEvents || []).map((e) => e.id);
+
       const [attRes, statsRes] = await Promise.all([
-        supabase
-          .from("attendances")
-          .select("status")
-          .eq("user_id", user!.id),
+        trainingIds.length > 0
+          ? supabase
+              .from("attendances")
+              .select("status")
+              .eq("user_id", user!.id)
+              .in("event_id", trainingIds)
+          : Promise.resolve({ data: [] }),
         supabase
           .from("match_stats")
           .select("goals, assists, minutes_played")

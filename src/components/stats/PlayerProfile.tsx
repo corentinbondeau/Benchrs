@@ -45,10 +45,19 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
         .select("goals, assists, yellow_cards, red_cards, minutes_played")
         .eq("player_id", playerId);
 
-      const { data: attendanceData } = await supabase
-        .from("attendances")
-        .select("status")
-        .eq("user_id", playerId);
+      const { data: trainingEvents } = await supabase
+        .from("events")
+        .select("id")
+        .eq("type", "training");
+      const trainingIds = (trainingEvents || []).map((e) => e.id);
+
+      const { data: attendanceData } = trainingIds.length > 0
+        ? await supabase
+            .from("attendances")
+            .select("status")
+            .eq("user_id", playerId)
+            .in("event_id", trainingIds)
+        : { data: [] };
 
       let totalGoals = 0, totalAssists = 0, totalMinutes = 0, yellowCards = 0, redCards = 0;
       if (matchStats) {

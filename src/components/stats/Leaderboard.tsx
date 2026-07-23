@@ -69,8 +69,12 @@ export function Leaderboard() {
         entry.matches_played += 1;
       }
 
-      // Fetch attendance rates
-      const { data: attendanceData } = await supabase.from("attendances").select("user_id, status");
+      // Fetch attendance rates (trainings only)
+      const { data: trainingEvents } = await supabase.from("events").select("id").eq("type", "training");
+      const trainingIds = (trainingEvents || []).map((e) => e.id);
+      const { data: attendanceData } = trainingIds.length > 0
+        ? await supabase.from("attendances").select("user_id, status").in("event_id", trainingIds)
+        : { data: [] };
       if (attendanceData) {
         const playerAtt = new Map<string, { total: number; present: number }>();
         for (const att of attendanceData) {
