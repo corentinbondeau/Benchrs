@@ -3,9 +3,12 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useParams, useRouter } from "next/navigation";
+import { useAuth } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import {
   ArrowLeft,
@@ -18,7 +21,10 @@ import {
   Minus,
   TrendingUp,
   Shield,
+  Pencil,
+  Check,
 } from "lucide-react";
+import { toast } from "sonner";
 import type { Event, MatchStat, Formation, MatchLineup, Profile } from "@/types";
 
 type MatchEvent = Event & { meeting_time: string | null };
@@ -82,6 +88,8 @@ function getResultLabel(result: string | null) {
 export default function MatchDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const { user } = useAuth();
+  const isCoach = user?.profile?.role === "coach";
   const matchId = params.id as string;
 
   const [match, setMatch] = useState<MatchEvent | null>(null);
@@ -89,6 +97,9 @@ export default function MatchDetailPage() {
   const [formation, setFormation] = useState<Formation | null>(null);
   const [lineups, setLineups] = useState<LineupEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [editingStats, setEditingStats] = useState(false);
+  const [statsForm, setStatsForm] = useState<Record<string, { goals: number; assists: number; yellow_cards: number; red_cards: number; minutes_played: number }>>({});
+  const [savingStats, setSavingStats] = useState(false);
 
   useEffect(() => {
     const supabase = createClient();
@@ -126,6 +137,73 @@ export default function MatchDetailPage() {
 
     fetchMatchData();
   }, [matchId]);
+
+  function initStatsForm() {
+    const form: Record<string, { goals: number; assists: number; yellow_cards: number; red_cards: number; minutes_played: number }> = {};
+    for (const l of lineups) {
+      const existing = playerStats.find((s) => s.player_id === l.player_id);
+      form[l.player_id] = {
+        goals: existing?.goals || 0,
+        assists: existing?.assists || 0,
+        yellow_cards: existing?.yellow_cards || 0,
+        red_cards: existing?.red_cards || 0,
+        minutes_played: existing?.minutes_played || 0,
+      };
+    }
+    setStatsForm(form);
+    setEditingStats(true);
+  }
+
+  async function saveStats() {
+    setSavingStats(true);
+    const supabase = createClient();
+
+    for (const [playerId, stats] of Object.entries(statsForm)) {
+      const existing = playerStats.find((s) => s.player_id === playerId);
+      if (existing) {
+        await supabase
+          .from("match_stats")
+          .update({
+            goals: stats.goals,
+            assists: stats.assists,
+            yellow_cards: stats.yellow_cards,
+            red_cards: stats.red_cards,
+            minutes_played: stats.minutes_played,
+          })
+          .eq("id", existing.id);
+      } else {
+        const hasData = stats.goals > 0 || stats.assists > 0 || stats.yellow_cards > 0 || stats.red_cards > 0 || stats.minutes_played > 0;
+        if (hasData) {
+          await supabase.from("match_stats").insert({
+            event_id: matchId,
+            player_id: playerId,
+            goals: stats.goals,
+            assists: stats.assists,
+            yellow_cards: stats.yellow_cards,
+            red_cards: stats.red_cards,
+            minutes_played: stats.minutes_played,
+          });
+        }
+      }
+    }
+
+    const { data: refreshed } = await supabase
+      .from("match_stats")
+      .select("*, profile:profiles!match_stats_player_id_fkey(id, first_name, last_name, shirt_number, position)")
+      .eq("event_id", matchId);
+
+    setPlayerStats((refreshed as PlayerStat[]) || []);
+    setEditingStats(false);
+    setSavingStats(false);
+    toast.success("Stats enregistrées");
+  }
+
+  function updateStatField(playerId: string, field: string, value: number) {
+    setStatsForm((prev) => ({
+      ...prev,
+      [playerId]: { ...prev[playerId], [field]: Math.max(0, value) },
+    }));
+  }
 
   if (loading) {
     return (
@@ -266,13 +344,109 @@ export default function MatchDetailPage() {
         {/* Player Stats */}
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Target className="h-4 w-4 text-[var(--color-gold)]" />
-              Stats du match
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Target className="h-4 w-4 text-[var(--color-gold)]" />
+                Stats du match
+              </CardTitle>
+              {isCoach && lineups.length > 0 && (
+                editingStats ? (
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="ghost" onClick={() => setEditingStats(false)}>
+                      Annuler
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="bg-[var(--color-gold)] text-[var(--color-navy)]"
+                      onClick={saveStats}
+                      disabled={savingStats}
+                    >
+                      <Check className="h-3.5 w-3.5 mr-1" />
+                      {savingStats ? "..." : "Enregistrer"}
+                    </Button>
+                  </div>
+                ) : (
+                  <Button size="sm" variant="outline" onClick={initStatsForm}>
+                    <Pencil className="h-3.5 w-3.5 mr-1" />
+                    Modifier
+                  </Button>
+                )
+              )}
+            </div>
           </CardHeader>
           <CardContent>
-            {playerStats.length === 0 ? (
+            {editingStats ? (
+              <div className="space-y-2">
+                {lineups.map((l) => {
+                  const p = l.profile;
+                  const s = statsForm[l.player_id];
+                  if (!s) return null;
+                  return (
+                    <div key={l.player_id} className="flex items-center gap-2 rounded-lg border p-2">
+                      <div className="flex items-center gap-2 min-w-[120px] shrink-0">
+                        <span className="font-bold text-xs w-6 text-center">{p?.shirt_number ?? "?"}</span>
+                        <span className="truncate text-xs">{p?.first_name} {p?.last_name}</span>
+                      </div>
+                      <div className="flex items-center gap-1 flex-wrap">
+                        <div className="flex items-center gap-1">
+                          <Label className="text-[10px] text-muted-foreground w-4 text-center">B</Label>
+                          <Input
+                            type="number"
+                            min={0}
+                            value={s.goals}
+                            onChange={(e) => updateStatField(l.player_id, "goals", parseInt(e.target.value) || 0)}
+                            className="h-7 w-12 text-center text-xs px-1"
+                          />
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Label className="text-[10px] text-muted-foreground w-4 text-center">P</Label>
+                          <Input
+                            type="number"
+                            min={0}
+                            value={s.assists}
+                            onChange={(e) => updateStatField(l.player_id, "assists", parseInt(e.target.value) || 0)}
+                            className="h-7 w-12 text-center text-xs px-1"
+                          />
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Label className="text-[10px] text-yellow-500 w-3 text-center">J</Label>
+                          <Input
+                            type="number"
+                            min={0}
+                            max={2}
+                            value={s.yellow_cards}
+                            onChange={(e) => updateStatField(l.player_id, "yellow_cards", parseInt(e.target.value) || 0)}
+                            className="h-7 w-12 text-center text-xs px-1"
+                          />
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Label className="text-[10px] text-red-500 w-3 text-center">R</Label>
+                          <Input
+                            type="number"
+                            min={0}
+                            max={1}
+                            value={s.red_cards}
+                            onChange={(e) => updateStatField(l.player_id, "red_cards", parseInt(e.target.value) || 0)}
+                            className="h-7 w-12 text-center text-xs px-1"
+                          />
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Label className="text-[10px] text-muted-foreground w-6 text-center">Min</Label>
+                          <Input
+                            type="number"
+                            min={0}
+                            max={90}
+                            value={s.minutes_played}
+                            onChange={(e) => updateStatField(l.player_id, "minutes_played", parseInt(e.target.value) || 0)}
+                            className="h-7 w-14 text-center text-xs px-1"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : playerStats.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-4">
                 Aucune stats enregistrée
               </p>
