@@ -140,6 +140,7 @@ export default function MatchDetailPage() {
 
   function initStatsForm() {
     const form: Record<string, { goals: number; assists: number; yellow_cards: number; red_cards: number; minutes_played: number }> = {};
+
     for (const l of lineups) {
       const existing = playerStats.find((s) => s.player_id === l.player_id);
       form[l.player_id] = {
@@ -150,6 +151,19 @@ export default function MatchDetailPage() {
         minutes_played: existing?.minutes_played || 0,
       };
     }
+
+    for (const s of playerStats) {
+      if (!form[s.player_id]) {
+        form[s.player_id] = {
+          goals: s.goals || 0,
+          assists: s.assists || 0,
+          yellow_cards: s.yellow_cards || 0,
+          red_cards: s.red_cards || 0,
+          minutes_played: s.minutes_played || 0,
+        };
+      }
+    }
+
     setStatsForm(form);
     setEditingStats(true);
   }
@@ -349,7 +363,7 @@ export default function MatchDetailPage() {
                 <Target className="h-4 w-4 text-[var(--color-gold)]" />
                 Stats du match
               </CardTitle>
-              {isCoach && lineups.length > 0 && (
+              {isCoach && (
                 editingStats ? (
                   <div className="flex gap-2">
                     <Button size="sm" variant="ghost" onClick={() => setEditingStats(false)}>
@@ -377,74 +391,80 @@ export default function MatchDetailPage() {
           <CardContent>
             {editingStats ? (
               <div className="space-y-2">
-                {lineups.map((l) => {
-                  const p = l.profile;
-                  const s = statsForm[l.player_id];
-                  if (!s) return null;
-                  return (
-                    <div key={l.player_id} className="flex items-center gap-2 rounded-lg border p-2">
-                      <div className="flex items-center gap-2 min-w-[120px] shrink-0">
-                        <span className="font-bold text-xs w-6 text-center">{p?.shirt_number ?? "?"}</span>
-                        <span className="truncate text-xs">{p?.first_name} {p?.last_name}</span>
+                {Object.keys(statsForm).length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    Aucun joueur disponible. Ajoutez d'abord une composition ou des stats existantes.
+                  </p>
+                ) : (
+                  Object.entries(statsForm).map(([playerId, s]) => {
+                    const lineupEntry = lineups.find((l) => l.player_id === playerId);
+                    const statEntry = playerStats.find((ps) => ps.player_id === playerId);
+                    const p = lineupEntry?.profile || statEntry?.profile;
+                    return (
+                      <div key={playerId} className="flex items-center gap-2 rounded-lg border p-2">
+                        <div className="flex items-center gap-2 min-w-[120px] shrink-0">
+                          <span className="font-bold text-xs w-6 text-center">{p?.shirt_number ?? "?"}</span>
+                          <span className="truncate text-xs">{p?.first_name} {p?.last_name}</span>
+                        </div>
+                        <div className="flex items-center gap-1 flex-wrap">
+                          <div className="flex items-center gap-1">
+                            <Label className="text-[10px] text-muted-foreground w-4 text-center">B</Label>
+                            <Input
+                              type="number"
+                              min={0}
+                              value={s.goals}
+                              onChange={(e) => updateStatField(playerId, "goals", parseInt(e.target.value) || 0)}
+                              className="h-7 w-12 text-center text-xs px-1"
+                            />
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Label className="text-[10px] text-muted-foreground w-4 text-center">P</Label>
+                            <Input
+                              type="number"
+                              min={0}
+                              value={s.assists}
+                              onChange={(e) => updateStatField(playerId, "assists", parseInt(e.target.value) || 0)}
+                              className="h-7 w-12 text-center text-xs px-1"
+                            />
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Label className="text-[10px] text-yellow-500 w-3 text-center">J</Label>
+                            <Input
+                              type="number"
+                              min={0}
+                              max={2}
+                              value={s.yellow_cards}
+                              onChange={(e) => updateStatField(playerId, "yellow_cards", parseInt(e.target.value) || 0)}
+                              className="h-7 w-12 text-center text-xs px-1"
+                            />
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Label className="text-[10px] text-red-500 w-3 text-center">R</Label>
+                            <Input
+                              type="number"
+                              min={0}
+                              max={1}
+                              value={s.red_cards}
+                              onChange={(e) => updateStatField(playerId, "red_cards", parseInt(e.target.value) || 0)}
+                              className="h-7 w-12 text-center text-xs px-1"
+                            />
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Label className="text-[10px] text-muted-foreground w-6 text-center">Min</Label>
+                            <Input
+                              type="number"
+                              min={0}
+                              max={90}
+                              value={s.minutes_played}
+                              onChange={(e) => updateStatField(playerId, "minutes_played", parseInt(e.target.value) || 0)}
+                              className="h-7 w-14 text-center text-xs px-1"
+                            />
+                          </div>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-1 flex-wrap">
-                        <div className="flex items-center gap-1">
-                          <Label className="text-[10px] text-muted-foreground w-4 text-center">B</Label>
-                          <Input
-                            type="number"
-                            min={0}
-                            value={s.goals}
-                            onChange={(e) => updateStatField(l.player_id, "goals", parseInt(e.target.value) || 0)}
-                            className="h-7 w-12 text-center text-xs px-1"
-                          />
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Label className="text-[10px] text-muted-foreground w-4 text-center">P</Label>
-                          <Input
-                            type="number"
-                            min={0}
-                            value={s.assists}
-                            onChange={(e) => updateStatField(l.player_id, "assists", parseInt(e.target.value) || 0)}
-                            className="h-7 w-12 text-center text-xs px-1"
-                          />
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Label className="text-[10px] text-yellow-500 w-3 text-center">J</Label>
-                          <Input
-                            type="number"
-                            min={0}
-                            max={2}
-                            value={s.yellow_cards}
-                            onChange={(e) => updateStatField(l.player_id, "yellow_cards", parseInt(e.target.value) || 0)}
-                            className="h-7 w-12 text-center text-xs px-1"
-                          />
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Label className="text-[10px] text-red-500 w-3 text-center">R</Label>
-                          <Input
-                            type="number"
-                            min={0}
-                            max={1}
-                            value={s.red_cards}
-                            onChange={(e) => updateStatField(l.player_id, "red_cards", parseInt(e.target.value) || 0)}
-                            className="h-7 w-12 text-center text-xs px-1"
-                          />
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Label className="text-[10px] text-muted-foreground w-6 text-center">Min</Label>
-                          <Input
-                            type="number"
-                            min={0}
-                            max={90}
-                            value={s.minutes_played}
-                            onChange={(e) => updateStatField(l.player_id, "minutes_played", parseInt(e.target.value) || 0)}
-                            className="h-7 w-14 text-center text-xs px-1"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })
+                )}
               </div>
             ) : playerStats.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-4">
