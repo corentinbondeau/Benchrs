@@ -28,6 +28,12 @@ interface AttendanceEntry {
   profile?: Profile;
 }
 
+function resolveProfile(raw: unknown): Profile | undefined {
+  if (!raw) return undefined;
+  if (Array.isArray(raw)) return (raw[0] as Profile) || undefined;
+  return raw as Profile;
+}
+
 export default function TrainingDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -56,7 +62,16 @@ export default function TrainingDetailPage() {
       ]);
 
       setEvent(eventRes.data as Event | null);
-      setAttendances((attRes.data as unknown as AttendanceEntry[]) || []);
+
+      const rawAtts = (attRes.data || []) as Record<string, unknown>[];
+      const parsed: AttendanceEntry[] = rawAtts.map((a) => ({
+        id: a.id as string,
+        user_id: a.user_id as string,
+        status: a.status as AttendanceStatus,
+        profile: resolveProfile(a.profile),
+      }));
+      setAttendances(parsed);
+
       setLoading(false);
     }
 
@@ -130,7 +145,7 @@ export default function TrainingDetailPage() {
       </Button>
 
       {/* Header */}
-      <Card className="bg-gradient-to-r from-purple-600 to-purple-800 text-white">
+      <Card className="bg-gradient-to-r from-[var(--color-navy)] to-[var(--color-royal)] text-white">
         <CardContent className="p-6">
           <div className="space-y-2">
             <div className="flex items-center gap-2">
@@ -169,7 +184,7 @@ export default function TrainingDetailPage() {
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="text-base flex items-center gap-2">
-              <Users className="h-4 w-4 text-purple-500" />
+              <Users className="h-4 w-4 text-[var(--color-gold)]" />
               Présences
               {attendances.length > 0 && (
                 <span className="text-sm font-normal text-muted-foreground">
@@ -197,10 +212,10 @@ export default function TrainingDetailPage() {
                         key={a.user_id}
                         className="flex items-center gap-2 rounded-lg bg-green-50 px-3 py-2"
                       >
-                        <span className="font-bold text-xs w-7 text-center">
+                        <span className="font-bold text-xs w-7 text-center text-green-700">
                           {a.profile?.shirt_number ?? "?"}
                         </span>
-                        <span className="flex-1 text-sm">
+                        <span className="flex-1 text-sm text-green-900">
                           {a.profile?.first_name} {a.profile?.last_name}
                         </span>
                         {isCoach && (
@@ -230,10 +245,10 @@ export default function TrainingDetailPage() {
                         key={a.user_id}
                         className="flex items-center gap-2 rounded-lg bg-red-50 px-3 py-2"
                       >
-                        <span className="font-bold text-xs w-7 text-center">
+                        <span className="font-bold text-xs w-7 text-center text-red-700">
                           {a.profile?.shirt_number ?? "?"}
                         </span>
-                        <span className="flex-1 text-sm">
+                        <span className="flex-1 text-sm text-red-900">
                           {a.profile?.first_name} {a.profile?.last_name}
                         </span>
                         {isCoach && (
@@ -263,10 +278,10 @@ export default function TrainingDetailPage() {
                         key={a.user_id}
                         className="flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2"
                       >
-                        <span className="font-bold text-xs w-7 text-center">
+                        <span className="font-bold text-xs w-7 text-center text-amber-700">
                           {a.profile?.shirt_number ?? "?"}
                         </span>
-                        <span className="flex-1 text-sm">
+                        <span className="flex-1 text-sm text-amber-900">
                           {a.profile?.first_name} {a.profile?.last_name}
                         </span>
                       </div>
