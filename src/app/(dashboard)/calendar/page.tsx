@@ -517,6 +517,8 @@ export default function CalendarPage() {
             const dayEvents = getEventsForDate(dateStr);
             const isToday = toLocalDateStr(new Date()) === dateStr;
 
+            if (dayEvents.length === 0) return null;
+
             return (
               <div key={i} className={`rounded-lg border p-3 ${isToday ? "bg-blue-50 dark:bg-blue-950/20 border-[var(--color-royal)]" : ""}`}>
                 <div className="flex items-center justify-between mb-2">
@@ -524,10 +526,7 @@ export default function CalendarPage() {
                     {DAYS_FR[i]} {day.getDate()} {MONTHS_FR[day.getMonth()]}
                   </p>
                 </div>
-                {dayEvents.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">Aucun événement</p>
-                ) : (
-                  <div className="space-y-1">
+                <div className="space-y-1">
                     {dayEvents.map((event) => {
                       const attCount = attendanceCounts[event.id];
                       return (
@@ -557,7 +556,6 @@ export default function CalendarPage() {
                       );
                     })}
                   </div>
-                )}
               </div>
             );
           })}
