@@ -614,7 +614,6 @@ export default function MatchDetailPage() {
                   {formEntries.map(({ playerId, stats, profile }) => (
                     <div key={playerId} className="flex items-center gap-3 rounded-lg border p-3">
                       <div className="flex items-center gap-2 min-w-[140px] shrink-0">
-                        <span className="font-bold text-sm w-7 text-center">{profile?.shirt_number ?? "?"}</span>
                         <span className="truncate text-sm">{profile?.first_name} {profile?.last_name}</span>
                       </div>
                       <div className="grid grid-cols-5 gap-2 flex-1">
@@ -709,7 +708,6 @@ export default function MatchDetailPage() {
                       <tr key={ps.id} className="border-b last:border-0">
                         <td className="py-2.5 pr-2">
                           <div className="flex items-center gap-2">
-                            <span className="font-medium text-sm">{p?.shirt_number ?? "?"}</span>
                             <span className="truncate text-sm">{p?.first_name} {p?.last_name}</span>
                           </div>
                         </td>
