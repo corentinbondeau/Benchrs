@@ -19,7 +19,7 @@ export function NewsFeed() {
       .from("events")
       .select("*")
       .in("status", ["completed", "upcoming"])
-      .order("event_date", { ascending: false })
+      .order("event_date", { ascending: true })
       .limit(5)
       .then(({ data }) => {
         setEvents((data as Event[]) || []);
