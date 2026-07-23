@@ -28,11 +28,8 @@ import {
   ChevronRight,
   Plus,
   CalendarDays,
-  Trash2,
   Clock,
-  Ban,
   MapPin,
-  Swords,
   Users,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -89,13 +86,7 @@ export default function CalendarPage() {
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
   const [players, setPlayers] = useState<Profile[]>([]);
-  const [selectedEvent, setSelectedEvent] = useState<EventWithMeeting | null>(null);
-  const [confirmDelete, setConfirmDelete] = useState<EventWithMeeting | null>(null);
-  const [confirmCancel, setConfirmCancel] = useState<EventWithMeeting | null>(null);
-  const [postponeOpen, setPostponeOpen] = useState<EventWithMeeting | null>(null);
-  const [postponeDate, setPostponeDate] = useState("");
   const [attendanceCounts, setAttendanceCounts] = useState<Record<string, { present: number; total: number }>>({});
-  const [selectedEventAttendances, setSelectedEventAttendances] = useState<{ present: { id: string; first_name: string; last_name: string; shirt_number: number | null }[]; absent: { id: string; first_name: string; last_name: string; shirt_number: number | null }[] } | null>(null);
   const [form, setForm] = useState({
     title: "",
     type: "training" as "match" | "training",
@@ -281,80 +272,11 @@ export default function CalendarPage() {
     }
   }
 
-  async function handleDeleteEvent(eventId: string) {
-    const supabase = createClient();
-    const { error } = await supabase.from("events").delete().eq("id", eventId);
-    if (error) {
-      toast.error("Erreur lors de la suppression");
+  function selectEvent(event: EventWithMeeting) {
+    if (event.type === "match") {
+      router.push(`/matches/${event.id}`);
     } else {
-      toast.success("Événement supprimé");
-      setEvents(events.filter((e) => e.id !== eventId));
-      setConfirmDelete(null);
-      setSelectedEvent(null);
-    }
-  }
-
-  async function handleCancelEvent(eventId: string) {
-    const supabase = createClient();
-    const { error } = await supabase
-      .from("events")
-      .update({ status: "cancelled" })
-      .eq("id", eventId);
-    if (error) {
-      toast.error("Erreur lors de l'annulation");
-    } else {
-      toast.success("Entraînement annulé");
-      setEvents((prev) =>
-        prev.map((e) => (e.id === eventId ? { ...e, status: "cancelled" } : e))
-      );
-      setConfirmCancel(null);
-      setSelectedEvent(null);
-    }
-  }
-
-  async function handlePostponeEvent(eventId: string) {
-    if (!postponeDate) return;
-    const supabase = createClient();
-    const { error } = await supabase
-      .from("events")
-      .update({ event_date: postponeDate })
-      .eq("id", eventId);
-    if (error) {
-      toast.error("Erreur lors du report");
-    } else {
-      toast.success("Événement reporté");
-      setPostponeOpen(null);
-      setSelectedEvent(null);
-      setPostponeDate("");
-      fetchEvents();
-    }
-  }
-
-  async function selectEvent(event: EventWithMeeting) {
-    setSelectedEvent(event);
-    setSelectedEventAttendances(null);
-
-    if (event.type === "training") {
-      const supabase = createClient();
-      const { data } = await supabase
-        .from("attendances")
-        .select("status, profile:profiles!attendances_user_id_fkey(id, first_name, last_name, shirt_number, position)")
-        .eq("event_id", event.id);
-
-      if (data) {
-        const present: { id: string; first_name: string; last_name: string; shirt_number: number | null }[] = [];
-        const absent: { id: string; first_name: string; last_name: string; shirt_number: number | null }[] = [];
-        for (const att of data) {
-          const profile = att.profile as unknown as { id: string; first_name: string; last_name: string; shirt_number: number | null } | null;
-          if (!profile) continue;
-          if (att.status === "present" || att.status === "late") {
-            present.push(profile);
-          } else if (att.status === "absent" || att.status === "pending") {
-            absent.push(profile);
-          }
-        }
-        setSelectedEventAttendances({ present, absent });
-      }
+      router.push(`/trainings/${event.id}`);
     }
   }
 
@@ -367,17 +289,6 @@ export default function CalendarPage() {
     }
     if (event.status === "cancelled") return "bg-gray-100 text-gray-500 border-gray-200 line-through";
     return "bg-purple-100 text-purple-700 border-purple-200";
-  }
-
-  function formatDateTime(dateStr: string) {
-    return new Date(dateStr).toLocaleDateString("fr-FR", {
-      weekday: "long",
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
   }
 
   function formatTimeDisplay(dateStr: string) {
@@ -512,280 +423,6 @@ export default function CalendarPage() {
           </Dialog>
         )}
       </div>
-
-      {/* Event Detail Dialog */}
-      <Dialog open={!!selectedEvent} onOpenChange={() => setSelectedEvent(null)}>
-        <DialogContent className={selectedEvent?.type === "training" ? "sm:max-w-md" : "sm:max-w-sm"}>
-          <DialogHeader>
-            <DialogTitle>{selectedEvent?.title}</DialogTitle>
-            <DialogDescription>
-              {selectedEvent?.type === "match" ? "Match" : "Entraînement"}
-              {selectedEvent?.status === "cancelled" && (
-                <span className="ml-2 text-gray-500">(Annulé)</span>
-              )}
-            </DialogDescription>
-          </DialogHeader>
-          {selectedEvent && (
-            <div className="space-y-3">
-              {selectedEvent.type === "training" ? (
-                <>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <CalendarDays className="h-4 w-4 shrink-0" />
-                      <span>{new Date(selectedEvent.event_date).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}</span>
-                    </div>
-                    {selectedEvent.meeting_time && (
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Clock className="h-4 w-4 shrink-0" />
-                        <span>RDV : {selectedEvent.meeting_time}</span>
-                      </div>
-                    )}
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Clock className="h-4 w-4 shrink-0" />
-                      <span>Début : {formatTimeDisplay(selectedEvent.event_date)}</span>
-                    </div>
-                    {selectedEvent.end_date && (
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Clock className="h-4 w-4 shrink-0" />
-                        <span>Fin : {formatTimeDisplay(selectedEvent.end_date)}</span>
-                      </div>
-                    )}
-                    {selectedEvent.location && (
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground col-span-2">
-                        <MapPin className="h-4 w-4 shrink-0" />
-                        <span>{selectedEvent.location}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="border-t pt-3">
-                    <p className="text-sm font-medium mb-2 flex items-center gap-2">
-                      <Users className="h-4 w-4" />
-                      Joueurs
-                    </p>
-                    {selectedEventAttendances ? (
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <p className="text-xs font-medium text-green-600 mb-1">
-                            Présents ({selectedEventAttendances.present.length})
-                          </p>
-                          <div className="space-y-1 max-h-40 overflow-y-auto">
-                            {selectedEventAttendances.present.length === 0 ? (
-                              <p className="text-xs text-muted-foreground">Aucun</p>
-                            ) : (
-                              selectedEventAttendances.present.map((p) => (
-                                <div key={p.id} className="flex items-center gap-2 text-xs rounded bg-green-50 px-2 py-1">
-                                  <span className="font-medium">{p.shirt_number ?? "?"}</span>
-                                  <span>{p.first_name} {p.last_name}</span>
-                                </div>
-                              ))
-                            )}
-                          </div>
-                        </div>
-                        <div>
-                          <p className="text-xs font-medium text-red-600 mb-1">
-                            Absents ({selectedEventAttendances.absent.length})
-                          </p>
-                          <div className="space-y-1 max-h-40 overflow-y-auto">
-                            {selectedEventAttendances.absent.length === 0 ? (
-                              <p className="text-xs text-muted-foreground">Aucun</p>
-                            ) : (
-                              selectedEventAttendances.absent.map((p) => (
-                                <div key={p.id} className="flex items-center gap-2 text-xs rounded bg-red-50 px-2 py-1">
-                                  <span className="font-medium">{p.shirt_number ?? "?"}</span>
-                                  <span>{p.first_name} {p.last_name}</span>
-                                </div>
-                              ))
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex justify-center py-3">
-                        <div className="h-5 w-5 animate-spin rounded-full border-2 border-[var(--color-royal)] border-t-transparent" />
-                      </div>
-                    )}
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <CalendarDays className="h-4 w-4 shrink-0" />
-                    <span>{formatDateTime(selectedEvent.event_date)}</span>
-                  </div>
-                  {selectedEvent.meeting_time && (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Clock className="h-4 w-4 shrink-0" />
-                      <span>Rendez-vous : {selectedEvent.meeting_time}</span>
-                    </div>
-                  )}
-                  {selectedEvent.location && (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <MapPin className="h-4 w-4 shrink-0" />
-                      <span>{selectedEvent.location}</span>
-                    </div>
-                  )}
-                  {selectedEvent.opponent && (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Swords className="h-4 w-4 shrink-0" />
-                      <span>Adversaire : {selectedEvent.opponent}</span>
-                    </div>
-                  )}
-                  {selectedEvent.score_us !== null && selectedEvent.score_them !== null && (
-                    <div className="rounded-md bg-muted p-2 text-center text-sm font-bold">
-                      {selectedEvent.score_us} - {selectedEvent.score_them}
-                    </div>
-                  )}
-                  {attendanceCounts[selectedEvent.id] && attendanceCounts[selectedEvent.id].total > 0 && (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Users className="h-4 w-4 shrink-0" />
-                      <span>Présences : {attendanceCounts[selectedEvent.id].present}/{attendanceCounts[selectedEvent.id].total}</span>
-                    </div>
-                  )}
-                  <Button
-                    variant="outline"
-                    className="w-full"
-                    onClick={() => {
-                      router.push(`/matches/${selectedEvent.id}`);
-                      setSelectedEvent(null);
-                    }}
-                  >
-                    <Swords className="h-4 w-4 mr-2" />
-                    Voir le match
-                  </Button>
-                </>
-              )}
-              {isCoach && (
-                <div className="flex gap-2 pt-2">
-                  {selectedEvent.status !== "cancelled" && (
-                    <>
-                      <Button
-                        variant="outline"
-                        className="flex-1"
-                        onClick={() => {
-                          const dt = new Date(selectedEvent.event_date);
-                          setPostponeDate(toLocalISOString(dt));
-                          setPostponeOpen(selectedEvent);
-                          setSelectedEvent(null);
-                        }}
-                      >
-                        <Clock className="h-4 w-4 mr-1" />
-                        Reporter
-                      </Button>
-                      {selectedEvent.type === "training" && (
-                        <Button
-                          variant="outline"
-                          className="flex-1 text-orange-600 border-orange-200 hover:bg-orange-50"
-                          onClick={() => {
-                            setConfirmCancel(selectedEvent);
-                          }}
-                        >
-                          <Ban className="h-4 w-4 mr-1" />
-                          Annuler
-                        </Button>
-                      )}
-                      <Button
-                        variant="outline"
-                        className="flex-1 text-red-600 border-red-200 hover:bg-red-50"
-                        onClick={() => {
-                          setConfirmDelete(selectedEvent);
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4 mr-1" />
-                        Supprimer
-                      </Button>
-                    </>
-                  )}
-                  {selectedEvent.status === "cancelled" && (
-                    <Button
-                      variant="outline"
-                      className="flex-1 text-red-600 border-red-200 hover:bg-red-50"
-                      onClick={() => {
-                        setConfirmDelete(selectedEvent);
-                      }}
-                    >
-                      <Trash2 className="h-4 w-4 mr-1" />
-                      Supprimer
-                    </Button>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Confirm Delete Dialog */}
-      <Dialog open={!!confirmDelete} onOpenChange={() => setConfirmDelete(null)}>
-        <DialogContent className="sm:max-w-xs">
-          <DialogHeader>
-            <DialogTitle>Supprimer l&apos;événement</DialogTitle>
-            <DialogDescription>
-              Voulez-vous vraiment supprimer <strong>{confirmDelete?.title}</strong> ?
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex gap-2 pt-2">
-            <Button variant="outline" className="flex-1" onClick={() => setConfirmDelete(null)}>
-              Annuler
-            </Button>
-            <Button
-              className="flex-1 bg-red-600 text-white hover:bg-red-700"
-              onClick={() => confirmDelete && handleDeleteEvent(confirmDelete.id)}
-            >
-              Supprimer
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Confirm Cancel Training Dialog */}
-      <Dialog open={!!confirmCancel} onOpenChange={() => setConfirmCancel(null)}>
-        <DialogContent className="sm:max-w-xs">
-          <DialogHeader>
-            <DialogTitle>Annuler l&apos;entraînement</DialogTitle>
-            <DialogDescription>
-              Voulez-vous vraiment annuler <strong>{confirmCancel?.title}</strong> ?
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex gap-2 pt-2">
-            <Button variant="outline" className="flex-1" onClick={() => setConfirmCancel(null)}>
-              Non
-            </Button>
-            <Button
-              className="flex-1 bg-orange-600 text-white hover:bg-orange-700"
-              onClick={() => confirmCancel && handleCancelEvent(confirmCancel.id)}
-            >
-              Annuler
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Postpone Dialog */}
-      <Dialog open={!!postponeOpen} onOpenChange={() => setPostponeOpen(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Reporter l&apos;événement</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Nouvelle date et heure</Label>
-              <Input
-                type="datetime-local"
-                value={postponeDate}
-                onChange={(e) => setPostponeDate(e.target.value)}
-              />
-            </div>
-            <Button
-              onClick={() => postponeOpen && handlePostponeEvent(postponeOpen.id)}
-              className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] font-semibold"
-              disabled={!postponeDate}
-            >
-              Reporter
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
 
       {/* Navigation */}
       <div className="flex items-center justify-between">
