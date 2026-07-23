@@ -1,10 +1,21 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import nodemailer from "nodemailer";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
+
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST,
+  port: Number(process.env.SMTP_PORT) || 587,
+  secure: false,
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+  },
+});
 
 export async function POST(req: Request) {
   const { userId, email: directEmail, eventTitle, eventDate } = await req.json();
@@ -48,24 +59,16 @@ export async function POST(req: Request) {
     minute: "2-digit",
   });
 
-  const resendRes = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      from: "Sportplus <onboarding@resend.dev>",
+  try {
+    await transporter.sendMail({
+      from: `"Sportplus" <${process.env.SMTP_USER}>`,
       to: email,
       subject: `Rappel convocation — ${eventTitle}`,
-      text: `Bonjour ${firstName || ""}\n\nN'oubliez pas de répondre à la convocation pour "${eventTitle}" le ${dateStr} à ${timeStr}.\n\nMerci d'ouvrir l'application pour confirmer votre présence.\n\n— Équipe Sportplus`,
-    }),
-  });
-
-  if (!resendRes.ok) {
-    const body = await resendRes.text();
-    console.error("[reminder] Resend error:", resendRes.status, body);
-    return NextResponse.json({ error: `Resend ${resendRes.status}: ${body}` }, { status: 500 });
+      text: `Bonjour ${firstName || ""},\n\nN'oubliez pas de répondre à la convocation pour "${eventTitle}" le ${dateStr} à ${timeStr}.\n\nMerci d'ouvrir l'application pour confirmer votre présence.\n\n— Équipe Sportplus`,
+    });
+  } catch (err) {
+    console.error("[reminder] SMTP error:", err);
+    return NextResponse.json({ error: "Email send failed" }, { status: 500 });
   }
 
   return NextResponse.json({ ok: true });
