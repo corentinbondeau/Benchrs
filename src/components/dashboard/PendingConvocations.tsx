@@ -119,7 +119,6 @@ export function PendingConvocations() {
     }
 
     toast.success(`Notification envoyée à ${item.player.first_name} ${item.player.last_name}`);
-    setCoachItems((prev) => prev.filter((i) => i.attendance.id !== item.attendance.id));
   }
 
   if (loading) {
