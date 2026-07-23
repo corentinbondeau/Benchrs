@@ -17,6 +17,7 @@ interface CoachPendingItem {
   attendance: Attendance;
   event: Event;
   player: Profile;
+  parents: Profile[];
 }
 
 export function PendingConvocations() {
@@ -29,7 +30,7 @@ export function PendingConvocations() {
   const [loading, setLoading] = useState(true);
   const [absenceReason, setAbsenceReason] = useState("");
   const [pendingAbsentId, setPendingAbsentId] = useState<string | null>(null);
-  const [remindingId, setRemindingId] = useState<string | null>(null);
+  const [remindingKey, setRemindingKey] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -47,18 +48,41 @@ export function PendingConvocations() {
           .select("*")
           .eq("role", "player")
           .eq("is_active", true),
-      ]).then(([attRes, playersRes]) => {
+        supabase
+          .from("parent_student")
+          .select("parent_id, student_id"),
+      ]).then(([attRes, playersRes, psRes]) => {
         const atts = (attRes.data as (Attendance & { event: Event })[]) || [];
         const allPlayers = (playersRes.data as Profile[]) || [];
-        const items: CoachPendingItem[] = atts
-          .map((att) => {
-            const player = allPlayers.find((p) => p.id === att.user_id);
-            if (!player || !att.event) return null;
-            return { attendance: att, event: att.event, player };
-          })
-          .filter(Boolean) as CoachPendingItem[];
-        setCoachItems(items);
-        setLoading(false);
+        const links = (psRes.data as { parent_id: string; student_id: string }[]) || [];
+
+        const parentIds = [...new Set(links.map((l) => l.parent_id))];
+        let allParents: Profile[] = [];
+        if (parentIds.length > 0) {
+          // fetch in batches if needed — Supabase `in` supports up to ~100
+        }
+        // Fetch parents separately
+        supabase
+          .from("profiles")
+          .select("*")
+          .in("id", parentIds.length > 0 ? parentIds : ["00000000-0000-0000-0000-000000000000"])
+          .then(({ data }) => {
+            allParents = (data as Profile[]) || [];
+
+            const items: CoachPendingItem[] = atts
+              .map((att) => {
+                const player = allPlayers.find((p) => p.id === att.user_id);
+                if (!player || !att.event) return null;
+                const parentIdsForPlayer = links
+                  .filter((l) => l.student_id === att.user_id)
+                  .map((l) => l.parent_id);
+                const parents = allParents.filter((p) => parentIdsForPlayer.includes(p.id));
+                return { attendance: att, event: att.event, player, parents };
+              })
+              .filter(Boolean) as CoachPendingItem[];
+            setCoachItems(items);
+            setLoading(false);
+          });
       });
     } else {
       supabase
@@ -95,27 +119,38 @@ export function PendingConvocations() {
     setAbsenceReason("");
   }
 
-  async function sendReminder(item: CoachPendingItem) {
-    setRemindingId(item.attendance.id);
+  async function sendReminder(item: CoachPendingItem, target: "player" | "parent", parentProfile?: Profile) {
+    const key = `${item.attendance.id}-${target}`;
+    setRemindingKey(key);
+
+    const body: Record<string, string> = {
+      eventTitle: item.event.title,
+      eventDate: item.event.event_date,
+    };
+
+    if (target === "parent" && parentProfile) {
+      body.userId = parentProfile.id;
+    } else {
+      body.userId = item.player.id;
+    }
 
     const res = await fetch("/api/notifications/reminder", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        userId: item.player.id,
-        eventTitle: item.event.title,
-        eventDate: item.event.event_date,
-      }),
+      body: JSON.stringify(body),
     });
 
-    setRemindingId(null);
+    setRemindingKey(null);
 
     if (!res.ok) {
       toast.error("Erreur lors de l'envoi de l'email");
       return;
     }
 
-    toast.success(`Email de relance envoyé à ${item.player.first_name} ${item.player.last_name}`);
+    const name = target === "parent" && parentProfile
+      ? `${parentProfile.first_name} ${parentProfile.last_name}`
+      : `${item.player.first_name} ${item.player.last_name}`;
+    toast.success(`Email de relance envoyé à ${name}`);
   }
 
   if (loading) {
@@ -184,20 +219,41 @@ export function PendingConvocations() {
                   </div>
                   <div className="space-y-1">
                     {items.map((item) => (
-                      <div key={item.attendance.id} className="flex items-center justify-between rounded-md bg-muted/50 px-3 py-1.5">
-                        <span className="text-sm">
-                          {item.player.first_name} {item.player.last_name}
-                        </span>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-7 text-xs gap-1"
-                          disabled={remindingId === item.attendance.id}
-                          onClick={() => sendReminder(item)}
-                        >
-                          <Bell className="h-3 w-3" />
-                          {remindingId === item.attendance.id ? "..." : "Relancer"}
-                        </Button>
+                      <div key={item.attendance.id} className="rounded-md bg-muted/50 px-3 py-1.5 space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm">
+                            {item.player.first_name} {item.player.last_name}
+                          </span>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs gap-1"
+                            disabled={remindingKey === `${item.attendance.id}-player`}
+                            onClick={() => sendReminder(item, "player")}
+                          >
+                            <Bell className="h-3 w-3" />
+                            {remindingKey === `${item.attendance.id}-player` ? "..." : "Relancer"}
+                          </Button>
+                        </div>
+                        {item.parents.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5">
+                            {item.parents.map((parent) => (
+                              <Button
+                                key={parent.id}
+                                size="sm"
+                                variant="outline"
+                                className="h-6 text-[10px] gap-1 text-muted-foreground"
+                                disabled={remindingKey === `${item.attendance.id}-parent`}
+                                onClick={() => sendReminder(item, "parent", parent)}
+                              >
+                                <Bell className="h-2.5 w-2.5" />
+                                {remindingKey === `${item.attendance.id}-parent`
+                                  ? "..."
+                                  : `Relancer ${parent.first_name}`}
+                              </Button>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>

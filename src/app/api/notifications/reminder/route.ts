@@ -7,24 +7,31 @@ const supabase = createClient(
 );
 
 export async function POST(req: Request) {
-  const { userId, eventTitle, eventDate } = await req.json();
+  const { userId, email: directEmail, eventTitle, eventDate } = await req.json();
 
-  if (!userId || !eventTitle || !eventDate) {
+  if ((!userId && !directEmail) || !eventTitle || !eventDate) {
     return NextResponse.json({ error: "Missing fields" }, { status: 400 });
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("first_name, last_name")
-    .eq("id", userId)
-    .single();
+  let email = directEmail;
+  let firstName = "";
 
-  if (!profile) {
-    return NextResponse.json({ error: "Profile not found" }, { status: 404 });
+  if (userId) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("first_name")
+      .eq("id", userId)
+      .single();
+
+    if (!profile) {
+      return NextResponse.json({ error: "Profile not found" }, { status: 404 });
+    }
+
+    firstName = profile.first_name;
+
+    const { data: authUser } = await supabase.auth.admin.getUserById(userId);
+    email = authUser?.user?.email;
   }
-
-  const { data: authUser } = await supabase.auth.admin.getUserById(userId);
-  const email = authUser?.user?.email;
 
   if (!email) {
     return NextResponse.json({ error: "No email found" }, { status: 404 });
@@ -51,7 +58,7 @@ export async function POST(req: Request) {
       from: "Sportplus <onboarding@resend.dev>",
       to: email,
       subject: `Rappel convocation — ${eventTitle}`,
-      text: `Bonjour ${profile.first_name},\n\nN'oubliez pas de répondre à la convocation pour "${eventTitle}" le ${dateStr} à ${timeStr}.\n\nMerci d'ouvrir l'application pour confirmer votre présence.\n\n— Équipe Sportplus`,
+      text: `Bonjour ${firstName || ""}\n\nN'oubliez pas de répondre à la convocation pour "${eventTitle}" le ${dateStr} à ${timeStr}.\n\nMerci d'ouvrir l'application pour confirmer votre présence.\n\n— Équipe Sportplus`,
     }),
   });
 
