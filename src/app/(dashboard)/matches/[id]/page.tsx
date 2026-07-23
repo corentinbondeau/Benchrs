@@ -42,6 +42,14 @@ interface FormationData {
   captain_id?: string;
 }
 
+interface StatsFormEntry {
+  goals: number;
+  assists: number;
+  yellow_cards: number;
+  red_cards: number;
+  minutes_played: number;
+}
+
 const FORMATION_POSITIONS: Record<string, { x: number; y: number; label: string }[]> = {
   "4-3-3": [
     { x: 50, y: 90, label: "Gardien" },
@@ -96,16 +104,17 @@ export default function MatchDetailPage() {
   const [playerStats, setPlayerStats] = useState<PlayerStat[]>([]);
   const [formation, setFormation] = useState<Formation | null>(null);
   const [lineups, setLineups] = useState<LineupEntry[]>([]);
+  const [allPlayers, setAllPlayers] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingStats, setEditingStats] = useState(false);
-  const [statsForm, setStatsForm] = useState<Record<string, { goals: number; assists: number; yellow_cards: number; red_cards: number; minutes_played: number }>>({});
+  const [statsForm, setStatsForm] = useState<Record<string, StatsFormEntry>>({});
   const [savingStats, setSavingStats] = useState(false);
 
   useEffect(() => {
     const supabase = createClient();
 
     async function fetchMatchData() {
-      const [matchRes, statsRes, formRes, lineupsRes] = await Promise.all([
+      const [matchRes, statsRes, formRes, lineupsRes, playersRes] = await Promise.all([
         supabase
           .from("events")
           .select("*")
@@ -126,12 +135,19 @@ export default function MatchDetailPage() {
           .from("match_lineups")
           .select("*, profile:profiles!match_lineups_player_id_fkey(id, first_name, last_name, shirt_number, position)")
           .eq("event_id", matchId),
+        supabase
+          .from("profiles")
+          .select("*")
+          .eq("role", "player")
+          .eq("is_active", true)
+          .order("shirt_number", { ascending: true }),
       ]);
 
       setMatch(matchRes.data as MatchEvent | null);
       setPlayerStats((statsRes.data as PlayerStat[]) || []);
       setFormation(formRes.data as Formation | null);
       setLineups((lineupsRes.data as LineupEntry[]) || []);
+      setAllPlayers((playersRes.data as Profile[]) || []);
       setLoading(false);
     }
 
@@ -139,29 +155,17 @@ export default function MatchDetailPage() {
   }, [matchId]);
 
   function initStatsForm() {
-    const form: Record<string, { goals: number; assists: number; yellow_cards: number; red_cards: number; minutes_played: number }> = {};
+    const form: Record<string, StatsFormEntry> = {};
 
-    for (const l of lineups) {
-      const existing = playerStats.find((s) => s.player_id === l.player_id);
-      form[l.player_id] = {
+    for (const p of allPlayers) {
+      const existing = playerStats.find((s) => s.player_id === p.id);
+      form[p.id] = {
         goals: existing?.goals || 0,
         assists: existing?.assists || 0,
         yellow_cards: existing?.yellow_cards || 0,
         red_cards: existing?.red_cards || 0,
         minutes_played: existing?.minutes_played || 0,
       };
-    }
-
-    for (const s of playerStats) {
-      if (!form[s.player_id]) {
-        form[s.player_id] = {
-          goals: s.goals || 0,
-          assists: s.assists || 0,
-          yellow_cards: s.yellow_cards || 0,
-          red_cards: s.red_cards || 0,
-          minutes_played: s.minutes_played || 0,
-        };
-      }
     }
 
     setStatsForm(form);
@@ -174,30 +178,33 @@ export default function MatchDetailPage() {
 
     for (const [playerId, stats] of Object.entries(statsForm)) {
       const existing = playerStats.find((s) => s.player_id === playerId);
+      const hasData = stats.goals > 0 || stats.assists > 0 || stats.yellow_cards > 0 || stats.red_cards > 0 || stats.minutes_played > 0;
+
       if (existing) {
-        await supabase
-          .from("match_stats")
-          .update({
-            goals: stats.goals,
-            assists: stats.assists,
-            yellow_cards: stats.yellow_cards,
-            red_cards: stats.red_cards,
-            minutes_played: stats.minutes_played,
-          })
-          .eq("id", existing.id);
-      } else {
-        const hasData = stats.goals > 0 || stats.assists > 0 || stats.yellow_cards > 0 || stats.red_cards > 0 || stats.minutes_played > 0;
         if (hasData) {
-          await supabase.from("match_stats").insert({
-            event_id: matchId,
-            player_id: playerId,
-            goals: stats.goals,
-            assists: stats.assists,
-            yellow_cards: stats.yellow_cards,
-            red_cards: stats.red_cards,
-            minutes_played: stats.minutes_played,
-          });
+          await supabase
+            .from("match_stats")
+            .update({
+              goals: stats.goals,
+              assists: stats.assists,
+              yellow_cards: stats.yellow_cards,
+              red_cards: stats.red_cards,
+              minutes_played: stats.minutes_played,
+            })
+            .eq("id", existing.id);
+        } else {
+          await supabase.from("match_stats").delete().eq("id", existing.id);
         }
+      } else if (hasData) {
+        await supabase.from("match_stats").insert({
+          event_id: matchId,
+          player_id: playerId,
+          goals: stats.goals,
+          assists: stats.assists,
+          yellow_cards: stats.yellow_cards,
+          red_cards: stats.red_cards,
+          minutes_played: stats.minutes_played,
+        });
       }
     }
 
@@ -212,11 +219,15 @@ export default function MatchDetailPage() {
     toast.success("Stats enregistrées");
   }
 
-  function updateStatField(playerId: string, field: string, value: number) {
+  function updateStatField(playerId: string, field: keyof StatsFormEntry, value: number) {
     setStatsForm((prev) => ({
       ...prev,
       [playerId]: { ...prev[playerId], [field]: Math.max(0, value) },
     }));
+  }
+
+  function getPlayerProfile(playerId: string): Profile | undefined {
+    return allPlayers.find((p) => p.id === playerId);
   }
 
   if (loading) {
@@ -248,6 +259,19 @@ export default function MatchDetailPage() {
   const fd = formation?.formation_data as FormationData | null;
   const positions = fd?.positions || [];
   const captainId = fd?.captain_id;
+
+  const statsWithProfiles = playerStats.map((ps) => ({
+    ...ps,
+    profile: ps.profile || getPlayerProfile(ps.player_id),
+  }));
+
+  const formEntries = Object.entries(statsForm).map(([playerId, stats]) => ({
+    playerId,
+    stats,
+    profile: getPlayerProfile(playerId),
+  })).filter((e) => e.profile);
+
+  formEntries.sort((a, b) => (a.profile?.shirt_number ?? 999) - (b.profile?.shirt_number ?? 999));
 
   return (
     <div className="space-y-6">
@@ -382,7 +406,7 @@ export default function MatchDetailPage() {
                 ) : (
                   <Button size="sm" variant="outline" onClick={initStatsForm}>
                     <Pencil className="h-3.5 w-3.5 mr-1" />
-                    Modifier
+                    Saisir les stats
                   </Button>
                 )
               )}
@@ -391,82 +415,77 @@ export default function MatchDetailPage() {
           <CardContent>
             {editingStats ? (
               <div className="space-y-2">
-                {Object.keys(statsForm).length === 0 ? (
+                {formEntries.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-4">
-                    Aucun joueur disponible. Ajoutez d'abord une composition ou des stats existantes.
+                    Aucun joueur actif dans l&apos;équipe.
                   </p>
                 ) : (
-                  Object.entries(statsForm).map(([playerId, s]) => {
-                    const lineupEntry = lineups.find((l) => l.player_id === playerId);
-                    const statEntry = playerStats.find((ps) => ps.player_id === playerId);
-                    const p = lineupEntry?.profile || statEntry?.profile;
-                    return (
-                      <div key={playerId} className="flex items-center gap-2 rounded-lg border p-2">
-                        <div className="flex items-center gap-2 min-w-[120px] shrink-0">
-                          <span className="font-bold text-xs w-6 text-center">{p?.shirt_number ?? "?"}</span>
-                          <span className="truncate text-xs">{p?.first_name} {p?.last_name}</span>
+                  formEntries.map(({ playerId, stats, profile }) => (
+                    <div key={playerId} className="flex items-center gap-2 rounded-lg border p-2">
+                      <div className="flex items-center gap-2 min-w-[120px] shrink-0">
+                        <span className="font-bold text-xs w-6 text-center">{profile?.shirt_number ?? "?"}</span>
+                        <span className="truncate text-xs">{profile?.first_name} {profile?.last_name}</span>
+                      </div>
+                      <div className="flex items-center gap-1 flex-wrap">
+                        <div className="flex items-center gap-1">
+                          <Label className="text-[10px] text-muted-foreground w-4 text-center">B</Label>
+                          <Input
+                            type="number"
+                            min={0}
+                            value={stats.goals}
+                            onChange={(e) => updateStatField(playerId, "goals", parseInt(e.target.value) || 0)}
+                            className="h-7 w-12 text-center text-xs px-1"
+                          />
                         </div>
-                        <div className="flex items-center gap-1 flex-wrap">
-                          <div className="flex items-center gap-1">
-                            <Label className="text-[10px] text-muted-foreground w-4 text-center">B</Label>
-                            <Input
-                              type="number"
-                              min={0}
-                              value={s.goals}
-                              onChange={(e) => updateStatField(playerId, "goals", parseInt(e.target.value) || 0)}
-                              className="h-7 w-12 text-center text-xs px-1"
-                            />
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Label className="text-[10px] text-muted-foreground w-4 text-center">P</Label>
-                            <Input
-                              type="number"
-                              min={0}
-                              value={s.assists}
-                              onChange={(e) => updateStatField(playerId, "assists", parseInt(e.target.value) || 0)}
-                              className="h-7 w-12 text-center text-xs px-1"
-                            />
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Label className="text-[10px] text-yellow-500 w-3 text-center">J</Label>
-                            <Input
-                              type="number"
-                              min={0}
-                              max={2}
-                              value={s.yellow_cards}
-                              onChange={(e) => updateStatField(playerId, "yellow_cards", parseInt(e.target.value) || 0)}
-                              className="h-7 w-12 text-center text-xs px-1"
-                            />
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Label className="text-[10px] text-red-500 w-3 text-center">R</Label>
-                            <Input
-                              type="number"
-                              min={0}
-                              max={1}
-                              value={s.red_cards}
-                              onChange={(e) => updateStatField(playerId, "red_cards", parseInt(e.target.value) || 0)}
-                              className="h-7 w-12 text-center text-xs px-1"
-                            />
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Label className="text-[10px] text-muted-foreground w-6 text-center">Min</Label>
-                            <Input
-                              type="number"
-                              min={0}
-                              max={90}
-                              value={s.minutes_played}
-                              onChange={(e) => updateStatField(playerId, "minutes_played", parseInt(e.target.value) || 0)}
-                              className="h-7 w-14 text-center text-xs px-1"
-                            />
-                          </div>
+                        <div className="flex items-center gap-1">
+                          <Label className="text-[10px] text-muted-foreground w-4 text-center">P</Label>
+                          <Input
+                            type="number"
+                            min={0}
+                            value={stats.assists}
+                            onChange={(e) => updateStatField(playerId, "assists", parseInt(e.target.value) || 0)}
+                            className="h-7 w-12 text-center text-xs px-1"
+                          />
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Label className="text-[10px] text-yellow-500 w-3 text-center">J</Label>
+                          <Input
+                            type="number"
+                            min={0}
+                            max={2}
+                            value={stats.yellow_cards}
+                            onChange={(e) => updateStatField(playerId, "yellow_cards", parseInt(e.target.value) || 0)}
+                            className="h-7 w-12 text-center text-xs px-1"
+                          />
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Label className="text-[10px] text-red-500 w-3 text-center">R</Label>
+                          <Input
+                            type="number"
+                            min={0}
+                            max={1}
+                            value={stats.red_cards}
+                            onChange={(e) => updateStatField(playerId, "red_cards", parseInt(e.target.value) || 0)}
+                            className="h-7 w-12 text-center text-xs px-1"
+                          />
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Label className="text-[10px] text-muted-foreground w-6 text-center">Min</Label>
+                          <Input
+                            type="number"
+                            min={0}
+                            max={90}
+                            value={stats.minutes_played}
+                            onChange={(e) => updateStatField(playerId, "minutes_played", parseInt(e.target.value) || 0)}
+                            className="h-7 w-14 text-center text-xs px-1"
+                          />
                         </div>
                       </div>
-                    );
-                  })
+                    </div>
+                  ))
                 )}
               </div>
-            ) : playerStats.length === 0 ? (
+            ) : statsWithProfiles.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-4">
                 Aucune stats enregistrée
               </p>
@@ -492,7 +511,7 @@ export default function MatchDetailPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {playerStats.map((ps) => {
+                    {statsWithProfiles.map((ps) => {
                       const p = ps.profile;
                       return (
                         <tr key={ps.id} className="border-b last:border-0">
@@ -557,7 +576,7 @@ export default function MatchDetailPage() {
                       <span className="font-bold text-xs w-6 text-center">{l.profile?.shirt_number ?? "?"}</span>
                       <span className="flex-1 truncate">{l.profile?.first_name} {l.profile?.last_name}</span>
                       {l.entered_at_minute !== null && (
-                        <Badge variant="outline" className="text-[10px]">Entrée {l.entered_at_minute}'</Badge>
+                        <Badge variant="outline" className="text-[10px]">Entrée {l.entered_at_minute}&apos;</Badge>
                       )}
                     </div>
                   ))}
