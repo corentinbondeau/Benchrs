@@ -21,11 +21,10 @@ import type { Event, Profile } from "@/types";
 
 type AttendanceStatus = "present" | "absent" | "late" | "excused" | "pending";
 
-interface AttendanceEntry {
-  id: string;
-  user_id: string;
-  status: AttendanceStatus;
-  profile?: Profile;
+interface PlayerAttendance {
+  profile: Profile;
+  status: AttendanceStatus | null;
+  attendanceId: string | null;
 }
 
 function resolveProfile(raw: unknown): Profile | undefined {
@@ -42,14 +41,14 @@ export default function TrainingDetailPage() {
   const trainingId = params.id as string;
 
   const [event, setEvent] = useState<Event | null>(null);
-  const [attendances, setAttendances] = useState<AttendanceEntry[]>([]);
+  const [players, setPlayers] = useState<PlayerAttendance[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const supabase = createClient();
 
     async function fetchData() {
-      const [eventRes, attRes] = await Promise.all([
+      const [eventRes, attRes, playersRes] = await Promise.all([
         supabase
           .from("events")
           .select("*")
@@ -57,21 +56,31 @@ export default function TrainingDetailPage() {
           .single(),
         supabase
           .from("attendances")
-          .select("id, user_id, status, profile:profiles!attendances_user_id_fkey(id, first_name, last_name, shirt_number, position)")
+          .select("id, user_id, status")
           .eq("event_id", trainingId),
+        supabase
+          .from("profiles")
+          .select("*")
+          .eq("role", "player")
+          .eq("is_active", true)
+          .order("shirt_number", { ascending: true }),
       ]);
 
       setEvent(eventRes.data as Event | null);
 
-      const rawAtts = (attRes.data || []) as Record<string, unknown>[];
-      const parsed: AttendanceEntry[] = rawAtts.map((a) => ({
-        id: a.id as string,
-        user_id: a.user_id as string,
-        status: a.status as AttendanceStatus,
-        profile: resolveProfile(a.profile),
-      }));
-      setAttendances(parsed);
+      const atts = (attRes.data || []) as { id: string; user_id: string; status: string }[];
+      const allPlayers = (playersRes.data as Profile[]) || [];
 
+      const merged: PlayerAttendance[] = allPlayers.map((p) => {
+        const att = atts.find((a) => a.user_id === p.id);
+        return {
+          profile: p,
+          status: att ? (att.status as AttendanceStatus) : null,
+          attendanceId: att ? att.id : null,
+        };
+      });
+
+      setPlayers(merged);
       setLoading(false);
     }
 
@@ -80,13 +89,13 @@ export default function TrainingDetailPage() {
 
   async function updateAttendance(userId: string, status: AttendanceStatus) {
     const supabase = createClient();
-    const existing = attendances.find((a) => a.user_id === userId);
+    const existing = players.find((p) => p.profile.id === userId);
 
-    if (existing) {
+    if (existing?.attendanceId) {
       await supabase
         .from("attendances")
         .update({ status, responded_at: new Date().toISOString() })
-        .eq("id", existing.id);
+        .eq("id", existing.attendanceId);
     } else {
       await supabase.from("attendances").insert({
         event_id: trainingId,
@@ -96,17 +105,21 @@ export default function TrainingDetailPage() {
       });
     }
 
-    setAttendances((prev) => {
-      const idx = prev.findIndex((a) => a.user_id === userId);
-      if (idx >= 0) {
-        const updated = [...prev];
-        updated[idx] = { ...updated[idx], status };
-        return updated;
-      }
-      return [...prev, { id: "", user_id: userId, status }];
-    });
+    setPlayers((prev) =>
+      prev.map((p) =>
+        p.profile.id === userId
+          ? { ...p, status, attendanceId: p.attendanceId || "new" }
+          : p
+      )
+    );
 
-    toast.success(status === "present" ? "Présence enregistrée" : "Absence enregistrée");
+    toast.success(
+      status === "present"
+        ? "Présence enregistrée"
+        : status === "excused"
+          ? "Excuse enregistrée"
+          : "Absence enregistrée"
+    );
   }
 
   if (loading) {
@@ -133,9 +146,10 @@ export default function TrainingDetailPage() {
   }
 
   const eventDate = new Date(event.event_date);
-  const present = attendances.filter((a) => a.status === "present" || a.status === "late");
-  const absent = attendances.filter((a) => a.status === "absent" || a.status === "pending");
-  const excused = attendances.filter((a) => a.status === "excused");
+  const present = players.filter((p) => p.status === "present" || p.status === "late");
+  const absent = players.filter((p) => p.status === "absent");
+  const waiting = players.filter((p) => p.status === null || p.status === "pending");
+  const total = players.length;
 
   return (
     <div className="space-y-6">
@@ -186,41 +200,45 @@ export default function TrainingDetailPage() {
             <CardTitle className="text-base flex items-center gap-2">
               <Users className="h-4 w-4 text-[var(--color-gold)]" />
               Présences
-              {attendances.length > 0 && (
+              {total > 0 && (
                 <span className="text-sm font-normal text-muted-foreground">
-                  — {present.length}/{attendances.length}
+                  — {present.length}/{total}
                 </span>
               )}
             </CardTitle>
           </div>
         </CardHeader>
         <CardContent>
-          {attendances.length === 0 ? (
+          {total === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-4">
-              Aucune présence enregistrée
+              Aucun joueur actif
             </p>
           ) : (
             <div className="space-y-4">
+              {/* Présents */}
               {present.length > 0 && (
                 <div>
                   <p className="text-xs font-medium text-green-600 mb-2">
                     Présents ({present.length})
                   </p>
                   <div className="space-y-1">
-                    {present.map((a) => (
+                    {present.map((p) => (
                       <div
-                        key={a.user_id}
+                        key={p.profile.id}
                         className="flex items-center gap-2 rounded-lg bg-green-50 px-3 py-2"
                       >
+                        <span className="font-bold text-xs text-green-700 w-6 text-center">
+                          {p.profile.shirt_number ?? "?"}
+                        </span>
                         <span className="flex-1 text-sm text-green-900">
-                          {a.profile?.first_name} {a.profile?.last_name}
+                          {p.profile.first_name} {p.profile.last_name}
                         </span>
                         {isCoach && (
                           <Button
                             size="icon"
                             variant="ghost"
                             className="h-7 w-7 text-red-500 hover:text-red-700 hover:bg-red-50"
-                            onClick={() => updateAttendance(a.user_id, "absent")}
+                            onClick={() => updateAttendance(p.profile.id, "absent")}
                           >
                             <X className="h-3.5 w-3.5" />
                           </Button>
@@ -231,29 +249,35 @@ export default function TrainingDetailPage() {
                 </div>
               )}
 
+              {/* Absents */}
               {absent.length > 0 && (
                 <div>
                   <p className="text-xs font-medium text-red-600 mb-2">
                     Absents ({absent.length})
                   </p>
                   <div className="space-y-1">
-                    {absent.map((a) => (
+                    {absent.map((p) => (
                       <div
-                        key={a.user_id}
+                        key={p.profile.id}
                         className="flex items-center gap-2 rounded-lg bg-red-50 px-3 py-2"
                       >
+                        <span className="font-bold text-xs text-red-700 w-6 text-center">
+                          {p.profile.shirt_number ?? "?"}
+                        </span>
                         <span className="flex-1 text-sm text-red-900">
-                          {a.profile?.first_name} {a.profile?.last_name}
+                          {p.profile.first_name} {p.profile.last_name}
                         </span>
                         {isCoach && (
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-7 w-7 text-green-500 hover:text-green-700 hover:bg-green-50"
-                            onClick={() => updateAttendance(a.user_id, "present")}
-                          >
-                            <Check className="h-3.5 w-3.5" />
-                          </Button>
+                          <div className="flex gap-1">
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-7 w-7 text-green-500 hover:text-green-700 hover:bg-green-50"
+                              onClick={() => updateAttendance(p.profile.id, "present")}
+                            >
+                              <Check className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
                         )}
                       </div>
                     ))}
@@ -261,20 +285,44 @@ export default function TrainingDetailPage() {
                 </div>
               )}
 
-              {excused.length > 0 && (
+              {/* En Attente */}
+              {waiting.length > 0 && (
                 <div>
-                  <p className="text-xs font-medium text-amber-600 mb-2">
-                    Excusés ({excused.length})
+                  <p className="text-xs font-medium text-muted-foreground mb-2">
+                    En attente ({waiting.length})
                   </p>
                   <div className="space-y-1">
-                    {excused.map((a) => (
+                    {waiting.map((p) => (
                       <div
-                        key={a.user_id}
-                        className="flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2"
+                        key={p.profile.id}
+                        className="flex items-center gap-2 rounded-lg bg-muted/50 px-3 py-2"
                       >
-                        <span className="flex-1 text-sm text-amber-900">
-                          {a.profile?.first_name} {a.profile?.last_name}
+                        <span className="font-bold text-xs text-muted-foreground w-6 text-center">
+                          {p.profile.shirt_number ?? "?"}
                         </span>
+                        <span className="flex-1 text-sm text-muted-foreground">
+                          {p.profile.first_name} {p.profile.last_name}
+                        </span>
+                        {isCoach && (
+                          <div className="flex gap-1">
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-7 w-7 text-green-500 hover:text-green-700 hover:bg-green-50"
+                              onClick={() => updateAttendance(p.profile.id, "present")}
+                            >
+                              <Check className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-7 w-7 text-red-500 hover:text-red-700 hover:bg-red-50"
+                              onClick={() => updateAttendance(p.profile.id, "absent")}
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>

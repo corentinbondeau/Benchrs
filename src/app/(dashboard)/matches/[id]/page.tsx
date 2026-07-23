@@ -23,6 +23,8 @@ import {
   Shield,
   Pencil,
   Check,
+  X,
+  Users,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { Event, MatchStat, Formation, MatchLineup, Profile } from "@/types";
@@ -48,6 +50,14 @@ interface StatsFormEntry {
   yellow_cards: number;
   red_cards: number;
   minutes_played: number;
+}
+
+type AttendanceStatus = "present" | "absent" | "late" | "excused" | "pending";
+
+interface PlayerAttendance {
+  profile: Profile;
+  status: AttendanceStatus | null;
+  attendanceId: string | null;
 }
 
 const FORMATION_POSITIONS: Record<string, { x: number; y: number; label: string }[]> = {
@@ -113,12 +123,13 @@ export default function MatchDetailPage() {
   const [scoreUs, setScoreUs] = useState<string>("");
   const [scoreThem, setScoreThem] = useState<string>("");
   const [matchResult, setMatchResult] = useState<string>("");
+  const [matchPlayers, setMatchPlayers] = useState<PlayerAttendance[]>([]);
 
   useEffect(() => {
     const supabase = createClient();
 
     async function fetchMatchData() {
-      const [matchRes, statsRes, formRes, lineupsRes, playersRes] = await Promise.all([
+      const [matchRes, statsRes, formRes, lineupsRes, playersRes, attRes] = await Promise.all([
         supabase
           .from("events")
           .select("*")
@@ -145,6 +156,10 @@ export default function MatchDetailPage() {
           .eq("role", "player")
           .eq("is_active", true)
           .order("shirt_number", { ascending: true }),
+        supabase
+          .from("attendances")
+          .select("id, user_id, status")
+          .eq("event_id", matchId),
       ]);
 
       setMatch(matchRes.data as MatchEvent | null);
@@ -152,6 +167,19 @@ export default function MatchDetailPage() {
       setFormation(formRes.data as Formation | null);
       setLineups((lineupsRes.data as LineupEntry[]) || []);
       setAllPlayers((playersRes.data as Profile[]) || []);
+
+      const atts = (attRes.data || []) as { id: string; user_id: string; status: string }[];
+      const allP = (playersRes.data as Profile[]) || [];
+      const merged: PlayerAttendance[] = allP.map((p) => {
+        const att = atts.find((a) => a.user_id === p.id);
+        return {
+          profile: p,
+          status: att ? (att.status as AttendanceStatus) : null,
+          attendanceId: att ? att.id : null,
+        };
+      });
+      setMatchPlayers(merged);
+
       setLoading(false);
     }
 
@@ -270,6 +298,41 @@ export default function MatchDetailPage() {
 
   function getPlayerProfile(playerId: string): Profile | undefined {
     return allPlayers.find((p) => p.id === playerId);
+  }
+
+  async function updateMatchAttendance(userId: string, status: AttendanceStatus) {
+    const supabase = createClient();
+    const existing = matchPlayers.find((p) => p.profile.id === userId);
+
+    if (existing?.attendanceId) {
+      await supabase
+        .from("attendances")
+        .update({ status, responded_at: new Date().toISOString() })
+        .eq("id", existing.attendanceId);
+    } else {
+      await supabase.from("attendances").insert({
+        event_id: matchId,
+        user_id: userId,
+        status,
+        responded_at: new Date().toISOString(),
+      });
+    }
+
+    setMatchPlayers((prev) =>
+      prev.map((p) =>
+        p.profile.id === userId
+          ? { ...p, status, attendanceId: p.attendanceId || "new" }
+          : p
+      )
+    );
+
+    toast.success(
+      status === "present"
+        ? "Présence enregistrée"
+        : status === "excused"
+          ? "Excuse enregistrée"
+          : "Absence enregistrée"
+    );
   }
 
   if (loading) {
@@ -714,6 +777,150 @@ export default function MatchDetailPage() {
           </Card>
         </div>
       )}
+
+      {/* Attendance */}
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Users className="h-4 w-4 text-[var(--color-gold)]" />
+              Présences
+              {matchPlayers.length > 0 && (
+                <span className="text-sm font-normal text-muted-foreground">
+                  — {matchPlayers.filter((p) => p.status === "present" || p.status === "late").length}/{matchPlayers.length}
+                </span>
+              )}
+            </CardTitle>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {matchPlayers.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4">
+              Aucun joueur actif
+            </p>
+          ) : (
+            <div className="space-y-4">
+              {/* Présents */}
+              {matchPlayers.filter((p) => p.status === "present" || p.status === "late").length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-green-600 mb-2">
+                    Présents ({matchPlayers.filter((p) => p.status === "present" || p.status === "late").length})
+                  </p>
+                  <div className="space-y-1">
+                    {matchPlayers
+                      .filter((p) => p.status === "present" || p.status === "late")
+                      .map((p) => (
+                        <div
+                          key={p.profile.id}
+                          className="flex items-center gap-2 rounded-lg bg-green-50 px-3 py-2"
+                        >
+                          <span className="font-bold text-xs text-green-700 w-6 text-center">
+                            {p.profile.shirt_number ?? "?"}
+                          </span>
+                          <span className="flex-1 text-sm text-green-900">
+                            {p.profile.first_name} {p.profile.last_name}
+                          </span>
+                          {isCoach && (
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-7 w-7 text-red-500 hover:text-red-700 hover:bg-red-50"
+                              onClick={() => updateMatchAttendance(p.profile.id, "absent")}
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Absents */}
+              {matchPlayers.filter((p) => p.status === "absent").length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-red-600 mb-2">
+                    Absents ({matchPlayers.filter((p) => p.status === "absent").length})
+                  </p>
+                  <div className="space-y-1">
+                    {matchPlayers
+                      .filter((p) => p.status === "absent")
+                      .map((p) => (
+                        <div
+                          key={p.profile.id}
+                          className="flex items-center gap-2 rounded-lg bg-red-50 px-3 py-2"
+                        >
+                          <span className="font-bold text-xs text-red-700 w-6 text-center">
+                            {p.profile.shirt_number ?? "?"}
+                          </span>
+                          <span className="flex-1 text-sm text-red-900">
+                            {p.profile.first_name} {p.profile.last_name}
+                          </span>
+                          {isCoach && (
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-7 w-7 text-green-500 hover:text-green-700 hover:bg-green-50"
+                              onClick={() => updateMatchAttendance(p.profile.id, "present")}
+                            >
+                              <Check className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
+
+              {/* En Attente */}
+              {matchPlayers.filter((p) => p.status === null || p.status === "pending").length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-2">
+                    En attente ({matchPlayers.filter((p) => p.status === null || p.status === "pending").length})
+                  </p>
+                  <div className="space-y-1">
+                    {matchPlayers
+                      .filter((p) => p.status === null || p.status === "pending")
+                      .map((p) => (
+                        <div
+                          key={p.profile.id}
+                          className="flex items-center gap-2 rounded-lg bg-muted/50 px-3 py-2"
+                        >
+                          <span className="font-bold text-xs text-muted-foreground w-6 text-center">
+                            {p.profile.shirt_number ?? "?"}
+                          </span>
+                          <span className="flex-1 text-sm text-muted-foreground">
+                            {p.profile.first_name} {p.profile.last_name}
+                          </span>
+                          {isCoach && (
+                            <div className="flex gap-1">
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-7 w-7 text-green-500 hover:text-green-700 hover:bg-green-50"
+                                onClick={() => updateMatchAttendance(p.profile.id, "present")}
+                              >
+                                <Check className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-7 w-7 text-red-500 hover:text-red-700 hover:bg-red-50"
+                                onClick={() => updateMatchAttendance(p.profile.id, "absent")}
+                              >
+                                <X className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
