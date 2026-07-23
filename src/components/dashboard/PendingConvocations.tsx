@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +14,7 @@ import type { Attendance, Event } from "@/types";
 
 export function PendingConvocations() {
   const { user } = useAuth();
+  const router = useRouter();
   const [attendances, setAttendances] = useState<(Attendance & { event: Event })[]>([]);
   const [loading, setLoading] = useState(true);
   const [absenceReason, setAbsenceReason] = useState("");
@@ -89,7 +91,12 @@ export function PendingConvocations() {
               <div key={att.id} className="rounded-lg border p-3 space-y-2">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-medium text-sm">{att.event?.title}</p>
+                    <p
+                      className="font-medium text-sm cursor-pointer hover:underline"
+                      onClick={() => router.push(att.event?.type === "match" ? `/matches/${att.event?.id}` : `/trainings/${att.event?.id}`)}
+                    >
+                      {att.event?.title}
+                    </p>
                     <p className="text-xs text-muted-foreground">
                       {new Date(att.event?.event_date).toLocaleDateString("fr-FR", {
                         weekday: "long",

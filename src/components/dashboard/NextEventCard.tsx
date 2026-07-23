@@ -2,11 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useRouter } from "next/navigation";
 import type { Event } from "@/types";
 import { Card, CardContent } from "@/components/ui/card";
 import { Calendar, MapPin, Clock } from "lucide-react";
 
 export function NextEventCard() {
+  const router = useRouter();
   const [event, setEvent] = useState<Event | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -59,7 +61,10 @@ export function NextEventCard() {
   else countdown = "Bientôt";
 
   return (
-    <Card className="bg-gradient-to-r from-[var(--color-navy)] to-[var(--color-royal)] text-white">
+    <Card
+      className="bg-gradient-to-r from-[var(--color-navy)] to-[var(--color-royal)] text-white cursor-pointer hover:opacity-90 transition-opacity"
+      onClick={() => router.push(event.type === "match" ? `/matches/${event.id}` : `/trainings/${event.id}`)}
+    >
       <CardContent className="p-6">
         <div className="flex items-start justify-between">
           <div className="space-y-2">

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { useRouter } from "next/navigation";
 import { RecentResults } from "@/components/dashboard/RecentResults";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +28,7 @@ interface ChildProfile extends Profile {
 
 export function ParentDashboard() {
   const { user } = useAuth();
+  const router = useRouter();
   const [child, setChild] = useState<ChildProfile | null>(null);
   const [nextEvent, setNextEvent] = useState<Event | null>(null);
   const [attendanceRate, setAttendanceRate] = useState<number | null>(null);
@@ -218,7 +220,10 @@ export function ParentDashboard() {
       )}
 
       {nextEvent && eventDate && (
-        <Card className="bg-gradient-to-r from-[var(--color-gold)] to-amber-400 text-[var(--color-navy)]">
+        <Card
+          className="bg-gradient-to-r from-[var(--color-gold)] to-amber-400 text-[var(--color-navy)] cursor-pointer hover:opacity-90 transition-opacity"
+          onClick={() => router.push(nextEvent.type === "match" ? `/matches/${nextEvent.id}` : `/trainings/${nextEvent.id}`)}
+        >
           <CardContent className="p-6">
             <div className="flex items-start justify-between">
               <div className="space-y-2">
@@ -284,7 +289,12 @@ export function ParentDashboard() {
                 <div key={att.id} className="rounded-lg border p-3 space-y-2">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="font-medium text-sm">{att.event?.title}</p>
+                      <p
+                        className="font-medium text-sm cursor-pointer hover:underline"
+                        onClick={() => router.push(att.event?.type === "match" ? `/matches/${att.event?.id}` : `/trainings/${att.event?.id}`)}
+                      >
+                        {att.event?.title}
+                      </p>
                       <p className="text-xs text-muted-foreground">
                         {new Date(att.event?.event_date).toLocaleDateString(
                           "fr-FR",
