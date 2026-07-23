@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Trophy, Minus } from "lucide-react";
 import type { Event } from "@/types";
 
 export function RecentResults() {
+  const router = useRouter();
   const [matches, setMatches] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -57,9 +59,10 @@ export function RecentResults() {
         <ScrollArea className="w-full">
           <div className="flex gap-3 pb-3">
             {matches.map((match) => (
-              <div
+              <button
                 key={match.id}
-                className={`flex-shrink-0 rounded-lg border-l-4 p-3 min-w-[160px] ${getResultColor(match)}`}
+                onClick={() => router.push(`/matches/${match.id}`)}
+                className={`flex-shrink-0 rounded-lg border-l-4 p-3 min-w-[160px] text-left cursor-pointer hover:opacity-80 transition-opacity ${getResultColor(match)}`}
               >
                 <span className="text-xs text-muted-foreground">
                   {new Date(match.event_date).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}
@@ -72,7 +75,7 @@ export function RecentResults() {
                 <p className="text-xs text-muted-foreground mt-1 truncate">
                   {match.opponent || match.title}
                 </p>
-              </div>
+              </button>
             ))}
           </div>
           <ScrollBar orientation="horizontal" />

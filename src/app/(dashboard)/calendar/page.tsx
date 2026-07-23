@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -82,6 +83,7 @@ function toLocalDateStr(date: Date): string {
 
 export default function CalendarPage() {
   const { user } = useAuth();
+  const router = useRouter();
   const [view, setView] = useState<"month" | "week">("week");
   const [currentDate, setCurrentDate] = useState(new Date());
   const [events, setEvents] = useState<EventWithMeeting[]>([]);
@@ -660,6 +662,17 @@ export default function CalendarPage() {
                       <span>Présences : {attendanceCounts[selectedEvent.id].present}/{attendanceCounts[selectedEvent.id].total}</span>
                     </div>
                   )}
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => {
+                      router.push(`/matches/${selectedEvent.id}`);
+                      setSelectedEvent(null);
+                    }}
+                  >
+                    <Swords className="h-4 w-4 mr-2" />
+                    Voir le match
+                  </Button>
                 </>
               )}
               {isCoach && (
