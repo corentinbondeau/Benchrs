@@ -94,6 +94,7 @@ export default function CalendarPage() {
   const [postponeOpen, setPostponeOpen] = useState<EventWithMeeting | null>(null);
   const [postponeDate, setPostponeDate] = useState("");
   const [attendanceCounts, setAttendanceCounts] = useState<Record<string, { present: number; total: number }>>({});
+  const [selectedEventAttendances, setSelectedEventAttendances] = useState<{ present: { id: string; first_name: string; last_name: string; shirt_number: number | null }[]; absent: { id: string; first_name: string; last_name: string; shirt_number: number | null }[] } | null>(null);
   const [form, setForm] = useState({
     title: "",
     type: "training" as "match" | "training",
@@ -328,6 +329,34 @@ export default function CalendarPage() {
     }
   }
 
+  async function selectEvent(event: EventWithMeeting) {
+    setSelectedEvent(event);
+    setSelectedEventAttendances(null);
+
+    if (event.type === "training") {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from("attendances")
+        .select("status, profile:profiles!attendances_user_id_fkey(id, first_name, last_name, shirt_number, position)")
+        .eq("event_id", event.id);
+
+      if (data) {
+        const present: { id: string; first_name: string; last_name: string; shirt_number: number | null }[] = [];
+        const absent: { id: string; first_name: string; last_name: string; shirt_number: number | null }[] = [];
+        for (const att of data) {
+          const profile = att.profile as unknown as { id: string; first_name: string; last_name: string; shirt_number: number | null } | null;
+          if (!profile) continue;
+          if (att.status === "present" || att.status === "late") {
+            present.push(profile);
+          } else if (att.status === "absent" || att.status === "pending") {
+            absent.push(profile);
+          }
+        }
+        setSelectedEventAttendances({ present, absent });
+      }
+    }
+  }
+
   function getEventBadgeColor(event: Event) {
     if (event.type === "match") {
       if (event.match_result === "win") return "bg-green-100 text-green-700 border-green-200";
@@ -377,7 +406,7 @@ export default function CalendarPage() {
           className="h-6 w-6"
           onClick={(e) => {
             e.stopPropagation();
-            setSelectedEvent(event);
+            selectEvent(event);
           }}
         >
           <MoreVertical className="h-3 w-3" />
@@ -502,9 +531,9 @@ export default function CalendarPage() {
         )}
       </div>
 
-      {/* Event Detail Dialog (monthly view) */}
+      {/* Event Detail Dialog */}
       <Dialog open={!!selectedEvent} onOpenChange={() => setSelectedEvent(null)}>
-        <DialogContent className="sm:max-w-sm">
+        <DialogContent className={selectedEvent?.type === "training" ? "sm:max-w-md" : "sm:max-w-sm"}>
           <DialogHeader>
             <DialogTitle>{selectedEvent?.title}</DialogTitle>
             <DialogDescription>
@@ -516,38 +545,122 @@ export default function CalendarPage() {
           </DialogHeader>
           {selectedEvent && (
             <div className="space-y-3">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <CalendarDays className="h-4 w-4 shrink-0" />
-                <span>{formatDateTime(selectedEvent.event_date)}</span>
-              </div>
-              {selectedEvent.meeting_time && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Clock className="h-4 w-4 shrink-0" />
-                  <span>Rendez-vous : {selectedEvent.meeting_time}</span>
-                </div>
-              )}
-              {selectedEvent.location && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <MapPin className="h-4 w-4 shrink-0" />
-                  <span>{selectedEvent.location}</span>
-                </div>
-              )}
-              {selectedEvent.type === "match" && selectedEvent.opponent && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Swords className="h-4 w-4 shrink-0" />
-                  <span>Adversaire : {selectedEvent.opponent}</span>
-                </div>
-              )}
-              {selectedEvent.type === "match" && selectedEvent.score_us !== null && selectedEvent.score_them !== null && (
-                <div className="rounded-md bg-muted p-2 text-center text-sm font-bold">
-                  {selectedEvent.score_us} - {selectedEvent.score_them}
-                </div>
-              )}
-              {selectedEvent && attendanceCounts[selectedEvent.id] && attendanceCounts[selectedEvent.id].total > 0 && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Users className="h-4 w-4 shrink-0" />
-                  <span>Présences : {attendanceCounts[selectedEvent.id].present}/{attendanceCounts[selectedEvent.id].total}</span>
-                </div>
+              {selectedEvent.type === "training" ? (
+                <>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <CalendarDays className="h-4 w-4 shrink-0" />
+                      <span>{new Date(selectedEvent.event_date).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}</span>
+                    </div>
+                    {selectedEvent.meeting_time && (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Clock className="h-4 w-4 shrink-0" />
+                        <span>RDV : {selectedEvent.meeting_time}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Clock className="h-4 w-4 shrink-0" />
+                      <span>Début : {formatTimeDisplay(selectedEvent.event_date)}</span>
+                    </div>
+                    {selectedEvent.end_date && (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Clock className="h-4 w-4 shrink-0" />
+                        <span>Fin : {formatTimeDisplay(selectedEvent.end_date)}</span>
+                      </div>
+                    )}
+                    {selectedEvent.location && (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground col-span-2">
+                        <MapPin className="h-4 w-4 shrink-0" />
+                        <span>{selectedEvent.location}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="border-t pt-3">
+                    <p className="text-sm font-medium mb-2 flex items-center gap-2">
+                      <Users className="h-4 w-4" />
+                      Joueurs
+                    </p>
+                    {selectedEventAttendances ? (
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <p className="text-xs font-medium text-green-600 mb-1">
+                            Présents ({selectedEventAttendances.present.length})
+                          </p>
+                          <div className="space-y-1 max-h-40 overflow-y-auto">
+                            {selectedEventAttendances.present.length === 0 ? (
+                              <p className="text-xs text-muted-foreground">Aucun</p>
+                            ) : (
+                              selectedEventAttendances.present.map((p) => (
+                                <div key={p.id} className="flex items-center gap-2 text-xs rounded bg-green-50 px-2 py-1">
+                                  <span className="font-medium">{p.shirt_number ?? "?"}</span>
+                                  <span>{p.first_name} {p.last_name}</span>
+                                </div>
+                              ))
+                            )}
+                          </div>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-red-600 mb-1">
+                            Absents ({selectedEventAttendances.absent.length})
+                          </p>
+                          <div className="space-y-1 max-h-40 overflow-y-auto">
+                            {selectedEventAttendances.absent.length === 0 ? (
+                              <p className="text-xs text-muted-foreground">Aucun</p>
+                            ) : (
+                              selectedEventAttendances.absent.map((p) => (
+                                <div key={p.id} className="flex items-center gap-2 text-xs rounded bg-red-50 px-2 py-1">
+                                  <span className="font-medium">{p.shirt_number ?? "?"}</span>
+                                  <span>{p.first_name} {p.last_name}</span>
+                                </div>
+                              ))
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex justify-center py-3">
+                        <div className="h-5 w-5 animate-spin rounded-full border-2 border-[var(--color-royal)] border-t-transparent" />
+                      </div>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <CalendarDays className="h-4 w-4 shrink-0" />
+                    <span>{formatDateTime(selectedEvent.event_date)}</span>
+                  </div>
+                  {selectedEvent.meeting_time && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Clock className="h-4 w-4 shrink-0" />
+                      <span>Rendez-vous : {selectedEvent.meeting_time}</span>
+                    </div>
+                  )}
+                  {selectedEvent.location && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <MapPin className="h-4 w-4 shrink-0" />
+                      <span>{selectedEvent.location}</span>
+                    </div>
+                  )}
+                  {selectedEvent.opponent && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Swords className="h-4 w-4 shrink-0" />
+                      <span>Adversaire : {selectedEvent.opponent}</span>
+                    </div>
+                  )}
+                  {selectedEvent.score_us !== null && selectedEvent.score_them !== null && (
+                    <div className="rounded-md bg-muted p-2 text-center text-sm font-bold">
+                      {selectedEvent.score_us} - {selectedEvent.score_them}
+                    </div>
+                  )}
+                  {attendanceCounts[selectedEvent.id] && attendanceCounts[selectedEvent.id].total > 0 && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Users className="h-4 w-4 shrink-0" />
+                      <span>Présences : {attendanceCounts[selectedEvent.id].present}/{attendanceCounts[selectedEvent.id].total}</span>
+                    </div>
+                  )}
+                </>
               )}
               {isCoach && (
                 <div className="flex gap-2 pt-2">
@@ -740,7 +853,7 @@ export default function CalendarPage() {
                           className={`text-[10px] truncate rounded px-1 py-0.5 border cursor-pointer hover:opacity-80 flex items-center gap-1 ${getEventBadgeColor(event)}`}
                           onClick={(e) => {
                             e.stopPropagation();
-                            setSelectedEvent(event);
+                            selectEvent(event);
                           }}
                         >
                           <span className="truncate">{event.title}</span>
