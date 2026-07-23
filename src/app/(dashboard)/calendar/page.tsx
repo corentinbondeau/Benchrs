@@ -33,6 +33,7 @@ import {
   Ban,
   MapPin,
   Swords,
+  Users,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { Event, Profile } from "@/types";
@@ -81,7 +82,7 @@ function toLocalDateStr(date: Date): string {
 
 export default function CalendarPage() {
   const { user } = useAuth();
-  const [view, setView] = useState<"month" | "week">("month");
+  const [view, setView] = useState<"month" | "week">("week");
   const [currentDate, setCurrentDate] = useState(new Date());
   const [events, setEvents] = useState<EventWithMeeting[]>([]);
   const [loading, setLoading] = useState(true);
@@ -92,6 +93,7 @@ export default function CalendarPage() {
   const [confirmCancel, setConfirmCancel] = useState<EventWithMeeting | null>(null);
   const [postponeOpen, setPostponeOpen] = useState<EventWithMeeting | null>(null);
   const [postponeDate, setPostponeDate] = useState("");
+  const [attendanceCounts, setAttendanceCounts] = useState<Record<string, { present: number; total: number }>>({});
   const [form, setForm] = useState({
     title: "",
     type: "training" as "match" | "training",
@@ -115,6 +117,32 @@ export default function CalendarPage() {
       .then(({ data }) => {
         setEvents((data as EventWithMeeting[]) || []);
         setLoading(false);
+        fetchAttendanceCounts((data as EventWithMeeting[]) || []);
+      });
+  }
+
+  function fetchAttendanceCounts(eventsList: EventWithMeeting[]) {
+    const supabase = createClient();
+    const eventIds = eventsList.map((e) => e.id);
+    if (eventIds.length === 0) return;
+
+    supabase
+      .from("attendances")
+      .select("event_id, status")
+      .in("event_id", eventIds)
+      .then(({ data }) => {
+        if (!data) return;
+        const counts: Record<string, { present: number; total: number }> = {};
+        for (const att of data) {
+          if (!counts[att.event_id]) {
+            counts[att.event_id] = { present: 0, total: 0 };
+          }
+          counts[att.event_id].total++;
+          if (att.status === "present" || att.status === "late") {
+            counts[att.event_id].present++;
+          }
+        }
+        setAttendanceCounts(counts);
       });
   }
 
@@ -520,6 +548,12 @@ export default function CalendarPage() {
                   {selectedEvent.score_us} - {selectedEvent.score_them}
                 </div>
               )}
+              {selectedEvent && attendanceCounts[selectedEvent.id] && attendanceCounts[selectedEvent.id].total > 0 && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Users className="h-4 w-4 shrink-0" />
+                  <span>Présences : {attendanceCounts[selectedEvent.id].present}/{attendanceCounts[selectedEvent.id].total}</span>
+                </div>
+              )}
               {isCoach && (
                 <div className="flex gap-2 pt-2">
                   {selectedEvent.status !== "cancelled" && (
@@ -703,18 +737,27 @@ export default function CalendarPage() {
                     {day}
                   </p>
                   <div className="space-y-0.5">
-                    {dayEvents.slice(0, 2).map((event) => (
-                      <div
-                        key={event.id}
-                        className={`text-[10px] truncate rounded px-1 py-0.5 border cursor-pointer hover:opacity-80 ${getEventBadgeColor(event)}`}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedEvent(event);
-                        }}
-                      >
-                        {event.title}
-                      </div>
-                    ))}
+                    {dayEvents.slice(0, 2).map((event) => {
+                      const attCount = attendanceCounts[event.id];
+                      return (
+                        <div
+                          key={event.id}
+                          className={`text-[10px] truncate rounded px-1 py-0.5 border cursor-pointer hover:opacity-80 flex items-center gap-1 ${getEventBadgeColor(event)}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedEvent(event);
+                          }}
+                        >
+                          <span className="truncate">{event.title}</span>
+                          {attCount && attCount.total > 0 && (
+                            <span className="shrink-0 flex items-center gap-0.5">
+                              <Users className="h-2.5 w-2.5" />
+                              {attCount.present}/{attCount.total}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
                     {dayEvents.length > 2 && (
                       <p className="text-[10px] text-muted-foreground">+{dayEvents.length - 2}</p>
                     )}
@@ -747,24 +790,33 @@ export default function CalendarPage() {
                   <p className="text-xs text-muted-foreground">Aucun événement</p>
                 ) : (
                   <div className="space-y-1">
-                    {dayEvents.map((event) => (
-                      <div key={event.id} className="flex items-center gap-2 text-sm group relative">
-                        <Badge variant="outline" className={getEventBadgeColor(event)}>
-                          {event.type === "match" ? "Match" : "Entraînement"}
-                        </Badge>
-                        <span className="font-medium">{event.title}</span>
-                        <EventTimeDisplay event={event} />
-                        {event.location && (
-                          <span className="text-xs text-muted-foreground">- {event.location}</span>
-                        )}
-                        {event.score_us !== null && event.score_them !== null && (
-                          <span className="text-xs font-bold">{event.score_us}-{event.score_them}</span>
-                        )}
-                        <div className="ml-auto">
-                          <EventActions event={event} />
+                    {dayEvents.map((event) => {
+                      const attCount = attendanceCounts[event.id];
+                      return (
+                        <div key={event.id} className="flex items-center gap-2 text-sm group relative">
+                          <Badge variant="outline" className={getEventBadgeColor(event)}>
+                            {event.type === "match" ? "Match" : "Entraînement"}
+                          </Badge>
+                          <span className="font-medium">{event.title}</span>
+                          <EventTimeDisplay event={event} />
+                          {event.location && (
+                            <span className="text-xs text-muted-foreground">- {event.location}</span>
+                          )}
+                          {event.score_us !== null && event.score_them !== null && (
+                            <span className="text-xs font-bold">{event.score_us}-{event.score_them}</span>
+                          )}
+                          {attCount && attCount.total > 0 && (
+                            <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                              <Users className="h-3 w-3" />
+                              {attCount.present}/{attCount.total}
+                            </span>
+                          )}
+                          <div className="ml-auto">
+                            <EventActions event={event} />
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>

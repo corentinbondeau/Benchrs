@@ -7,10 +7,22 @@ import { NewsFeed } from "@/components/dashboard/NewsFeed";
 import { QuickStats } from "@/components/dashboard/QuickStats";
 import { RecentResults } from "@/components/dashboard/RecentResults";
 import { SeasonSummary } from "@/components/dashboard/SeasonSummary";
+import { PlayerDashboard } from "@/components/dashboard/PlayerDashboard";
+import { ParentDashboard } from "@/components/dashboard/ParentDashboard";
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const role = user?.profile?.role;
 
+  if (role === "player") {
+    return <PlayerDashboard />;
+  }
+
+  if (role === "parent") {
+    return <ParentDashboard />;
+  }
+
+  // Coach / default
   return (
     <div className="space-y-6">
       <div>

@@ -718,6 +718,8 @@ function FeuilletMatchTab() {
   const [captainId, setCaptainId] = useState("");
 
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
+  const [draggedPlayerId, setDraggedPlayerId] = useState<string | null>(null);
+  const [dragOverSlot, setDragOverSlot] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     const [lineupsRes, formationsRes, eventsRes, playersRes] = await Promise.all([
@@ -829,6 +831,55 @@ function FeuilletMatchTab() {
     if (selectedPlayerId === playerId) {
       setSelectedPlayerId(null);
     }
+  }
+
+  // --- Drag and Drop handlers ---
+
+  function handleDragStart(playerId: string, e: React.DragEvent) {
+    setDraggedPlayerId(playerId);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", playerId);
+  }
+
+  function handleDragEnd() {
+    setDraggedPlayerId(null);
+    setDragOverSlot(null);
+  }
+
+  function handleSlotDragOver(slotKey: string, e: React.DragEvent) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setDragOverSlot(slotKey);
+  }
+
+  function handleSlotDragLeave() {
+    setDragOverSlot(null);
+  }
+
+  function handleSlotDrop(slotKey: string, e: React.DragEvent) {
+    e.preventDefault();
+    const playerId = e.dataTransfer.getData("text/plain") || draggedPlayerId;
+    if (!playerId) return;
+
+    setAssignments((prev) => {
+      const next = { ...prev };
+      const sourceLocation = next[playerId];
+      const currentOccupant = Object.entries(next).find(
+        ([id, loc]) => loc === slotKey && id !== playerId
+      )?.[0];
+
+      next[playerId] = slotKey;
+
+      if (currentOccupant) {
+        next[currentOccupant] =
+          sourceLocation === slotKey ? "pool" : sourceLocation || "pool";
+      }
+
+      return next;
+    });
+
+    setDraggedPlayerId(null);
+    setDragOverSlot(null);
   }
 
   async function handleCreate() {
@@ -1055,6 +1106,7 @@ function FeuilletMatchTab() {
                 const player = pid ? players.find((p) => p.id === pid) : null;
                 const isCapt = captainId === pid;
                 const isSelected = selectedPlayerId !== null;
+                const isDragOver = dragOverSlot === slotKey;
                 return (
                   <div
                     key={i}
@@ -1064,10 +1116,15 @@ function FeuilletMatchTab() {
                   <button
                     type="button"
                     onClick={() => handleSlotClick(slotKey)}
+                    onDragOver={(e) => handleSlotDragOver(slotKey, e)}
+                    onDragLeave={handleSlotDragLeave}
+                    onDrop={(e) => handleSlotDrop(slotKey, e)}
                     className={`relative flex h-10 w-10 items-center justify-center rounded-full text-xs font-bold shadow-lg transition-all ${
-                      isSelected && !player
-                        ? "ring-2 ring-[var(--color-gold)] ring-offset-2 ring-offset-green-700"
-                        : ""
+                      isDragOver
+                        ? "ring-2 ring-[var(--color-gold)] ring-offset-2 ring-offset-green-700 scale-110"
+                        : isSelected && !player
+                          ? "ring-2 ring-[var(--color-gold)] ring-offset-2 ring-offset-green-700"
+                          : ""
                     } ${
                       player
                         ? isCapt
@@ -1131,12 +1188,22 @@ function FeuilletMatchTab() {
               const pid = benchPlayerIds[i];
               const player = pid ? players.find((p) => p.id === pid) : null;
               const isSelected = selectedPlayerId !== null;
+              const isDragOver = dragOverSlot === benchKey;
               return (
                 <button
                   key={i}
                   type="button"
                   onClick={() => handleSlotClick(benchKey)}
-                  className={`relative ${isSelected && !player ? "ring-2 ring-[var(--color-gold)] ring-offset-1 rounded-lg" : ""}`}
+                  onDragOver={(e) => handleSlotDragOver(benchKey, e)}
+                  onDragLeave={handleSlotDragLeave}
+                  onDrop={(e) => handleSlotDrop(benchKey, e)}
+                  className={`relative transition-all ${
+                    isDragOver
+                      ? "ring-2 ring-[var(--color-gold)] ring-offset-1 rounded-lg scale-105"
+                      : isSelected && !player
+                        ? "ring-2 ring-[var(--color-gold)] ring-offset-1 rounded-lg"
+                        : ""
+                  }`}
                 >
                   {player ? (
                     <div className="flex items-center gap-2 rounded-lg border bg-card p-2.5 shadow-sm">
@@ -1187,17 +1254,23 @@ function FeuilletMatchTab() {
             {poolPlayers.map((player) => {
               const isCapt = captainId === player.id;
               const isSelected = selectedPlayerId === player.id;
+              const isDragging = draggedPlayerId === player.id;
               return (
                 <button
                   key={player.id}
                   type="button"
+                  draggable
+                  onDragStart={(e) => handleDragStart(player.id, e)}
+                  onDragEnd={handleDragEnd}
                   onClick={() => handlePlayerClick(player.id)}
-                  className={`flex items-center gap-2.5 rounded-lg border bg-card p-2.5 shadow-sm transition-all text-left ${
-                    isSelected
-                      ? "ring-2 ring-[var(--color-gold)] bg-[var(--color-gold)]/5"
-                      : isCapt
-                        ? "ring-2 ring-yellow-400"
-                        : ""
+                  className={`flex items-center gap-2.5 rounded-lg border bg-card p-2.5 shadow-sm transition-all text-left cursor-grab active:cursor-grabbing ${
+                    isDragging
+                      ? "opacity-50 ring-2 ring-[var(--color-gold)]"
+                      : isSelected
+                        ? "ring-2 ring-[var(--color-gold)] bg-[var(--color-gold)]/5"
+                        : isCapt
+                          ? "ring-2 ring-yellow-400"
+                          : ""
                   }`}
                 >
                   <div
