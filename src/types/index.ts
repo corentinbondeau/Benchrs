@@ -149,6 +149,7 @@ export interface ChatChannel {
   name: string;
   description: string | null;
   is_private: boolean;
+  channel_type: "general" | "parents" | "coaches";
   created_at: string;
 }
 
