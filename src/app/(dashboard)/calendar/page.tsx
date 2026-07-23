@@ -30,7 +30,6 @@ import {
   CalendarDays,
   Trash2,
   Clock,
-  MoreVertical,
   Ban,
   MapPin,
   Swords,
@@ -395,25 +394,6 @@ export default function CalendarPage() {
       <span className="text-xs text-muted-foreground">
         {rdv ? `RDV: ${rdv} | Début: ${start}` : start}
       </span>
-    );
-  }
-
-  function EventActions({ event }: { event: EventWithMeeting }) {
-    if (!isCoach) return null;
-    return (
-      <div className="relative">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-6 w-6"
-          onClick={(e) => {
-            e.stopPropagation();
-            selectEvent(event);
-          }}
-        >
-          <MoreVertical className="h-3 w-3" />
-        </Button>
-      </div>
     );
   }
 
@@ -914,7 +894,11 @@ export default function CalendarPage() {
                     {dayEvents.map((event) => {
                       const attCount = attendanceCounts[event.id];
                       return (
-                        <div key={event.id} className="flex items-center gap-2 text-sm group relative">
+                        <div
+                          key={event.id}
+                          className="flex items-center gap-2 text-sm group relative cursor-pointer hover:bg-muted/50 rounded-lg px-2 py-1 -mx-2 transition-colors"
+                          onClick={() => selectEvent(event)}
+                        >
                           <Badge variant="outline" className={getEventBadgeColor(event)}>
                             {event.type === "match" ? "Match" : "Entraînement"}
                           </Badge>
@@ -932,9 +916,6 @@ export default function CalendarPage() {
                               {attCount.present}/{attCount.total}
                             </span>
                           )}
-                          <div className="ml-auto">
-                            <EventActions event={event} />
-                          </div>
                         </div>
                       );
                     })}
