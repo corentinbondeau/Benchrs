@@ -15,6 +15,7 @@ import {
   Calendar,
   Clock,
   MapPin,
+  Swords,
   Target,
   AlertTriangle,
   Minus,
@@ -108,6 +109,10 @@ export default function MatchDetailPage() {
   const [editingStats, setEditingStats] = useState(false);
   const [statsForm, setStatsForm] = useState<Record<string, StatsFormEntry>>({});
   const [savingStats, setSavingStats] = useState(false);
+  const [editingScore, setEditingScore] = useState(false);
+  const [scoreUs, setScoreUs] = useState<string>("");
+  const [scoreThem, setScoreThem] = useState<string>("");
+  const [matchResult, setMatchResult] = useState<string>("");
 
   useEffect(() => {
     const supabase = createClient();
@@ -225,6 +230,44 @@ export default function MatchDetailPage() {
     }));
   }
 
+  function initScoreForm() {
+    setScoreUs(match?.score_us?.toString() ?? "");
+    setScoreThem(match?.score_them?.toString() ?? "");
+    setMatchResult(match?.match_result ?? "");
+    setEditingScore(true);
+  }
+
+  async function saveScore() {
+    const us = scoreUs === "" ? null : parseInt(scoreUs);
+    const them = scoreThem === "" ? null : parseInt(scoreThem);
+
+    let result = matchResult;
+    if (us !== null && them !== null) {
+      if (us > them) result = "win";
+      else if (us < them) result = "loss";
+      else result = "draw";
+    }
+
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("events")
+      .update({
+        score_us: us,
+        score_them: them,
+        match_result: result || null,
+      })
+      .eq("id", matchId);
+
+    if (error) {
+      toast.error("Erreur lors de la sauvegarde");
+      return;
+    }
+
+    setMatch((prev) => prev ? { ...prev, score_us: us, score_them: them, match_result: result as "win" | "loss" | "draw" | null } : prev);
+    setEditingScore(false);
+    toast.success("Score mis à jour");
+  }
+
   function getPlayerProfile(playerId: string): Profile | undefined {
     return allPlayers.find((p) => p.id === playerId);
   }
@@ -319,6 +362,85 @@ export default function MatchDetailPage() {
               </span>
             )}
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Score Section */}
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Swords className="h-4 w-4 text-[var(--color-gold)]" />
+              Score
+            </CardTitle>
+            {isCoach && (
+              editingScore ? (
+                <div className="flex gap-2">
+                  <Button size="sm" variant="ghost" onClick={() => setEditingScore(false)}>
+                    Annuler
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="bg-[var(--color-gold)] text-[var(--color-navy)]"
+                    onClick={saveScore}
+                  >
+                    <Check className="h-3.5 w-3.5 mr-1" />
+                    Enregistrer
+                  </Button>
+                </div>
+              ) : (
+                <Button size="sm" variant="outline" onClick={initScoreForm}>
+                  <Pencil className="h-3.5 w-3.5 mr-1" />
+                  Modifier
+                </Button>
+              )
+            )}
+          </div>
+        </CardHeader>
+        <CardContent>
+          {editingScore ? (
+            <div className="flex items-center justify-center gap-4">
+              <div className="flex flex-col items-center gap-1">
+                <Label className="text-xs text-muted-foreground">Nous</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={scoreUs}
+                  onChange={(e) => setScoreUs(e.target.value)}
+                  className="h-12 w-20 text-center text-xl font-bold"
+                  placeholder="—"
+                />
+              </div>
+              <Minus className="h-6 w-6 text-muted-foreground mt-5" />
+              <div className="flex flex-col items-center gap-1">
+                <Label className="text-xs text-muted-foreground">Eux</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={scoreThem}
+                  onChange={(e) => setScoreThem(e.target.value)}
+                  className="h-12 w-20 text-center text-xl font-bold"
+                  placeholder="—"
+                />
+              </div>
+            </div>
+          ) : match.score_us !== null && match.score_them !== null ? (
+            <div className="flex items-center justify-center gap-6">
+              <div className="text-center">
+                <p className="text-xs text-muted-foreground mb-1">Nous</p>
+                <span className="text-4xl font-bold">{match.score_us}</span>
+              </div>
+              <Minus className="h-6 w-6 text-muted-foreground" />
+              <div className="text-center">
+                <p className="text-xs text-muted-foreground mb-1">Eux</p>
+                <span className="text-4xl font-bold">{match.score_them}</span>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground text-center py-2">
+              Aucun score enregistré
+            </p>
+          )}
         </CardContent>
       </Card>
 
