@@ -227,9 +227,6 @@ export default function TrainingDetailPage() {
                         key={p.profile.id}
                         className="flex items-center gap-2 rounded-lg bg-green-50 px-3 py-2"
                       >
-                        <span className="font-bold text-xs text-green-700 w-6 text-center">
-                          {p.profile.shirt_number ?? "?"}
-                        </span>
                         <span className="flex-1 text-sm text-green-900">
                           {p.profile.first_name} {p.profile.last_name}
                         </span>
@@ -261,9 +258,6 @@ export default function TrainingDetailPage() {
                         key={p.profile.id}
                         className="flex items-center gap-2 rounded-lg bg-red-50 px-3 py-2"
                       >
-                        <span className="font-bold text-xs text-red-700 w-6 text-center">
-                          {p.profile.shirt_number ?? "?"}
-                        </span>
                         <span className="flex-1 text-sm text-red-900">
                           {p.profile.first_name} {p.profile.last_name}
                         </span>
@@ -297,9 +291,6 @@ export default function TrainingDetailPage() {
                         key={p.profile.id}
                         className="flex items-center gap-2 rounded-lg bg-muted/50 px-3 py-2"
                       >
-                        <span className="font-bold text-xs text-muted-foreground w-6 text-center">
-                          {p.profile.shirt_number ?? "?"}
-                        </span>
                         <span className="flex-1 text-sm text-muted-foreground">
                           {p.profile.first_name} {p.profile.last_name}
                         </span>
