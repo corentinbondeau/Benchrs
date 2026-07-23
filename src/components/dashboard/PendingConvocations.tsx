@@ -97,28 +97,25 @@ export function PendingConvocations() {
 
   async function sendReminder(item: CoachPendingItem) {
     setRemindingId(item.attendance.id);
-    const supabase = createClient();
 
-    const eventDate = new Date(item.event.event_date);
-    const dateStr = eventDate.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
-    const timeStr = eventDate.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
-
-    const { error } = await supabase.from("notifications").insert({
-      user_id: item.player.id,
-      title: "Rappel convocation",
-      body: `N'oubliez pas de répondre à la convocation pour "${item.event.title}" le ${dateStr} à ${timeStr}.`,
-      type: "reminder",
-      reference_id: item.event.id,
+    const res = await fetch("/api/notifications/reminder", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        userId: item.player.id,
+        eventTitle: item.event.title,
+        eventDate: item.event.event_date,
+      }),
     });
 
     setRemindingId(null);
 
-    if (error) {
-      toast.error("Erreur lors de l'envoi");
+    if (!res.ok) {
+      toast.error("Erreur lors de l'envoi de l'email");
       return;
     }
 
-    toast.success(`Notification envoyée à ${item.player.first_name} ${item.player.last_name}`);
+    toast.success(`Email de relance envoyé à ${item.player.first_name} ${item.player.last_name}`);
   }
 
   if (loading) {
