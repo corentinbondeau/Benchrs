@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Trophy, Calendar } from "lucide-react";
 import type { Event } from "@/types";
 
 export function NewsFeed() {
+  const router = useRouter();
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -51,7 +53,11 @@ export function NewsFeed() {
         ) : (
           <div className="space-y-3">
             {events.map((event) => (
-              <div key={event.id} className="flex items-start gap-3 rounded-lg border p-3">
+              <div
+                key={event.id}
+                className="flex items-start gap-3 rounded-lg border p-3 cursor-pointer hover:bg-muted/50 transition-colors"
+                onClick={() => router.push(event.type === "match" ? `/matches/${event.id}` : `/trainings/${event.id}`)}
+              >
                 <div className="mt-0.5">
                   {event.type === "match" ? (
                     <Trophy className="h-4 w-4 text-[var(--color-gold)]" />
