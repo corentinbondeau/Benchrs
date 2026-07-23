@@ -110,30 +110,24 @@ export default function CalendarPage() {
 
   function fetchEvents() {
     const supabase = createClient();
-    supabase
-      .from("events")
-      .select("*")
-      .order("event_date", { ascending: true })
-      .then(({ data }) => {
-        setEvents((data as EventWithMeeting[]) || []);
-        setLoading(false);
-        fetchAttendanceCounts((data as EventWithMeeting[]) || []);
-      });
-  }
+    Promise.all([
+      supabase
+        .from("events")
+        .select("*")
+        .order("event_date", { ascending: true }),
+      supabase
+        .from("attendances")
+        .select("event_id, status"),
+    ]).then(([eventsRes, attRes]) => {
+      const eventsList = (eventsRes.data as EventWithMeeting[]) || [];
+      setEvents(eventsList);
+      setLoading(false);
 
-  function fetchAttendanceCounts(eventsList: EventWithMeeting[]) {
-    const supabase = createClient();
-    const eventIds = eventsList.map((e) => e.id);
-    if (eventIds.length === 0) return;
-
-    supabase
-      .from("attendances")
-      .select("event_id, status")
-      .in("event_id", eventIds)
-      .then(({ data }) => {
-        if (!data) return;
+      if (attRes.data) {
+        const eventIds = new Set(eventsList.map((e) => e.id));
         const counts: Record<string, { present: number; total: number }> = {};
-        for (const att of data) {
+        for (const att of attRes.data) {
+          if (!eventIds.has(att.event_id)) continue;
           if (!counts[att.event_id]) {
             counts[att.event_id] = { present: 0, total: 0 };
           }
@@ -143,7 +137,8 @@ export default function CalendarPage() {
           }
         }
         setAttendanceCounts(counts);
-      });
+      }
+    });
   }
 
   function fetchPlayers() {
