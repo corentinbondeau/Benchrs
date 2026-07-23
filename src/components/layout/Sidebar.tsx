@@ -35,7 +35,7 @@ const navItems = [
   { href: "/medical", label: "Infirmerie", icon: Heart },
   { href: "/carpooling", label: "Covoiturage", icon: Car },
   { href: "/tasks", label: "Tâches", icon: ListTodo },
-  { href: "/tactics", label: "Tactique", icon: Swords },
+  { href: "/tactics", label: "Tactique", icon: Swords, coachOnly: true },
   { href: "/gallery", label: "Galerie", icon: Image },
   { href: "/trophies", label: "Trophées", icon: Trophy },
   { href: "/championship", label: "Championnat", icon: Medal },
@@ -59,7 +59,9 @@ export function Sidebar() {
         <span className="text-lg font-bold">SportPlus</span>
       </div>
       <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
-        {navItems.map((item) => {
+        {navItems
+          .filter((item) => !item.coachOnly || isCoach)
+          .map((item) => {
           const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
           return (
             <Link

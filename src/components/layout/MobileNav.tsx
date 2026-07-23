@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useAuth } from "@/lib/auth";
 import { Menu, X } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import {
@@ -33,7 +34,7 @@ const navItems = [
   { href: "/medical", label: "Infirmerie", icon: Heart },
   { href: "/carpooling", label: "Covoiturage", icon: Car },
   { href: "/tasks", label: "Tâches", icon: ListTodo },
-  { href: "/tactics", label: "Tactique", icon: Swords },
+  { href: "/tactics", label: "Tactique", icon: Swords, coachOnly: true },
   { href: "/gallery", label: "Galerie", icon: Image },
   { href: "/trophies", label: "Trophées", icon: Trophy },
   { href: "/notifications", label: "Notifications", icon: Bell },
@@ -42,6 +43,8 @@ const navItems = [
 export function MobileNav() {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
+  const { user } = useAuth();
+  const isCoach = user?.profile?.role === "coach";
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -59,7 +62,9 @@ export function MobileNav() {
           </button>
         </div>
         <nav className="py-3 px-2 space-y-0.5">
-          {navItems.map((item) => {
+          {navItems
+            .filter((item) => !item.coachOnly || isCoach)
+            .map((item) => {
             const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
             return (
               <Link
