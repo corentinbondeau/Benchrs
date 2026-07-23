@@ -143,7 +143,8 @@ export function PendingConvocations() {
     setRemindingKey(null);
 
     if (!res.ok) {
-      toast.error("Erreur lors de l'envoi de l'email");
+      const data = await res.json().catch(() => null);
+      toast.error(data?.error || "Erreur lors de l'envoi de l'email");
       return;
     }
 

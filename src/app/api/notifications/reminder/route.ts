@@ -64,7 +64,8 @@ export async function POST(req: Request) {
 
   if (!resendRes.ok) {
     const body = await resendRes.text();
-    return NextResponse.json({ error: body }, { status: 500 });
+    console.error("[reminder] Resend error:", resendRes.status, body);
+    return NextResponse.json({ error: `Resend ${resendRes.status}: ${body}` }, { status: 500 });
   }
 
   return NextResponse.json({ ok: true });
