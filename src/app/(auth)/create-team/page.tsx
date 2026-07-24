@@ -15,13 +15,13 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
+import { toast } from "sonner";
 
 export default function CreateTeamPage() {
   const [clubName, setClubName] = useState("");
   const [teamName, setTeamName] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [inviteCode, setInviteCode] = useState("");
   const router = useRouter();
 
   async function handleSubmit(e: React.FormEvent) {
@@ -56,48 +56,17 @@ export default function CreateTeamPage() {
         return;
       }
 
-      setInviteCode(data.inviteCode);
+      toast.success(`Code d'invitation : ${data.inviteCode}`, {
+        description: "Vous le trouverez dans Paramètres > Équipe",
+        duration: 5000,
+      });
+
+      router.push("/");
     } catch (err) {
       console.error("[create-team]", err);
       setError("Erreur de connexion au serveur");
       setLoading(false);
     }
-  }
-
-  if (inviteCode) {
-    return (
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--color-gold)] text-[var(--color-navy)] font-bold text-lg mx-auto mb-2">
-            SP
-          </div>
-          <CardTitle className="text-2xl">Équipe créée !</CardTitle>
-          <CardDescription>
-            Partagez ce code d&apos;invitation avec vos joueurs
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="text-center space-y-4">
-          <div className="bg-muted rounded-lg p-4">
-            <p className="text-xs text-muted-foreground mb-1">Code d&apos;invitation</p>
-            <p className="text-2xl font-mono font-bold tracking-wider">{inviteCode}</p>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Les joueurs peuvent rejoindre depuis la page d&apos;inscription ou de connexion
-          </p>
-        </CardContent>
-        <CardFooter className="flex flex-col gap-4">
-          <Button
-            className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
-            onClick={() => router.push("/")}
-          >
-            Accéder au tableau de bord
-          </Button>
-          <Link href="/" className="text-sm text-muted-foreground hover:underline">
-            Passer pour l&apos;instant
-          </Link>
-        </CardFooter>
-      </Card>
-    );
   }
 
   return (
