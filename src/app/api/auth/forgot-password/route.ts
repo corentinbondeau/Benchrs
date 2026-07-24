@@ -39,12 +39,13 @@ export async function POST(req: Request) {
   }
 
   const appUrl = new URL(req.url).origin;
+  const redirectTo = `${appUrl}/reset-password`;
 
   const { data: linkData, error: linkError } =
     await admin.auth.admin.generateLink({
       type: "recovery",
       email,
-      options: { redirectTo: `${appUrl}/reset-password` },
+      options: { redirectTo },
     });
 
   if (linkError || !linkData) {
@@ -54,7 +55,11 @@ export async function POST(req: Request) {
     );
   }
 
-  const resetUrl = linkData.properties.action_link;
+  const actionLink = linkData.properties.action_link;
+  const resetUrl = actionLink.replace(
+    /redirect_to=[^&]*/,
+    `redirect_to=${encodeURIComponent(redirectTo)}`
+  );
 
   try {
     await transporter.sendMail({
