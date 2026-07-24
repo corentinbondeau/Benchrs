@@ -107,12 +107,15 @@ function JoinTeamForm() {
           >
             {loading ? "Connexion..." : success ? "Redirection..." : "Rejoindre l'équipe"}
           </Button>
-          <p className="text-sm text-muted-foreground text-center">
-            Vous voulez créer votre propre équipe ?{" "}
-            <Link href="/create-team" className="text-[var(--color-royal)] hover:underline font-medium">
-              Créer une équipe
-            </Link>
-          </p>
+          <Link href="/create-team" className="w-full">
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full border-white/20 text-white hover:bg-white/10"
+            >
+              Créer mon équipe
+            </Button>
+          </Link>
         </CardFooter>
       </form>
     </Card>
