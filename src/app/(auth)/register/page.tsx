@@ -84,31 +84,36 @@ export default function RegisterPage() {
         return;
       }
 
-      // Step 2: If invite code provided, join team
-      if (formData.inviteCode) {
-        // We need to sign in first to get the user ID
-        const supabaseRes = await fetch("/api/auth/login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: formData.email, password: formData.password }),
-        });
+      // Step 2: Auto-login
+      const { createClient } = await import("@/lib/supabase/client");
+      const supabase = createClient();
+      const { error: loginError } = await supabase.auth.signInWithPassword({
+        email: formData.email,
+        password: formData.password,
+      });
 
-        if (supabaseRes.ok) {
-          const { createClient } = await import("@/lib/supabase/client");
-          const supabase = createClient();
-          const { data: { user } } = await supabase.auth.getUser();
-
-          if (user) {
-            await fetch("/api/auth/join-team", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ userId: user.id, inviteCode: formData.inviteCode }),
-            });
-          }
-        }
+      if (loginError) {
+        setError("Compte créé, mais connexion échouée. Veuillez vous connecter.");
+        setTimeout(() => router.push("/login"), 2000);
+        setLoading(false);
+        return;
       }
 
-      router.push("/login?registered=true");
+      // Step 3: If invite code provided, join team
+      if (formData.inviteCode) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          await fetch("/api/auth/join-team", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ userId: user.id, inviteCode: formData.inviteCode }),
+          });
+        }
+        router.push("/");
+      } else {
+        // No invite code → redirect to create team
+        router.push("/create-team");
+      }
     } catch {
       setError("Erreur de connexion au serveur");
       setLoading(false);
