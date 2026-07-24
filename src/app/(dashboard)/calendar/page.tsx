@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { useTeam } from "@/lib/team";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -79,6 +80,7 @@ function toLocalDateStr(date: Date): string {
 
 export default function CalendarPage() {
   const { user } = useAuth();
+  const { currentTeam } = useTeam();
   const router = useRouter();
   const [view, setView] = useState<"month" | "week">("week");
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -107,10 +109,12 @@ export default function CalendarPage() {
       supabase
         .from("events")
         .select("*")
+        .eq("team_id", currentTeam!.id)
         .order("event_date", { ascending: true }),
       supabase
         .from("attendances")
-        .select("event_id, status"),
+        .select("event_id, status")
+        .eq("team_id", currentTeam!.id),
     ]).then(([eventsRes, attRes]) => {
       const eventsList = (eventsRes.data as EventWithMeeting[]) || [];
       setEvents(eventsList);
@@ -150,7 +154,7 @@ export default function CalendarPage() {
   useEffect(() => {
     fetchEvents();
     fetchPlayers();
-  }, []);
+  }, [currentTeam]);
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -231,6 +235,7 @@ export default function CalendarPage() {
       opponent: form.type === "match" ? form.opponent || null : null,
       status: "upcoming" as const,
       created_by: user?.id,
+      team_id: currentTeam!.id,
     }));
 
     const { data: inserted, error } = await supabase.from("events").insert(rows).select("id");
@@ -246,6 +251,7 @@ export default function CalendarPage() {
           event_id: evt.id,
           user_id: pid,
           status: "pending" as const,
+          team_id: currentTeam!.id,
         }))
       );
       await supabase.from("attendances").insert(attendanceRows);
@@ -306,6 +312,10 @@ export default function CalendarPage() {
         {rdv ? `RDV: ${rdv} | Début: ${start}` : start}
       </span>
     );
+  }
+
+  if (!currentTeam) {
+    return <div className="flex items-center justify-center h-64"><p className="text-muted-foreground">Chargement de l&apos;équipe...</p></div>;
   }
 
   if (loading) {

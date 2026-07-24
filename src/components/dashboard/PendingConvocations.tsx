@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { useTeam } from "@/lib/team";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,7 @@ interface CoachPendingItem {
 
 export function PendingConvocations() {
   const { user } = useAuth();
+  const { currentTeam } = useTeam();
   const router = useRouter();
   const isCoach = user?.profile?.role === "coach";
 
@@ -33,7 +35,7 @@ export function PendingConvocations() {
   const [remindingKey, setRemindingKey] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!user?.id) return;
+    if (!user?.id || !currentTeam) return;
     const supabase = createClient();
 
     if (isCoach) {
@@ -41,6 +43,7 @@ export function PendingConvocations() {
         supabase
           .from("attendances")
           .select("*, event:events!attendances_event_id_fkey(*)")
+          .eq("team_id", currentTeam!.id)
           .eq("status", "pending")
           .order("created_at", { ascending: false }),
         supabase
@@ -50,7 +53,8 @@ export function PendingConvocations() {
           .eq("is_active", true),
         supabase
           .from("parent_student")
-          .select("parent_id, student_id"),
+          .select("parent_id, student_id")
+          .eq("team_id", currentTeam!.id),
       ]).then(([attRes, playersRes, psRes]) => {
         const atts = (attRes.data as (Attendance & { event: Event })[]) || [];
         const allPlayers = (playersRes.data as Profile[]) || [];
@@ -89,6 +93,7 @@ export function PendingConvocations() {
         .from("attendances")
         .select("*, event:events!attendances_event_id_fkey(*)")
         .eq("user_id", user.id)
+        .eq("team_id", currentTeam!.id)
         .eq("status", "pending")
         .order("created_at", { ascending: false })
         .then(({ data }) => {
@@ -96,7 +101,9 @@ export function PendingConvocations() {
           setLoading(false);
         });
     }
-  }, [user?.id, isCoach]);
+  }, [user?.id, isCoach, currentTeam]);
+
+  if (!currentTeam) return null;
 
   async function respond(attendanceId: string, status: "present" | "absent" | "late", reason?: string) {
     if (status === "absent" && !reason) {

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useTeam } from "@/lib/team";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,14 +11,17 @@ import type { Event } from "@/types";
 
 export function NewsFeed() {
   const router = useRouter();
+  const { currentTeam } = useTeam();
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!currentTeam) return;
     const supabase = createClient();
     supabase
       .from("events")
       .select("*")
+      .eq("team_id", currentTeam!.id)
       .in("status", ["completed", "upcoming"])
       .order("event_date", { ascending: true })
       .limit(5)
@@ -25,7 +29,9 @@ export function NewsFeed() {
         setEvents((data as Event[]) || []);
         setLoading(false);
       });
-  }, []);
+  }, [currentTeam]);
+
+  if (!currentTeam) return null;
 
   if (loading) {
     return (

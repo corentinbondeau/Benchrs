@@ -2,20 +2,24 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useTeam } from "@/lib/team";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar, Users, Trophy } from "lucide-react";
 
 export function QuickStats() {
+  const { currentTeam } = useTeam();
   const [stats, setStats] = useState({ upcomingEvents: 0, totalPlayers: 0, recentWins: 0 });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!currentTeam) return;
     const supabase = createClient();
     async function fetchStats() {
       const [eventsRes, playersRes, winsRes] = await Promise.all([
         supabase
           .from("events")
           .select("id", { count: "exact", head: true })
+          .eq("team_id", currentTeam!.id)
           .eq("status", "upcoming")
           .gte("event_date", new Date().toISOString()),
         supabase
@@ -26,6 +30,7 @@ export function QuickStats() {
         supabase
           .from("events")
           .select("id", { count: "exact", head: true })
+          .eq("team_id", currentTeam!.id)
           .eq("match_result", "win")
           .gte("event_date", new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()),
       ]);
@@ -38,7 +43,9 @@ export function QuickStats() {
       setLoading(false);
     }
     fetchStats();
-  }, []);
+  }, [currentTeam]);
+
+  if (!currentTeam) return null;
 
   const items = [
     { icon: Calendar, label: "Événements à venir", value: stats.upcomingEvents, color: "text-[var(--color-royal)]", bg: "bg-blue-50" },

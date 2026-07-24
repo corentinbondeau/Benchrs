@@ -1,6 +1,7 @@
 "use client";
 
 import { useAuth } from "@/lib/auth";
+import { useTeam } from "@/lib/team";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -15,6 +16,7 @@ import { MobileNav } from "./MobileNav";
 
 export function TopBar() {
   const { user, signOut } = useAuth();
+  const { currentTeam } = useTeam();
   const router = useRouter();
 
   const initials = user?.profile
@@ -26,6 +28,11 @@ export function TopBar() {
       <MobileNav />
       <img src="/logo.svg" alt="SportPlus" className="h-6 w-6 lg:hidden" />
       <div className="flex-1" />
+      {currentTeam && (
+        <span className="text-sm text-muted-foreground hidden sm:block">
+          {currentTeam.club?.name ? `${currentTeam.club.name} — ` : ""}{currentTeam.name}
+        </span>
+      )}
       <DropdownMenu>
         <DropdownMenuTrigger render={<Button variant="ghost" className="relative h-9 w-9 rounded-full" />}>
               <Avatar className="h-9 w-9">

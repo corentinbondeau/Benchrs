@@ -2,8 +2,13 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Wallet } from "lucide-react";
+import { useTeam } from "@/lib/team";
 
 export default function CotisationsPage() {
+  const { currentTeam } = useTeam();
+
+  if (!currentTeam) return null;
+
   return (
     <div className="space-y-6">
       <div>

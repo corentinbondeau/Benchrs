@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { useTeam } from "@/lib/team";
 import { useRouter } from "next/navigation";
 import { RecentResults } from "@/components/dashboard/RecentResults";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,6 +29,7 @@ interface ChildProfile extends Profile {
 
 export function ParentDashboard() {
   const { user } = useAuth();
+  const { currentTeam } = useTeam();
   const router = useRouter();
   const [child, setChild] = useState<ChildProfile | null>(null);
   const [nextEvent, setNextEvent] = useState<Event | null>(null);
@@ -41,7 +43,7 @@ export function ParentDashboard() {
   const [noChild, setNoChild] = useState(false);
 
   useEffect(() => {
-    if (!user?.id) return;
+    if (!user?.id || !currentTeam) return;
     const supabase = createClient();
 
     async function fetchParentData() {
@@ -49,6 +51,7 @@ export function ParentDashboard() {
         .from("parent_student")
         .select("student_id")
         .eq("parent_id", user!.id)
+        .eq("team_id", currentTeam!.id)
         .single();
 
       if (!link) {
@@ -70,6 +73,7 @@ export function ParentDashboard() {
       const { data: trainingEvents } = await supabase
         .from("events")
         .select("id")
+        .eq("team_id", currentTeam!.id)
         .eq("type", "training");
       const trainingIds = (trainingEvents || []).map((e) => e.id);
 
@@ -77,6 +81,7 @@ export function ParentDashboard() {
         supabase
           .from("events")
           .select("*")
+          .eq("team_id", currentTeam!.id)
           .in("status", ["upcoming", "ongoing"])
           .gte("event_date", new Date().toISOString())
           .order("event_date", { ascending: true })
@@ -87,12 +92,14 @@ export function ParentDashboard() {
               .from("attendances")
               .select("status")
               .eq("user_id", link.student_id)
+              .eq("team_id", currentTeam!.id)
               .in("event_id", trainingIds)
           : Promise.resolve({ data: [] }),
         supabase
           .from("attendances")
           .select("*, event:events!attendances_event_id_fkey(*)")
           .eq("user_id", link.student_id)
+          .eq("team_id", currentTeam!.id)
           .eq("status", "pending")
           .order("created_at", { ascending: false }),
       ]);
@@ -113,7 +120,9 @@ export function ParentDashboard() {
     }
 
     fetchParentData();
-  }, [user?.id]);
+  }, [user?.id, currentTeam]);
+
+  if (!currentTeam) return null;
 
   async function respond(
     attendanceId: string,

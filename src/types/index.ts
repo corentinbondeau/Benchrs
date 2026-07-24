@@ -1,4 +1,5 @@
 export type UserRole = "coach" | "player" | "parent";
+export type TeamMemberRole = "owner" | "coach" | "player" | "parent";
 export type EventType = "match" | "training";
 export type EventStatus = "upcoming" | "ongoing" | "completed" | "cancelled";
 export type AttendanceStatus =
@@ -10,6 +11,33 @@ export type AttendanceStatus =
 export type MatchResult = "win" | "loss" | "draw";
 export type InjuryStatus = "active" | "recovered";
 export type CarpoolingRole = "driver" | "passenger";
+
+export interface Club {
+  id: string;
+  name: string;
+  logo_url: string | null;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface Team {
+  id: string;
+  club_id: string;
+  name: string;
+  invite_code: string;
+  created_at: string;
+  club?: Club;
+}
+
+export interface TeamMember {
+  id: string;
+  team_id: string;
+  user_id: string;
+  role: TeamMemberRole;
+  created_at: string;
+  team?: Team;
+  profile?: Profile;
+}
 
 export interface Profile {
   id: string;
@@ -23,6 +51,7 @@ export interface Profile {
   shirt_number: number | null;
   is_active: boolean;
   email_notifications?: boolean;
+  team_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -30,6 +59,7 @@ export interface Profile {
 export interface ParentStudent {
   parent_id: string;
   student_id: string;
+  team_id: string;
 }
 
 export interface Event {
@@ -48,6 +78,7 @@ export interface Event {
   score_them: number | null;
   sporteasy_id: string | null;
   created_by: string | null;
+  team_id: string;
   created_at: string;
   updated_at: string;
 }
@@ -60,6 +91,7 @@ export interface Attendance {
   minutes_played: number;
   absence_reason: string | null;
   responded_at: string | null;
+  team_id: string;
   created_at: string;
   event?: Event;
   profile?: Profile;
@@ -76,6 +108,7 @@ export interface MatchStat {
   clean_sheet: boolean;
   saves: number;
   minutes_played: number;
+  team_id: string;
   created_at: string;
   event?: Event;
   profile?: Profile;
@@ -88,6 +121,7 @@ export interface FitnessRating {
   fatigue_level: number;
   form_level: number;
   notes: string | null;
+  team_id: string;
   created_at: string;
 }
 
@@ -100,6 +134,7 @@ export interface Injury {
   expected_return: string | null;
   status: InjuryStatus;
   reported_by: string | null;
+  team_id: string;
   created_at: string;
   player?: Profile;
 }
@@ -112,6 +147,7 @@ export interface TrainingSession {
   objectives: string[] | null;
   exercises: Exercise[] | null;
   notes: string | null;
+  team_id: string;
   created_at: string;
   updated_at: string;
 }
@@ -130,6 +166,7 @@ export interface Formation {
   formation_data: FormationData;
   created_by: string | null;
   is_default: boolean;
+  team_id: string;
   created_at: string;
 }
 
@@ -150,6 +187,7 @@ export interface ChatChannel {
   description: string | null;
   is_private: boolean;
   channel_type: "general" | "parents" | "coaches";
+  team_id: string;
   created_at: string;
 }
 
@@ -159,6 +197,7 @@ export interface ChatMessage {
   sender_id: string | null;
   content: string;
   is_edited: boolean;
+  team_id: string;
   created_at: string;
   sender?: Profile;
 }
@@ -166,6 +205,7 @@ export interface ChatMessage {
 export interface ChatMember {
   channel_id: string;
   user_id: string;
+  team_id: string;
   joined_at: string;
 }
 
@@ -177,6 +217,7 @@ export interface CarpoolingTrip {
   departure_location: string | null;
   departure_time: string | null;
   notes: string | null;
+  team_id: string;
   created_at: string;
   driver?: Profile;
   event?: Event;
@@ -190,6 +231,7 @@ export interface CarpoolingBooking {
   role: CarpoolingRole;
   seats_taken: number;
   status: string;
+  team_id: string;
   created_at: string;
   passenger?: Profile;
 }
@@ -201,6 +243,7 @@ export interface Task {
   description: string | null;
   assigned_to: string | null;
   is_completed: boolean;
+  team_id: string;
   created_at: string;
   assignee?: Profile;
   event?: Event;
@@ -211,6 +254,7 @@ export interface MotmVote {
   event_id: string;
   voter_id: string;
   candidate_id: string;
+  team_id: string;
   created_at: string;
   candidate?: Profile;
 }
@@ -223,6 +267,7 @@ export interface TrophyItem {
   awarded_to: string | null;
   awarded_by: string | null;
   event_id: string | null;
+  team_id: string;
   created_at: string;
   recipient?: Profile;
   event?: Event;
@@ -235,6 +280,7 @@ export interface GalleryMedia {
   url: string;
   media_type: string;
   caption: string | null;
+  team_id: string;
   created_at: string;
 }
 
@@ -246,6 +292,7 @@ export interface Notification {
   type: string | null;
   reference_id: string | null;
   is_read: boolean;
+  team_id: string | null;
   created_at: string;
 }
 
@@ -255,6 +302,7 @@ export interface PushSubscription {
   endpoint: string;
   p256dh: string;
   auth: string;
+  team_id: string | null;
   created_at: string;
 }
 
@@ -266,6 +314,7 @@ export interface MatchLineup {
   is_starter: boolean;
   entered_at_minute: number | null;
   exited_at_minute: number | null;
+  team_id: string;
   created_at: string;
   player?: Profile;
 }
@@ -279,6 +328,7 @@ export interface MatchEventRecord {
   minute: number | null;
   notes: string | null;
   created_by: string | null;
+  team_id: string;
   created_at: string;
   player?: Profile;
   related_player?: Profile;
@@ -291,6 +341,7 @@ export interface Licence {
   status: "valid" | "pending_documents" | "expired";
   documents_received: string[];
   notes: string | null;
+  team_id: string;
   created_at: string;
   updated_at: string;
 }
@@ -305,6 +356,7 @@ export interface Cotisation {
   payment_method: string | null;
   payment_date: string | null;
   notes: string | null;
+  team_id: string;
   created_at: string;
   updated_at: string;
 }
@@ -319,6 +371,15 @@ export interface PaymentHistory {
   notes: string | null;
   created_at: string;
   recorded_by_user?: Profile;
+}
+
+export interface Championship {
+  id: string;
+  name: string;
+  season: string;
+  level: string | null;
+  team_id: string;
+  created_at: string;
 }
 
 export interface User {

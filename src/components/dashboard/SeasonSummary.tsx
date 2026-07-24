@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useTeam } from "@/lib/team";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TrendingUp, TrendingDown, Minus, Shield } from "lucide-react";
 
@@ -16,14 +17,17 @@ interface SeasonStats {
 }
 
 export function SeasonSummary() {
+  const { currentTeam } = useTeam();
   const [stats, setStats] = useState<SeasonStats | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!currentTeam) return;
     const supabase = createClient();
     supabase
       .from("events")
       .select("match_result, score_us, score_them")
+      .eq("team_id", currentTeam!.id)
       .eq("type", "match")
       .eq("status", "completed")
       .then(({ data: matches }) => {
@@ -54,7 +58,9 @@ export function SeasonSummary() {
         setStats(season);
         setLoading(false);
       });
-  }, []);
+  }, [currentTeam]);
+
+  if (!currentTeam) return null;
 
   if (loading) {
     return (

@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { useTeam } from "@/lib/team";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -258,6 +259,7 @@ function formatTime(dateStr: string) {
 
 function SéanceTab() {
   const { user } = useAuth();
+  const { currentTeam } = useTeam();
   const isCoach = user?.profile?.role === "coach";
   const supabase = createClient();
 
@@ -278,22 +280,28 @@ function SéanceTab() {
     { name: "", duration: 15, description: "", drill_type: "échauffement" },
   ]);
 
+  if (!currentTeam) {
+    return <div className="flex items-center justify-center h-64"><p className="text-muted-foreground">Chargement de l'équipe...</p></div>;
+  }
+
   const fetchData = useCallback(async () => {
     const [sessionsRes, eventsRes] = await Promise.all([
       supabase
         .from("training_sessions")
         .select("*")
+        .eq("team_id", currentTeam!.id)
         .order("created_at", { ascending: false }),
       supabase
         .from("events")
         .select("*")
+        .eq("team_id", currentTeam!.id)
         .eq("type", "training")
         .order("event_date", { ascending: false }),
     ]);
     setSessions((sessionsRes.data as TrainingSession[]) || []);
     setEvents((eventsRes.data as Event[]) || []);
     setLoading(false);
-  }, [supabase]);
+  }, [supabase, currentTeam]);
 
   useEffect(() => {
     fetchData();
@@ -353,6 +361,7 @@ function SéanceTab() {
       exercises: validExercises.length > 0 ? validExercises : null,
       notes: form.notes || null,
       created_by: user?.id || null,
+      team_id: currentTeam!.id,
     });
 
     if (error) {
@@ -696,6 +705,7 @@ function SéanceTab() {
 
 function FeuilletMatchTab() {
   const { user } = useAuth();
+  const { currentTeam } = useTeam();
   const isCoach = user?.profile?.role === "coach";
   const supabase = createClient();
 
@@ -721,19 +731,26 @@ function FeuilletMatchTab() {
   const [draggedPlayerId, setDraggedPlayerId] = useState<string | null>(null);
   const [dragOverSlot, setDragOverSlot] = useState<string | null>(null);
 
+  if (!currentTeam) {
+    return <div className="flex items-center justify-center h-64"><p className="text-muted-foreground">Chargement de l'équipe...</p></div>;
+  }
+
   const fetchData = useCallback(async () => {
     const [lineupsRes, formationsRes, eventsRes, playersRes] = await Promise.all([
       supabase
         .from("match_lineups")
         .select("*, player:profiles(*)")
+        .eq("team_id", currentTeam!.id)
         .order("created_at", { ascending: false }),
       supabase
         .from("formations")
         .select("*")
+        .eq("team_id", currentTeam!.id)
         .order("created_at", { ascending: false }),
       supabase
         .from("events")
         .select("*")
+        .eq("team_id", currentTeam!.id)
         .eq("type", "match")
         .order("event_date", { ascending: false }),
       supabase
@@ -748,7 +765,7 @@ function FeuilletMatchTab() {
     setEvents((eventsRes.data as Event[]) || []);
     setPlayers((playersRes.data as Profile[]) || []);
     setLoading(false);
-  }, [supabase]);
+  }, [supabase, currentTeam]);
 
   useEffect(() => {
     fetchData();
@@ -931,6 +948,7 @@ function FeuilletMatchTab() {
         formation_data: formationData,
         created_by: user?.id || null,
         is_default: true,
+        team_id: currentTeam!.id,
       })
       .select()
       .single();
@@ -948,6 +966,7 @@ function FeuilletMatchTab() {
         position_label: positions[i].label,
         is_starter: true,
         entered_at_minute: 0,
+        team_id: currentTeam!.id,
       })),
       ...benchIds.map((pid) => ({
         event_id: selectedEventId,
@@ -955,6 +974,7 @@ function FeuilletMatchTab() {
         position_label: null as string | null,
         is_starter: false,
         entered_at_minute: null as number | null,
+        team_id: currentTeam!.id,
       })),
     ];
 

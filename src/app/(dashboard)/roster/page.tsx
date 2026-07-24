@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { useTeam } from "@/lib/team";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -25,20 +26,27 @@ const roleLabels: Record<string, { label: string; color: string; icon: typeof Sh
 
 export default function RosterPage() {
   const { user } = useAuth();
+  const { currentTeam } = useTeam();
   const [allProfiles, setAllProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!currentTeam) return;
     const supabase = createClient();
     supabase
       .from("profiles")
       .select("*")
+      .eq("team_id", currentTeam!.id)
       .order("last_name", { ascending: true })
       .then(({ data }) => {
         setAllProfiles((data as Profile[]) || []);
         setLoading(false);
       });
-  }, []);
+  }, [currentTeam?.id]);
+
+  if (!currentTeam) {
+    return <div className="flex items-center justify-center h-64"><p className="text-muted-foreground">Chargement de l&apos;équipe...</p></div>;
+  }
 
   const coaches = allProfiles.filter((p) => p.role === "coach");
   const players = allProfiles.filter((p) => p.role === "player");

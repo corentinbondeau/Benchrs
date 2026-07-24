@@ -1,6 +1,7 @@
 "use client";
 
 import { useAuth } from "@/lib/auth";
+import { useTeam } from "@/lib/team";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -18,9 +19,9 @@ import {
   Bell,
   Settings,
   Medal,
-  Shield,
   UserCog,
   Wallet,
+  ChevronsUpDown,
 } from "lucide-react";
 
 const navItems = [
@@ -48,6 +49,7 @@ const coachItems = [
 export function Sidebar() {
   const pathname = usePathname();
   const { user } = useAuth();
+  const { currentTeam, teams, switchTeam } = useTeam();
   const isCoach = user?.profile?.role === "coach";
 
   return (
@@ -56,6 +58,42 @@ export function Sidebar() {
         <img src="/logo.svg" alt="SportPlus" className="h-6 w-6" />
         <span className="text-lg font-bold">SportPlus</span>
       </div>
+
+      {/* Team selector */}
+      {currentTeam && (
+        <div className="px-3 py-2 border-b border-white/10">
+          {teams.length > 1 ? (
+            <select
+              value={currentTeam.id}
+              onChange={(e) => switchTeam(e.target.value)}
+              className="w-full bg-white/10 text-white text-sm rounded-lg px-3 py-2 appearance-none cursor-pointer hover:bg-white/15 transition-colors"
+            >
+              {teams.map((team) => (
+                <option key={team.id} value={team.id} className="bg-[var(--color-navy)]">
+                  {team.club?.name ? `${team.club.name} — ` : ""}{team.name}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <div className="flex items-center gap-2 px-3 py-2">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">{currentTeam.club?.name || currentTeam.name}</p>
+                {currentTeam.club && (
+                  <p className="text-xs text-white/50 truncate">{currentTeam.name}</p>
+                )}
+              </div>
+              <ChevronsUpDown className="h-4 w-4 text-white/40 shrink-0" />
+            </div>
+          )}
+          <Link
+            href="/settings/team"
+            className="block mt-1 text-xs text-white/40 hover:text-white/60 text-center"
+          >
+            Paramètres d&apos;équipe
+          </Link>
+        </div>
+      )}
+
       <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
         {navItems
           .filter((item) => !item.coachOnly || isCoach)

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { useTeam } from "@/lib/team";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -17,22 +18,29 @@ interface AttendanceWithDetails extends Attendance {
 
 export default function AttendancePage() {
   const { user } = useAuth();
+  const { currentTeam } = useTeam();
   const [attendances, setAttendances] = useState<AttendanceWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "training" | "match">("all");
   const isCoach = user?.profile?.role === "coach";
 
   useEffect(() => {
+    if (!currentTeam) return;
     const supabase = createClient();
     supabase
       .from("attendances")
       .select("*, event:events!attendances_event_id_fkey(*), profile:profiles!attendances_user_id_fkey(first_name, last_name)")
+      .eq("team_id", currentTeam!.id)
       .order("created_at", { ascending: false })
       .then(({ data }) => {
         setAttendances((data as AttendanceWithDetails[]) || []);
         setLoading(false);
       });
-  }, []);
+  }, [currentTeam?.id]);
+
+  if (!currentTeam) {
+    return <div className="flex items-center justify-center h-64"><p className="text-muted-foreground">Chargement de l&apos;équipe...</p></div>;
+  }
 
   async function updateStatus(attendanceId: string, status: "present" | "absent" | "late") {
     const supabase = createClient();

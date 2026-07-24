@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
+import { useTeam } from "@/lib/team";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,6 +45,7 @@ interface ScrapedTeam {
 
 export default function ChampionshipPage() {
   const { user } = useAuth();
+  const { currentTeam } = useTeam();
   const isCoach = user?.profile?.role === "coach";
   const [championships, setChampionships] = useState<Championship[]>([]);
   const [selectedId, setSelectedId] = useState("");
@@ -62,7 +64,7 @@ export default function ChampionshipPage() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    fetch("/api/championships")
+    fetch(`/api/championships?team_id=${currentTeam!.id}`)
       .then((r) => r.json())
       .then((data) => {
         setChampionships(data);
@@ -70,20 +72,22 @@ export default function ChampionshipPage() {
         setLoading(false);
       })
       .catch(() => setLoading(false));
-  }, []);
+  }, [currentTeam]);
+
+  if (!currentTeam) return null;
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     const res = await fetch("/api/championships", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
+      body: JSON.stringify({ ...form, team_id: currentTeam!.id }),
     });
     if (res.ok) {
       toast.success("Championnat créé");
       setCreateOpen(false);
       setForm({ name: "", season: "2025-2026", level: "" });
-      const data = await fetch("/api/championships").then((r) => r.json());
+      const data = await fetch(`/api/championships?team_id=${currentTeam!.id}`).then((r) => r.json());
       setChampionships(data);
     }
   }
@@ -130,6 +134,7 @@ export default function ChampionshipPage() {
           name: importName.trim(),
           season: importSeason,
           level: importLevel || null,
+          team_id: currentTeam!.id,
         }),
       });
       if (!createRes.ok) {
@@ -148,6 +153,7 @@ export default function ChampionshipPage() {
             away_team: "",
             home_score: team.points,
             away_score: 0,
+            team_id: currentTeam!.id,
           }),
         });
       }
@@ -155,7 +161,7 @@ export default function ChampionshipPage() {
       toast.success("Championnat importé avec succès");
       setFffOpen(false);
       resetFffDialog();
-      const data = await fetch("/api/championships").then((r) => r.json());
+      const data = await fetch(`/api/championships?team_id=${currentTeam!.id}`).then((r) => r.json());
       setChampionships(data);
     } catch {
       toast.error("Erreur lors de la sauvegarde");

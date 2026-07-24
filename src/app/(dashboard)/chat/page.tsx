@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { useTeam } from "@/lib/team";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +16,7 @@ interface MessageWithSender extends Omit<ChatMessage, "sender"> {
 
 export default function ChatPage() {
   const { user } = useAuth();
+  const { currentTeam } = useTeam();
   const role = user?.profile?.role;
   const [channels, setChannels] = useState<ChatChannel[]>([]);
   const [selectedChannel, setSelectedChannel] = useState<string | null>(null);
@@ -28,6 +30,7 @@ export default function ChatPage() {
     supabase
       .from("chat_channels")
       .select("*")
+      .eq("team_id", currentTeam!.id)
       .order("name")
       .then(({ data }) => {
         const all = (data as ChatChannel[]) || [];
@@ -40,7 +43,7 @@ export default function ChatPage() {
         setChannels(visible);
         setLoading(false);
       });
-  }, [role]);
+  }, [role, currentTeam]);
 
   useEffect(() => {
     if (!selectedChannel) return;
@@ -49,6 +52,7 @@ export default function ChatPage() {
     supabase
       .from("chat_messages")
       .select("*, sender:profiles!chat_messages_sender_id_fkey(first_name, last_name)")
+      .eq("team_id", currentTeam!.id)
       .eq("channel_id", selectedChannel)
       .order("created_at", { ascending: true })
       .limit(100)
@@ -87,6 +91,7 @@ export default function ChatPage() {
       sender_id: user.id,
       content,
       is_edited: false,
+      team_id: currentTeam!.id,
       created_at: new Date().toISOString(),
       sender: user.profile ? { first_name: user.profile.first_name, last_name: user.profile.last_name } : null,
     };
@@ -97,11 +102,16 @@ export default function ChatPage() {
       channel_id: selectedChannel,
       sender_id: user.id,
       content,
+      team_id: currentTeam!.id,
     });
 
     if (error) {
       setMessages((prev) => prev.filter((m) => m.id !== optimisticMsg.id));
     }
+  }
+
+  if (!currentTeam) {
+    return <div className="flex items-center justify-center h-64"><p className="text-muted-foreground">Chargement de l&apos;équipe...</p></div>;
   }
 
   if (loading) {
