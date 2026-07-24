@@ -38,10 +38,13 @@ export async function POST(req: Request) {
     );
   }
 
+  const appUrl = new URL(req.url).origin;
+
   const { data: linkData, error: linkError } =
     await admin.auth.admin.generateLink({
       type: "recovery",
       email,
+      options: { redirectTo: `${appUrl}/reset-password` },
     });
 
   if (linkError || !linkData) {
