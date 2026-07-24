@@ -22,6 +22,7 @@ export async function POST(req: Request) {
       .single();
 
     if (clubError) {
+      console.error("[create-team] club error:", clubError);
       return NextResponse.json({ error: clubError.message }, { status: 400 });
     }
 
@@ -33,6 +34,7 @@ export async function POST(req: Request) {
       .single();
 
     if (teamError) {
+      console.error("[create-team] team error:", teamError);
       return NextResponse.json({ error: teamError.message }, { status: 400 });
     }
 
@@ -42,22 +44,30 @@ export async function POST(req: Request) {
       .insert({ team_id: team.id, user_id: userId, role: "owner" });
 
     if (memberError) {
+      console.error("[create-team] member error:", memberError);
       return NextResponse.json({ error: memberError.message }, { status: 400 });
     }
 
     // Update user profile with team_id
-    await supabase
+    const { error: profileError } = await supabase
       .from("profiles")
       .update({ team_id: team.id })
       .eq("id", userId);
 
-    // Create default chat channel
-    await supabase.from("chat_channels").insert({
+    if (profileError) {
+      console.error("[create-team] profile update error:", profileError);
+    }
+
+    // Create default chat channel (non-blocking)
+    const { error: channelError } = await supabase.from("chat_channels").insert({
       name: "General",
       description: "Canal général de l'équipe",
-      channel_type: "general",
       team_id: team.id,
     });
+
+    if (channelError) {
+      console.error("[create-team] chat channel error:", channelError);
+    }
 
     return NextResponse.json({
       team,
@@ -65,7 +75,8 @@ export async function POST(req: Request) {
       inviteCode: team.invite_code,
       message: "Équipe créée avec succès",
     });
-  } catch {
+  } catch (err) {
+    console.error("[create-team] unexpected error:", err);
     return NextResponse.json(
       { error: "Erreur interne du serveur" },
       { status: 500 }
