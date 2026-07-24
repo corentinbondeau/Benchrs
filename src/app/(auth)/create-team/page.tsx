@@ -35,7 +35,8 @@ export default function CreateTeamPage() {
     } = await supabase.auth.getUser();
 
     if (!user) {
-      setError("Vous devez être connecté");
+      setError("Vous devez être connecté. Redirection...");
+      setTimeout(() => router.push("/login"), 1500);
       setLoading(false);
       return;
     }
@@ -56,7 +57,8 @@ export default function CreateTeamPage() {
       }
 
       setInviteCode(data.inviteCode);
-    } catch {
+    } catch (err) {
+      console.error("[create-team]", err);
       setError("Erreur de connexion au serveur");
       setLoading(false);
     }
@@ -151,6 +153,12 @@ export default function CreateTeamPage() {
             Vous avez un code d&apos;invitation ?{" "}
             <Link href="/join" className="text-[var(--color-royal)] hover:underline font-medium">
               Rejoindre une équipe
+            </Link>
+          </p>
+          <p className="text-sm text-muted-foreground text-center">
+            Déjà un compte ?{" "}
+            <Link href="/login" className="text-[var(--color-royal)] hover:underline font-medium">
+              Se connecter
             </Link>
           </p>
         </CardFooter>
