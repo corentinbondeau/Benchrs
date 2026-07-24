@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { useTeam } from "@/lib/team";
 import { NextEventCard } from "@/components/dashboard/NextEventCard";
 import { PendingConvocations } from "@/components/dashboard/PendingConvocations";
 import { RecentResults } from "@/components/dashboard/RecentResults";
@@ -18,17 +19,19 @@ interface PlayerStats {
 
 export function PlayerDashboard() {
   const { user } = useAuth();
+  const { currentTeam } = useTeam();
   const [stats, setStats] = useState<PlayerStats | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user?.id) return;
+    if (!user?.id || !currentTeam) return;
     const supabase = createClient();
 
     async function fetchPlayerStats() {
       const { data: trainingEvents } = await supabase
         .from("events")
         .select("id")
+        .eq("team_id", currentTeam!.id)
         .eq("type", "training");
       const trainingIds = (trainingEvents || []).map((e) => e.id);
 
@@ -38,12 +41,14 @@ export function PlayerDashboard() {
               .from("attendances")
               .select("status")
               .eq("user_id", user!.id)
+              .eq("team_id", currentTeam!.id)
               .in("event_id", trainingIds)
           : Promise.resolve({ data: [] }),
         supabase
           .from("match_stats")
           .select("goals, assists, minutes_played")
-          .eq("player_id", user!.id),
+          .eq("player_id", user!.id)
+          .eq("team_id", currentTeam!.id),
       ]);
 
       const attendances = attRes.data || [];
@@ -63,7 +68,9 @@ export function PlayerDashboard() {
     }
 
     fetchPlayerStats();
-  }, [user?.id]);
+  }, [user?.id, currentTeam]);
+
+  if (!currentTeam) return null;
 
   const statItems = stats
     ? [

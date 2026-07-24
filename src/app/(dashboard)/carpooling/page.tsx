@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { useTeam } from "@/lib/team";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -21,17 +22,23 @@ interface TripWithDetails extends CarpoolingTrip {
 
 export default function CarpoolingPage() {
   const { user } = useAuth();
+  const { currentTeam } = useTeam();
   const [trips, setTrips] = useState<TripWithDetails[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
   const [form, setForm] = useState({ eventId: "", seats: "4", departureLocation: "", departureTime: "", notes: "" });
 
+  if (!currentTeam) {
+    return <div className="flex items-center justify-center h-64"><p className="text-muted-foreground">Chargement de l'équipe...</p></div>;
+  }
+
   function fetchData() {
     const supabase = createClient();
+    const teamId = currentTeam!.id;
     Promise.all([
-      supabase.from("carpooling_trips").select("*, event:events!carpooling_trips_event_id_fkey(*), driver:profiles!carpooling_trips_driver_id_fkey(first_name, last_name)").order("created_at", { ascending: false }),
-      supabase.from("events").select("*").eq("status", "upcoming").order("event_date", { ascending: true }),
+      supabase.from("carpooling_trips").select("*, event:events!carpooling_trips_event_id_fkey(*), driver:profiles!carpooling_trips_driver_id_fkey(first_name, last_name)").eq("team_id", teamId).order("created_at", { ascending: false }),
+      supabase.from("events").select("*").eq("team_id", teamId).eq("status", "upcoming").order("event_date", { ascending: true }),
     ]).then(([tripsRes, eventsRes]) => {
       setTrips((tripsRes.data as TripWithDetails[]) || []);
       setEvents((eventsRes.data as Event[]) || []);
@@ -51,6 +58,7 @@ export default function CarpoolingPage() {
       departure_location: form.departureLocation || null,
       departure_time: form.departureTime || null,
       notes: form.notes || null,
+      team_id: currentTeam!.id,
     });
     setAddOpen(false);
     setForm({ eventId: "", seats: "4", departureLocation: "", departureTime: "", notes: "" });

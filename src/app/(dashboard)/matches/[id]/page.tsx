@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
+import { useTeam } from "@/lib/team";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -107,8 +108,13 @@ export default function MatchDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { user } = useAuth();
+  const { currentTeam } = useTeam();
   const isCoach = user?.profile?.role === "coach";
   const matchId = params.id as string;
+
+  if (!currentTeam) {
+    return <div className="flex items-center justify-center h-64"><p className="text-muted-foreground">Chargement de l&apos;équipe...</p></div>;
+  }
 
   const [match, setMatch] = useState<MatchEvent | null>(null);
   const [playerStats, setPlayerStats] = useState<PlayerStat[]>([]);
@@ -134,22 +140,26 @@ export default function MatchDetailPage() {
           .from("events")
           .select("*")
           .eq("id", matchId)
+          .eq("team_id", currentTeam!.id)
           .single(),
         supabase
           .from("match_stats")
           .select("*, profile:profiles!match_stats_player_id_fkey(id, first_name, last_name, shirt_number, position)")
-          .eq("event_id", matchId),
+          .eq("event_id", matchId)
+          .eq("team_id", currentTeam!.id),
         supabase
           .from("formations")
           .select("*")
           .eq("event_id", matchId)
+          .eq("team_id", currentTeam!.id)
           .order("created_at", { ascending: false })
           .limit(1)
           .maybeSingle(),
         supabase
           .from("match_lineups")
           .select("*, profile:profiles!match_lineups_player_id_fkey(id, first_name, last_name, shirt_number, position)")
-          .eq("event_id", matchId),
+          .eq("event_id", matchId)
+          .eq("team_id", currentTeam!.id),
         supabase
           .from("profiles")
           .select("*")
@@ -159,7 +169,8 @@ export default function MatchDetailPage() {
         supabase
           .from("attendances")
           .select("id, user_id, status")
-          .eq("event_id", matchId),
+          .eq("event_id", matchId)
+          .eq("team_id", currentTeam!.id),
       ]);
 
       setMatch(matchRes.data as MatchEvent | null);
@@ -231,6 +242,7 @@ export default function MatchDetailPage() {
         await supabase.from("match_stats").insert({
           event_id: matchId,
           player_id: playerId,
+          team_id: currentTeam!.id,
           goals: stats.goals,
           assists: stats.assists,
           yellow_cards: stats.yellow_cards,
@@ -243,7 +255,8 @@ export default function MatchDetailPage() {
     const { data: refreshed } = await supabase
       .from("match_stats")
       .select("*, profile:profiles!match_stats_player_id_fkey(id, first_name, last_name, shirt_number, position)")
-      .eq("event_id", matchId);
+      .eq("event_id", matchId)
+      .eq("team_id", currentTeam!.id);
 
     setPlayerStats((refreshed as PlayerStat[]) || []);
     setEditingStats(false);
@@ -313,6 +326,7 @@ export default function MatchDetailPage() {
       await supabase.from("attendances").insert({
         event_id: matchId,
         user_id: userId,
+        team_id: currentTeam!.id,
         status,
         responded_at: new Date().toISOString(),
       });

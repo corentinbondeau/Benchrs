@@ -1,12 +1,21 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-export async function GET() {
+export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url);
+  const teamId = searchParams.get("team_id");
+
   const supabase = createAdminClient();
-  const { data: championships } = await supabase
+  let query = supabase
     .from("championships")
     .select("*")
     .order("created_at", { ascending: false });
+
+  if (teamId) {
+    query = query.eq("team_id", teamId);
+  }
+
+  const { data: championships } = await query;
 
   if (!championships) {
     return NextResponse.json([]);
@@ -36,6 +45,7 @@ export async function POST(req: Request) {
       name: body.name,
       season: body.season,
       level: body.level || null,
+      team_id: body.team_id,
     })
     .select()
     .single();

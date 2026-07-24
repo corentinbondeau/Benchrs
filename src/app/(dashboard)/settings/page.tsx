@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth";
+import { useTeam } from "@/lib/team";
 import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -40,6 +41,7 @@ const positions = [
 
 export default function SettingsPage() {
   const { user, signOut } = useAuth();
+  const { currentTeam } = useTeam();
   const [saving, setSaving] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
 
@@ -65,6 +67,10 @@ export default function SettingsPage() {
       setEmailNotifications(p.email_notifications ?? true);
     }
   }, [user]);
+
+  if (!currentTeam) {
+    return <div className="flex items-center justify-center h-64"><p className="text-muted-foreground">Chargement de l'équipe...</p></div>;
+  }
 
   const hasProfileChanges =
     user?.profile &&

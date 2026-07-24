@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
+import { useTeam } from "@/lib/team";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -37,8 +38,13 @@ export default function TrainingDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { user } = useAuth();
+  const { currentTeam } = useTeam();
   const isCoach = user?.profile?.role === "coach";
   const trainingId = params.id as string;
+
+  if (!currentTeam) {
+    return <div className="flex items-center justify-center h-64"><p className="text-muted-foreground">Chargement de l&apos;équipe...</p></div>;
+  }
 
   const [event, setEvent] = useState<Event | null>(null);
   const [players, setPlayers] = useState<PlayerAttendance[]>([]);
@@ -53,11 +59,13 @@ export default function TrainingDetailPage() {
           .from("events")
           .select("*")
           .eq("id", trainingId)
+          .eq("team_id", currentTeam!.id)
           .single(),
         supabase
           .from("attendances")
           .select("id, user_id, status")
-          .eq("event_id", trainingId),
+          .eq("event_id", trainingId)
+          .eq("team_id", currentTeam!.id),
         supabase
           .from("profiles")
           .select("*")
@@ -100,6 +108,7 @@ export default function TrainingDetailPage() {
       await supabase.from("attendances").insert({
         event_id: trainingId,
         user_id: userId,
+        team_id: currentTeam!.id,
         status,
         responded_at: new Date().toISOString(),
       });

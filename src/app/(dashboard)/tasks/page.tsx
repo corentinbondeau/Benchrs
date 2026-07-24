@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { useTeam } from "@/lib/team";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,6 +22,7 @@ interface TaskWithDetails extends Task {
 
 export default function TasksPage() {
   const { user } = useAuth();
+  const { currentTeam } = useTeam();
   const [tasks, setTasks] = useState<TaskWithDetails[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
   const [players, setPlayers] = useState<Profile[]>([]);
@@ -30,11 +32,15 @@ export default function TasksPage() {
 
   const isCoach = user?.profile?.role === "coach";
 
+  if (!currentTeam) {
+    return <div className="flex items-center justify-center h-64"><p className="text-muted-foreground">Chargement de l'équipe...</p></div>;
+  }
+
   function fetchData() {
     const supabase = createClient();
     Promise.all([
-      supabase.from("tasks").select("*, event:events(*), assignee:profiles!tasks_assigned_to_fkey(first_name, last_name)").order("created_at", { ascending: false }),
-      supabase.from("events").select("*").order("event_date", { ascending: true }),
+      supabase.from("tasks").select("*, event:events(*), assignee:profiles!tasks_assigned_to_fkey(first_name, last_name)").eq("team_id", currentTeam!.id).order("created_at", { ascending: false }),
+      supabase.from("events").select("*").eq("team_id", currentTeam!.id).order("event_date", { ascending: true }),
       supabase.from("profiles").select("*").eq("role", "player").eq("is_active", true).order("last_name"),
     ]).then(([tasksRes, eventsRes, playersRes]) => {
       setTasks((tasksRes.data as TaskWithDetails[]) || []);
@@ -54,6 +60,7 @@ export default function TasksPage() {
       description: form.description || null,
       event_id: form.eventId || events[0]?.id,
       assigned_to: form.assignedTo || null,
+      team_id: currentTeam!.id,
     });
     setAddOpen(false);
     setForm({ title: "", description: "", eventId: "", assignedTo: "" });

@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { useTeam } from "@/lib/team";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -48,6 +49,7 @@ const statusLabels: Record<string, string> = {
 
 export default function ConvocationsPage() {
   const { user } = useAuth();
+  const { currentTeam } = useTeam();
   const isCoach = user?.profile?.role === "coach";
   const [events, setEvents] = useState<EventWithAttendances[]>([]);
   const [players, setPlayers] = useState<Profile[]>([]);
@@ -61,6 +63,7 @@ export default function ConvocationsPage() {
     const { data: eventsData } = await supabase
       .from("events")
       .select("*")
+      .eq("team_id", currentTeam!.id)
       .eq("status", "upcoming")
       .order("event_date", { ascending: true });
 
@@ -76,6 +79,7 @@ export default function ConvocationsPage() {
       ? await supabase
           .from("attendances")
           .select("*, profile:profiles!attendances_user_id_fkey(first_name, last_name)")
+          .eq("team_id", currentTeam!.id)
           .in("event_id", eventIds)
       : { data: [] };
 
@@ -87,7 +91,7 @@ export default function ConvocationsPage() {
     setEvents(eventsWithAttendances);
     setPlayers((playersData as Profile[]) || []);
     setLoading(false);
-  }, []);
+  }, [currentTeam]);
 
   useEffect(() => {
     fetchData();
@@ -99,6 +103,7 @@ export default function ConvocationsPage() {
       event_id: eventId,
       user_id: playerId,
       status: "pending",
+      team_id: currentTeam!.id,
     });
     if (error) {
       toast.error("Erreur lors de l'ajout de la convocation");
@@ -116,7 +121,7 @@ export default function ConvocationsPage() {
     const convokedIds = new Set(event.attendances.map((a) => a.user_id));
     const toInsert = players
       .filter((p) => !convokedIds.has(p.id))
-      .map((p) => ({ event_id: eventId, user_id: p.id, status: "pending" }));
+      .map((p) => ({ event_id: eventId, user_id: p.id, status: "pending", team_id: currentTeam!.id }));
     if (toInsert.length === 0) {
       toast.info("Tous les joueurs sont déjà convoqués");
       return;
@@ -157,6 +162,10 @@ export default function ConvocationsPage() {
     }
     toast.success(status === "present" ? "Présence confirmée" : "Absence signalée");
     fetchData();
+  }
+
+  if (!currentTeam) {
+    return <div className="flex items-center justify-center h-64"><p className="text-muted-foreground">Chargement de l&apos;équipe...</p></div>;
   }
 
   if (loading) {

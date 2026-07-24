@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { useTeam } from "@/lib/team";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,7 @@ interface InjuryWithPlayer extends Injury {
 
 export default function MedicalPage() {
   const { user } = useAuth();
+  const { currentTeam } = useTeam();
   const [injuries, setInjuries] = useState<InjuryWithPlayer[]>([]);
   const [players, setPlayers] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -34,11 +36,15 @@ export default function MedicalPage() {
 
   const isCoach = user?.profile?.role === "coach";
 
+  if (!currentTeam) {
+    return <div className="flex items-center justify-center h-64"><p className="text-muted-foreground">Chargement de l&apos;équipe...</p></div>;
+  }
+
   function fetchData() {
     const supabase = createClient();
     Promise.all([
-      supabase.from("injuries").select("*, player:profiles!injuries_player_id_fkey(first_name, last_name)").order("created_at", { ascending: false }),
-      supabase.from("profiles").select("*").eq("role", "player").eq("is_active", true).order("last_name"),
+      supabase.from("injuries").select("*, player:profiles!injuries_player_id_fkey(first_name, last_name)").eq("team_id", currentTeam!.id).order("created_at", { ascending: false }),
+      supabase.from("profiles").select("*").eq("role", "player").eq("is_active", true).eq("team_id", currentTeam!.id).order("last_name"),
     ]).then(([injuriesRes, playersRes]) => {
       setInjuries((injuriesRes.data as InjuryWithPlayer[]) || []);
       setPlayers((playersRes.data as Profile[]) || []);
@@ -59,6 +65,7 @@ export default function MedicalPage() {
       expected_return: form.expectedReturn || null,
       status: "active",
       reported_by: user?.id,
+      team_id: currentTeam!.id,
     });
     setAddOpen(false);
     setForm({ playerId: "", description: "", injuryType: "", injuryDate: "", expectedReturn: "" });

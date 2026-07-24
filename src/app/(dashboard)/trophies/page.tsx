@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { useTeam } from "@/lib/team";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -40,7 +41,12 @@ import type { MotmVote, TrophyItem, Profile, Event } from "@/types";
 
 export default function TrophiesPage() {
   const { user } = useAuth();
+  const { currentTeam } = useTeam();
   const isCoach = user?.profile?.role === "coach";
+
+  if (!currentTeam) {
+    return <div className="flex items-center justify-center h-64"><p className="text-muted-foreground">Chargement de l'équipe...</p></div>;
+  }
 
   const [votes, setVotes] = useState<(MotmVote & { candidate?: Profile })[]>([]);
   const [trophies, setTrophies] = useState<(TrophyItem & { recipient?: Profile })[]>([]);
@@ -67,10 +73,12 @@ export default function TrophiesPage() {
       supabase
         .from("motm_votes")
         .select("*, candidate:profiles!motm_votes_candidate_id_fkey(first_name, last_name)")
+        .eq("team_id", currentTeam!.id)
         .order("created_at", { ascending: false }),
       supabase
         .from("trophies")
         .select("*, recipient:profiles!trophies_awarded_to_fkey(first_name, last_name)")
+        .eq("team_id", currentTeam!.id)
         .order("created_at", { ascending: false }),
       supabase
         .from("profiles")
@@ -81,6 +89,7 @@ export default function TrophiesPage() {
       supabase
         .from("events")
         .select("*")
+        .eq("team_id", currentTeam!.id)
         .order("event_date", { ascending: false }),
     ]);
 
@@ -107,6 +116,7 @@ export default function TrophiesPage() {
       event_id: sessionId,
       voter_id: user!.id,
       candidate_id: user!.id,
+      team_id: currentTeam!.id,
     });
     setVoteSessionSaving(false);
     if (error) {
@@ -198,6 +208,7 @@ export default function TrophiesPage() {
         description: trophyDescription.trim() || null,
         awarded_to: trophyRecipient,
         awarded_by: user?.id,
+        team_id: currentTeam!.id,
       });
       setTrophySaving(false);
       if (error) { toast.error("Erreur lors de la création"); return; }

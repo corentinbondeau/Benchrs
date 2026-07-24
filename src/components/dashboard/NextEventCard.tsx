@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useTeam } from "@/lib/team";
 import { useRouter } from "next/navigation";
 import type { Event } from "@/types";
 import { Card, CardContent } from "@/components/ui/card";
@@ -9,14 +10,17 @@ import { Calendar, MapPin, Clock } from "lucide-react";
 
 export function NextEventCard() {
   const router = useRouter();
+  const { currentTeam } = useTeam();
   const [event, setEvent] = useState<Event | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!currentTeam) return;
     const supabase = createClient();
     supabase
       .from("events")
       .select("*")
+      .eq("team_id", currentTeam!.id)
       .in("status", ["upcoming", "ongoing"])
       .gte("event_date", new Date().toISOString())
       .order("event_date", { ascending: true })
@@ -26,7 +30,9 @@ export function NextEventCard() {
         setEvent(data as Event | null);
         setLoading(false);
       });
-  }, []);
+  }, [currentTeam]);
+
+  if (!currentTeam) return null;
 
   if (loading) {
     return (

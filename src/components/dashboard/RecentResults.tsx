@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useTeam } from "@/lib/team";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
@@ -10,14 +11,17 @@ import type { Event } from "@/types";
 
 export function RecentResults() {
   const router = useRouter();
+  const { currentTeam } = useTeam();
   const [matches, setMatches] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!currentTeam) return;
     const supabase = createClient();
     supabase
       .from("events")
       .select("*")
+      .eq("team_id", currentTeam!.id)
       .eq("type", "match")
       .eq("status", "completed")
       .not("score_us", "is", null)
@@ -27,7 +31,9 @@ export function RecentResults() {
         setMatches((data as Event[]) || []);
         setLoading(false);
       });
-  }, []);
+  }, [currentTeam]);
+
+  if (!currentTeam) return null;
 
   if (loading) {
     return (

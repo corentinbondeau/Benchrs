@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useTeam } from "@/lib/team";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,7 @@ import { UserCog, Check, X } from "lucide-react";
 import type { Profile } from "@/types";
 
 export default function AdminPlayersPage() {
+  const { currentTeam } = useTeam();
   const [players, setPlayers] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -23,6 +25,10 @@ export default function AdminPlayersPage() {
         setPlayers((data as Profile[]) || []);
         setLoading(false);
       });
+  }
+
+  if (!currentTeam) {
+    return <div className="flex items-center justify-center h-64"><p className="text-muted-foreground">Chargement de l'équipe...</p></div>;
   }
 
   useEffect(() => { fetchPlayers(); }, []);

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { useTeam } from "@/lib/team";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -27,6 +28,7 @@ import type { GalleryMedia, Event } from "@/types";
 
 export default function GalleryPage() {
   const { user } = useAuth();
+  const { currentTeam } = useTeam();
   const [media, setMedia] = useState<GalleryMedia[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -37,11 +39,16 @@ export default function GalleryPage() {
   const [events, setEvents] = useState<Event[]>([]);
   const [lightbox, setLightbox] = useState<GalleryMedia | null>(null);
 
+  if (!currentTeam) {
+    return <div className="flex items-center justify-center h-64"><p className="text-muted-foreground">Chargement de l'équipe...</p></div>;
+  }
+
   useEffect(() => {
     const supabase = createClient();
     supabase
       .from("gallery_media")
       .select("*")
+      .eq("team_id", currentTeam!.id)
       .order("created_at", { ascending: false })
       .then(({ data }) => {
         setMedia((data as GalleryMedia[]) || []);
@@ -55,6 +62,7 @@ export default function GalleryPage() {
     supabase
       .from("events")
       .select("*")
+      .eq("team_id", currentTeam!.id)
       .order("event_date", { ascending: false })
       .then(({ data }) => {
         setEvents((data as Event[]) || []);
@@ -89,6 +97,7 @@ export default function GalleryPage() {
       caption: caption || null,
       event_id: eventId === "none" ? null : eventId,
       uploaded_by: user.id,
+      team_id: currentTeam!.id,
     });
 
     if (insertError) {
@@ -100,6 +109,7 @@ export default function GalleryPage() {
     const { data: newMedia } = await supabase
       .from("gallery_media")
       .select("*")
+      .eq("team_id", currentTeam!.id)
       .order("created_at", { ascending: false })
       .limit(1);
 

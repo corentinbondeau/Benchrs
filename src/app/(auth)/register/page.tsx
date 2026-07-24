@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/select";
 
 export default function RegisterPage() {
+  const [step, setStep] = useState<"info" | "team">("info");
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -32,12 +33,13 @@ export default function RegisterPage() {
     role: "" as "coach" | "player" | "parent" | "",
     phone: "",
     childEmail: "",
+    inviteCode: "",
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmitInfo(e: React.FormEvent) {
     e.preventDefault();
     setError("");
 
@@ -50,9 +52,16 @@ export default function RegisterPage() {
       return;
     }
 
+    setStep("team");
+  }
+
+  async function handleSubmitTeam(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
     setLoading(true);
 
     try {
+      // Step 1: Register user
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -75,11 +84,86 @@ export default function RegisterPage() {
         return;
       }
 
+      // Step 2: If invite code provided, join team
+      if (formData.inviteCode) {
+        // We need to sign in first to get the user ID
+        const supabaseRes = await fetch("/api/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: formData.email, password: formData.password }),
+        });
+
+        if (supabaseRes.ok) {
+          const { createClient } = await import("@/lib/supabase/client");
+          const supabase = createClient();
+          const { data: { user } } = await supabase.auth.getUser();
+
+          if (user) {
+            await fetch("/api/auth/join-team", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ userId: user.id, inviteCode: formData.inviteCode }),
+            });
+          }
+        }
+      }
+
       router.push("/login?registered=true");
     } catch {
       setError("Erreur de connexion au serveur");
       setLoading(false);
     }
+  }
+
+  if (step === "team") {
+    return (
+      <Card className="w-full max-w-md">
+        <CardHeader className="text-center">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--color-gold)] text-[var(--color-navy)] font-bold text-lg mx-auto mb-2">
+            SP
+          </div>
+          <CardTitle className="text-2xl">Rejoindre une équipe</CardTitle>
+          <CardDescription>
+            Entrez un code d&apos;invitation ou créez votre propre équipe
+          </CardDescription>
+        </CardHeader>
+        <form onSubmit={handleSubmitTeam}>
+          <CardContent className="space-y-4">
+            {error && (
+              <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive text-center">
+                {error}
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <Label htmlFor="inviteCode">Code d&apos;invitation (optionnel)</Label>
+              <Input
+                id="inviteCode"
+                placeholder="abc123def456"
+                value={formData.inviteCode}
+                onChange={(e) => setFormData({ ...formData, inviteCode: e.target.value })}
+                className="text-center font-mono"
+              />
+              <p className="text-xs text-muted-foreground text-center">
+                Demandez le code à votre coach
+              </p>
+            </div>
+          </CardContent>
+          <CardFooter className="flex flex-col gap-4">
+            <Button
+              type="submit"
+              className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
+              disabled={loading}
+            >
+              {loading ? "Inscription..." : formData.inviteCode ? "Rejoindre l'équipe" : "Continuer sans équipe"}
+            </Button>
+            <Link href="/login?registered=true" className="text-sm text-muted-foreground hover:underline">
+              Se connecter
+            </Link>
+          </CardFooter>
+        </form>
+      </Card>
+    );
   }
 
   return (
@@ -93,7 +177,7 @@ export default function RegisterPage() {
           Rejoignez SportPlus en quelques clics
         </CardDescription>
       </CardHeader>
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmitInfo}>
         <CardContent className="space-y-4">
           {error && (
             <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive text-center">
@@ -211,9 +295,8 @@ export default function RegisterPage() {
           <Button
             type="submit"
             className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
-            disabled={loading}
           >
-            {loading ? "Création..." : "Créer mon compte"}
+            Continuer
           </Button>
           <p className="text-sm text-muted-foreground text-center">
             Déjà un compte ?{" "}

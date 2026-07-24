@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { useTeam } from "@/lib/team";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Bell, Check } from "lucide-react";
@@ -10,22 +11,28 @@ import type { Notification } from "@/types";
 
 export default function NotificationsPage() {
   const { user } = useAuth();
+  const { currentTeam } = useTeam();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user?.id) return;
+    if (!user?.id || !currentTeam) return;
     const supabase = createClient();
     supabase
       .from("notifications")
       .select("*")
       .eq("user_id", user.id)
+      .eq("team_id", currentTeam!.id)
       .order("created_at", { ascending: false })
       .then(({ data }) => {
         setNotifications((data as Notification[]) || []);
         setLoading(false);
       });
-  }, [user?.id]);
+  }, [user?.id, currentTeam?.id]);
+
+  if (!currentTeam) {
+    return <div className="flex items-center justify-center h-64"><p className="text-muted-foreground">Chargement de l&apos;équipe...</p></div>;
+  }
 
   async function markAsRead(id: string) {
     const supabase = createClient();

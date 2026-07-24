@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useTeam } from "@/lib/team";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Trophy, Target, Clock, CalendarCheck, Zap } from "lucide-react";
@@ -22,10 +23,12 @@ interface PlayerStats {
 }
 
 export function PlayerProfile({ playerId }: { playerId: string }) {
+  const { currentTeam } = useTeam();
   const [stats, setStats] = useState<PlayerStats | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!currentTeam) return;
     const supabase = createClient();
 
     async function fetchPlayerStats() {
@@ -43,11 +46,13 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
       const { data: matchStats } = await supabase
         .from("match_stats")
         .select("goals, assists, yellow_cards, red_cards, minutes_played")
-        .eq("player_id", playerId);
+        .eq("player_id", playerId)
+        .eq("team_id", currentTeam!.id);
 
       const { data: trainingEvents } = await supabase
         .from("events")
         .select("id")
+        .eq("team_id", currentTeam!.id)
         .eq("type", "training");
       const trainingIds = (trainingEvents || []).map((e) => e.id);
 
@@ -56,6 +61,7 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
             .from("attendances")
             .select("status")
             .eq("user_id", playerId)
+            .eq("team_id", currentTeam!.id)
             .in("event_id", trainingIds)
         : { data: [] };
 
@@ -94,7 +100,9 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
     }
 
     fetchPlayerStats();
-  }, [playerId]);
+  }, [playerId, currentTeam]);
+
+  if (!currentTeam) return null;
 
   if (loading) {
     return (

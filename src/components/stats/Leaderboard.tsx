@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useTeam } from "@/lib/team";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -24,18 +25,20 @@ interface LeaderboardEntry {
 type SortKey = "goals" | "assists" | "yellow_cards" | "red_cards" | "minutes_played" | "attendance_rate";
 
 export function Leaderboard() {
+  const { currentTeam } = useTeam();
   const [data, setData] = useState<LeaderboardEntry[]>([]);
   const [sortKey, setSortKey] = useState<SortKey>("goals");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!currentTeam) return;
     const supabase = createClient();
 
     async function fetchLeaderboard() {
       const { data: statsData } = await supabase.from("match_stats").select(`
         player_id, goals, assists, yellow_cards, red_cards, minutes_played,
         player:profiles!match_stats_player_id_fkey(id, first_name, last_name, shirt_number)
-      `);
+      `).eq("team_id", currentTeam!.id);
 
       if (!statsData) {
         setLoading(false);
@@ -70,10 +73,10 @@ export function Leaderboard() {
       }
 
       // Fetch attendance rates (trainings only)
-      const { data: trainingEvents } = await supabase.from("events").select("id").eq("type", "training");
+      const { data: trainingEvents } = await supabase.from("events").select("id").eq("team_id", currentTeam!.id).eq("type", "training");
       const trainingIds = (trainingEvents || []).map((e) => e.id);
       const { data: attendanceData } = trainingIds.length > 0
-        ? await supabase.from("attendances").select("user_id, status").in("event_id", trainingIds)
+        ? await supabase.from("attendances").select("user_id, status").eq("team_id", currentTeam!.id).in("event_id", trainingIds)
         : { data: [] };
       if (attendanceData) {
         const playerAtt = new Map<string, { total: number; present: number }>();
@@ -95,7 +98,9 @@ export function Leaderboard() {
     }
 
     fetchLeaderboard();
-  }, []);
+  }, [currentTeam]);
+
+  if (!currentTeam) return null;
 
   const sorted = [...data].sort((a, b) => b[sortKey] - a[sortKey]);
 
