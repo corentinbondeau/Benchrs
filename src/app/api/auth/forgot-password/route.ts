@@ -9,7 +9,18 @@ export async function POST(req: Request) {
   }
 
   const admin = createAdminClient();
-  const { data } = await admin.auth.admin.listUsers();
+  const { data, error } = await admin.auth.admin.listUsers({
+    page: 1,
+    perPage: 1000,
+  });
+
+  if (error || !data) {
+    return NextResponse.json(
+      { error: "Erreur serveur." },
+      { status: 500 }
+    );
+  }
+
   const userExists = data.users.some((u) => u.email === email);
 
   if (!userExists) {
