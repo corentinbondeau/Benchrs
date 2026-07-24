@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
+import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,20 +15,11 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
-const COOLDOWN = 60;
-
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
-  const [cooldown, setCooldown] = useState(0);
-
-  useEffect(() => {
-    if (cooldown <= 0) return;
-    const id = window.setTimeout(() => setCooldown((c) => c - 1), 1000);
-    return () => clearTimeout(id);
-  }, [cooldown]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -40,12 +32,22 @@ export default function ForgotPasswordPage() {
       body: JSON.stringify({ email }),
     });
 
-    setLoading(false);
-
     if (!res.ok) {
       const data = await res.json();
       setError(data.error || "Erreur lors de l'envoi.");
-      setCooldown(COOLDOWN);
+      setLoading(false);
+      return;
+    }
+
+    const supabase = createClient();
+    const { error: authError } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+
+    setLoading(false);
+
+    if (authError) {
+      setError(authError.message || "Erreur lors de l'envoi.");
     } else {
       setSent(true);
     }
@@ -95,9 +97,9 @@ export default function ForgotPasswordPage() {
             <Button
               type="submit"
               className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
-              disabled={loading || cooldown > 0}
+              disabled={loading}
             >
-              {loading ? "Envoi..." : cooldown > 0 ? `Réessayer dans ${cooldown}s` : "Envoyer le lien"}
+              {loading ? "Envoi..." : "Envoyer le lien"}
             </Button>
             <Link href="/login" className="text-sm text-muted-foreground hover:underline">
               Retour à la connexion
