@@ -18,7 +18,7 @@ export function proxy(request: NextRequest) {
   const isLoggedIn = !!sessionToken;
 
   if (isPublic) {
-    if (isLoggedIn) {
+    if (isLoggedIn && pathname !== "/reset-password") {
       return NextResponse.redirect(new URL("/", request.url));
     }
     return NextResponse.next();
