@@ -7,9 +7,7 @@ export function proxy(request: NextRequest) {
   const isAuthPage =
     pathname === "/login" ||
     pathname === "/register" ||
-    pathname === "/forgot-password" ||
-    pathname === "/create-team" ||
-    pathname === "/join";
+    pathname === "/forgot-password";
   const isApiAuth = pathname.startsWith("/api/auth");
   const isPublic = isAuthPage || isApiAuth;
 
