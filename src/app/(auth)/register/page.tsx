@@ -157,6 +157,15 @@ export default function RegisterPage() {
             >
               {loading ? "Inscription..." : formData.inviteCode ? "Rejoindre l'équipe" : "Continuer sans équipe"}
             </Button>
+            <Link href="/create-team" className="w-full">
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full border-white/20 text-white hover:bg-white/10"
+              >
+                Créer mon équipe
+              </Button>
+            </Link>
             <Link href="/login?registered=true" className="text-sm text-muted-foreground hover:underline">
               Se connecter
             </Link>
