@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -37,7 +37,32 @@ export default function RegisterPage() {
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [checking, setChecking] = useState(true);
   const router = useRouter();
+
+  useEffect(() => {
+    const supabase = import("@/lib/supabase/client").then(({ createClient }) => {
+      const client = createClient();
+      client.auth.getUser().then(({ data: { user } }) => {
+        if (!user) {
+          setChecking(false);
+          return;
+        }
+        client
+          .from("team_members")
+          .select("id")
+          .eq("user_id", user.id)
+          .limit(1)
+          .then(({ data }) => {
+            if (data && data.length > 0) {
+              window.location.href = "/";
+            } else {
+              setChecking(false);
+            }
+          });
+      });
+    });
+  }, []);
 
   async function handleSubmitInfo(e: React.FormEvent) {
     e.preventDefault();
@@ -94,7 +119,7 @@ export default function RegisterPage() {
 
       if (loginError) {
         setError("Compte créé, mais connexion échouée. Veuillez vous connecter.");
-        setTimeout(() => router.push("/login"), 2000);
+        setTimeout(() => window.location.href = "/login", 2000);
         setLoading(false);
         return;
       }
@@ -109,15 +134,23 @@ export default function RegisterPage() {
             body: JSON.stringify({ userId: user.id, inviteCode: formData.inviteCode }),
           });
         }
-        router.push("/");
+        window.location.href = "/";
       } else {
         // No invite code → redirect to create team
-        router.push("/create-team");
+        window.location.href = "/create-team";
       }
     } catch {
       setError("Erreur de connexion au serveur");
       setLoading(false);
     }
+  }
+
+  if (checking) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-white/60">Chargement...</p>
+      </div>
+    );
   }
 
   if (step === "team") {
