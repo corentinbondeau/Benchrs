@@ -47,7 +47,7 @@ export default function ForgotPasswordPage() {
     setLoading(false);
 
     if (authError) {
-      setError("Erreur lors de l'envoi.");
+      setError(authError.message || "Erreur lors de l'envoi.");
     } else {
       setSent(true);
     }
