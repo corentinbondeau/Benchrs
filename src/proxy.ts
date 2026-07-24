@@ -33,8 +33,7 @@ export async function proxy(request: NextRequest) {
   const isAuthPage =
     pathname === "/login" ||
     pathname === "/register" ||
-    pathname === "/forgot-password" ||
-    pathname === "/reset-password";
+    pathname === "/forgot-password";
 
   const isApiAuth = pathname.startsWith("/api/auth");
   const isPublic = isAuthPage || isApiAuth;
@@ -43,7 +42,7 @@ export async function proxy(request: NextRequest) {
   const isLoggedIn = !!session;
 
   if (isPublic) {
-    if (isLoggedIn && pathname !== "/reset-password") {
+    if (isLoggedIn) {
       return NextResponse.redirect(new URL("/", request.url));
     }
     return supabaseResponse;
@@ -57,5 +56,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|public).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|public|reset-password).*)"],
 };
