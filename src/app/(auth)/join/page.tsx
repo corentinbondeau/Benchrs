@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -22,7 +22,30 @@ function JoinTeamForm() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState("");
+  const [checking, setChecking] = useState(true);
   const router = useRouter();
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) {
+        setChecking(false);
+        return;
+      }
+      supabase
+        .from("team_members")
+        .select("id")
+        .eq("user_id", user.id)
+        .limit(1)
+        .then(({ data }) => {
+          if (data && data.length > 0) {
+            window.location.href = "/";
+          } else {
+            setChecking(false);
+          }
+        });
+    });
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -55,12 +78,19 @@ function JoinTeamForm() {
         return;
       }
 
-      setSuccess(data.message);
-      setTimeout(() => router.push("/"), 1500);
+      window.location.href = "/";
     } catch {
       setError("Erreur de connexion au serveur");
       setLoading(false);
     }
+  }
+
+  if (checking) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-white/60">Chargement...</p>
+      </div>
+    );
   }
 
   return (
@@ -81,11 +111,6 @@ function JoinTeamForm() {
               {error}
             </div>
           )}
-          {success && (
-            <div className="rounded-lg bg-green-50 p-3 text-sm text-green-700 text-center">
-              {success}
-            </div>
-          )}
 
           <div className="space-y-2">
             <Label htmlFor="inviteCode">Code d&apos;invitation</Label>
@@ -103,9 +128,9 @@ function JoinTeamForm() {
           <Button
             type="submit"
             className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
-            disabled={loading || !!success}
+            disabled={loading}
           >
-            {loading ? "Connexion..." : success ? "Redirection..." : "Rejoindre l'équipe"}
+            {loading ? "Connexion..." : "Rejoindre l'équipe"}
           </Button>
           <Link href="/create-team" className="w-full">
             <Button

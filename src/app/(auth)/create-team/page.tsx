@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -22,7 +22,30 @@ export default function CreateTeamPage() {
   const [teamName, setTeamName] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [checking, setChecking] = useState(true);
   const router = useRouter();
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) {
+        router.replace("/login");
+        return;
+      }
+      supabase
+        .from("team_members")
+        .select("id")
+        .eq("user_id", user.id)
+        .limit(1)
+        .then(({ data }) => {
+          if (data && data.length > 0) {
+            window.location.href = "/";
+          } else {
+            setChecking(false);
+          }
+        });
+    });
+  }, [router]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -35,9 +58,7 @@ export default function CreateTeamPage() {
     } = await supabase.auth.getUser();
 
     if (!user) {
-      setError("Vous devez être connecté. Redirection...");
-      setTimeout(() => router.push("/login"), 1500);
-      setLoading(false);
+      router.replace("/login");
       return;
     }
 
@@ -61,12 +82,20 @@ export default function CreateTeamPage() {
         duration: 5000,
       });
 
-      router.push("/");
+      window.location.href = "/";
     } catch (err) {
       console.error("[create-team]", err);
       setError("Erreur de connexion au serveur");
       setLoading(false);
     }
+  }
+
+  if (checking) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-white/60">Chargement...</p>
+      </div>
+    );
   }
 
   return (
@@ -122,12 +151,6 @@ export default function CreateTeamPage() {
             Vous avez un code d&apos;invitation ?{" "}
             <Link href="/join" className="text-[var(--color-royal)] hover:underline font-medium">
               Rejoindre une équipe
-            </Link>
-          </p>
-          <p className="text-sm text-muted-foreground text-center">
-            Déjà un compte ?{" "}
-            <Link href="/login" className="text-[var(--color-royal)] hover:underline font-medium">
-              Se connecter
             </Link>
           </p>
         </CardFooter>
