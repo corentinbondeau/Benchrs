@@ -24,6 +24,7 @@ import {
 
 export default function RegisterPage() {
   const [step, setStep] = useState<"info" | "team">("info");
+  const [teamMode, setTeamMode] = useState<"join" | "create">("join");
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -34,6 +35,8 @@ export default function RegisterPage() {
     phone: "",
     childEmail: "",
     inviteCode: "",
+    clubName: "",
+    teamName: "",
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -41,7 +44,7 @@ export default function RegisterPage() {
   const router = useRouter();
 
   useEffect(() => {
-    const supabase = import("@/lib/supabase/client").then(({ createClient }) => {
+    import("@/lib/supabase/client").then(({ createClient }) => {
       const client = createClient();
       client.auth.getUser().then(({ data: { user } }) => {
         if (!user) {
@@ -86,7 +89,6 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      // Step 1: Register user
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -109,7 +111,6 @@ export default function RegisterPage() {
         return;
       }
 
-      // Step 2: Auto-login
       const { createClient } = await import("@/lib/supabase/client");
       const supabase = createClient();
       const { error: loginError } = await supabase.auth.signInWithPassword({
@@ -119,24 +120,49 @@ export default function RegisterPage() {
 
       if (loginError) {
         setError("Compte créé, mais connexion échouée. Veuillez vous connecter.");
-        setTimeout(() => window.location.href = "/login", 2000);
+        setTimeout(() => (window.location.href = "/login"), 2000);
         setLoading(false);
         return;
       }
 
-      // Step 3: If invite code provided, join team
-      if (formData.inviteCode) {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          await fetch("/api/auth/join-team", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ userId: user.id, inviteCode: formData.inviteCode }),
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        setError("Connexion échouée.");
+        setLoading(false);
+        return;
+      }
+
+      if (teamMode === "join" && formData.inviteCode) {
+        await fetch("/api/auth/join-team", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId: user.id, inviteCode: formData.inviteCode }),
+        });
+        window.location.href = "/";
+      } else if (teamMode === "create" && formData.clubName && formData.teamName) {
+        const teamRes = await fetch("/api/auth/create-team", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId: user.id,
+            clubName: formData.clubName,
+            teamName: formData.teamName,
+          }),
+        });
+
+        const teamData = await teamRes.json();
+        if (teamRes.ok) {
+          const { toast } = await import("sonner");
+          toast.success(`Code d'invitation : ${teamData.inviteCode}`, {
+            description: "Vous le trouverez dans Paramètres > Équipe",
+            duration: 5000,
           });
         }
         window.location.href = "/";
       } else {
-        // No invite code → redirect to create team
         window.location.href = "/create-team";
       }
     } catch {
@@ -160,9 +186,11 @@ export default function RegisterPage() {
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--color-gold)] text-[var(--color-navy)] font-bold text-lg mx-auto mb-2">
             SP
           </div>
-          <CardTitle className="text-2xl">Rejoindre une équipe</CardTitle>
+          <CardTitle className="text-2xl">Votre équipe</CardTitle>
           <CardDescription>
-            Entrez un code d&apos;invitation ou créez votre propre équipe
+            {teamMode === "join"
+              ? "Entrez un code d&apos;invitation ou créez votre propre équipe"
+              : "Créez un club et une équipe pour commencer"}
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmitTeam}>
@@ -173,19 +201,44 @@ export default function RegisterPage() {
               </div>
             )}
 
-            <div className="space-y-2">
-              <Label htmlFor="inviteCode">Code d&apos;invitation (optionnel)</Label>
-              <Input
-                id="inviteCode"
-                placeholder="abc123def456"
-                value={formData.inviteCode}
-                onChange={(e) => setFormData({ ...formData, inviteCode: e.target.value })}
-                className="text-center font-mono"
-              />
-              <p className="text-xs text-muted-foreground text-center">
-                Demandez le code à votre coach
-              </p>
-            </div>
+            {teamMode === "join" ? (
+              <div className="space-y-2">
+                <Label htmlFor="inviteCode">Code d&apos;invitation</Label>
+                <Input
+                  id="inviteCode"
+                  placeholder="abc123def456"
+                  value={formData.inviteCode}
+                  onChange={(e) => setFormData({ ...formData, inviteCode: e.target.value })}
+                  className="text-center font-mono"
+                />
+                <p className="text-xs text-muted-foreground text-center">
+                  Demandez le code à votre coach
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="clubName">Nom du club</Label>
+                  <Input
+                    id="clubName"
+                    placeholder="AS Monaco"
+                    value={formData.clubName}
+                    onChange={(e) => setFormData({ ...formData, clubName: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="teamName">Nom de l&apos;équipe</Label>
+                  <Input
+                    id="teamName"
+                    placeholder="U17 Senior"
+                    value={formData.teamName}
+                    onChange={(e) => setFormData({ ...formData, teamName: e.target.value })}
+                    required
+                  />
+                </div>
+              </>
+            )}
           </CardContent>
           <CardFooter className="flex flex-col gap-4">
             <Button
@@ -193,17 +246,39 @@ export default function RegisterPage() {
               className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
               disabled={loading}
             >
-              {loading ? "Inscription..." : formData.inviteCode ? "Rejoindre l'équipe" : "Continuer sans équipe"}
+              {loading
+                ? "Inscription..."
+                : teamMode === "join"
+                  ? formData.inviteCode
+                    ? "Rejoindre l'équipe"
+                    : "Continuer sans équipe"
+                  : "Créer et continuer"}
             </Button>
-            <Link href="/create-team" className="w-full">
+            {teamMode === "join" ? (
               <Button
                 type="button"
                 variant="outline"
                 className="w-full border-white/20 text-white hover:bg-white/10"
+                onClick={() => {
+                  setTeamMode("create");
+                  setError("");
+                }}
               >
                 Créer mon équipe
               </Button>
-            </Link>
+            ) : (
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full border-white/20 text-white hover:bg-white/10"
+                onClick={() => {
+                  setTeamMode("join");
+                  setError("");
+                }}
+              >
+                Rejoindre avec un code
+              </Button>
+            )}
             <Link href="/login?registered=true" className="text-sm text-muted-foreground hover:underline">
               Se connecter
             </Link>
