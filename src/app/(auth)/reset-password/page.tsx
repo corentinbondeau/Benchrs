@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,24 @@ export default function ResetPasswordPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    const supabase = createClient();
+    const code = new URLSearchParams(window.location.search).get("code");
+
+    if (code) {
+      supabase.auth.exchangeCodeForSession(code).then(({ error }) => {
+        if (error) {
+          setError("Lien de réinitialisation invalide ou expiré.");
+        }
+        setReady(true);
+        window.history.replaceState({}, "", "/reset-password");
+      });
+    } else {
+      setReady(true);
+    }
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -66,6 +84,10 @@ export default function ResetPasswordPage() {
           <div className="rounded-lg bg-green-50 p-3 text-sm text-green-700">
             Mot de passe mis à jour ! Redirection...
           </div>
+        </CardContent>
+      ) : !ready ? (
+        <CardContent className="text-center">
+          <div className="text-sm text-muted-foreground">Vérification...</div>
         </CardContent>
       ) : (
         <form onSubmit={handleSubmit}>
