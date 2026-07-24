@@ -26,19 +26,32 @@ export default function ResetPasswordPage() {
 
   useEffect(() => {
     const supabase = createClient();
-    const code = new URLSearchParams(window.location.search).get("code");
+    const params = new URLSearchParams(window.location.search);
+    const hash = window.location.hash.substring(1);
+    const hashParams = new URLSearchParams(hash);
 
-    if (code) {
-      supabase.auth.exchangeCodeForSession(code).then(({ error }) => {
-        if (error) {
-          setError("Lien de réinitialisation invalide ou expiré.");
-        }
-        setReady(true);
-        window.history.replaceState({}, "", "/reset-password");
-      });
-    } else {
+    const code = params.get("code");
+    const accessToken = hashParams.get("access_token");
+    const refreshToken = hashParams.get("refresh_token");
+
+    async function handleSession() {
+      if (code) {
+        const { error } = await supabase.auth.exchangeCodeForSession(code);
+        if (error) setError("Lien de réinitialisation invalide ou expiré.");
+      } else if (accessToken && refreshToken) {
+        const { error } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        });
+        if (error) setError("Lien de réinitialisation invalide ou expiré.");
+      } else {
+        setError("Lien de réinitialisation invalide.");
+      }
       setReady(true);
+      window.history.replaceState({}, "", "/reset-password");
     }
+
+    handleSession();
   }, []);
 
   async function handleSubmit(e: React.FormEvent) {
