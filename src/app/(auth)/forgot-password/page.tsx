@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-
+import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -31,12 +31,23 @@ export default function ForgotPasswordPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email }),
     });
-    const data = await res.json();
+
+    if (!res.ok) {
+      const data = await res.json();
+      setError(data.error || "Erreur lors de l'envoi.");
+      setLoading(false);
+      return;
+    }
+
+    const supabase = createClient();
+    const { error: authError } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
 
     setLoading(false);
 
-    if (!res.ok) {
-      setError(data.error || "Erreur lors de l'envoi.");
+    if (authError) {
+      setError("Erreur lors de l'envoi.");
     } else {
       setSent(true);
     }
