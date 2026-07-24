@@ -7,7 +7,9 @@ export function proxy(request: NextRequest) {
   const isAuthPage =
     pathname === "/login" ||
     pathname === "/register" ||
-    pathname === "/forgot-password";
+    pathname === "/forgot-password" ||
+    pathname === "/create-team" ||
+    pathname === "/join";
   const isApiAuth = pathname.startsWith("/api/auth");
   const isPublic = isAuthPage || isApiAuth;
 
@@ -15,6 +17,10 @@ export function proxy(request: NextRequest) {
     request.cookies.get("sb-gxksycbwylhkhihcvddw-auth-token")?.value;
 
   const isLoggedIn = !!sessionToken;
+
+  if (isApiAuth) {
+    return NextResponse.next();
+  }
 
   if (isPublic) {
     if (isLoggedIn) {
