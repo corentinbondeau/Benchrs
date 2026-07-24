@@ -63,7 +63,7 @@ DROP POLICY IF EXISTS "Team owners can manage membership" ON team_members;
 
 CREATE POLICY "Members can view their team membership"
   ON team_members FOR SELECT
-  USING (team_id IN (SELECT team_id FROM team_members WHERE user_id = auth.uid()));
+  USING (user_id = auth.uid());
 CREATE POLICY "Authenticated can join teams"
   ON team_members FOR INSERT
   WITH CHECK (auth.role() = 'authenticated');
@@ -85,7 +85,8 @@ DROP POLICY IF EXISTS "Service role can insert profiles" ON profiles;
 CREATE POLICY "Members can view team profiles"
   ON profiles FOR SELECT
   USING (
-    team_id IS NULL
+    auth.uid() = id
+    OR team_id IS NULL
     OR team_id IN (SELECT team_id FROM team_members WHERE user_id = auth.uid())
   );
 CREATE POLICY "Users can update own profile"
