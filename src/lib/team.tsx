@@ -33,6 +33,20 @@ export function useTeam() {
   return useContext(TeamContext);
 }
 
+function applyTeamColors(primary: string, secondary: string) {
+  const root = document.documentElement;
+  root.style.setProperty("--color-gold", primary);
+  root.style.setProperty("--color-royal", secondary);
+  root.style.setProperty("--color-navy", secondary);
+}
+
+function resetTeamColors() {
+  const root = document.documentElement;
+  root.style.setProperty("--color-gold", "#EAB308");
+  root.style.setProperty("--color-royal", "#1E40AF");
+  root.style.setProperty("--color-navy", "#0F172A");
+}
+
 export function TeamProvider({ children }: { children: ReactNode }) {
   const [teams, setTeams] = useState<Team[]>([]);
   const [currentTeam, setCurrentTeam] = useState<Team | null>(null);
@@ -53,7 +67,7 @@ export function TeamProvider({ children }: { children: ReactNode }) {
 
     const { data: memberships } = await supabase
       .from("team_members")
-      .select("team_id, role, team:teams(id, name, club_id, invite_code, created_at, club:clubs(id, name, logo_url, created_by, created_at))")
+      .select("team_id, role, team:teams(id, name, club_id, invite_code, color_primary, color_secondary, created_at, club:clubs(id, name, logo_url, created_by, created_at))")
       .eq("user_id", user.id);
 
     if (!memberships) {
@@ -65,13 +79,20 @@ export function TeamProvider({ children }: { children: ReactNode }) {
 
     const userTeams: Team[] = memberships
       .map((m) => {
-        const raw = m.team as unknown as { id: string; name: string; club_id: string; invite_code: string; created_at: string; club: { id: string; name: string; logo_url: string | null; created_by: string | null; created_at: string }[] | null };
+        const raw = m.team as unknown as {
+          id: string; name: string; club_id: string; invite_code: string;
+          color_primary: string | null; color_secondary: string | null;
+          created_at: string;
+          club: { id: string; name: string; logo_url: string | null; created_by: string | null; created_at: string }[] | null;
+        };
         if (!raw) return null;
         const team: Team = {
           id: raw.id,
           name: raw.name,
           club_id: raw.club_id,
           invite_code: raw.invite_code,
+          color_primary: raw.color_primary || "#EAB308",
+          color_secondary: raw.color_secondary || "#1E40AF",
           created_at: raw.created_at,
           club: raw.club?.[0] ?? undefined,
         };
@@ -87,12 +108,14 @@ export function TeamProvider({ children }: { children: ReactNode }) {
 
     if (team) {
       setCurrentTeam(team);
+      applyTeamColors(team.color_primary, team.color_secondary);
       const membership = memberships.find((m) => m.team_id === team.id);
       setUserRole((membership?.role as TeamMemberRole) || null);
       localStorage.setItem("selectedTeamId", team.id);
     } else {
       setCurrentTeam(null);
       setUserRole(null);
+      resetTeamColors();
       localStorage.removeItem("selectedTeamId");
     }
 
@@ -108,8 +131,8 @@ export function TeamProvider({ children }: { children: ReactNode }) {
       const team = teams.find((t) => t.id === teamId);
       if (team) {
         setCurrentTeam(team);
+        applyTeamColors(team.color_primary, team.color_secondary);
         localStorage.setItem("selectedTeamId", teamId);
-        // Reload to get the correct role
         loadTeams();
       }
     },
