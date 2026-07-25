@@ -65,10 +65,22 @@ export function TeamProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const { data: memberships } = await supabase
+    let memberships;
+
+    const { data: withColors, error: colorError } = await supabase
       .from("team_members")
       .select("team_id, role, team:teams(id, name, club_id, invite_code, color_primary, color_secondary, created_at, club:clubs(id, name, logo_url, created_by, created_at))")
       .eq("user_id", user.id);
+
+    if (colorError) {
+      const { data: fallback } = await supabase
+        .from("team_members")
+        .select("team_id, role, team:teams(id, name, club_id, invite_code, created_at, club:clubs(id, name, logo_url, created_by, created_at))")
+        .eq("user_id", user.id);
+      memberships = fallback;
+    } else {
+      memberships = withColors;
+    }
 
     if (!memberships) {
       setTeams([]);
