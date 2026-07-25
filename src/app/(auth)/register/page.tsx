@@ -21,6 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import type { UserRole } from "@/types";
 
 export default function RegisterPage() {
   const [step, setStep] = useState<"info" | "team">("info");
@@ -116,10 +117,30 @@ export default function RegisterPage() {
           password: formData.password,
         });
         if (loginError) {
-          setError("Ce compte existe déjà. Veuillez vous connecter.");
-          setTimeout(() => (window.location.href = "/login"), 2000);
+          // Can't login - redirect to login page
+          setError("Un compte existe déjà avec cet email. Connectez-vous avec votre mot de passe.");
+          setTimeout(() => (window.location.href = "/login"), 2500);
           setLoading(false);
           return;
+        }
+        // Login succeeded - check if profile exists, create if not
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: existingProfile } = await supabase
+            .from("profiles")
+            .select("id")
+            .eq("id", user.id)
+            .single();
+          if (!existingProfile) {
+            await supabase.from("profiles").insert({
+              id: user.id,
+              role: formData.role as UserRole,
+              first_name: formData.firstName,
+              last_name: formData.lastName,
+              phone: formData.phone || null,
+              is_active: true,
+            });
+          }
         }
       } else {
         setError(data.error || "Erreur lors de l'inscription");
