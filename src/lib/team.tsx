@@ -6,6 +6,7 @@ import {
   useState,
   useEffect,
   useCallback,
+  useRef,
   type ReactNode,
 } from "react";
 import { createClient } from "@/lib/supabase/client";
@@ -52,9 +53,10 @@ export function TeamProvider({ children }: { children: ReactNode }) {
   const [currentTeam, setCurrentTeam] = useState<Team | null>(null);
   const [userRole, setUserRole] = useState<TeamMemberRole | null>(null);
   const [loading, setLoading] = useState(true);
-  const supabase = createClient();
+  const supabaseRef = useRef(createClient());
 
   const loadTeams = useCallback(async () => {
+    const supabase = supabaseRef.current;
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -65,24 +67,12 @@ export function TeamProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    let memberships;
-
-    const { data: withColors, error: colorError } = await supabase
+    const { data: memberships, error } = await supabase
       .from("team_members")
-      .select("team_id, role, team:teams(id, name, club_id, invite_code, color_primary, color_secondary, created_at, club:clubs(id, name, logo_url, created_by, created_at))")
+      .select("team_id, role, team:teams(id, name, club_id, invite_code, created_at, club:clubs(id, name, logo_url, created_by, created_at))")
       .eq("user_id", user.id);
 
-    if (colorError) {
-      const { data: fallback } = await supabase
-        .from("team_members")
-        .select("team_id, role, team:teams(id, name, club_id, invite_code, created_at, club:clubs(id, name, logo_url, created_by, created_at))")
-        .eq("user_id", user.id);
-      memberships = fallback;
-    } else {
-      memberships = withColors;
-    }
-
-    if (!memberships) {
+    if (error || !memberships) {
       setTeams([]);
       setCurrentTeam(null);
       setLoading(false);
@@ -93,7 +83,7 @@ export function TeamProvider({ children }: { children: ReactNode }) {
       .map((m) => {
         const raw = m.team as unknown as {
           id: string; name: string; club_id: string; invite_code: string;
-          color_primary: string | null; color_secondary: string | null;
+          color_primary?: string | null; color_secondary?: string | null;
           created_at: string;
           club: { id: string; name: string; logo_url: string | null; created_by: string | null; created_at: string }[] | null;
         };
@@ -132,7 +122,7 @@ export function TeamProvider({ children }: { children: ReactNode }) {
     }
 
     setLoading(false);
-  }, [supabase]);
+  }, []);
 
   useEffect(() => {
     loadTeams();
