@@ -88,31 +88,46 @@ export default function RegisterPage() {
     setError("");
     setLoading(true);
 
-    try {
-      const res = await fetch("/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          firstName: formData.firstName,
-          lastName: formData.lastName,
+    const { createClient } = await import("@/lib/supabase/client");
+    const supabase = createClient();
+
+    // Try register, or login if account already exists
+    const res = await fetch("/api/auth/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        email: formData.email,
+        password: formData.password,
+        role: formData.role,
+        phone: formData.phone || undefined,
+        childEmail: formData.role === "parent" ? formData.childEmail || undefined : undefined,
+      }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      // If email already registered, try to login directly
+      if (data.error?.includes("already") || data.error?.includes("registered")) {
+        const { error: loginError } = await supabase.auth.signInWithPassword({
           email: formData.email,
           password: formData.password,
-          role: formData.role,
-          phone: formData.phone || undefined,
-          childEmail: formData.role === "parent" ? formData.childEmail || undefined : undefined,
-        }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
+        });
+        if (loginError) {
+          setError("Ce compte existe déjà. Veuillez vous connecter.");
+          setTimeout(() => (window.location.href = "/login"), 2000);
+          setLoading(false);
+          return;
+        }
+      } else {
         setError(data.error || "Erreur lors de l'inscription");
         setLoading(false);
         return;
       }
-
-      const { createClient } = await import("@/lib/supabase/client");
-      const supabase = createClient();
+    } else {
+      // New registration → auto-login
       const { error: loginError } = await supabase.auth.signInWithPassword({
         email: formData.email,
         password: formData.password,
@@ -124,7 +139,9 @@ export default function RegisterPage() {
         setLoading(false);
         return;
       }
+    }
 
+    try {
       const {
         data: { user },
       } = await supabase.auth.getUser();
