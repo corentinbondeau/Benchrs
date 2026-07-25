@@ -25,6 +25,8 @@ export interface Team {
   club_id: string;
   name: string;
   invite_code: string;
+  color_primary: string;
+  color_secondary: string;
   created_at: string;
   club?: Club;
 }
