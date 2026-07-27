@@ -23,6 +23,12 @@ export async function POST(req: Request) {
 
     if (clubError) {
       console.error("[create-team] club error:", clubError);
+      if (clubError.code === "23505") {
+        return NextResponse.json(
+          { error: "Ce nom de club existe déjà" },
+          { status: 409 }
+        );
+      }
       return NextResponse.json({ error: clubError.message }, { status: 400 });
     }
 
@@ -35,6 +41,12 @@ export async function POST(req: Request) {
 
     if (teamError) {
       console.error("[create-team] team error:", teamError);
+      if (teamError.code === "23505") {
+        return NextResponse.json(
+          { error: "Ce nom d'équipe existe déjà dans ce club" },
+          { status: 409 }
+        );
+      }
       return NextResponse.json({ error: teamError.message }, { status: 400 });
     }
 

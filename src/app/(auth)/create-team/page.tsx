@@ -83,6 +83,7 @@ export default function CreateTeamPage() {
       });
 
       window.location.href = "/";
+      return;
     } catch (err) {
       console.error("[create-team]", err);
       setError("Erreur de connexion au serveur");
