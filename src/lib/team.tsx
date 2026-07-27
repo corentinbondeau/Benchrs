@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useAuth } from "@/lib/auth";
 import type { Team, TeamMemberRole } from "@/types";
 
 interface TeamContextType {
@@ -49,30 +50,23 @@ function resetTeamColors() {
 }
 
 export function TeamProvider({ children }: { children: ReactNode }) {
+  const { user: authUser, loading: authLoading } = useAuth();
   const [teams, setTeams] = useState<Team[]>([]);
   const [currentTeam, setCurrentTeam] = useState<Team | null>(null);
   const [userRole, setUserRole] = useState<TeamMemberRole | null>(null);
   const [loading, setLoading] = useState(true);
   const supabaseRef = useRef(createClient());
 
-  const loadTeams = useCallback(async () => {
+  const loadTeams = useCallback(async (userId: string) => {
     const supabase = supabaseRef.current;
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
-      setTeams([]);
-      setCurrentTeam(null);
-      setLoading(false);
-      return;
-    }
 
     const { data: memberships, error } = await supabase
       .from("team_members")
       .select("team_id, role, team:teams(id, name, club_id, invite_code, created_at, club:clubs(id, name, logo_url, created_by, created_at))")
-      .eq("user_id", user.id);
+      .eq("user_id", userId);
 
     if (error || !memberships) {
+      console.error("[TeamProvider] failed to load teams:", error);
       setTeams([]);
       setCurrentTeam(null);
       setLoading(false);
@@ -125,8 +119,15 @@ export function TeamProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    loadTeams();
-  }, [loadTeams]);
+    if (authLoading) return;
+    if (!authUser) {
+      setTeams([]);
+      setCurrentTeam(null);
+      setLoading(false);
+      return;
+    }
+    loadTeams(authUser.id);
+  }, [authLoading, authUser, loadTeams]);
 
   const switchTeam = useCallback(
     (teamId: string) => {
@@ -135,11 +136,15 @@ export function TeamProvider({ children }: { children: ReactNode }) {
         setCurrentTeam(team);
         applyTeamColors(team.color_primary, team.color_secondary);
         localStorage.setItem("selectedTeamId", teamId);
-        loadTeams();
+        if (authUser) loadTeams(authUser.id);
       }
     },
-    [teams, loadTeams]
+    [teams, loadTeams, authUser]
   );
+
+  const refreshTeams = useCallback(async () => {
+    if (authUser) await loadTeams(authUser.id);
+  }, [authUser, loadTeams]);
 
   return (
     <TeamContext.Provider
@@ -149,7 +154,7 @@ export function TeamProvider({ children }: { children: ReactNode }) {
         userRole,
         switchTeam,
         loading,
-        refreshTeams: loadTeams,
+        refreshTeams,
       }}
     >
       {children}
