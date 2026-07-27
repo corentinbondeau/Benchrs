@@ -14,28 +14,36 @@ export async function POST(req: Request) {
 
     const supabase = createAdminClient();
 
-    // Create club
-    const { data: club, error: clubError } = await supabase
+    // Find existing club or create new one
+    let clubId: string;
+
+    const { data: existingClub } = await supabase
       .from("clubs")
-      .insert({ name: clubName, created_by: userId })
-      .select()
+      .select("id")
+      .eq("name", clubName)
+      .limit(1)
       .single();
 
-    if (clubError) {
-      console.error("[create-team] club error:", clubError);
-      if (clubError.code === "23505") {
-        return NextResponse.json(
-          { error: "Ce nom de club existe déjà" },
-          { status: 409 }
-        );
+    if (existingClub) {
+      clubId = existingClub.id;
+    } else {
+      const { data: newClub, error: clubError } = await supabase
+        .from("clubs")
+        .insert({ name: clubName, created_by: userId })
+        .select()
+        .single();
+
+      if (clubError) {
+        console.error("[create-team] club error:", clubError);
+        return NextResponse.json({ error: clubError.message }, { status: 400 });
       }
-      return NextResponse.json({ error: clubError.message }, { status: 400 });
+      clubId = newClub.id;
     }
 
     // Create team
     const { data: team, error: teamError } = await supabase
       .from("teams")
-      .insert({ club_id: club.id, name: teamName })
+      .insert({ club_id: clubId, name: teamName })
       .select()
       .single();
 
@@ -43,7 +51,7 @@ export async function POST(req: Request) {
       console.error("[create-team] team error:", teamError);
       if (teamError.code === "23505") {
         return NextResponse.json(
-          { error: "Ce nom d'équipe existe déjà dans ce club" },
+          { error: "Cette équipe existe déjà pour ce club" },
           { status: 409 }
         );
       }
@@ -83,7 +91,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       team,
-      club,
+      club: { id: clubId },
       inviteCode: team.invite_code,
       message: "Équipe créée avec succès",
     });
