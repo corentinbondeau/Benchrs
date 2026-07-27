@@ -174,11 +174,17 @@ export default function RegisterPage() {
       }
 
       if (teamMode === "join" && formData.inviteCode) {
-        await fetch("/api/auth/join-team", {
+        const joinRes = await fetch("/api/auth/join-team", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ userId: user.id, inviteCode: formData.inviteCode }),
         });
+        if (!joinRes.ok) {
+          const joinData = await joinRes.json();
+          setError(joinData.error || "Erreur lors de la rejointe de l'équipe");
+          setLoading(false);
+          return;
+        }
         window.location.href = "/";
       } else if (teamMode === "create" && formData.clubName && formData.teamName) {
         const teamRes = await fetch("/api/auth/create-team", {
@@ -191,14 +197,19 @@ export default function RegisterPage() {
           }),
         });
 
-        const teamData = await teamRes.json();
-        if (teamRes.ok) {
-          const { toast } = await import("sonner");
-          toast.success(`Code d'invitation : ${teamData.inviteCode}`, {
-            description: "Vous le trouverez dans Paramètres > Équipe",
-            duration: 5000,
-          });
+        if (!teamRes.ok) {
+          const teamData = await teamRes.json();
+          setError(teamData.error || "Erreur lors de la création de l'équipe");
+          setLoading(false);
+          return;
         }
+
+        const teamData = await teamRes.json();
+        const { toast } = await import("sonner");
+        toast.success(`Code d'invitation : ${teamData.inviteCode}`, {
+          description: "Vous le trouverez dans Paramètres > Équipe",
+          duration: 5000,
+        });
         window.location.href = "/";
       } else {
         window.location.href = "/create-team";
