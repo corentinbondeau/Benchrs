@@ -1,7 +1,6 @@
--- Ensure unique club names and unique team names within each club
+-- Ensure unique (club name + team name) combination across all clubs
+-- Multiple clubs CAN share the same name, but a team name must be unique per club name
 
--- Unique club name (only one club with a given name)
-ALTER TABLE clubs ADD CONSTRAINT clubs_name_unique UNIQUE (name);
-
--- Unique team name per club (no duplicate team names in the same club)
-ALTER TABLE teams ADD CONSTRAINT teams_club_id_name_unique UNIQUE (club_id, name);
+-- Unique combination of club name + team name
+CREATE UNIQUE INDEX idx_teams_club_name_team_name_unique
+  ON teams ((SELECT c.name FROM clubs c WHERE c.id = club_id), name);
