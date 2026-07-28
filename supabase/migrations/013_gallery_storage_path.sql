@@ -1,9 +1,12 @@
 ALTER TABLE gallery_media ADD COLUMN IF NOT EXISTS storage_path TEXT;
 
-ALTER TABLE gallery_media ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "Members can delete own gallery_media" ON gallery_media;
+DROP POLICY IF EXISTS "Members can view gallery_media" ON gallery_media;
+DROP POLICY IF EXISTS "Members can insert gallery_media" ON gallery_media;
+DROP POLICY IF EXISTS "Members can delete gallery_media" ON gallery_media;
 DROP POLICY IF EXISTS "Members can manage gallery_media" ON gallery_media;
+DROP POLICY IF EXISTS "Members can delete own gallery_media" ON gallery_media;
+DROP POLICY IF EXISTS "Authenticated can view gallery_media" ON gallery_media;
+DROP POLICY IF EXISTS "Authenticated can manage gallery_media" ON gallery_media;
 
 CREATE POLICY "Members can view gallery_media"
   ON gallery_media FOR SELECT
