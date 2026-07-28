@@ -277,9 +277,19 @@ export interface TrophyItem {
   event?: Event;
 }
 
+export interface Album {
+  id: string;
+  title: string;
+  description: string | null;
+  team_id: string;
+  created_by: string | null;
+  created_at: string;
+}
+
 export interface GalleryMedia {
   id: string;
   event_id: string | null;
+  album_id: string | null;
   uploaded_by: string | null;
   url: string;
   media_type: string;
