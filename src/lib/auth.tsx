@@ -30,11 +30,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const supabase = createClient();
 
   const fetchProfile = useCallback(async (userId: string) => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("profiles")
       .select("*")
       .eq("id", userId)
       .single();
+    if (error) console.error("[AuthProvider] fetchProfile Supabase error:", error);
     return data;
   }, [supabase]);
 
@@ -43,11 +44,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     async function init() {
       const { data: { session: currentSession } } = await supabase.auth.getSession();
+      console.log("[AuthProvider] getSession result:", currentSession ? "found" : "null", "user:", currentSession?.user?.email);
 
       if (!mounted) return;
 
       if (currentSession?.user) {
         const profile = await fetchProfile(currentSession.user.id);
+        console.log("[AuthProvider] fetchProfile result:", profile ? "found" : "null", "id:", currentSession.user.id);
         if (mounted && profile) {
           setSession(currentSession);
           setUser({
@@ -55,7 +58,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             email: currentSession.user.email || "",
             profile,
           });
+        } else {
+          console.log("[AuthProvider] profile not found or component unmounted, user stays null");
         }
+      } else {
+        console.log("[AuthProvider] no session, user stays null");
       }
       setLoading(false);
     }
