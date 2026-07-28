@@ -17,12 +17,28 @@ export default function AdminPlayersPage() {
   function fetchPlayers() {
     const supabase = createClient();
     supabase
-      .from("profiles")
-      .select("*")
-      .in("role", ["player", "parent"])
-      .order("last_name", { ascending: true })
-      .then(({ data }) => {
-        setPlayers((data as Profile[]) || []);
+      .from("team_members")
+      .select("user_id, role")
+      .eq("team_id", currentTeam!.id)
+      .then(async ({ data: members }) => {
+        if (!members || members.length === 0) {
+          setPlayers([]);
+          setLoading(false);
+          return;
+        }
+        const userIds = members.map((m) => m.user_id);
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("*")
+          .in("id", userIds)
+          .order("last_name", { ascending: true });
+        if (!profiles) {
+          setPlayers([]);
+          setLoading(false);
+          return;
+        }
+        const roleMap = Object.fromEntries(members.map((m) => [m.user_id, m.role]));
+        setPlayers(profiles.map((p) => ({ ...p, role: roleMap[p.id] ?? p.role })));
         setLoading(false);
       });
   }
