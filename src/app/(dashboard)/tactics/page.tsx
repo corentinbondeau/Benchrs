@@ -506,7 +506,13 @@ function SéanceTab() {
                     onValueChange={(v) => setForm({ ...form, event_id: v ?? "" })}
                   >
                     <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Sélectionner un entraînement" />
+                      <SelectValue placeholder="Sélectionner un entraînement">
+                        {(v) => {
+                          if (!v) return "Sélectionner un entraînement";
+                          const ev = events.find((e) => e.id === v);
+                          return ev ? `${ev.title} — ${formatDate(ev.event_date)}` : v;
+                        }}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       {events
@@ -1045,7 +1051,15 @@ function FeuilletMatchTab() {
               onValueChange={(v) => setSelectedEventId(v ?? "")}
             >
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="Sélectionner un match" />
+                <SelectValue placeholder="Sélectionner un match">
+                  {(v) => {
+                    if (!v) return "Sélectionner un match";
+                    const ev = events.find((e) => e.id === v);
+                    return ev
+                      ? `${ev.title}${ev.opponent ? ` vs ${ev.opponent}` : ""} — ${formatDate(ev.event_date)}`
+                      : v;
+                  }}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {events.map((ev) => (
@@ -1334,7 +1348,15 @@ function FeuilletMatchTab() {
               onValueChange={(v) => setCaptainId(v ?? "")}
             >
               <SelectTrigger className="w-full sm:w-64">
-                <SelectValue placeholder="Aucun capitaine" />
+                <SelectValue placeholder="Aucun capitaine">
+                  {(v) => {
+                    if (!v) return "Aucun capitaine";
+                    const player = players.find((p) => p.id === v);
+                    return player
+                      ? `#${player.shirt_number ?? "?"} ${player.first_name} ${player.last_name}`
+                      : v;
+                  }}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {players
