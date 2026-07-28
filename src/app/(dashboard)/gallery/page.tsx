@@ -378,7 +378,9 @@ export default function GalleryPage() {
                     <Label>Album (optionnel)</Label>
                     <Select value={albumId} onValueChange={(v) => setAlbumId(v ?? "Aucun")}>
                       <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Aucun album" />
+                        <SelectValue placeholder="Aucun album">
+                          {(v) => v === "Aucun" || !v ? "Aucun album" : albums.find((a) => a.id === v)?.title || v}
+                        </SelectValue>
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="Aucun">Aucun</SelectItem>
@@ -392,7 +394,9 @@ export default function GalleryPage() {
                     <Label>Événement (optionnel)</Label>
                     <Select value={eventId} onValueChange={(v) => setEventId(v ?? "Aucun")}>
                       <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Aucun événement" />
+                        <SelectValue placeholder="Aucun événement">
+                          {(v) => v === "Aucun" || !v ? "Aucun événement" : events.find((e) => e.id === v)?.title || v}
+                        </SelectValue>
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="Aucun">Aucun</SelectItem>
@@ -455,7 +459,9 @@ export default function GalleryPage() {
           <span className="text-sm font-medium">{selectedIds.size} sélectionné{selectedIds.size !== 1 ? "s" : ""}</span>
           <Select value={bulkAlbum} onValueChange={(v) => setBulkAlbum(v ?? "Aucun")}>
             <SelectTrigger className="w-48">
-              <SelectValue placeholder="Album" />
+              <SelectValue placeholder="Album">
+                {(v) => v === "Aucun" || !v ? "Aucun album" : albums.find((a) => a.id === v)?.title || v}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="Aucun">Aucun album</SelectItem>
@@ -636,7 +642,9 @@ export default function GalleryPage() {
             >
               <Select value={lightboxAlbum} onValueChange={(v) => setLightboxAlbum(v ?? "Aucun")}>
                 <SelectTrigger className="flex-1 bg-white/10 text-white border-white/20">
-                  <SelectValue placeholder="Album" />
+                  <SelectValue placeholder="Album">
+                    {(v) => v === "Aucun" || !v ? "Aucun album" : albums.find((a) => a.id === v)?.title || v}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Aucun">Aucun album</SelectItem>
