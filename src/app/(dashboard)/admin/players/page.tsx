@@ -47,7 +47,7 @@ export default function AdminPlayersPage() {
     return <div className="flex items-center justify-center h-64"><p className="text-muted-foreground">Chargement de l'équipe...</p></div>;
   }
 
-  useEffect(() => { fetchPlayers(); }, []);
+  useEffect(() => { if (currentTeam) fetchPlayers(); }, [currentTeam?.id]);
 
   async function toggleActive(id: string, current: boolean) {
     const supabase = createClient();
