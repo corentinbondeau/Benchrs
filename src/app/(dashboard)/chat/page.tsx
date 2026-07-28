@@ -7,8 +7,18 @@ import { useTeam } from "@/lib/team";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Send } from "lucide-react";
-import type { ChatChannel, ChatMessage } from "@/types";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Send, Plus, Loader2 } from "lucide-react";
+import type { ChatChannel, ChatMessage, Profile } from "@/types";
 
 interface MessageWithSender extends Omit<ChatMessage, "sender"> {
   sender?: { first_name: string; last_name: string } | null;
@@ -25,7 +35,15 @@ export default function ChatPage() {
   const [loading, setLoading] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Create channel state
+  const [createOpen, setCreateOpen] = useState(false);
+  const [channelName, setChannelName] = useState("");
+  const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
+  const [allMembers, setAllMembers] = useState<Profile[]>([]);
+  const [creating, setCreating] = useState(false);
+
   useEffect(() => {
+    if (!currentTeam) return;
     const supabase = createClient();
     supabase
       .from("chat_channels")
@@ -38,12 +56,30 @@ export default function ChatPage() {
           if (ch.channel_type === "general") return true;
           if (ch.channel_type === "parents") return role === "parent" || role === "coach";
           if (ch.channel_type === "coaches") return role === "coach";
-          return false;
+          return true;
         });
         setChannels(visible);
         setLoading(false);
       });
   }, [role, currentTeam]);
+
+  useEffect(() => {
+    if (!currentTeam || !createOpen) return;
+    const supabase = createClient();
+    supabase
+      .from("team_members")
+      .select("user_id")
+      .eq("team_id", currentTeam!.id)
+      .then(({ data: rows }) => {
+        if (!rows || rows.length === 0) return;
+        supabase
+          .from("profiles")
+          .select("id, first_name, last_name")
+          .in("id", rows.map((r) => r.user_id))
+          .order("last_name", { ascending: true })
+          .then(({ data }) => setAllMembers((data as Profile[]) || []));
+      });
+  }, [currentTeam, createOpen]);
 
   useEffect(() => {
     if (!selectedChannel) return;
@@ -77,6 +113,52 @@ export default function ChatPage() {
 
     return () => { supabase.removeChannel(channel); };
   }, [selectedChannel, user?.id]);
+
+  async function createChannel() {
+    if (!channelName.trim() || !currentTeam || !user) return;
+    setCreating(true);
+    const supabase = createClient();
+
+    const { data: channel, error } = await supabase
+      .from("chat_channels")
+      .insert({
+        name: channelName.trim(),
+        description: null,
+        is_private: false,
+        channel_type: "general",
+        team_id: currentTeam.id,
+      })
+      .select()
+      .single();
+
+    if (error || !channel) {
+      const { toast } = await import("sonner");
+      toast.error("Erreur lors de la création du canal");
+      setCreating(false);
+      return;
+    }
+
+    const memberIds = [...new Set([...selectedMembers, user.id])];
+    const { error: memberError } = await supabase
+      .from("chat_members")
+      .insert(memberIds.map((userId) => ({
+        channel_id: channel.id,
+        user_id: userId,
+        team_id: currentTeam.id,
+      })));
+
+    if (memberError) {
+      const { toast } = await import("sonner");
+      toast.error("Erreur lors de l'ajout des membres");
+    }
+
+    setChannels((prev) => [...prev, channel]);
+    setSelectedChannel(channel.id);
+    setChannelName("");
+    setSelectedMembers([]);
+    setCreateOpen(false);
+    setCreating(false);
+  }
 
   async function sendMessage(e: React.FormEvent) {
     e.preventDefault();
@@ -125,11 +207,82 @@ export default function ChatPage() {
   return (
     <div className="h-[calc(100vh-8rem)] flex rounded-lg border overflow-hidden">
       {/* Channel List */}
-      <div className="w-64 border-r bg-muted/30 overflow-y-auto shrink-0">
-        <div className="p-3 border-b">
+      <div className="w-64 border-r bg-muted/30 overflow-y-auto shrink-0 flex flex-col">
+        <div className="p-3 border-b flex items-center justify-between">
           <h3 className="font-semibold text-sm">Canaux</h3>
+          <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+            <DialogTrigger render={<Button variant="ghost" size="icon" className="h-7 w-7"><Plus className="h-4 w-4" /></Button>} />
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Nouveau canal</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 pt-2">
+                <div className="space-y-2">
+                  <Label htmlFor="channelName">Nom du canal</Label>
+                  <Input
+                    id="channelName"
+                    value={channelName}
+                    onChange={(e) => setChannelName(e.target.value)}
+                    placeholder="Ex: Match du samedi"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !creating) createChannel();
+                    }}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Membres du canal</Label>
+                  <ScrollArea className="h-56 rounded-md border p-2">
+                    {allMembers.map((member) => (
+                      <label
+                        key={member.id}
+                        className="flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-muted cursor-pointer"
+                      >
+                        <Checkbox
+                          checked={selectedMembers.includes(member.id)}
+                          onCheckedChange={(checked) =>
+                            setSelectedMembers(
+                              checked
+                                ? [...selectedMembers, member.id]
+                                : selectedMembers.filter((id) => id !== member.id)
+                            )
+                          }
+                        />
+                        <span className="text-sm">
+                          {member.first_name} {member.last_name}
+                        </span>
+                      </label>
+                    ))}
+                    {allMembers.length === 0 && (
+                      <p className="text-sm text-muted-foreground text-center py-4">
+                        Aucun membre disponible
+                      </p>
+                    )}
+                  </ScrollArea>
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" onClick={() => setCreateOpen(false)}>
+                    Annuler
+                  </Button>
+                  <Button
+                    onClick={createChannel}
+                    disabled={!channelName.trim() || creating}
+                    className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
+                  >
+                    {creating ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                        Création...
+                      </>
+                    ) : (
+                      "Créer le canal"
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
-        <div className="p-1">
+        <div className="flex-1 p-1 overflow-y-auto">
           {channels.map((channel) => (
             <button
               key={channel.id}
