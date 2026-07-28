@@ -62,7 +62,7 @@ export function TeamProvider({ children }: { children: ReactNode }) {
 
     const { data: memberships, error } = await supabase
       .from("team_members")
-      .select("team_id, role, team:teams(id, name, club_id, invite_code, created_at, club:clubs(id, name, logo_url, created_by, created_at))")
+      .select("team_id, role, team:teams(id, name, club_id, invite_code, color_primary, color_secondary, created_at, club:clubs(id, name, logo_url, created_by, created_at))")
       .eq("user_id", userId);
 
     if (error || !memberships) {
