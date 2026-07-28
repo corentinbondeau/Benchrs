@@ -21,7 +21,8 @@ import {
   Trophy,
   Bell,
   Settings,
-  Shield,
+  UserCog,
+  Wallet,
 } from "lucide-react";
 
 const navItems = [
@@ -38,6 +39,11 @@ const navItems = [
   { href: "/gallery", label: "Galerie", icon: Image },
   { href: "/trophies", label: "Trophées", icon: Trophy },
   { href: "/notifications", label: "Notifications", icon: Bell },
+];
+
+const coachItems = [
+  { href: "/admin/players", label: "Gestion joueurs", icon: UserCog },
+  { href: "/admin/cotisations", label: "Cotisations", icon: Wallet },
 ];
 
 export function MobileNav() {
@@ -114,6 +120,46 @@ export function MobileNav() {
             );
           })}
         </nav>
+
+        {isCoach && (
+          <>
+            <div className="mx-2 border-t border-white/10" />
+            <p className="px-4 py-1 text-xs font-semibold text-white/40 uppercase tracking-wider">
+              Admin
+            </p>
+            <nav className="pb-3 px-2 space-y-0.5">
+              {coachItems.map((item) => {
+                const active = pathname.startsWith(item.href);
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setOpen(false)}
+                    className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                      active
+                        ? "bg-white/15 text-white"
+                        : "text-white/60 hover:bg-white/10 hover:text-white"
+                    }`}
+                  >
+                    <item.icon className="h-4 w-4 shrink-0" />
+                    {item.label}
+                  </Link>
+                );
+              })}
+            </nav>
+          </>
+        )}
+
+        <div className="border-t border-white/10 p-3">
+          <Link
+            href="/settings"
+            onClick={() => setOpen(false)}
+            className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-white/60 hover:bg-white/10 hover:text-white transition-colors"
+          >
+            <Settings className="h-4 w-4" />
+            Paramètres
+          </Link>
+        </div>
       </SheetContent>
     </Sheet>
   );
