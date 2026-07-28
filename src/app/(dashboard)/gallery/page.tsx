@@ -118,6 +118,21 @@ export default function GalleryPage() {
     setUploading(true);
 
     const supabase = createClient();
+
+    const { data: buckets } = await supabase.storage.listBuckets();
+    if (!buckets?.find((b) => b.name === "gallery")) {
+      const { error: createError } = await supabase.storage.createBucket("gallery", {
+        public: true,
+        fileSizeLimit: 52428800,
+        allowedMimeTypes: ["image/*", "video/*"],
+      });
+      if (createError) {
+        toast.error("Erreur lors de la création du stockage");
+        setUploading(false);
+        return;
+      }
+    }
+
     let uploaded = 0;
 
     for (const file of files) {
@@ -129,7 +144,7 @@ export default function GalleryPage() {
         .upload(path, file, { upsert: true });
 
       if (uploadError) {
-        toast.error(`Erreur lors de l'upload de ${file.name}`);
+        toast.error(`Erreur lors de l'upload de ${file.name} : ${uploadError.message}`);
         continue;
       }
 
