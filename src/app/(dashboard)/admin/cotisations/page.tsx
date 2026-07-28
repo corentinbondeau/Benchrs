@@ -41,9 +41,14 @@ import {
   TrendingDown,
   PiggyBank,
   Receipt,
+  CreditCard,
 } from "lucide-react";
 import { toast } from "sonner";
+import { loadStripe } from "@stripe/stripe-js";
+import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import type { Profile, Cotisation, PaymentHistory } from "@/types";
+
+const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 
 const CURRENT_SEASON = "2025-2026";
 
@@ -89,6 +94,12 @@ export default function CotisationsPage() {
   const [historyPlayer, setHistoryPlayer] = useState<Profile | null>(null);
 
   const [saving, setSaving] = useState(false);
+
+  const [cardOpen, setCardOpen] = useState(false);
+  const [cardCotisation, setCardCotisation] = useState<Cotisation | null>(null);
+  const [cardPlayer, setCardPlayer] = useState<Profile | null>(null);
+  const [cardLoading, setCardLoading] = useState(false);
+  const [clientSecret, setClientSecret] = useState("");
 
   const supabase = createClient();
 
@@ -445,6 +456,39 @@ export default function CotisationsPage() {
                               </Button>
                               <Button
                                 size="sm"
+                                variant="outline"
+                                className="h-8 text-xs"
+                                onClick={async () => {
+                                  setCardLoading(true);
+                                  setCardCotisation(c);
+                                  setCardPlayer(player);
+                                  const res = await fetch("/api/stripe/create-payment-intent", {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({
+                                      cotisation_id: c.id,
+                                      amount: Number(c.amount_expected) - Number(c.amount_paid),
+                                      player_name: `${player.first_name} ${player.last_name}`,
+                                    }),
+                                  });
+                                  const data = await res.json();
+                                  if (!res.ok) {
+                                    toast.error(data.error || "Erreur de paiement");
+                                    setCardLoading(false);
+                                    setCardCotisation(null);
+                                    setCardPlayer(null);
+                                  } else {
+                                    setClientSecret(data.clientSecret);
+                                    setCardLoading(false);
+                                    setCardOpen(true);
+                                  }
+                                }}
+                              >
+                                <CreditCard className="h-3 w-3 mr-1" />
+                                Carte
+                              </Button>
+                              <Button
+                                size="sm"
                                 variant="ghost"
                                 className="h-8 text-xs"
                                 onClick={() => openHistory(c, player)}
@@ -576,6 +620,41 @@ export default function CotisationsPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Card payment dialog */}
+      {cardOpen && cardCotisation && clientSecret && stripePromise && (
+        <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme: "stripe" } }}>
+          <CardPaymentDialog
+            cotisation={cardCotisation}
+            player={cardPlayer}
+            onClose={() => {
+              setCardOpen(false);
+              setCardCotisation(null);
+              setCardPlayer(null);
+              setClientSecret("");
+            }}
+            onSuccess={() => {
+              setCardOpen(false);
+              setCardCotisation(null);
+              setCardPlayer(null);
+              setClientSecret("");
+              fetchData();
+            }}
+          />
+        </Elements>
+      )}
+      {cardLoading && (
+        <Dialog open onOpenChange={() => {}}>
+          <DialogContent className="sm:max-w-sm">
+            <DialogHeader>
+              <DialogTitle>Préparation du paiement...</DialogTitle>
+            </DialogHeader>
+            <div className="flex items-center justify-center py-8">
+              <div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-[var(--color-gold)]" />
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
       {/* Payment history dialog */}
       <Dialog open={historyOpen} onOpenChange={setHistoryOpen}>
         <DialogContent className="sm:max-w-md">
@@ -626,5 +705,90 @@ export default function CotisationsPage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+function CardPaymentDialog({
+  cotisation,
+  player,
+  onClose,
+  onSuccess,
+}: {
+  cotisation: Cotisation;
+  player: Profile | null;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const stripe = useStripe();
+  const elements = useElements();
+  const [processing, setProcessing] = useState(false);
+  const [error, setError] = useState("");
+  const [amount, setAmount] = useState(
+    (Number(cotisation.amount_expected) - Number(cotisation.amount_paid)).toFixed(2)
+  );
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!stripe || !elements) return;
+    setProcessing(true);
+    setError("");
+
+    const { error: confirmError } = await stripe.confirmPayment({
+      elements,
+      confirmParams: { return_url: window.location.href },
+      redirect: "if_required",
+    });
+
+    if (confirmError) {
+      setError(confirmError.message || "Paiement refusé");
+      setProcessing(false);
+    } else {
+      toast.success("Paiement accepté !");
+      onSuccess();
+    }
+  }
+
+  return (
+    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Paiement par carte</DialogTitle>
+          <DialogDescription>
+            {player?.first_name} {player?.last_name}
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label>Montant à payer (€)</Label>
+            <Input
+              type="number"
+              step="0.01"
+              min="0.01"
+              max={Number(cotisation.amount_expected) - Number(cotisation.amount_paid)}
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+            />
+          </div>
+          <div className="rounded-lg border p-4">
+            <PaymentElement />
+          </div>
+          {error && (
+            <p className="text-sm text-red-500">{error}</p>
+          )}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose} disabled={processing}>
+              Annuler
+            </Button>
+            <Button
+              type="submit"
+              className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
+              disabled={!stripe || processing}
+            >
+              {processing ? "Paiement en cours..." : `Payer ${amount} €`}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -383,6 +383,7 @@ export interface PaymentHistory {
   payment_method: string | null;
   payment_date: string | null;
   recorded_by: string | null;
+  stripe_payment_intent_id: string | null;
   notes: string | null;
   created_at: string;
   recorded_by_user?: Profile;
