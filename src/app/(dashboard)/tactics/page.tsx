@@ -1707,18 +1707,18 @@ function FeuilletMatchTab() {
 
 export default function TacticsPage() {
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6 pb-20 md:pb-0">
       <div>
-        <h2 className="text-2xl font-bold">Tactique & Séances</h2>
-        <p className="mt-1 text-muted-foreground">
+        <h2 className="text-xl md:text-2xl font-bold">Tactique & Séances</h2>
+        <p className="text-sm mt-1 text-muted-foreground">
           Gestion des entraînements et compositions d&apos;équipe
         </p>
       </div>
 
       <Tabs defaultValue="seance" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="seance">Séance</TabsTrigger>
-          <TabsTrigger value="match">Feuillet Match</TabsTrigger>
+        <TabsList className="overflow-x-auto">
+          <TabsTrigger value="seance" className="shrink-0">Séance</TabsTrigger>
+          <TabsTrigger value="match" className="shrink-0">Feuillet Match</TabsTrigger>
         </TabsList>
         <TabsContent value="seance">
           <SéanceTab />

@@ -251,8 +251,8 @@ export default function GalleryPage() {
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <h2 className="text-2xl font-bold">Galerie</h2>
+      <div className="space-y-4 md:space-y-6 pb-20 md:pb-0">
+        <h2 className="text-xl md:text-2xl font-bold">Galerie</h2>
         <div className="h-64 animate-pulse rounded-lg bg-muted" />
       </div>
     );
@@ -260,7 +260,7 @@ export default function GalleryPage() {
 
   if (selectedAlbum) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-4 md:space-y-6 pb-20 md:pb-0">
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="sm" onClick={() => setSelectedAlbum(null)}>
             <ArrowLeft className="mr-2 h-4 w-4" />
@@ -347,11 +347,11 @@ export default function GalleryPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 md:space-y-6 pb-20 md:pb-0">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
-          <h2 className="text-2xl font-bold">Galerie</h2>
-          <p className="text-muted-foreground mt-1">Photos et vidéos de l&apos;équipe</p>
+          <h2 className="text-xl md:text-2xl font-bold">Galerie</h2>
+          <p className="text-sm text-muted-foreground mt-1">Photos et vidéos de l&apos;équipe</p>
         </div>
         <div className="flex gap-2">
           {user && (

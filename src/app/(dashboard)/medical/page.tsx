@@ -80,8 +80,8 @@ export default function MedicalPage() {
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <h2 className="text-2xl font-bold">Infirmerie</h2>
+      <div className="space-y-4 md:space-y-6 pb-20 md:pb-0">
+        <h2 className="text-xl md:text-2xl font-bold">Infirmerie</h2>
         <div className="h-64 animate-pulse rounded-lg bg-muted" />
       </div>
     );
@@ -91,11 +91,11 @@ export default function MedicalPage() {
   const recoveredInjuries = injuries.filter((i) => i.status === "recovered");
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6 pb-20 md:pb-0">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold">Infirmerie</h2>
-          <p className="text-muted-foreground mt-1">Suivi des blessures</p>
+          <h2 className="text-xl md:text-2xl font-bold">Infirmerie</h2>
+          <p className="text-sm text-muted-foreground mt-1">Suivi des blessures</p>
         </div>
         {isCoach && (
           <Dialog open={addOpen} onOpenChange={setAddOpen}>

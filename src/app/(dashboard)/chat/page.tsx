@@ -205,7 +205,7 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="h-[calc(100vh-8rem)] flex rounded-lg border overflow-hidden">
+    <div className="h-[calc(100vh-8rem)] flex rounded-lg border overflow-hidden pb-20 md:pb-0">
       {/* Channel List */}
       <div className="w-64 border-r bg-muted/30 overflow-y-auto shrink-0 flex flex-col">
         <div className="p-3 border-b flex items-center justify-between">
