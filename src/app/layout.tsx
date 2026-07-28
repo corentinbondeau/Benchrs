@@ -11,6 +11,10 @@ export const metadata: Metadata = {
   title: "SportPlus",
   description: "Gestion d'équipe de football amateur",
   manifest: "/manifest.json",
+  icons: [
+    { rel: "icon", url: "/logo.svg", type: "image/svg+xml" },
+    { rel: "apple-touch-icon", url: "/logo.svg" },
+  ],
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
@@ -32,10 +36,6 @@ export default function RootLayout({
 }) {
   return (
     <html lang="fr" suppressHydrationWarning>
-      <head>
-        <link rel="apple-touch-icon" href="/logo.svg" />
-        <link rel="icon" href="/logo.svg" sizes="any" type="image/svg+xml" />
-      </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           {children}
