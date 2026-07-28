@@ -57,12 +57,33 @@ export default function TeamSettingsPage() {
     setColorSecondary(currentTeam.color_secondary || "#1E40AF");
 
     async function loadMembers() {
-      const { data } = await supabase
+      const { data: rows } = await supabase
         .from("team_members")
-        .select("*, profile:profiles(*)")
+        .select("*")
         .eq("team_id", currentTeam!.id);
 
-      setMembers(data || []);
+      if (!rows || rows.length === 0) {
+        setMembers([]);
+        setLoading(false);
+        return;
+      }
+
+      const userIds = rows.map((r) => r.user_id);
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("*")
+        .in("id", userIds);
+
+      const profileMap = new Map(
+        (profiles || []).map((p) => [p.id, p])
+      );
+
+      setMembers(
+        rows.map((r) => ({
+          ...r,
+          profile: profileMap.get(r.user_id),
+        }))
+      );
       setLoading(false);
     }
 
