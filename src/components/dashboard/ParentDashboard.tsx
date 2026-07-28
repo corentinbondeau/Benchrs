@@ -198,9 +198,9 @@ export function ParentDashboard() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6 pb-20 lg:pb-0">
       <div>
-        <h2 className="text-2xl font-bold">
+        <h2 className="text-xl md:text-2xl font-bold">
           Bonjour, {user?.profile?.first_name} 👋
         </h2>
         <p className="text-muted-foreground mt-1">
@@ -210,7 +210,7 @@ export function ParentDashboard() {
 
       {child && (
         <Card className="bg-gradient-to-r from-[var(--color-navy)] to-[var(--color-royal)] text-white">
-          <CardContent className="p-6">
+          <CardContent className="p-4 md:p-6">
             <div className="flex items-center gap-4">
               <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/20 text-xl font-bold">
                 {child.shirt_number ?? "?"}

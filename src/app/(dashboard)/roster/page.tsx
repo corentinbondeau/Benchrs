@@ -87,19 +87,21 @@ export default function RosterPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold">Effectif</h2>
-        <p className="text-muted-foreground mt-1">
-          {coaches.length} coach{coaches.length > 1 ? "s" : ""}, {players.length} joueur{players.length > 1 ? "s" : ""}, {parents.length} parent{parents.length > 1 ? "s" : ""}
-        </p>
+    <div className="space-y-6 pb-20 lg:pb-0">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold">Effectif</h2>
+          <p className="text-muted-foreground mt-1 text-sm">
+            {coaches.length} coach{coaches.length > 1 ? "s" : ""}, {players.length} joueur{players.length > 1 ? "s" : ""}, {parents.length} parent{parents.length > 1 ? "s" : ""}
+          </p>
+        </div>
       </div>
 
       <Tabs defaultValue="all" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="all">Tous</TabsTrigger>
+        <TabsList className="w-full overflow-x-auto">
+          <TabsTrigger value="all" className="flex-1">Tous</TabsTrigger>
           {groupedByRole.filter(r => r.profiles.length > 0).map((role) => (
-            <TabsTrigger key={role.key} value={role.key}>
+            <TabsTrigger key={role.key} value={role.key} className="flex-1">
               {role.label} ({role.profiles.length})
             </TabsTrigger>
           ))}
@@ -116,7 +118,7 @@ export default function RosterPage() {
                     <Icon className="h-4 w-4" />
                     {role.label} ({role.profiles.length})
                   </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 md:gap-4">
                     {role.profiles.map((profile) => (
                       <ProfileCard key={profile.id} profile={profile} roleKey={role.key} />
                     ))}
@@ -172,10 +174,10 @@ function ProfileCard({ profile, roleKey }: { profile: Profile; roleKey: string }
   };
 
   return (
-    <Card className="hover:shadow-md transition-shadow">
-      <CardContent className="p-4">
-        <div className="flex items-center gap-4">
-          <div className={`flex h-14 w-14 items-center justify-center rounded-full text-lg font-bold ${
+    <Card className="hover:shadow-md transition-shadow active:scale-[0.98] touch-manipulation">
+      <CardContent className="p-3 md:p-4">
+        <div className="flex items-center gap-3 md:gap-4">
+          <div className={`flex h-12 w-12 md:h-14 md:w-14 items-center justify-center rounded-full text-base md:text-lg font-bold shrink-0 ${
             roleKey === "coach" ? "bg-amber-100 text-amber-700" :
             roleKey === "player" ? "bg-blue-100 text-blue-700" :
             "bg-green-100 text-green-700"

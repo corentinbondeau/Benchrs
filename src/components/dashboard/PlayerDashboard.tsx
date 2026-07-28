@@ -82,9 +82,9 @@ export function PlayerDashboard() {
     : [];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6 pb-20 lg:pb-0">
       <div>
-        <h2 className="text-2xl font-bold">
+        <h2 className="text-xl md:text-2xl font-bold">
           Bonjour, {user?.profile?.first_name} 👋
         </h2>
         <p className="text-muted-foreground mt-1">
@@ -120,7 +120,7 @@ export function PlayerDashboard() {
         </Card>
       )}
 
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-4 md:gap-6 md:grid-cols-2">
         <PendingConvocations />
         <RecentResults />
       </div>
