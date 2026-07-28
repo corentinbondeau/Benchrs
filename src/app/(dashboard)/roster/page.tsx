@@ -4,11 +4,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useTeam } from "@/lib/team";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { UserPlus, Shield, Users, Baby } from "lucide-react";
+import { UserPlus, Shield, Users, Baby, ChevronRight } from "lucide-react";
 import type { Profile } from "@/types";
 
 const positionLabels: Record<string, string> = {
@@ -18,17 +14,19 @@ const positionLabels: Record<string, string> = {
   forward: "Attaquant",
 };
 
-const roleLabels: Record<string, { label: string; color: string; icon: typeof Shield }> = {
-  coach: { label: "Coachs", color: "text-amber-600", icon: Shield },
-  player: { label: "Joueurs", color: "text-blue-600", icon: Users },
-  parent: { label: "Parents", color: "text-green-600", icon: Baby },
-};
+const ROLE_TABS = [
+  { key: "all", label: "Tous", icon: Users },
+  { key: "coach", label: "Coachs", icon: Shield },
+  { key: "player", label: "Joueurs", icon: Users },
+  { key: "parent", label: "Parents", icon: Baby },
+] as const;
 
 export default function RosterPage() {
   const { user } = useAuth();
   const { currentTeam } = useTeam();
   const [allProfiles, setAllProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeRole, setActiveRole] = useState("all");
 
   useEffect(() => {
     if (!currentTeam) return;
@@ -60,26 +58,40 @@ export default function RosterPage() {
   }, [currentTeam?.id]);
 
   if (!currentTeam) {
-    return <div className="flex items-center justify-center h-64"><p className="text-muted-foreground">Chargement de l&apos;équipe...</p></div>;
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-muted-foreground">Chargement de l&apos;équipe...</p>
+      </div>
+    );
   }
 
   const coaches = allProfiles.filter((p) => p.role === "coach");
   const players = allProfiles.filter((p) => p.role === "player");
   const parents = allProfiles.filter((p) => p.role === "parent");
 
-  const groupedByRole = [
-    { key: "coach", profiles: coaches, ...roleLabels.coach },
-    { key: "player", profiles: players, ...roleLabels.player },
-    { key: "parent", profiles: parents, ...roleLabels.parent },
-  ];
+  const roleMap: Record<string, Profile[]> = {
+    all: allProfiles,
+    coach: coaches,
+    player: players,
+    parent: parents,
+  };
+
+  const filteredProfiles = roleMap[activeRole] || [];
+
+  const roleCounts: Record<string, number> = {
+    all: allProfiles.length,
+    coach: coaches.length,
+    player: players.length,
+    parent: parents.length,
+  };
 
   if (loading) {
     return (
-      <div className="space-y-4 md:space-y-6 pb-20 md:pb-0">
-        <h2 className="text-xl md:text-2xl font-bold">Effectif</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="h-32 animate-pulse rounded-lg bg-muted" />
+      <div className="p-4 pb-24">
+        <h2 className="text-xl font-bold mb-6">Effectif</h2>
+        <div className="space-y-3">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="h-16 animate-pulse rounded-xl bg-muted" />
           ))}
         </div>
       </div>
@@ -87,122 +99,95 @@ export default function RosterPage() {
   }
 
   return (
-    <div className="space-y-6 pb-20 md:pb-0">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold">Effectif</h2>
-          <p className="text-muted-foreground mt-1 text-sm">
-            {coaches.length} coach{coaches.length > 1 ? "s" : ""}, {players.length} joueur{players.length > 1 ? "s" : ""}, {parents.length} parent{parents.length > 1 ? "s" : ""}
-          </p>
-        </div>
+    <div className="pb-24">
+      {/* Header */}
+      <div className="px-4 pt-4 pb-2">
+        <h2 className="text-xl font-bold">Effectif</h2>
+        <p className="text-sm text-muted-foreground mt-0.5">
+          {coaches.length > 0 && `${coaches.length} coach${coaches.length > 1 ? "s" : ""}`}
+          {coaches.length > 0 && players.length > 0 && " · "}
+          {players.length > 0 && `${players.length} joueur${players.length > 1 ? "s" : ""}`}
+          {((coaches.length > 0 || players.length > 0) && parents.length > 0) && " · "}
+          {parents.length > 0 && `${parents.length} parent${parents.length > 1 ? "s" : ""}`}
+        </p>
       </div>
 
-      <Tabs defaultValue="all" className="space-y-4">
-        <TabsList className="w-full overflow-x-auto">
-          <TabsTrigger value="all" className="shrink-0">Tous</TabsTrigger>
-          {groupedByRole.filter(r => r.profiles.length > 0).map((role) => (
-            <TabsTrigger key={role.key} value={role.key} className="shrink-0">
-              {role.label} ({role.profiles.length})
-            </TabsTrigger>
-          ))}
-        </TabsList>
+      {/* Role filter chips */}
+      <div className="flex gap-2 px-4 py-3 overflow-x-auto scrollbar-none">
+        {ROLE_TABS.map((tab) => {
+          const count = roleCounts[tab.key];
+          const isActive = activeRole === tab.key;
+          return (
+            <button
+              key={tab.key}
+              onClick={() => setActiveRole(tab.key)}
+              className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium whitespace-nowrap transition-colors touch-manipulation ${
+                isActive
+                  ? "bg-[var(--color-gold)] text-[var(--color-navy)]"
+                  : "bg-muted text-muted-foreground hover:bg-muted/80"
+              }`}
+            >
+              <tab.icon className="h-4 w-4" />
+              {tab.label} ({count})
+            </button>
+          );
+        })}
+      </div>
 
-        <TabsContent value="all">
-          <div className="space-y-6">
-            {groupedByRole.map((role) => {
-              if (role.profiles.length === 0) return null;
-              const Icon = role.icon;
-              return (
-                <div key={role.key}>
-                  <h3 className={`text-sm font-semibold mb-3 flex items-center gap-2 ${role.color}`}>
-                    <Icon className="h-4 w-4" />
-                    {role.label} ({role.profiles.length})
-                  </h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 md:gap-4">
-                    {role.profiles.map((profile) => (
-                      <ProfileCard key={profile.id} profile={profile} roleKey={role.key} />
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-            {allProfiles.length === 0 && (
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <UserPlus className="h-12 w-12 text-muted-foreground mb-4" />
-                <h3 className="font-semibold text-lg">Aucun membre</h3>
-                <p className="text-muted-foreground text-sm mt-1">
-                  Les membres inscrits apparaitront ici.
+      {/* Player list */}
+      <div className="px-4 space-y-2">
+        {filteredProfiles.map((profile) => {
+          const roleKey = profile.role || "player";
+          const initials = `${profile.first_name[0]}${profile.last_name[0]}`;
+          const roleBadgeLabels: Record<string, string> = {
+            coach: "Coach",
+            player: "Joueur",
+            parent: "Parent",
+          };
+
+          return (
+            <div
+              key={profile.id}
+              className="flex items-center gap-3 rounded-xl bg-card border p-4 active:scale-[0.98] transition-transform touch-manipulation"
+            >
+              <div
+                className={`flex h-12 w-12 items-center justify-center rounded-full text-base font-bold shrink-0 ${
+                  roleKey === "coach"
+                    ? "bg-amber-100 text-amber-700"
+                    : roleKey === "player"
+                    ? "bg-blue-100 text-blue-700"
+                    : "bg-green-100 text-green-700"
+                }`}
+              >
+                {roleKey === "player" && profile.shirt_number
+                  ? profile.shirt_number
+                  : initials}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-[15px]">
+                  {profile.first_name} {profile.last_name}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {roleKey === "player"
+                    ? (positionLabels[profile.position || ""] || "Joueur")
+                    : roleBadgeLabels[roleKey]}
                 </p>
               </div>
-            )}
-          </div>
-        </TabsContent>
-
-        {groupedByRole.map((role) => (
-          <TabsContent key={role.key} value={role.key}>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {role.profiles.map((profile) => (
-                <ProfileCard key={profile.id} profile={profile} roleKey={role.key} />
-              ))}
-              {role.profiles.length === 0 && (
-                <div className="col-span-full">
-                  <div className="flex flex-col items-center justify-center py-12 text-center">
-                    <UserPlus className="h-12 w-12 text-muted-foreground mb-4" />
-                    <h3 className="font-semibold text-lg">Aucun {role.label.toLowerCase().slice(0, -1)}</h3>
-                  </div>
-                </div>
-              )}
+              <ChevronRight className="h-5 w-5 text-muted-foreground/40 shrink-0" />
             </div>
-          </TabsContent>
-        ))}
-      </Tabs>
+          );
+        })}
+
+        {filteredProfiles.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <UserPlus className="h-12 w-12 text-muted-foreground mb-4" />
+            <h3 className="font-semibold text-lg">Aucun membre</h3>
+            <p className="text-muted-foreground text-sm mt-1">
+              Les membres inscrits apparaitront ici.
+            </p>
+          </div>
+        )}
+      </div>
     </div>
-  );
-}
-
-function ProfileCard({ profile, roleKey }: { profile: Profile; roleKey: string }) {
-  const roleColors: Record<string, string> = {
-    coach: "bg-amber-100 text-amber-700",
-    player: "bg-blue-100 text-blue-700",
-    parent: "bg-green-100 text-green-700",
-  };
-
-  const roleBadgeLabels: Record<string, string> = {
-    coach: "Coach",
-    player: "Joueur",
-    parent: "Parent",
-  };
-
-  return (
-    <Card className="hover:shadow-md transition-shadow active:scale-[0.98] touch-manipulation">
-      <CardContent className="p-3 md:p-4">
-        <div className="flex items-center gap-3 md:gap-4">
-          <div className={`flex h-12 w-12 md:h-14 md:w-14 items-center justify-center rounded-full text-base md:text-lg font-bold shrink-0 ${
-            roleKey === "coach" ? "bg-amber-100 text-amber-700" :
-            roleKey === "player" ? "bg-blue-100 text-blue-700" :
-            "bg-green-100 text-green-700"
-          }`}>
-            {roleKey === "player" && profile.shirt_number
-              ? profile.shirt_number
-              : `${profile.first_name[0]}${profile.last_name[0]}`
-            }
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="font-semibold truncate">
-              {profile.first_name} {profile.last_name}
-            </p>
-            <p className="text-sm text-muted-foreground">
-              {roleKey === "player"
-                ? (positionLabels[profile.position || ""] || "Joueur")
-                : roleBadgeLabels[roleKey] || roleKey
-              }
-            </p>
-          </div>
-          <Badge variant="secondary" className={`shrink-0 ${roleColors[roleKey]}`}>
-            {roleBadgeLabels[roleKey]}
-          </Badge>
-        </div>
-      </CardContent>
-    </Card>
   );
 }
