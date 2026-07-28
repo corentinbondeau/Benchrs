@@ -22,7 +22,20 @@ import {
   UserCog,
   Wallet,
   ChevronsUpDown,
+  Plus,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
+import { useState } from "react";
 
 const navItems = [
   { href: "/", label: "Tableau de bord", icon: LayoutDashboard },
@@ -49,8 +62,38 @@ const coachItems = [
 export function Sidebar() {
   const pathname = usePathname();
   const { user } = useAuth();
-  const { currentTeam, teams, switchTeam } = useTeam();
+  const { currentTeam, teams, switchTeam, refreshTeams } = useTeam();
   const isCoach = user?.profile?.role === "coach";
+  const [createOpen, setCreateOpen] = useState(false);
+  const [clubName, setClubName] = useState("");
+  const [teamName, setTeamName] = useState("");
+  const [creating, setCreating] = useState(false);
+
+  async function handleCreateTeam() {
+    if (!clubName.trim() || !teamName.trim()) return;
+    setCreating(true);
+    try {
+      const res = await fetch("/api/auth/create-team", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: user!.id, clubName: clubName.trim(), teamName: teamName.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "Erreur lors de la création");
+        setCreating(false);
+        return;
+      }
+      toast.success(`Équipe créée ! Code d'invitation : ${data.inviteCode}`);
+      setCreateOpen(false);
+      setClubName("");
+      setTeamName("");
+      await refreshTeams();
+    } catch {
+      toast.error("Erreur de connexion au serveur");
+    }
+    setCreating(false);
+  }
 
   return (
     <aside className="hidden lg:flex lg:w-64 lg:flex-col bg-[var(--color-navy)] text-white">
@@ -91,6 +134,29 @@ export function Sidebar() {
           >
             Paramètres d&apos;équipe
           </Link>
+          <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+            <DialogTrigger render={<button className="block w-full mt-0.5 text-xs text-white/40 hover:text-white/60 text-center" />}>
+              + Créer une équipe
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-sm">
+              <DialogHeader>
+                <DialogTitle>Créer une équipe</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Nom du club</Label>
+                  <Input value={clubName} onChange={(e) => setClubName(e.target.value)} placeholder="AS Monaco" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Nom de l&apos;équipe</Label>
+                  <Input value={teamName} onChange={(e) => setTeamName(e.target.value)} placeholder="U17 Senior" />
+                </div>
+                <Button className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold" onClick={handleCreateTeam} disabled={!clubName.trim() || !teamName.trim() || creating}>
+                  {creating ? "Création..." : "Créer l'équipe"}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
       )}
 
