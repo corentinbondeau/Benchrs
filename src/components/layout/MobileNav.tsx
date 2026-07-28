@@ -150,14 +150,22 @@ export function MobileNav() {
           </>
         )}
 
-        <div className="border-t border-white/10 p-3">
+        <div className="border-t border-white/10 p-3 space-y-0.5">
           <Link
             href="/settings"
             onClick={() => setOpen(false)}
             className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-white/60 hover:bg-white/10 hover:text-white transition-colors"
           >
             <Settings className="h-4 w-4" />
-            Paramètres
+            Mon profil
+          </Link>
+          <Link
+            href="/settings/team"
+            onClick={() => setOpen(false)}
+            className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-white/60 hover:bg-white/10 hover:text-white transition-colors"
+          >
+            <Settings className="h-4 w-4" />
+            Équipe
           </Link>
         </div>
       </SheetContent>
