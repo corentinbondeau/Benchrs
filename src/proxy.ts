@@ -5,7 +5,7 @@ export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (pathname === "/favicon.ico") {
-    return NextResponse.rewrite(new URL("/favicon.svg", request.url));
+    return NextResponse.rewrite(new URL("/favicon.png", request.url));
   }
 
   const isAsset =
