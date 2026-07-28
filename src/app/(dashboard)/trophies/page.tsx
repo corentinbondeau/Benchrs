@@ -317,6 +317,7 @@ export default function TrophiesPage() {
                 }
 
                 const hasVoted = realVotes.some((v) => v.voter_id === user?.id);
+                const votedIds = new Set(realVotes.map((v) => v.voter_id));
 
                 const sortedCandidates = [...players]
                   .map((p) => ({ player: p, count: voteCounts.get(p.id) || 0 }))
@@ -361,7 +362,11 @@ export default function TrophiesPage() {
                             const isWinner = count === maxVotes && count > 0;
                             const pct = realVotes.length > 0 ? Math.round((count / realVotes.length) * 100) : 0;
                             return (
-                              <div key={player.id} className="flex items-center gap-3 rounded-lg border p-3">
+                              <div
+                                key={player.id}
+                                className={`flex items-center gap-3 rounded-lg border p-3 ${!hasVoted ? "cursor-pointer transition-colors hover:bg-muted/50" : ""}`}
+                                onClick={() => !hasVoted && handleVote(eventId, player.id)}
+                              >
                                 <div className="relative">
                                   <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--color-royal)]/10 text-[var(--color-royal)] text-sm font-bold">
                                     {player.first_name[0]}{player.last_name[0]}
@@ -389,7 +394,7 @@ export default function TrophiesPage() {
                                     <Button
                                       size="sm"
                                       variant="outline"
-                                      onClick={() => handleVote(eventId, player.id)}
+                                      onClick={(e) => { e.stopPropagation(); handleVote(eventId, player.id); }}
                                       className="border-[var(--color-gold)] text-[var(--color-gold)] hover:bg-[var(--color-gold)]/10"
                                     >
                                       Voter
@@ -401,10 +406,33 @@ export default function TrophiesPage() {
                           })}
                         </div>
                       )}
-                      {hasVoted && (
+                      {!hasVoted && (
                         <p className="text-xs text-muted-foreground text-center mt-3">
-                          Vous avez déjà voté pour cette session
+                          Cliquez sur un joueur pour voter
                         </p>
+                      )}
+                      {players.length > 0 && (
+                        <div className="mt-4 pt-3 border-t">
+                          <p className="text-xs text-muted-foreground font-medium mb-2">Participants</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {players.map((p) => {
+                              const didVote = votedIds.has(p.id);
+                              return (
+                                <span
+                                  key={p.id}
+                                  className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs ${
+                                    didVote
+                                      ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                                      : "bg-muted text-muted-foreground"
+                                  }`}
+                                >
+                                  <span className={`h-1.5 w-1.5 rounded-full ${didVote ? "bg-green-500" : "bg-muted-foreground/40"}`} />
+                                  {p.first_name} {p.last_name}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        </div>
                       )}
                     </CardContent>
                   </Card>
