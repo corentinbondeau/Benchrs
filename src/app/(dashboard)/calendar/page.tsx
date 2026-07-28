@@ -36,7 +36,7 @@ import {
 import { toast } from "sonner";
 import type { Event, Profile } from "@/types";
 
-type Recurrence = "none" | "weekly" | "biweekly" | "monthly";
+type Recurrence = "Aucun" | "weekly" | "biweekly" | "monthly";
 
 type EventWithMeeting = Event & { meeting_time: string | null };
 
@@ -48,7 +48,7 @@ const MONTHS_FR = [
 
 function computeRecurrenceDates(eventDate: Date, recurrence: Recurrence, endDate: string): Date[] {
   const dates: Date[] = [new Date(eventDate)];
-  if (recurrence === "none") return dates;
+  if (recurrence === "Aucun") return dates;
   const end = new Date(endDate);
   end.setHours(23, 59, 59, 999);
   let current = new Date(eventDate);
@@ -97,7 +97,7 @@ export default function CalendarPage() {
     meeting_time: "",
     location: "",
     opponent: "",
-    recurrence: "none" as Recurrence,
+    recurrence: "Aucun" as Recurrence,
     selected_player_ids: [] as string[],
   });
 
@@ -266,7 +266,7 @@ export default function CalendarPage() {
       meeting_time: "",
       location: "",
       opponent: "",
-      recurrence: "none",
+      recurrence: "Aucun",
       selected_player_ids: [],
     });
     fetchEvents();
@@ -386,14 +386,14 @@ export default function CalendarPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="none">Aucune</SelectItem>
+                      <SelectItem value="Aucun">Aucune</SelectItem>
                       <SelectItem value="weekly">Hebdomadaire</SelectItem>
                       <SelectItem value="biweekly">Bimensuel</SelectItem>
                       <SelectItem value="monthly">Mensuel</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-                {form.recurrence !== "none" && (
+                {form.recurrence !== "Aucun" && (
                   <div className="space-y-2">
                     <Label>Date de fin *</Label>
                     <Input type="date" value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} required />
