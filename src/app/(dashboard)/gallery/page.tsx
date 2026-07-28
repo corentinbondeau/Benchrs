@@ -103,7 +103,7 @@ export default function GalleryPage() {
     });
     setCreating(false);
     if (error) {
-      toast.error("Erreur lors de la création");
+      toast.error(`Erreur lors de la création : ${error.message}`);
       return;
     }
     toast.success("Album créé !");
