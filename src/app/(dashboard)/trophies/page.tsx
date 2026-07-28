@@ -138,13 +138,18 @@ export default function TrophiesPage() {
     const supabase = createClient();
     const { data: existing } = await supabase
       .from("motm_votes")
-      .select("id")
+      .select("id, candidate_id")
       .eq("event_id", sessionEventId)
       .eq("voter_id", user.id)
-      .neq("voter_id", "candidate_id")
       .maybeSingle();
 
     if (existing) {
+      if (existing.candidate_id === user.id) {
+        await supabase.from("motm_votes").update({ candidate_id: candidateId }).eq("id", existing.id);
+        toast.success("Vote enregistré");
+        fetchData();
+        return;
+      }
       toast.error("Vous avez déjà voté pour cette session");
       return;
     }
