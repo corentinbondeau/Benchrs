@@ -296,7 +296,7 @@ function SéanceTab() {
         .select("*")
         .eq("team_id", currentTeam!.id)
         .eq("type", "training")
-        .order("event_date", { ascending: false }),
+        .order("event_date", { ascending: true }),
     ]);
     setSessions((sessionsRes.data as TrainingSession[]) || []);
     setEvents((eventsRes.data as Event[]) || []);
