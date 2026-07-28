@@ -205,6 +205,7 @@ export default function RegisterPage() {
         }
 
         const teamData = await teamRes.json();
+        console.log("[Register] team created, redirecting to /", { inviteCode: teamData.inviteCode });
         const { toast } = await import("sonner");
         toast.success(`Code d'invitation : ${teamData.inviteCode}`, {
           description: "Vous le trouverez dans Paramètres > Équipe",

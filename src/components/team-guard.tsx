@@ -9,7 +9,9 @@ export function TeamGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
+    console.log("[TeamGuard] state:", { loading, teamsLength: teams.length });
     if (!loading && teams.length === 0) {
+      console.log("[TeamGuard] no teams, redirecting to /create-team");
       router.replace("/create-team");
     }
   }, [loading, teams, router]);

@@ -60,11 +60,13 @@ export function TeamProvider({ children }: { children: ReactNode }) {
   const loadTeams = useCallback(async (userId: string) => {
     const supabase = supabaseRef.current;
 
+    console.log("[TeamProvider] loadTeams for userId:", userId);
     const { data: memberships, error } = await supabase
       .from("team_members")
       .select("team_id, role, team:teams(id, name, club_id, invite_code, created_at, club:clubs(id, name, logo_url, created_by, created_at))")
       .eq("user_id", userId);
 
+    console.log("[TeamProvider] query result:", { memberships: memberships?.length, error: error?.message || null });
     if (error || !memberships) {
       console.error("[TeamProvider] failed to load teams:", error);
       setTeams([]);
