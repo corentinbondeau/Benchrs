@@ -292,6 +292,7 @@ export interface GalleryMedia {
   album_id: string | null;
   uploaded_by: string | null;
   url: string;
+  storage_path: string | null;
   media_type: string;
   caption: string | null;
   team_id: string;
