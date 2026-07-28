@@ -41,8 +41,8 @@ export default function GalleryPage() {
   const [creating, setCreating] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [caption, setCaption] = useState("");
-  const [eventId, setEventId] = useState("none");
-  const [albumId, setAlbumId] = useState("none");
+  const [eventId, setEventId] = useState("Aucun");
+  const [albumId, setAlbumId] = useState("Aucun");
   const [events, setEvents] = useState<Event[]>([]);
   const [lightbox, setLightbox] = useState<GalleryMedia | null>(null);
   const [albumTitle, setAlbumTitle] = useState("");
@@ -139,8 +139,8 @@ export default function GalleryPage() {
       url: urlData.publicUrl,
       media_type: file.type,
       caption: caption || null,
-      event_id: eventId === "none" ? null : eventId,
-      album_id: albumId === "none" ? null : albumId,
+      event_id: eventId === "Aucun" ? null : eventId,
+      album_id: albumId === "Aucun" ? null : albumId,
       uploaded_by: user.id,
       team_id: currentTeam!.id,
     });
@@ -166,8 +166,8 @@ export default function GalleryPage() {
     setUploadOpen(false);
     setFile(null);
     setCaption("");
-    setEventId("none");
-    setAlbumId("none");
+    setEventId("Aucun");
+    setAlbumId("Aucun");
     setUploading(false);
   }
 
@@ -261,12 +261,12 @@ export default function GalleryPage() {
                   </div>
                   <div className="space-y-2">
                     <Label>Album (optionnel)</Label>
-                    <Select value={albumId} onValueChange={(v) => setAlbumId(v ?? "none")}>
+                    <Select value={albumId} onValueChange={(v) => setAlbumId(v ?? "Aucun")}>
                       <SelectTrigger className="w-full">
                         <SelectValue placeholder="Aucun album" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="none">Aucun</SelectItem>
+                        <SelectItem value="Aucun">Aucun</SelectItem>
                         {albums.map((a) => (
                           <SelectItem key={a.id} value={a.id}>{a.title}</SelectItem>
                         ))}
@@ -275,12 +275,12 @@ export default function GalleryPage() {
                   </div>
                   <div className="space-y-2">
                     <Label>Événement (optionnel)</Label>
-                    <Select value={eventId} onValueChange={(v) => setEventId(v ?? "none")}>
+                    <Select value={eventId} onValueChange={(v) => setEventId(v ?? "Aucun")}>
                       <SelectTrigger className="w-full">
                         <SelectValue placeholder="Aucun événement" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="none">Aucun</SelectItem>
+                        <SelectItem value="Aucun">Aucun</SelectItem>
                         {events.map((evt) => (
                           <SelectItem key={evt.id} value={evt.id}>{evt.title}</SelectItem>
                         ))}
