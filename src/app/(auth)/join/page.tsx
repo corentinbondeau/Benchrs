@@ -78,7 +78,7 @@ function JoinTeamForm() {
         return;
       }
 
-      window.location.href = "/";
+      router.push("/");
     } catch {
       setError("Erreur de connexion au serveur");
       setLoading(false);
