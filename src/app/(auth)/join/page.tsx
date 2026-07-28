@@ -96,9 +96,7 @@ function JoinTeamForm() {
   return (
     <Card className="w-full max-w-md">
       <CardHeader className="text-center">
-        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--color-gold)] text-[var(--color-navy)] font-bold text-lg mx-auto mb-2">
-          SP
-        </div>
+        <img src="/favicon.png" alt="SportPlus" className="h-12 w-12 mx-auto mb-2" />
         <CardTitle className="text-2xl">Rejoindre une équipe</CardTitle>
         <CardDescription>
           Entrez le code d&apos;invitation partagé par votre coach
