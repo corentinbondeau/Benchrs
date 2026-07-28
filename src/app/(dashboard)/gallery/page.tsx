@@ -119,8 +119,9 @@ export default function GalleryPage() {
 
     const supabase = createClient();
 
-    const { error: bucketError } = await fetch("/api/storage/gallery-bucket", { method: "POST" }).then((r) => r.json());
-    if (bucketError) {
+    const res = await fetch("/api/storage/gallery-bucket", { method: "POST" });
+    const bucketData = await res.json();
+    if (bucketData.error) {
       toast.error("Erreur lors de la création du stockage");
       setUploading(false);
       return;
@@ -129,12 +130,17 @@ export default function GalleryPage() {
     let uploaded = 0;
 
     for (const file of files) {
+      if (!file.size) {
+        toast.error(`${file.name} est vide`);
+        continue;
+      }
       const ext = file.name.split(".").pop();
       const path = `gallery/${user.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+      const buffer = await file.arrayBuffer();
 
       const { error: uploadError } = await supabase.storage
         .from("gallery")
-        .upload(path, file, { upsert: true });
+        .upload(path, buffer, { upsert: true, contentType: file.type });
 
       if (uploadError) {
         toast.error(`Erreur lors de l'upload de ${file.name} : ${uploadError.message}`);
