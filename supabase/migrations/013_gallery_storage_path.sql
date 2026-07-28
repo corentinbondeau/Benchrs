@@ -21,6 +21,6 @@ CREATE POLICY "Coaches can delete gallery_media"
   USING (
     team_id IN (
       SELECT team_id FROM team_members
-      WHERE user_id = auth.uid() AND role = 'coach'
+      WHERE user_id = auth.uid() AND (role = 'coach' OR role = 'owner')
     )
   );
