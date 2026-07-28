@@ -23,7 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Upload, Image as ImageIcon, Folder, ArrowLeft, Trash2 } from "lucide-react";
+import { Plus, Upload, Image as ImageIcon, Folder, ArrowLeft, Trash2, Download } from "lucide-react";
 import { toast } from "sonner";
 import type { GalleryMedia, Event, Album } from "@/types";
 
@@ -149,6 +149,22 @@ export default function GalleryPage() {
     toast.success("Album supprimé");
   }
 
+  async function handleDownload(url: string, filename: string) {
+    try {
+      const res = await fetch(url);
+      const blob = await res.blob();
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(a.href);
+    } catch {
+      toast.error("Erreur lors du téléchargement");
+    }
+  }
+
   async function handleUpload() {
     if (!files.length || !user) return;
     setUploading(true);
@@ -256,7 +272,25 @@ export default function GalleryPage() {
           {selectedAlbum.description && (
             <p className="text-muted-foreground mt-1">{selectedAlbum.description}</p>
           )}
-          <p className="text-xs text-muted-foreground mt-1">{albumMedia.length} photo{albumMedia.length !== 1 ? "s" : ""}</p>
+          <div className="flex items-center gap-2">
+            <p className="text-xs text-muted-foreground">{albumMedia.length} photo{albumMedia.length !== 1 ? "s" : ""}</p>
+            {albumMedia.length > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 text-xs text-muted-foreground hover:text-foreground"
+                onClick={async () => {
+                  for (const item of albumMedia) {
+                    await handleDownload(item.url, item.storage_path?.split("/").pop() || `photo-${item.id}`);
+                  }
+                  toast.success("Téléchargement terminé");
+                }}
+              >
+                <Download className="h-3 w-3 mr-1" />
+                Tout télécharger
+              </Button>
+            )}
+          </div>
         </div>
         {albumMedia.length === 0 ? (
           <div className="flex h-48 items-center justify-center rounded-lg border border-dashed text-muted-foreground">
@@ -431,6 +465,23 @@ export default function GalleryPage() {
             disabled={!selectedIds.size}
             onClick={async () => {
               for (const id of selectedIds) {
+                const item = media.find((m) => m.id === id);
+                if (item) await handleDownload(item.url, item.storage_path?.split("/").pop() || `photo-${id}`);
+              }
+              setSelectedIds(new Set());
+              setSelecting(false);
+            }}
+            variant="outline"
+            className="border-[var(--color-gold)] text-[var(--color-gold)] hover:bg-[var(--color-gold)]/10"
+          >
+            <Download className="h-4 w-4 mr-1" />
+            Télécharger
+          </Button>
+          <Button
+            size="sm"
+            disabled={!selectedIds.size}
+            onClick={async () => {
+              for (const id of selectedIds) {
                 await fetch("/api/gallery/set-album", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
@@ -553,6 +604,19 @@ export default function GalleryPage() {
         <DialogContent className="sm:max-w-2xl p-0 bg-black border-0">
           {lightbox && (
             <img src={lightbox.url} alt={lightbox.caption || ""} className="w-full h-auto max-h-[80vh] object-contain rounded-lg" />
+          )}
+          {lightbox && (
+            <div className="flex items-center justify-center p-2 bg-black/60" onClick={(e) => e.stopPropagation()}>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-white/80 hover:text-white hover:bg-white/10"
+                onClick={() => handleDownload(lightbox.url, lightbox.storage_path?.split("/").pop() || `photo-${lightbox.id}`)}
+              >
+                <Download className="h-4 w-4 mr-1" />
+                Télécharger
+              </Button>
+            </div>
           )}
           {lightbox && isCoach && (
             <div className="flex items-center gap-2 p-3 bg-black/80 rounded-b-lg"
