@@ -205,112 +205,29 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="h-[calc(100vh-8rem)] flex rounded-lg border overflow-hidden pb-20 md:pb-0">
-      {/* Channel List */}
-      <div className="w-64 border-r bg-muted/30 overflow-y-auto shrink-0 flex flex-col">
-        <div className="p-3 border-b flex items-center justify-between">
-          <h3 className="font-semibold text-sm">Canaux</h3>
-          <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-            <DialogTrigger render={<Button variant="ghost" size="icon" className="h-7 w-7 text-[var(--color-gold)] hover:text-[var(--color-gold)] hover:bg-[var(--color-gold)]/10"><Plus className="h-4 w-4" /></Button>} />
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Nouveau canal</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4 pt-2">
-                <div className="space-y-2">
-                  <Label htmlFor="channelName">Nom du canal</Label>
-                  <Input
-                    id="channelName"
-                    value={channelName}
-                    onChange={(e) => setChannelName(e.target.value)}
-                    placeholder="Ex: Match du samedi"
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && !creating) createChannel();
-                    }}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Membres du canal</Label>
-                  <ScrollArea className="h-56 rounded-md border p-2">
-                    {allMembers.map((member) => (
-                      <label
-                        key={member.id}
-                        className="flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-muted cursor-pointer"
-                      >
-                        <Checkbox
-                          checked={selectedMembers.includes(member.id)}
-                          onCheckedChange={(checked) =>
-                            setSelectedMembers(
-                              checked
-                                ? [...selectedMembers, member.id]
-                                : selectedMembers.filter((id) => id !== member.id)
-                            )
-                          }
-                        />
-                        <span className="text-sm">
-                          {member.first_name} {member.last_name}
-                        </span>
-                      </label>
-                    ))}
-                    {allMembers.length === 0 && (
-                      <p className="text-sm text-muted-foreground text-center py-4">
-                        Aucun membre disponible
-                      </p>
-                    )}
-                  </ScrollArea>
-                </div>
-                <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={() => setCreateOpen(false)} className="border-[var(--color-gold)] text-[var(--color-gold)] hover:bg-[var(--color-gold)]/10">
-                    Annuler
-                  </Button>
-                  <Button
-                    onClick={createChannel}
-                    disabled={!channelName.trim() || creating}
-                    className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
-                  >
-                    {creating ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin mr-1" />
-                        Création...
-                      </>
-                    ) : (
-                      "Créer le canal"
-                    )}
-                  </Button>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
-        </div>
-        <div className="flex-1 p-1 overflow-y-auto">
-          {channels.map((channel) => (
-            <button
-              key={channel.id}
-              onClick={() => setSelectedChannel(channel.id)}
-              className={`w-full text-left rounded-lg px-3 py-2 text-sm transition-colors ${
-                selectedChannel === channel.id
-                  ? "bg-[var(--color-royal)] text-white"
-                  : "hover:bg-muted text-foreground"
-              }`}
-            >
-              {channel.name}
-            </button>
-          ))}
-          {channels.length === 0 && (
-            <p className="text-xs text-muted-foreground text-center py-4">Aucun canal</p>
-          )}
-        </div>
-      </div>
-
-      {/* Chat Window */}
+    <div className="pb-20 md:pb-0">
+      {/* Mobile: channel list */}
       {selectedChannel ? (
-        <div className="flex-1 flex flex-col">
+        <div className="flex flex-col h-[calc(100vh-8rem-5rem)] md:h-[calc(100vh-8rem)]">
+          {/* Mobile channel header */}
+          <div className="flex items-center gap-2 px-3 py-2 border-b shrink-0">
+            <button
+              onClick={() => setSelectedChannel(null)}
+              className="md:hidden text-sm text-[var(--color-royal)] font-medium"
+            >
+              ← Canaux
+            </button>
+            <h3 className="font-semibold text-sm">
+              {channels.find((c) => c.id === selectedChannel)?.name}
+            </h3>
+          </div>
+          {/* Messages */}
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
             {messages.map((msg) => {
               const isMe = msg.sender_id === user?.id;
               return (
                 <div key={msg.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
-                  <div className={`max-w-[70%] rounded-lg px-3 py-2 ${isMe ? "bg-[var(--color-royal)] text-white" : "bg-muted"}`}>
+                  <div className={`max-w-[85%] md:max-w-[70%] rounded-lg px-3 py-2 ${isMe ? "bg-[var(--color-royal)] text-white" : "bg-muted"}`}>
                     {!isMe && (
                       <p className="text-xs font-medium mb-1 opacity-70">
                         {msg.sender?.first_name} {msg.sender?.last_name}
@@ -323,7 +240,8 @@ export default function ChatPage() {
             })}
             <div ref={messagesEndRef} />
           </div>
-          <form onSubmit={sendMessage} className="p-3 border-t flex gap-2">
+          {/* Input */}
+          <form onSubmit={sendMessage} className="p-3 border-t flex gap-2 shrink-0">
             <Input
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
@@ -336,13 +254,169 @@ export default function ChatPage() {
           </form>
         </div>
       ) : (
-        <div className="flex-1 flex items-center justify-center text-muted-foreground">
-          <div className="text-center">
-            <p className="text-lg">Sélectionnez un canal</p>
-            <p className="text-sm mt-1">pour commencer à discuter</p>
+        <div className="flex flex-col h-[calc(100vh-8rem-5rem)] md:h-[calc(100vh-8rem)]">
+          {/* Channel list header */}
+          <div className="p-3 border-b flex items-center justify-between shrink-0">
+            <h3 className="font-semibold text-base">Canaux</h3>
+            <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+              <DialogTrigger render={<Button variant="ghost" size="icon" className="h-8 w-8 text-[var(--color-gold)] hover:text-[var(--color-gold)] hover:bg-[var(--color-gold)]/10"><Plus className="h-4 w-4" /></Button>} />
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Nouveau canal</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 pt-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="channelName">Nom du canal</Label>
+                    <Input
+                      id="channelName"
+                      value={channelName}
+                      onChange={(e) => setChannelName(e.target.value)}
+                      placeholder="Ex: Match du samedi"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !creating) createChannel();
+                      }}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Membres du canal</Label>
+                    <ScrollArea className="h-56 rounded-md border p-2">
+                      {allMembers.map((member) => (
+                        <label
+                          key={member.id}
+                          className="flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-muted cursor-pointer"
+                        >
+                          <Checkbox
+                            checked={selectedMembers.includes(member.id)}
+                            onCheckedChange={(checked) =>
+                              setSelectedMembers(
+                                checked
+                                  ? [...selectedMembers, member.id]
+                                  : selectedMembers.filter((id) => id !== member.id)
+                              )
+                            }
+                          />
+                          <span className="text-sm">
+                            {member.first_name} {member.last_name}
+                          </span>
+                        </label>
+                      ))}
+                      {allMembers.length === 0 && (
+                        <p className="text-sm text-muted-foreground text-center py-4">
+                          Aucun membre disponible
+                        </p>
+                      )}
+                    </ScrollArea>
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button variant="outline" onClick={() => setCreateOpen(false)} className="border-[var(--color-gold)] text-[var(--color-gold)] hover:bg-[var(--color-gold)]/10">
+                      Annuler
+                    </Button>
+                    <Button
+                      onClick={createChannel}
+                      disabled={!channelName.trim() || creating}
+                      className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
+                    >
+                      {creating ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                          Création...
+                        </>
+                      ) : (
+                        "Créer le canal"
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+          {/* Channel list */}
+          <div className="flex-1 overflow-y-auto p-2 space-y-1">
+            {channels.map((channel) => (
+              <button
+                key={channel.id}
+                onClick={() => setSelectedChannel(channel.id)}
+                className="w-full text-left rounded-xl px-4 py-3 text-sm font-medium transition-colors hover:bg-muted active:bg-muted/80 touch-manipulation"
+              >
+                {channel.name}
+              </button>
+            ))}
+            {channels.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-8">Aucun canal</p>
+            )}
           </div>
         </div>
       )}
+
+      {/* Desktop: split view */}
+      <div className="hidden md:flex rounded-lg border overflow-hidden h-[calc(100vh-8rem)]">
+        <div className="w-64 border-r bg-muted/30 overflow-y-auto shrink-0 flex flex-col">
+          <div className="p-3 border-b flex items-center justify-between">
+            <h3 className="font-semibold text-sm">Canaux</h3>
+            <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+              <DialogTrigger render={<Button variant="ghost" size="icon" className="h-7 w-7 text-[var(--color-gold)] hover:text-[var(--color-gold)] hover:bg-[var(--color-gold)]/10"><Plus className="h-4 w-4" /></Button>} />
+            </Dialog>
+          </div>
+          <div className="flex-1 p-1 overflow-y-auto">
+            {channels.map((channel) => (
+              <button
+                key={channel.id}
+                onClick={() => setSelectedChannel(channel.id)}
+                className={`w-full text-left rounded-lg px-3 py-2 text-sm transition-colors ${
+                  selectedChannel === channel.id
+                    ? "bg-[var(--color-royal)] text-white"
+                    : "hover:bg-muted text-foreground"
+                }`}
+              >
+                {channel.name}
+              </button>
+            ))}
+            {channels.length === 0 && (
+              <p className="text-xs text-muted-foreground text-center py-4">Aucun canal</p>
+            )}
+          </div>
+        </div>
+        {selectedChannel ? (
+          <div className="flex-1 flex flex-col">
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              {messages.map((msg) => {
+                const isMe = msg.sender_id === user?.id;
+                return (
+                  <div key={msg.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
+                    <div className={`max-w-[70%] rounded-lg px-3 py-2 ${isMe ? "bg-[var(--color-royal)] text-white" : "bg-muted"}`}>
+                      {!isMe && (
+                        <p className="text-xs font-medium mb-1 opacity-70">
+                          {msg.sender?.first_name} {msg.sender?.last_name}
+                        </p>
+                      )}
+                      <p className="text-sm">{msg.content}</p>
+                    </div>
+                  </div>
+                );
+              })}
+              <div ref={messagesEndRef} />
+            </div>
+            <form onSubmit={sendMessage} className="p-3 border-t flex gap-2">
+              <Input
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                placeholder="Votre message..."
+                className="flex-1"
+              />
+              <Button type="submit" size="icon" className="bg-[var(--color-royal)] text-white" disabled={!newMessage.trim()}>
+                <Send className="h-4 w-4" />
+              </Button>
+            </form>
+          </div>
+        ) : (
+          <div className="flex-1 flex items-center justify-center text-muted-foreground">
+            <div className="text-center">
+              <p className="text-lg">Sélectionnez un canal</p>
+              <p className="text-sm mt-1">pour commencer à discuter</p>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
