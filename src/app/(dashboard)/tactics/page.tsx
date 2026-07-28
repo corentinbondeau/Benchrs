@@ -490,7 +490,7 @@ function SéanceTab() {
               if (!open) resetForm();
             }}
           >
-            <DialogTrigger render={<Button size="sm" />}>
+            <DialogTrigger render={<Button size="sm" className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold" />}>
               <Plus className="mr-1 h-4 w-4" />
               Nouvelle séance
             </DialogTrigger>
