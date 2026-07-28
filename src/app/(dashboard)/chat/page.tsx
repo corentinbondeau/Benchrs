@@ -211,7 +211,7 @@ export default function ChatPage() {
         <div className="p-3 border-b flex items-center justify-between">
           <h3 className="font-semibold text-sm">Canaux</h3>
           <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-            <DialogTrigger render={<Button variant="ghost" size="icon" className="h-7 w-7"><Plus className="h-4 w-4" /></Button>} />
+            <DialogTrigger render={<Button variant="ghost" size="icon" className="h-7 w-7 text-[var(--color-gold)] hover:text-[var(--color-gold)] hover:bg-[var(--color-gold)]/10"><Plus className="h-4 w-4" /></Button>} />
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Nouveau canal</DialogTitle>
@@ -260,7 +260,7 @@ export default function ChatPage() {
                   </ScrollArea>
                 </div>
                 <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={() => setCreateOpen(false)}>
+                  <Button variant="outline" onClick={() => setCreateOpen(false)} className="border-[var(--color-gold)] text-[var(--color-gold)] hover:bg-[var(--color-gold)]/10">
                     Annuler
                   </Button>
                   <Button
