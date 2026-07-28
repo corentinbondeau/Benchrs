@@ -48,6 +48,9 @@ export default function GalleryPage() {
   const [lightboxAlbum, setLightboxAlbum] = useState("Aucun");
   const [albumTitle, setAlbumTitle] = useState("");
   const [albumDescription, setAlbumDescription] = useState("");
+  const [selecting, setSelecting] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkAlbum, setBulkAlbum] = useState("Aucun");
 
   if (!currentTeam) {
     return <div className="flex items-center justify-center h-64"><p className="text-muted-foreground">Chargement de l'équipe...</p></div>;
@@ -265,16 +268,29 @@ export default function GalleryPage() {
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {albumMedia.map((item) => (
-              <Card key={item.id} className="overflow-hidden cursor-pointer group relative" onClick={() => { setLightbox(item); setLightboxAlbum(item.album_id || "Aucun"); }}>
-                <div className="aspect-square bg-muted">
+              <Card key={item.id} className="overflow-hidden cursor-pointer group relative" onClick={() => {
+                if (selecting) {
+                  setSelectedIds((prev) => { const next = new Set(prev); if (next.has(item.id)) next.delete(item.id); else next.add(item.id); return next; });
+                } else {
+                  setLightbox(item); setLightboxAlbum(item.album_id || "Aucun");
+                }
+              }}>
+                <div className="aspect-square bg-muted relative">
                   <img src={item.url} alt={item.caption || ""} className="w-full h-full object-cover" />
+                  {selecting && (
+                    <div className={`absolute inset-0 flex items-start justify-end p-2 ${selectedIds.has(item.id) ? "bg-black/30" : ""}`}>
+                      <div className={`h-5 w-5 rounded border-2 flex items-center justify-center ${selectedIds.has(item.id) ? "bg-[var(--color-gold)] border-[var(--color-gold)]" : "border-white bg-white/30"}`}>
+                        {selectedIds.has(item.id) && <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="h-3 w-3 text-[var(--color-navy)]"><polyline points="20 6 9 17 4 12" /></svg>}
+                      </div>
+                    </div>
+                  )}
                 </div>
                 {item.caption && (
                   <CardContent className="p-2">
                     <p className="text-xs text-muted-foreground truncate">{item.caption}</p>
                   </CardContent>
                 )}
-                {isCoach && (
+                {isCoach && !selecting && (
                   <Button
                     variant="ghost"
                     size="icon"
@@ -382,8 +398,58 @@ export default function GalleryPage() {
               </DialogContent>
             </Dialog>
           )}
+          {isCoach && (
+            <Button
+              variant={selecting ? "default" : "outline"}
+              className={selecting
+                ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                : "border-[var(--color-gold)] text-[var(--color-gold)] hover:bg-[var(--color-gold)]/10"}
+              onClick={() => { setSelecting(!selecting); setSelectedIds(new Set()); }}
+            >
+              {selecting ? "Annuler" : "Sélectionner"}
+            </Button>
+          )}
         </div>
       </div>
+
+      {selecting && (
+        <div className="flex items-center gap-3 p-3 rounded-lg bg-muted">
+          <span className="text-sm font-medium">{selectedIds.size} sélectionné{selectedIds.size !== 1 ? "s" : ""}</span>
+          <Select value={bulkAlbum} onValueChange={(v) => setBulkAlbum(v ?? "Aucun")}>
+            <SelectTrigger className="w-48">
+              <SelectValue placeholder="Album" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Aucun">Aucun album</SelectItem>
+              {albums.map((a) => (
+                <SelectItem key={a.id} value={a.id}>{a.title}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            size="sm"
+            disabled={!selectedIds.size}
+            onClick={async () => {
+              for (const id of selectedIds) {
+                await fetch("/api/gallery/set-album", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ mediaId: id, albumId: bulkAlbum === "Aucun" ? null : bulkAlbum }),
+                });
+              }
+              setMedia((prev) => prev.map((m) =>
+                selectedIds.has(m.id) ? { ...m, album_id: bulkAlbum === "Aucun" ? null : bulkAlbum } : m
+              ));
+              toast.success(`${selectedIds.size} photo${selectedIds.size !== 1 ? "s" : ""} mise${selectedIds.size !== 1 ? "s" : ""} à jour`);
+              setSelectedIds(new Set());
+              setSelecting(false);
+            }}
+            className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
+          >
+            Appliquer
+          </Button>
+        </div>
+      )}
 
       {/* Albums */}
       {albums.length > 0 && (
@@ -439,15 +505,28 @@ export default function GalleryPage() {
             {media.map((item) => {
               const album = albums.find((a) => a.id === item.album_id);
               return (
-              <Card key={item.id} className="overflow-hidden cursor-pointer group relative" onClick={() => { setLightbox(item); setLightboxAlbum(item.album_id || "Aucun"); }}>
-                  <div className="aspect-square bg-muted">
+              <Card key={item.id} className="overflow-hidden cursor-pointer group relative" onClick={() => {
+                if (selecting) {
+                  setSelectedIds((prev) => { const next = new Set(prev); if (next.has(item.id)) next.delete(item.id); else next.add(item.id); return next; });
+                } else {
+                  setLightbox(item); setLightboxAlbum(item.album_id || "Aucun");
+                }
+              }}>
+                  <div className="aspect-square bg-muted relative">
                     <img src={item.url} alt={item.caption || ""} className="w-full h-full object-cover" />
+                    {selecting && (
+                      <div className={`absolute inset-0 flex items-start justify-end p-2 ${selectedIds.has(item.id) ? "bg-black/30" : ""}`}>
+                        <div className={`h-5 w-5 rounded border-2 flex items-center justify-center ${selectedIds.has(item.id) ? "bg-[var(--color-gold)] border-[var(--color-gold)]" : "border-white bg-white/30"}`}>
+                          {selectedIds.has(item.id) && <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="h-3 w-3 text-[var(--color-navy)]"><polyline points="20 6 9 17 4 12" /></svg>}
+                        </div>
+                      </div>
+                    )}
                   </div>
                   <CardContent className="p-2 space-y-0.5">
                     {item.caption && <p className="text-xs text-muted-foreground truncate">{item.caption}</p>}
                     {album && <p className="text-[10px] text-muted-foreground/60 truncate">{album.title}</p>}
                   </CardContent>
-                  {isCoach && (
+                  {isCoach && !selecting && (
                     <Button
                       variant="ghost"
                       size="icon"
