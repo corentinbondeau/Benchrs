@@ -33,15 +33,30 @@ export default function RosterPage() {
   useEffect(() => {
     if (!currentTeam) return;
     const supabase = createClient();
-    supabase
-      .from("profiles")
-      .select("*")
-      .eq("team_id", currentTeam!.id)
-      .order("last_name", { ascending: true })
-      .then(({ data }) => {
-        setAllProfiles((data as Profile[]) || []);
+
+    async function loadMembers() {
+      const { data: rows } = await supabase
+        .from("team_members")
+        .select("user_id")
+        .eq("team_id", currentTeam!.id);
+
+      if (!rows || rows.length === 0) {
+        setAllProfiles([]);
         setLoading(false);
-      });
+        return;
+      }
+
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("*")
+        .in("id", rows.map((r) => r.user_id))
+        .order("last_name", { ascending: true });
+
+      setAllProfiles((profiles as Profile[]) || []);
+      setLoading(false);
+    }
+
+    loadMembers();
   }, [currentTeam?.id]);
 
   if (!currentTeam) {
