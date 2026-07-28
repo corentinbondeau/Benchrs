@@ -276,7 +276,7 @@ export default function TrophiesPage() {
           {isCoach && (
             <div className="flex justify-end">
               <Dialog open={voteSessionOpen} onOpenChange={setVoteSessionOpen}>
-                <DialogTrigger render={<Button size="sm" />}>
+                <DialogTrigger render={<Button size="sm" className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold" />}>
                   <Plus className="h-4 w-4 mr-1.5" />
                   Nouvelle session
                 </DialogTrigger>
@@ -430,7 +430,7 @@ export default function TrophiesPage() {
         <TabsContent value="palmares" className="space-y-4">
           {isCoach && (
             <div className="flex justify-end">
-              <Button size="sm" onClick={openCreateTrophy}>
+              <Button size="sm" onClick={openCreateTrophy} className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold">
                 <Plus className="h-4 w-4 mr-1.5" />
                 Nouveau trophée
               </Button>
