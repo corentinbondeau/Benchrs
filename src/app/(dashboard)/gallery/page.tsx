@@ -310,7 +310,11 @@ export default function GalleryPage() {
                 }
               }}>
                 <div className="aspect-square bg-muted relative">
-                  <img src={item.url} alt={item.caption || ""} className="w-full h-full object-cover" />
+                  {item.media_type?.startsWith("video/") ? (
+  <video src={item.url} className="w-full h-full object-cover" muted />
+) : (
+  <img src={item.url} alt={item.caption || ""} className="w-full h-full object-cover" />
+)}
                   {selecting && (
                     <div className={`absolute inset-0 flex items-start justify-end p-2 ${selectedIds.has(item.id) ? "bg-black/30" : ""}`}>
                       <div className={`h-5 w-5 rounded border-2 flex items-center justify-center ${selectedIds.has(item.id) ? "bg-[var(--color-gold)] border-[var(--color-gold)]" : "border-white bg-white/30"}`}>
@@ -564,7 +568,11 @@ export default function GalleryPage() {
                 }
               }}>
                   <div className="aspect-square bg-muted relative">
-                    <img src={item.url} alt={item.caption || ""} className="w-full h-full object-cover" />
+                    {item.media_type?.startsWith("video/") ? (
+  <video src={item.url} className="w-full h-full object-cover" muted />
+) : (
+  <img src={item.url} alt={item.caption || ""} className="w-full h-full object-cover" />
+)}
                     {selecting && (
                       <div className={`absolute inset-0 flex items-start justify-end p-2 ${selectedIds.has(item.id) ? "bg-black/30" : ""}`}>
                         <div className={`h-5 w-5 rounded border-2 flex items-center justify-center ${selectedIds.has(item.id) ? "bg-[var(--color-gold)] border-[var(--color-gold)]" : "border-white bg-white/30"}`}>
@@ -603,7 +611,11 @@ export default function GalleryPage() {
       }}>
         <DialogContent className="sm:max-w-2xl p-0 bg-black border-0">
           {lightbox && (
-            <img src={lightbox.url} alt={lightbox.caption || ""} className="w-full h-auto max-h-[80vh] object-contain rounded-lg" />
+            lightbox.media_type?.startsWith("video/") ? (
+              <video src={lightbox.url} controls className="w-full max-h-[80vh] rounded-lg" autoPlay />
+            ) : (
+              <img src={lightbox.url} alt={lightbox.caption || ""} className="w-full h-auto max-h-[80vh] object-contain rounded-lg" />
+            )
           )}
           {lightbox && (
             <div className="flex items-center justify-center p-2 bg-black/60" onClick={(e) => e.stopPropagation()}>
