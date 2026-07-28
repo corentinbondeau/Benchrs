@@ -33,8 +33,8 @@ export default function RootLayout({
   return (
     <html lang="fr" suppressHydrationWarning>
       <head>
-        <link rel="apple-touch-icon" href="/icons/icon-192.png" />
-        <link rel="icon" href="/favicon.ico" sizes="any" />
+        <link rel="apple-touch-icon" href="/logo.svg" />
+        <link rel="icon" href="/logo.svg" sizes="any" type="image/svg+xml" />
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
