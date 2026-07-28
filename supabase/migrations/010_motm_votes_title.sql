@@ -1,0 +1,1 @@
+ALTER TABLE motm_votes ADD COLUMN IF NOT EXISTS title TEXT;

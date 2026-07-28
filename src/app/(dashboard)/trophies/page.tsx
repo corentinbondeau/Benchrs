@@ -111,9 +111,10 @@ export default function TrophiesPage() {
     }
     setVoteSessionSaving(true);
     const supabase = createClient();
-    const sessionId = `${voteSessionTitle.trim()} - ${Date.now()}`;
+    const sessionId = crypto.randomUUID();
     const { error } = await supabase.from("motm_votes").insert({
       event_id: sessionId,
+      title: voteSessionTitle.trim(),
       voter_id: user!.id,
       candidate_id: user!.id,
       team_id: currentTeam!.id,
@@ -227,10 +228,9 @@ export default function TrophiesPage() {
     fetchData();
   }
 
-  function getEventTitle(sessionEventId: string): string {
-    const idx = sessionEventId.lastIndexOf(" - ");
-    if (idx > 0) return sessionEventId.slice(0, idx);
-    return sessionEventId;
+  function getEventTitle(sessionEventId: string, title?: string): string {
+    if (title) return title;
+    return `Session de vote`;
   }
 
   if (loading) {
@@ -334,7 +334,7 @@ export default function TrophiesPage() {
                       <div className="flex items-center justify-between">
                         <CardTitle className="text-base flex items-center gap-2">
                           <ThumbsUp className="h-4 w-4 text-[var(--color-gold)]" />
-                          {getEventTitle(eventId)}
+                          {getEventTitle(eventId, sessionVotes[0]?.title)}
                         </CardTitle>
                         <div className="flex items-center gap-2">
                           <Badge variant="secondary">

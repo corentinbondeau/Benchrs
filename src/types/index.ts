@@ -254,6 +254,7 @@ export interface Task {
 export interface MotmVote {
   id: string;
   event_id: string;
+  title?: string;
   voter_id: string;
   candidate_id: string;
   team_id: string;
