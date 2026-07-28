@@ -39,7 +39,7 @@ export default function GalleryPage() {
   const [albumOpen, setAlbumOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [creating, setCreating] = useState(false);
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [caption, setCaption] = useState("");
   const [eventId, setEventId] = useState("Aucun");
   const [albumId, setAlbumId] = useState("Aucun");
@@ -114,57 +114,59 @@ export default function GalleryPage() {
   }
 
   async function handleUpload() {
-    if (!file || !user) return;
+    if (!files.length || !user) return;
     setUploading(true);
 
     const supabase = createClient();
-    const ext = file.name.split(".").pop();
-    const path = `gallery/${user.id}/${Date.now()}.${ext}`;
+    let uploaded = 0;
 
-    const { error: uploadError } = await supabase.storage
-      .from("gallery")
-      .upload(path, file, { upsert: true });
+    for (const file of files) {
+      const ext = file.name.split(".").pop();
+      const path = `gallery/${user.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
 
-    if (uploadError) {
-      toast.error("Erreur lors de l'upload");
-      setUploading(false);
-      return;
+      const { error: uploadError } = await supabase.storage
+        .from("gallery")
+        .upload(path, file, { upsert: true });
+
+      if (uploadError) {
+        toast.error(`Erreur lors de l'upload de ${file.name}`);
+        continue;
+      }
+
+      const { data: urlData } = supabase.storage
+        .from("gallery")
+        .getPublicUrl(path);
+
+      await supabase.from("gallery_media").insert({
+        url: urlData.publicUrl,
+        media_type: file.type,
+        caption: caption || null,
+        event_id: eventId === "Aucun" ? null : eventId,
+        album_id: albumId === "Aucun" ? null : albumId,
+        uploaded_by: user.id,
+        team_id: currentTeam!.id,
+      });
+
+      uploaded++;
     }
 
-    const { data: urlData } = supabase.storage
-      .from("gallery")
-      .getPublicUrl(path);
+    if (uploaded > 0) {
+      const { data: newMedia } = await supabase
+        .from("gallery_media")
+        .select("*")
+        .eq("team_id", currentTeam!.id)
+        .order("created_at", { ascending: false })
+        .limit(uploaded);
 
-    const { error: insertError } = await supabase.from("gallery_media").insert({
-      url: urlData.publicUrl,
-      media_type: file.type,
-      caption: caption || null,
-      event_id: eventId === "Aucun" ? null : eventId,
-      album_id: albumId === "Aucun" ? null : albumId,
-      uploaded_by: user.id,
-      team_id: currentTeam!.id,
-    });
+      if (newMedia?.length) {
+        setMedia((prev) => [...(newMedia as GalleryMedia[]), ...prev]);
+      }
 
-    if (insertError) {
-      toast.error("Erreur lors de l'enregistrement");
-      setUploading(false);
-      return;
+      toast.success(`${uploaded} fichier${uploaded > 1 ? "s" : ""} ajouté${uploaded > 1 ? "s" : ""} avec succès`);
     }
 
-    const { data: newMedia } = await supabase
-      .from("gallery_media")
-      .select("*")
-      .eq("team_id", currentTeam!.id)
-      .order("created_at", { ascending: false })
-      .limit(1);
-
-    if (newMedia?.[0]) {
-      setMedia((prev) => [newMedia[0] as GalleryMedia, ...prev]);
-    }
-
-    toast.success("Photo ajoutée avec succès");
     setUploadOpen(false);
-    setFile(null);
+    setFiles([]);
     setCaption("");
     setEventId("Aucun");
     setAlbumId("Aucun");
@@ -252,8 +254,9 @@ export default function GalleryPage() {
                 </DialogHeader>
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="file">Photo</Label>
-                    <Input id="file" type="file" accept="image/*" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+                    <Label htmlFor="file">Photos / Vidéos</Label>
+                    <Input id="file" type="file" accept="image/*,video/*" multiple onChange={(e) => setFiles(Array.from(e.target.files ?? []))} />
+                    {files.length > 0 && <p className="text-xs text-muted-foreground">{files.length} fichier{files.length > 1 ? "s" : ""} sélectionné{files.length > 1 ? "s" : ""}</p>}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="caption">Légende (optionnel)</Label>
@@ -287,7 +290,7 @@ export default function GalleryPage() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <Button className="w-full" onClick={handleUpload} disabled={!file || uploading}>
+                  <Button className="w-full" onClick={handleUpload} disabled={!files.length || uploading}>
                     <Upload className="h-4 w-4 mr-1" />
                     {uploading ? "Envoi en cours..." : "Envoyer"}
                   </Button>
