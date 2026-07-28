@@ -55,7 +55,7 @@ export default function TrophiesPage() {
   const [loading, setLoading] = useState(true);
 
   const [voteSessionOpen, setVoteSessionOpen] = useState(false);
-  const [voteSessionEventId, setVoteSessionEventId] = useState<string>("");
+  const [voteSessionTitle, setVoteSessionTitle] = useState("");
   const [voteSessionSaving, setVoteSessionSaving] = useState(false);
 
   const [trophyOpen, setTrophyOpen] = useState(false);
@@ -105,13 +105,13 @@ export default function TrophiesPage() {
   const isCoachVote = (v: MotmVote) => v.voter_id === v.candidate_id && v.voter_id === user?.id;
 
   async function handleCreateVoteSession() {
-    if (!voteSessionEventId) {
-      toast.error("Sélectionnez un événement");
+    if (!voteSessionTitle.trim()) {
+      toast.error("Saisissez un titre");
       return;
     }
     setVoteSessionSaving(true);
     const supabase = createClient();
-    const sessionId = `motm-${voteSessionEventId}-${Date.now()}`;
+    const sessionId = `${voteSessionTitle.trim()} - ${Date.now()}`;
     const { error } = await supabase.from("motm_votes").insert({
       event_id: sessionId,
       voter_id: user!.id,
@@ -125,7 +125,7 @@ export default function TrophiesPage() {
     }
     toast.success("Session de vote créée");
     setVoteSessionOpen(false);
-    setVoteSessionEventId("");
+    setVoteSessionTitle("");
     fetchData();
   }
 
@@ -227,13 +227,9 @@ export default function TrophiesPage() {
   }
 
   function getEventTitle(sessionEventId: string): string {
-    if (!sessionEventId.startsWith("motm-")) return `Vote — ${sessionEventId}`;
-    const parts = sessionEventId.split("-");
-    if (parts.length >= 2) {
-      const event = events.find((e) => e.id === parts[1]);
-      if (event) return `Joueur du Match — ${event.title}`;
-    }
-    return `Vote — ${sessionEventId}`;
+    const idx = sessionEventId.lastIndexOf(" - ");
+    if (idx > 0) return sessionEventId.slice(0, idx);
+    return sessionEventId;
   }
 
   if (loading) {
@@ -286,21 +282,14 @@ export default function TrophiesPage() {
                   </DialogHeader>
                   <div className="space-y-4">
                     <div className="space-y-2">
-                      <Label>Événement</Label>
-                      <Select value={voteSessionEventId} onValueChange={(v) => setVoteSessionEventId(v ?? "")}>
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Sélectionner un match" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {events.filter((e) => e.type === "match").map((event) => (
-                            <SelectItem key={event.id} value={event.id}>
-                              {event.title} — {new Date(event.event_date).toLocaleDateString("fr-FR")}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <Label>Titre de la session</Label>
+                      <Input
+                        value={voteSessionTitle}
+                        onChange={(e) => setVoteSessionTitle(e.target.value)}
+                        placeholder="Ex: Joueur du Match - Finale"
+                      />
                     </div>
-                    <Button className="w-full" onClick={handleCreateVoteSession} disabled={voteSessionSaving}>
+                    <Button className="w-full" onClick={handleCreateVoteSession} disabled={!voteSessionTitle.trim() || voteSessionSaving}>
                       {voteSessionSaving ? "Création..." : "Créer la session"}
                     </Button>
                   </div>
