@@ -24,31 +24,24 @@ export default function DashboardPage() {
 
   // Coach / default
   return (
-    <div className="space-y-4 md:space-y-6 pb-20 lg:pb-0">
-      <div>
-        <h2 className="text-xl md:text-2xl font-bold">
+    <div className="pb-24">
+      <div className="px-4 pt-4 pb-2">
+        <h2 className="text-xl font-bold">
           Bonjour, {user?.profile?.first_name} 👋
         </h2>
-        <p className="text-sm text-muted-foreground mt-1">
+        <p className="text-sm text-muted-foreground mt-0.5">
           Voici un résumé de votre équipe
         </p>
       </div>
 
-      <div className="grid gap-4 md:gap-6 md:grid-cols-2 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <NextEventCard />
-        </div>
+      <div className="px-4 space-y-4">
+        <NextEventCard />
         <QuickStats />
-      </div>
-
-      <RecentResults />
-
-      <div className="grid gap-4 md:gap-6 md:grid-cols-2">
+        <RecentResults />
         <PendingConvocations />
         <NewsFeed />
+        <SeasonSummary />
       </div>
-
-      <SeasonSummary />
     </div>
   );
 }

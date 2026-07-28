@@ -82,45 +82,45 @@ export function PlayerDashboard() {
     : [];
 
   return (
-    <div className="space-y-4 md:space-y-6 pb-20 lg:pb-0">
-      <div>
-        <h2 className="text-xl md:text-2xl font-bold">
+    <div className="pb-24">
+      <div className="px-4 pt-4 pb-2">
+        <h2 className="text-xl font-bold">
           Bonjour, {user?.profile?.first_name} 👋
         </h2>
-        <p className="text-muted-foreground mt-1">
+        <p className="text-sm text-muted-foreground mt-0.5">
           Voici ton résumé
         </p>
       </div>
 
-      <NextEventCard />
+      <div className="px-4 space-y-4">
+        <NextEventCard />
 
-      {!loading && stats && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-[var(--color-royal)]" />
-              Mes stats
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {statItems.map((item) => (
-                <div key={item.label} className="flex items-center gap-3 rounded-lg border p-3">
-                  <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${item.bg}`}>
-                    <item.icon className={`h-5 w-5 ${item.color}`} />
+        {!loading && stats && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <TrendingUp className="h-4 w-4 text-[var(--color-royal)]" />
+                Mes stats
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-3">
+                {statItems.map((item) => (
+                  <div key={item.label} className="flex items-center gap-3 rounded-lg border p-3">
+                    <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${item.bg}`}>
+                      <item.icon className={`h-5 w-5 ${item.color}`} />
+                    </div>
+                    <div>
+                      <p className="text-xl font-bold">{item.value}</p>
+                      <p className="text-xs text-muted-foreground">{item.label}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-xl font-bold">{item.value}</p>
-                    <p className="text-xs text-muted-foreground">{item.label}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
-      <div className="grid gap-4 md:gap-6 md:grid-cols-2">
         <PendingConvocations />
         <RecentResults />
       </div>
