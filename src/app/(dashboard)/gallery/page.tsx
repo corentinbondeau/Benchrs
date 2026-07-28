@@ -23,7 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Upload, Image as ImageIcon, Folder, ArrowLeft } from "lucide-react";
+import { Plus, Upload, Image as ImageIcon, Folder, ArrowLeft, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import type { GalleryMedia, Event, Album } from "@/types";
 
@@ -113,6 +113,38 @@ export default function GalleryPage() {
     fetchAlbums();
   }
 
+  async function handleDeleteMedia(mediaId: string, storagePath: string | null) {
+    if (!confirm("Supprimer cette photo ?")) return;
+    const res = await fetch("/api/gallery/delete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mediaId }),
+    });
+    const data = await res.json();
+    if (data.error) {
+      toast.error(data.error);
+      return;
+    }
+    setMedia((prev) => prev.filter((m) => m.id !== mediaId));
+    toast.success("Photo supprimée");
+  }
+
+  async function handleDeleteAlbum(albumId: string) {
+    if (!confirm("Supprimer cet album ? Les photos ne seront pas supprimées.")) return;
+    const res = await fetch("/api/albums/delete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ albumId }),
+    });
+    const data = await res.json();
+    if (data.error) {
+      toast.error(data.error);
+      return;
+    }
+    setAlbums((prev) => prev.filter((a) => a.id !== albumId));
+    toast.success("Album supprimé");
+  }
+
   async function handleUpload() {
     if (!files.length || !user) return;
     setUploading(true);
@@ -153,6 +185,7 @@ export default function GalleryPage() {
 
       await supabase.from("gallery_media").insert({
         url: urlData.publicUrl,
+        storage_path: path,
         media_type: file.type,
         caption: caption || null,
         event_id: eventId === "Aucun" ? null : eventId,
@@ -231,7 +264,7 @@ export default function GalleryPage() {
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {albumMedia.map((item) => (
-              <Card key={item.id} className="overflow-hidden cursor-pointer" onClick={() => setLightbox(item)}>
+              <Card key={item.id} className="overflow-hidden cursor-pointer group relative" onClick={() => setLightbox(item)}>
                 <div className="aspect-square bg-muted">
                   <img src={item.url} alt={item.caption || ""} className="w-full h-full object-cover" />
                 </div>
@@ -239,6 +272,16 @@ export default function GalleryPage() {
                   <CardContent className="p-2">
                     <p className="text-xs text-muted-foreground truncate">{item.caption}</p>
                   </CardContent>
+                )}
+                {isCoach && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="absolute top-2 right-2 h-8 w-8 bg-black/50 hover:bg-black/70 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={(e) => { e.stopPropagation(); handleDeleteMedia(item.id, item.storage_path); }}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
                 )}
               </Card>
             ))}
@@ -350,7 +393,7 @@ export default function GalleryPage() {
               const cover = getAlbumCover(album);
               const count = media.filter((m) => m.album_id === album.id).length;
               return (
-                <Card key={album.id} className="overflow-hidden cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => setSelectedAlbum(album)}>
+                <Card key={album.id} className="overflow-hidden cursor-pointer hover:bg-muted/50 transition-colors group relative" onClick={() => setSelectedAlbum(album)}>
                   <div className="aspect-video bg-muted flex items-center justify-center">
                     {cover ? (
                       <img src={cover} alt={album.title} className="w-full h-full object-cover" />
@@ -362,6 +405,16 @@ export default function GalleryPage() {
                     <p className="text-sm font-medium truncate">{album.title}</p>
                     <p className="text-xs text-muted-foreground">{count} photo{count !== 1 ? "s" : ""}</p>
                   </CardContent>
+                  {isCoach && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="absolute top-2 right-2 h-8 w-8 bg-black/50 hover:bg-black/70 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={(e) => { e.stopPropagation(); handleDeleteAlbum(album.id); }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
                 </Card>
               );
             })}
@@ -385,7 +438,7 @@ export default function GalleryPage() {
             {media.map((item) => {
               const album = albums.find((a) => a.id === item.album_id);
               return (
-                <Card key={item.id} className="overflow-hidden cursor-pointer" onClick={() => setLightbox(item)}>
+                <Card key={item.id} className="overflow-hidden cursor-pointer group relative" onClick={() => setLightbox(item)}>
                   <div className="aspect-square bg-muted">
                     <img src={item.url} alt={item.caption || ""} className="w-full h-full object-cover" />
                   </div>
@@ -393,6 +446,16 @@ export default function GalleryPage() {
                     {item.caption && <p className="text-xs text-muted-foreground truncate">{item.caption}</p>}
                     {album && <p className="text-[10px] text-muted-foreground/60 truncate">{album.title}</p>}
                   </CardContent>
+                  {isCoach && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="absolute top-2 right-2 h-8 w-8 bg-black/50 hover:bg-black/70 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={(e) => { e.stopPropagation(); handleDeleteMedia(item.id, item.storage_path); }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
                 </Card>
               );
             })}
