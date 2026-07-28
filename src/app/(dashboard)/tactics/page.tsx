@@ -753,7 +753,7 @@ function FeuilletMatchTab() {
         .select("*")
         .eq("team_id", currentTeam!.id)
         .eq("type", "match")
-        .order("event_date", { ascending: false }),
+        .order("event_date", { ascending: true }),
       supabase
         .from("profiles")
         .select("*")
