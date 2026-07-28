@@ -15,13 +15,13 @@ CREATE POLICY "Members can view albums"
   ON albums FOR SELECT
   USING (team_id IN (SELECT team_id FROM team_members WHERE user_id = auth.uid()));
 
+DROP POLICY IF EXISTS "Coaches can manage albums" ON albums;
+
 CREATE POLICY "Coaches can manage albums"
   ON albums FOR ALL
   USING (
-    EXISTS (
-      SELECT 1 FROM profiles
-      WHERE profiles.id = auth.uid()
-      AND profiles.role = 'coach'
-      AND profiles.team_id = albums.team_id
+    team_id IN (
+      SELECT team_id FROM team_members
+      WHERE user_id = auth.uid() AND role = 'coach'
     )
   );
