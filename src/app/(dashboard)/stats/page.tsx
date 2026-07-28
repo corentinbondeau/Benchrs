@@ -10,18 +10,18 @@ export default function StatsPage() {
   const isCoach = user?.profile?.role === "coach";
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6 pb-20 md:pb-0">
       <div>
-        <h2 className="text-2xl font-bold">Statistiques</h2>
-        <p className="text-muted-foreground mt-1">
+        <h2 className="text-xl md:text-2xl font-bold">Statistiques</h2>
+        <p className="text-sm text-muted-foreground mt-1">
           Classements et performances de l&apos;équipe
         </p>
       </div>
 
       <Tabs defaultValue="general" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="general">Générales</TabsTrigger>
-          {!isCoach && <TabsTrigger value="me">Mon profil</TabsTrigger>}
+        <TabsList className="overflow-x-auto">
+          <TabsTrigger value="general" className="shrink-0">Générales</TabsTrigger>
+          {!isCoach && <TabsTrigger value="me" className="shrink-0">Mon profil</TabsTrigger>}
         </TabsList>
         <TabsContent value="general">
           <Leaderboard />

@@ -241,8 +241,8 @@ export default function TrophiesPage() {
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <h2 className="text-2xl font-bold">Trophées</h2>
+      <div className="space-y-4 md:space-y-6 pb-20 md:pb-0">
+        <h2 className="text-xl md:text-2xl font-bold">Trophées</h2>
         <div className="h-64 animate-pulse rounded-lg bg-muted" />
       </div>
     );
@@ -256,19 +256,19 @@ export default function TrophiesPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6 pb-20 md:pb-0">
       <div>
-        <h2 className="text-2xl font-bold">Trophées & Vie du Club</h2>
-        <p className="text-muted-foreground mt-1">Récompenses, votes et moments mémorables</p>
+        <h2 className="text-xl md:text-2xl font-bold">Trophées & Vie du Club</h2>
+        <p className="text-sm text-muted-foreground mt-1">Récompenses, votes et moments mémorables</p>
       </div>
 
       <Tabs defaultValue="votes">
-        <TabsList>
-          <TabsTrigger value="votes">
+        <TabsList className="overflow-x-auto">
+          <TabsTrigger value="votes" className="shrink-0">
             <Vote className="h-4 w-4 mr-1.5" />
             Votes
           </TabsTrigger>
-          <TabsTrigger value="palmares">
+          <TabsTrigger value="palmares" className="shrink-0">
             <Trophy className="h-4 w-4 mr-1.5" />
             Palmarès
           </TabsTrigger>

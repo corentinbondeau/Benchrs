@@ -186,19 +186,19 @@ export default function ChampionshipPage() {
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <h2 className="text-2xl font-bold">Championnat</h2>
+      <div className="space-y-4 md:space-y-6 pb-20 md:pb-0">
+        <h2 className="text-xl md:text-2xl font-bold">Championnat</h2>
         <div className="h-64 animate-pulse rounded-lg bg-muted" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 md:space-y-6 pb-20 md:pb-0">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
-          <h2 className="text-2xl font-bold">Championnat</h2>
-          <p className="text-muted-foreground mt-1">Classement et résultats</p>
+          <h2 className="text-xl md:text-2xl font-bold">Championnat</h2>
+          <p className="text-sm text-muted-foreground mt-1">Classement et résultats</p>
         </div>
         {isCoach && (
           <div className="flex gap-2">

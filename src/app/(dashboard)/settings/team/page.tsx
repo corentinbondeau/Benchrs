@@ -215,8 +215,8 @@ export default function TeamSettingsPage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
-      <h1 className="text-2xl font-bold">Paramètres d&apos;équipe</h1>
+    <div className="max-w-2xl mx-auto space-y-4 md:space-y-6 pb-20 md:pb-0">
+      <h1 className="text-xl md:text-2xl font-bold">Paramètres d&apos;équipe</h1>
 
       {/* Team Info + Invite Code */}
       <Card>

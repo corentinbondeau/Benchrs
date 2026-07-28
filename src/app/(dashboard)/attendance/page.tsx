@@ -65,25 +65,25 @@ export default function AttendancePage() {
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <h2 className="text-2xl font-bold">Présences</h2>
+      <div className="space-y-4 md:space-y-6 pb-20 md:pb-0">
+        <h2 className="text-xl md:text-2xl font-bold">Présences</h2>
         <div className="h-64 animate-pulse rounded-lg bg-muted" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6 pb-20 md:pb-0">
       <div>
-        <h2 className="text-2xl font-bold">Présences</h2>
-        <p className="text-muted-foreground mt-1">Suivi des présences aux entraînements et matchs</p>
+        <h2 className="text-xl md:text-2xl font-bold">Présences</h2>
+        <p className="text-sm text-muted-foreground mt-1">Suivi des présences aux entraînements et matchs</p>
       </div>
 
       <Tabs defaultValue="all" onValueChange={(v) => setFilter((v ?? "all") as typeof filter)}>
-        <TabsList>
-          <TabsTrigger value="all">Tous</TabsTrigger>
-          <TabsTrigger value="Entrainement">Entrainements</TabsTrigger>
-          <TabsTrigger value="match">Matchs</TabsTrigger>
+        <TabsList className="overflow-x-auto">
+          <TabsTrigger value="all" className="shrink-0">Tous</TabsTrigger>
+          <TabsTrigger value="Entrainement" className="shrink-0">Entrainements</TabsTrigger>
+          <TabsTrigger value="match" className="shrink-0">Matchs</TabsTrigger>
         </TabsList>
         <TabsContent value={filter}>
           <Card>

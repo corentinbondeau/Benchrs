@@ -75,8 +75,8 @@ export default function RosterPage() {
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <h2 className="text-2xl font-bold">Effectif</h2>
+      <div className="space-y-4 md:space-y-6 pb-20 md:pb-0">
+        <h2 className="text-xl md:text-2xl font-bold">Effectif</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className="h-32 animate-pulse rounded-lg bg-muted" />
@@ -87,7 +87,7 @@ export default function RosterPage() {
   }
 
   return (
-    <div className="space-y-6 pb-20 lg:pb-0">
+    <div className="space-y-6 pb-20 md:pb-0">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold">Effectif</h2>
@@ -99,9 +99,9 @@ export default function RosterPage() {
 
       <Tabs defaultValue="all" className="space-y-4">
         <TabsList className="w-full overflow-x-auto">
-          <TabsTrigger value="all" className="flex-1">Tous</TabsTrigger>
+          <TabsTrigger value="all" className="shrink-0">Tous</TabsTrigger>
           {groupedByRole.filter(r => r.profiles.length > 0).map((role) => (
-            <TabsTrigger key={role.key} value={role.key} className="flex-1">
+            <TabsTrigger key={role.key} value={role.key} className="shrink-0">
               {role.label} ({role.profiles.length})
             </TabsTrigger>
           ))}

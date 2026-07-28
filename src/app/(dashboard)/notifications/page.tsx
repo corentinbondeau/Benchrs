@@ -42,18 +42,18 @@ export default function NotificationsPage() {
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <h2 className="text-2xl font-bold">Notifications</h2>
+      <div className="space-y-4 md:space-y-6 pb-20 md:pb-0">
+        <h2 className="text-xl md:text-2xl font-bold">Notifications</h2>
         <div className="h-64 animate-pulse rounded-lg bg-muted" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6 pb-20 md:pb-0">
       <div>
-        <h2 className="text-2xl font-bold">Notifications</h2>
-        <p className="text-muted-foreground mt-1">Alertes et messages de l&apos;équipe</p>
+        <h2 className="text-xl md:text-2xl font-bold">Notifications</h2>
+        <p className="text-sm text-muted-foreground mt-1">Alertes et messages de l&apos;équipe</p>
       </div>
 
       <Card>
