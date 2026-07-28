@@ -4,7 +4,8 @@ import { TeamGuard } from "@/components/team-guard";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { TopBar } from "@/components/layout/TopBar";
 import { BottomNav } from "@/components/layout/BottomNav";
-import { SheetProvider } from "@/lib/sheet-context";
+import { NavSheetContent } from "@/components/layout/NavSheetContent";
+import { Sheet } from "@/components/ui/sheet";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +18,7 @@ export default function DashboardLayout({
     <AuthProvider>
       <TeamProvider>
         <TeamGuard>
-          <SheetProvider>
+          <Sheet>
             <div className="flex h-screen overflow-hidden">
               <Sidebar />
               <div className="flex flex-1 flex-col overflow-hidden">
@@ -26,7 +27,8 @@ export default function DashboardLayout({
                 <BottomNav />
               </div>
             </div>
-          </SheetProvider>
+            <NavSheetContent />
+          </Sheet>
         </TeamGuard>
       </TeamProvider>
     </AuthProvider>

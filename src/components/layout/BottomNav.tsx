@@ -1,8 +1,9 @@
 "use client";
 
+import { useCallback } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useSheet } from "@/lib/sheet-context";
+import { SheetTrigger } from "@/components/ui/sheet";
 import {
   LayoutDashboard,
   Calendar,
@@ -20,7 +21,6 @@ const items = [
 
 export function BottomNav() {
   const pathname = usePathname();
-  const { setOpen } = useSheet();
 
   return (
     <nav
@@ -47,13 +47,13 @@ export function BottomNav() {
           </Link>
         );
       })}
-      <button
-        onClick={() => setOpen(true)}
+      <SheetTrigger
         className="relative flex flex-1 flex-col items-center gap-1 py-2 text-[11px] font-medium text-white/40 transition-colors"
+        style={{ WebkitTapHighlightColor: "transparent" }}
       >
         <Menu className="h-6 w-6" />
         Menu
-      </button>
+      </SheetTrigger>
     </nav>
   );
 }
