@@ -45,6 +45,7 @@ export default function GalleryPage() {
   const [albumId, setAlbumId] = useState("Aucun");
   const [events, setEvents] = useState<Event[]>([]);
   const [lightbox, setLightbox] = useState<GalleryMedia | null>(null);
+  const [lightboxAlbum, setLightboxAlbum] = useState("Aucun");
   const [albumTitle, setAlbumTitle] = useState("");
   const [albumDescription, setAlbumDescription] = useState("");
 
@@ -264,7 +265,7 @@ export default function GalleryPage() {
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {albumMedia.map((item) => (
-              <Card key={item.id} className="overflow-hidden cursor-pointer group relative" onClick={() => setLightbox(item)}>
+              <Card key={item.id} className="overflow-hidden cursor-pointer group relative" onClick={() => { setLightbox(item); setLightboxAlbum(item.album_id || "Aucun"); }}>
                 <div className="aspect-square bg-muted">
                   <img src={item.url} alt={item.caption || ""} className="w-full h-full object-cover" />
                 </div>
@@ -438,7 +439,7 @@ export default function GalleryPage() {
             {media.map((item) => {
               const album = albums.find((a) => a.id === item.album_id);
               return (
-                <Card key={item.id} className="overflow-hidden cursor-pointer group relative" onClick={() => setLightbox(item)}>
+              <Card key={item.id} className="overflow-hidden cursor-pointer group relative" onClick={() => { setLightbox(item); setLightboxAlbum(item.album_id || "Aucun"); }}>
                   <div className="aspect-square bg-muted">
                     <img src={item.url} alt={item.caption || ""} className="w-full h-full object-cover" />
                   </div>
@@ -463,10 +464,56 @@ export default function GalleryPage() {
         )}
       </div>
 
-      <Dialog open={!!lightbox} onOpenChange={(open) => !open && setLightbox(null)}>
+      <Dialog open={!!lightbox} onOpenChange={(open) => {
+        if (open && lightbox) {
+          setLightboxAlbum(lightbox.album_id || "Aucun");
+        } else {
+          setLightbox(null);
+        }
+      }}>
         <DialogContent className="sm:max-w-2xl p-0 bg-black border-0">
           {lightbox && (
             <img src={lightbox.url} alt={lightbox.caption || ""} className="w-full h-auto max-h-[80vh] object-contain rounded-lg" />
+          )}
+          {lightbox && isCoach && (
+            <div className="flex items-center gap-2 p-3 bg-black/80 rounded-b-lg"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Select value={lightboxAlbum} onValueChange={(v) => setLightboxAlbum(v ?? "Aucun")}>
+                <SelectTrigger className="flex-1 bg-white/10 text-white border-white/20">
+                  <SelectValue placeholder="Album" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Aucun">Aucun album</SelectItem>
+                  {albums.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>{a.title}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                size="sm"
+                className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold shrink-0"
+                onClick={async () => {
+                  const res = await fetch("/api/gallery/set-album", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ mediaId: lightbox.id, albumId: lightboxAlbum === "Aucun" ? null : lightboxAlbum }),
+                  });
+                  const data = await res.json();
+                  if (data.error) {
+                    toast.error(data.error);
+                    return;
+                  }
+                  setMedia((prev) => prev.map((m) =>
+                    m.id === lightbox.id ? { ...m, album_id: lightboxAlbum === "Aucun" ? null : lightboxAlbum } : m
+                  ));
+                  toast.success("Album mis à jour");
+                  setLightbox(null);
+                }}
+              >
+                Enregistrer
+              </Button>
+            </div>
           )}
         </DialogContent>
       </Dialog>
