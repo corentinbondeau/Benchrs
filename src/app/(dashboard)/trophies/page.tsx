@@ -120,7 +120,8 @@ export default function TrophiesPage() {
     });
     setVoteSessionSaving(false);
     if (error) {
-      toast.error("Erreur lors de la création");
+      toast.error(`Erreur: ${error.message}`);
+      setVoteSessionSaving(false);
       return;
     }
     toast.success("Session de vote créée");
