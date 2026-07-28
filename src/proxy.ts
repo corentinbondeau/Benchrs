@@ -4,6 +4,22 @@ import type { NextRequest } from "next/server";
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  if (pathname === "/favicon.ico") {
+    return NextResponse.rewrite(new URL("/favicon.png", request.url));
+  }
+
+  const isAsset =
+    pathname.startsWith("/_next/") ||
+    pathname.startsWith("/icons/") ||
+    pathname.startsWith("/logo.svg") ||
+    pathname.startsWith("/favicon") ||
+    pathname === "/manifest.json" ||
+    pathname === "/sw.js";
+
+  if (isAsset) {
+    return NextResponse.next();
+  }
+
   const isAuthPage =
     pathname === "/login" ||
     pathname === "/register" ||
@@ -41,5 +57,5 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|public|reset-password).*)"],
+  matcher: ["/((?!_next/static|_next/image|public|reset-password).*)"],
 };
