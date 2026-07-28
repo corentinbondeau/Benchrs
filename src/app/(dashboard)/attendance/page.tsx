@@ -82,7 +82,7 @@ export default function AttendancePage() {
       <Tabs defaultValue="all" onValueChange={(v) => setFilter((v ?? "all") as typeof filter)}>
         <TabsList>
           <TabsTrigger value="all">Tous</TabsTrigger>
-          <TabsTrigger value="training">Entraînements</TabsTrigger>
+          <TabsTrigger value="Entrainement">Entrainements</TabsTrigger>
           <TabsTrigger value="match">Matchs</TabsTrigger>
         </TabsList>
         <TabsContent value={filter}>
