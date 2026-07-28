@@ -554,7 +554,7 @@ function SéanceTab() {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <Label>Exercices</Label>
-                    <Button type="button" variant="outline" size="sm" onClick={addExercise}>
+                    <Button type="button" variant="outline" size="sm" onClick={addExercise} className="border-[var(--color-gold)] text-[var(--color-gold)] hover:bg-[var(--color-gold)]/10">
                       <Plus className="mr-1 h-3 w-3" />
                       Ajouter
                     </Button>
@@ -634,10 +634,11 @@ function SéanceTab() {
                       setCreateOpen(false);
                       resetForm();
                     }}
+                    className="border-[var(--color-gold)] text-[var(--color-gold)] hover:bg-[var(--color-gold)]/10"
                   >
                     Annuler
                   </Button>
-                  <Button type="submit" disabled={submitting}>
+                  <Button type="submit" disabled={submitting} className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold">
                     {submitting ? "Création..." : "Créer"}
                   </Button>
                 </div>
@@ -1351,7 +1352,7 @@ function FeuilletMatchTab() {
             <Button
               variant="outline"
               onClick={resetCreateMode}
-              className="flex-1 sm:flex-initial"
+              className="flex-1 sm:flex-initial border-[var(--color-gold)] text-[var(--color-gold)] hover:bg-[var(--color-gold)]/10"
             >
               Annuler
             </Button>

@@ -403,6 +403,7 @@ export default function TrophiesPage() {
                                       size="sm"
                                       variant="outline"
                                       onClick={() => handleVote(eventId, player.id)}
+                                      className="border-[var(--color-gold)] text-[var(--color-gold)] hover:bg-[var(--color-gold)]/10"
                                     >
                                       Voter
                                     </Button>
@@ -538,7 +539,7 @@ export default function TrophiesPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="flex gap-2 pt-2">
-            <Button variant="outline" className="flex-1" onClick={() => setConfirmDelete(null)}>
+            <Button variant="outline" className="flex-1 border-[var(--color-gold)] text-[var(--color-gold)] hover:bg-[var(--color-gold)]/10" onClick={() => setConfirmDelete(null)}>
               Annuler
             </Button>
             <Button
