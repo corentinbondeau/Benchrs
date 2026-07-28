@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { useTeam } from "@/lib/team";
+import { useSheet } from "@/lib/sheet-context";
 import { Menu, X } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import {
@@ -47,11 +48,13 @@ const coachItems = [
 ];
 
 export function MobileNav() {
-  const [open, setOpen] = useState(false);
   const pathname = usePathname();
   const { user } = useAuth();
   const { currentTeam, teams, switchTeam } = useTeam();
+  const { open, setOpen } = useSheet();
   const isCoach = user?.profile?.role === "coach";
+
+  const close = useCallback(() => setOpen(false), [setOpen]);
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -64,7 +67,7 @@ export function MobileNav() {
             <img src="/logo.svg" alt="SportPlus" className="h-6 w-6" />
             <span className="text-lg font-bold text-white">SportPlus</span>
           </div>
-          <button onClick={() => setOpen(false)} className="text-white/60 hover:text-white">
+          <button onClick={close} className="text-white/60 hover:text-white">
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -77,7 +80,7 @@ export function MobileNav() {
                 value={currentTeam.id}
                 onChange={(e) => {
                   switchTeam(e.target.value);
-                  setOpen(false);
+                  close();
                 }}
                 className="w-full bg-white/10 text-white text-sm rounded-lg px-3 py-2 appearance-none cursor-pointer hover:bg-white/15 transition-colors"
               >
@@ -107,7 +110,7 @@ export function MobileNav() {
               <Link
                 key={item.href}
                 href={item.href}
-                onClick={() => setOpen(false)}
+                onClick={close}
                 className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                   active
                     ? "bg-white/15 text-white"
@@ -134,7 +137,7 @@ export function MobileNav() {
                   <Link
                     key={item.href}
                     href={item.href}
-                    onClick={() => setOpen(false)}
+                onClick={close}
                     className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                       active
                         ? "bg-white/15 text-white"
@@ -153,7 +156,7 @@ export function MobileNav() {
         <div className="border-t border-white/10 p-3 space-y-0.5">
           <Link
             href="/settings"
-            onClick={() => setOpen(false)}
+            onClick={close}
             className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-white/60 hover:bg-white/10 hover:text-white transition-colors"
           >
             <Settings className="h-4 w-4" />
@@ -161,7 +164,7 @@ export function MobileNav() {
           </Link>
           <Link
             href="/settings/team"
-            onClick={() => setOpen(false)}
+            onClick={close}
             className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-white/60 hover:bg-white/10 hover:text-white transition-colors"
           >
             <Settings className="h-4 w-4" />
