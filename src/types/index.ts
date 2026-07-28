@@ -255,6 +255,7 @@ export interface MotmVote {
   id: string;
   event_id: string;
   title?: string;
+  ends_at?: string;
   voter_id: string;
   candidate_id: string;
   team_id: string;

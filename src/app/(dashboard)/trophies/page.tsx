@@ -56,6 +56,7 @@ export default function TrophiesPage() {
 
   const [voteSessionOpen, setVoteSessionOpen] = useState(false);
   const [voteSessionTitle, setVoteSessionTitle] = useState("");
+  const [voteSessionEndDate, setVoteSessionEndDate] = useState("");
   const [voteSessionSaving, setVoteSessionSaving] = useState(false);
 
   const [trophyOpen, setTrophyOpen] = useState(false);
@@ -113,6 +114,7 @@ export default function TrophiesPage() {
     const { error } = await supabase.from("motm_votes").insert({
       event_id: sessionId,
       title: voteSessionTitle.trim(),
+      ends_at: voteSessionEndDate || null,
       voter_id: user!.id,
       candidate_id: user!.id,
       team_id: currentTeam!.id,
@@ -126,6 +128,7 @@ export default function TrophiesPage() {
     toast.success("Session de vote créée");
     setVoteSessionOpen(false);
     setVoteSessionTitle("");
+    setVoteSessionEndDate("");
     fetchData();
   }
 
@@ -288,6 +291,14 @@ export default function TrophiesPage() {
                         placeholder="Ex: Joueur du Match - Finale"
                       />
                     </div>
+                    <div className="space-y-2">
+                      <Label>Fin des votes (optionnel)</Label>
+                      <Input
+                        type="datetime-local"
+                        value={voteSessionEndDate}
+                        onChange={(e) => setVoteSessionEndDate(e.target.value)}
+                      />
+                    </div>
                     <Button className="w-full" onClick={handleCreateVoteSession} disabled={!voteSessionTitle.trim() || voteSessionSaving}>
                       {voteSessionSaving ? "Création..." : "Créer la session"}
                     </Button>
@@ -316,12 +327,15 @@ export default function TrophiesPage() {
                   voteCounts.set(v.candidate_id, (voteCounts.get(v.candidate_id) || 0) + 1);
                 }
 
+                const sessionEnd = sessionVotes[0]?.ends_at ? new Date(sessionVotes[0].ends_at) : null;
+                const isExpired = sessionEnd ? new Date() > sessionEnd : false;
                 const hasVoted = realVotes.some((v) => v.voter_id === user?.id);
+                const votingLocked = isExpired || hasVoted;
                 const votedIds = new Set(realVotes.map((v) => v.voter_id));
 
                 const sortedCandidates = [...players]
                   .map((p) => ({ player: p, count: voteCounts.get(p.id) || 0 }))
-                  .filter((c) => c.count > 0 || !hasVoted)
+                  .filter((c) => c.count > 0 || !votingLocked)
                   .sort((a, b) => b.count - a.count);
 
                 const maxVotes = sortedCandidates.length > 0 ? sortedCandidates[0].count : 0;
@@ -335,7 +349,12 @@ export default function TrophiesPage() {
                           {getEventTitle(eventId, sessionVotes[0]?.title)}
                         </CardTitle>
                         <div className="flex items-center gap-2">
-                          <Badge variant="secondary">
+                          {sessionEnd && (
+                            <span className={`text-xs ${isExpired ? "text-red-500 font-medium" : "text-muted-foreground"}`}>
+                              {isExpired ? "Terminé" : `Fin: ${sessionEnd.toLocaleDateString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}`}
+                            </span>
+                          )}
+                          <Badge variant={isExpired ? "default" : "secondary"}>
                             {realVotes.length} vote{realVotes.length !== 1 ? "s" : ""}
                           </Badge>
                           {isCoach && (
@@ -364,8 +383,8 @@ export default function TrophiesPage() {
                             return (
                               <div
                                 key={player.id}
-                                className={`flex items-center gap-3 rounded-lg border p-3 ${!hasVoted ? "cursor-pointer transition-colors hover:bg-muted/50" : ""}`}
-                                onClick={() => !hasVoted && handleVote(eventId, player.id)}
+                                className={`flex items-center gap-3 rounded-lg border p-3 ${!votingLocked ? "cursor-pointer transition-colors hover:bg-muted/50" : ""}`}
+                                onClick={() => !votingLocked && handleVote(eventId, player.id)}
                               >
                                 <div className="relative">
                                   <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--color-royal)]/10 text-[var(--color-royal)] text-sm font-bold">
@@ -390,7 +409,7 @@ export default function TrophiesPage() {
                                   <Badge variant={isWinner ? "default" : "secondary"}>
                                     {count} vote{count !== 1 ? "s" : ""}
                                   </Badge>
-                                  {!hasVoted && (
+                                  {!votingLocked && (
                                     <Button
                                       size="sm"
                                       variant="outline"
@@ -406,11 +425,15 @@ export default function TrophiesPage() {
                           })}
                         </div>
                       )}
-                      {!hasVoted && (
+                      {isExpired ? (
+                        <p className="text-xs text-center mt-3 font-medium text-red-500">
+                          Vote clos — Résultat officiel
+                        </p>
+                      ) : !hasVoted ? (
                         <p className="text-xs text-muted-foreground text-center mt-3">
                           Cliquez sur un joueur pour voter
                         </p>
-                      )}
+                      ) : null}
                       {players.length > 0 && (
                         <div className="mt-4 pt-3 border-t">
                           <p className="text-xs text-muted-foreground font-medium mb-2">Participants</p>
