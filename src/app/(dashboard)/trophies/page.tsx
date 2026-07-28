@@ -102,8 +102,6 @@ export default function TrophiesPage() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const isCoachVote = (v: MotmVote) => v.voter_id === v.candidate_id && v.voter_id === user?.id;
-
   async function handleCreateVoteSession() {
     if (!voteSessionTitle.trim()) {
       toast.error("Saisissez un titre");
@@ -299,7 +297,7 @@ export default function TrophiesPage() {
             </div>
           )}
 
-          {Array.from(voteSessions.entries()).filter(([, sv]) => !isCoachVote(sv[0])).length === 0 ? (
+          {voteSessions.size === 0 ? (
             <Card>
               <CardContent className="py-8 text-center text-muted-foreground">
                 <Vote className="h-8 w-8 mx-auto mb-2 opacity-50" />
@@ -308,7 +306,6 @@ export default function TrophiesPage() {
             </Card>
           ) : (
             Array.from(voteSessions.entries())
-              .filter(([, sv]) => !isCoachVote(sv[0]))
               .map(([eventId, sessionVotes]) => {
                 const realVotes = sessionVotes.filter(
                   (v) => !(v.voter_id === v.candidate_id && v.voter_id === user?.id)
