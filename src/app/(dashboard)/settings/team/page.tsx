@@ -157,13 +157,15 @@ export default function TeamSettingsPage() {
     if (!currentTeam) return;
     setDeleting(true);
 
-    const { error } = await supabase
-      .from("teams")
-      .delete()
-      .eq("id", currentTeam!.id);
+    const res = await fetch("/api/teams/delete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ teamId: currentTeam.id }),
+    });
+    const data = await res.json();
 
-    if (error) {
-      toast.error("Erreur lors de la suppression");
+    if (!res.ok) {
+      toast.error(data.error || "Erreur lors de la suppression");
       setDeleting(false);
       return;
     }
