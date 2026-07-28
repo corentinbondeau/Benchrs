@@ -12,7 +12,8 @@ export const metadata: Metadata = {
   description: "Gestion d'équipe de football amateur",
   manifest: "/manifest.json",
   icons: [
-    { rel: "icon", url: "/favicon.png", type: "image/png" },
+    { rel: "icon", url: "/favicon-32.png", type: "image/png", sizes: "32x32" },
+    { rel: "icon", url: "/favicon-16.png", type: "image/png", sizes: "16x16" },
     { rel: "apple-touch-icon", url: "/favicon.png" },
   ],
   appleWebApp: {
