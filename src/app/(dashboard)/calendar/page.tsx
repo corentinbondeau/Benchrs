@@ -518,59 +518,66 @@ export default function CalendarPage() {
       )}
 
       {/* Week View */}
-      {view === "week" && (
-        <div className="space-y-2">
-          {Array.from({ length: 7 }).map((_, i) => {
-            const day = new Date(weekStart);
-            day.setDate(day.getDate() + i);
-            const dateStr = toLocalDateStr(day);
-            const dayEvents = getEventsForDate(dateStr);
-            const isToday = toLocalDateStr(new Date()) === dateStr;
+      {view === "week" && (() => {
+        const weekDays = Array.from({ length: 7 }).map((_, i) => {
+          const day = new Date(weekStart);
+          day.setDate(day.getDate() + i);
+          const dateStr = toLocalDateStr(day);
+          return { day, dateStr, dayEvents: getEventsForDate(dateStr), isToday: toLocalDateStr(new Date()) === dateStr };
+        });
+        const hasEvents = weekDays.some((d) => d.dayEvents.length > 0);
 
-            if (dayEvents.length === 0) return null;
-
-            return (
-              <div key={i} className={`rounded-lg border p-3 ${isToday ? "bg-blue-50 dark:bg-blue-950/20 border-[var(--color-royal)]" : ""}`}>
-                <div className="flex items-center justify-between mb-2">
-                  <p className={`text-sm font-medium ${isToday ? "text-[var(--color-royal)]" : ""}`}>
-                    {DAYS_FR[i]} {day.getDate()} {MONTHS_FR[day.getMonth()]}
-                  </p>
-                </div>
-                <div className="space-y-1">
-                    {dayEvents.map((event) => {
-                      const attCount = attendanceCounts[event.id];
-                      return (
-                        <div
-                          key={event.id}
-                          className="flex items-center gap-2 text-sm group relative cursor-pointer hover:bg-muted/50 rounded-lg px-2 py-1 -mx-2 transition-colors"
-                          onClick={() => selectEvent(event)}
-                        >
-                          <Badge variant="outline" className={getEventBadgeColor(event)}>
-                            {event.type === "match" ? "Match" : "Entraînement"}
-                          </Badge>
-                          <span className="font-medium">{event.title}</span>
-                          <EventTimeDisplay event={event} />
-                          {event.location && (
-                            <span className="text-xs text-muted-foreground">- {event.location}</span>
-                          )}
-                          {event.score_us !== null && event.score_them !== null && (
-                            <span className="text-xs font-bold">{event.score_us}-{event.score_them}</span>
-                          )}
-                          {attCount && attCount.total > 0 && (
-                            <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                              <Users className="h-3 w-3" />
-                              {attCount.present}/{attCount.total}
-                            </span>
-                          )}
-                        </div>
-                      );
-                    })}
+        return (
+          <div className="space-y-2">
+            {hasEvents ? weekDays.map(({ day, dateStr, dayEvents, isToday }, i) => {
+              if (dayEvents.length === 0) return null;
+              return (
+                <div key={i} className={`rounded-lg border p-3 ${isToday ? "bg-blue-50 dark:bg-blue-950/20 border-[var(--color-royal)]" : ""}`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <p className={`text-sm font-medium ${isToday ? "text-[var(--color-royal)]" : ""}`}>
+                      {DAYS_FR[i]} {day.getDate()} {MONTHS_FR[day.getMonth()]}
+                    </p>
                   </div>
+                  <div className="space-y-1">
+                      {dayEvents.map((event) => {
+                        const attCount = attendanceCounts[event.id];
+                        return (
+                          <div
+                            key={event.id}
+                            className="flex items-center gap-2 text-sm group relative cursor-pointer hover:bg-muted/50 rounded-lg px-2 py-1 -mx-2 transition-colors"
+                            onClick={() => selectEvent(event)}
+                          >
+                            <Badge variant="outline" className={getEventBadgeColor(event)}>
+                              {event.type === "match" ? "Match" : "Entraînement"}
+                            </Badge>
+                            <span className="font-medium">{event.title}</span>
+                            <EventTimeDisplay event={event} />
+                            {event.location && (
+                              <span className="text-xs text-muted-foreground">- {event.location}</span>
+                            )}
+                            {event.score_us !== null && event.score_them !== null && (
+                              <span className="text-xs font-bold">{event.score_us}-{event.score_them}</span>
+                            )}
+                            {attCount && attCount.total > 0 && (
+                              <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                                <Users className="h-3 w-3" />
+                                {attCount.present}/{attCount.total}
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                </div>
+              );
+            }) : (
+              <div className="text-center py-12 text-muted-foreground">
+                <p className="text-lg">Pas d&apos;évènements prévus cette semaine !</p>
               </div>
-            );
-          })}
-        </div>
-      )}
+            )}
+          </div>
+        );
+      })()}
     </div>
   );
 }
