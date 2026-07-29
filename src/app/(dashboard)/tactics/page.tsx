@@ -303,7 +303,6 @@ function SéanceTab() {
       .from("attendances")
       .select("status")
       .eq("event_id", selectedSession.event_id)
-      .eq("team_id", currentTeam.id)
       .then(({ data }) => {
         if (!data) { setAttendanceCount(null); return; }
         const present = data.filter((a) => a.status === "present" || a.status === "late").length;
