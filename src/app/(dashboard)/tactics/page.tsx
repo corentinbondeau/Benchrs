@@ -405,7 +405,7 @@ function SéanceTab() {
           <CardHeader>
             <div className="flex items-start justify-between">
               <div>
-                <CardTitle className="text-xl">{selectedSession.title}</CardTitle>
+                <CardTitle className="text-xl">Phase : {selectedSession.title}</CardTitle>
                 {event && (
                   <p className="mt-1 text-sm text-muted-foreground">
                     {event.title} — {formatDate(event.event_date)}
@@ -540,12 +540,27 @@ function SéanceTab() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Titre *</Label>
-                  <Input
+                  <Label>Phase *</Label>
+                  <Select
                     value={form.title}
-                    onChange={(e) => setForm({ ...form, title: e.target.value })}
-                    placeholder="Ex: Séance technique"
-                  />
+                    onValueChange={(v) => setForm({ ...form, title: v ?? "" })}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Sélectionner une phase">
+                        {(v) => {
+                          if (!v) return "Sélectionner une phase";
+                          return v;
+                        }}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="DÉSEQUILIBRER / FINIR">DÉSEQUILIBRER / FINIR</SelectItem>
+                      <SelectItem value="CONSERVER / PROGRESSER">CONSERVER / PROGRESSER</SelectItem>
+                      <SelectItem value="S’OPPOSER À LA PROGRESSION">S’OPPOSER À LA PROGRESSION</SelectItem>
+                      <SelectItem value="S’ORGANISER POUR RECUPERER">S’ORGANISER POUR RECUPERER</SelectItem>
+                      <SelectItem value="ATHLETISATION">ATHLETISATION</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="space-y-2">
@@ -685,7 +700,7 @@ function SéanceTab() {
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between">
                     <div className="space-y-1">
-                      <h3 className="font-medium">{session.title}</h3>
+                      <h3 className="font-medium">Phase : {session.title}</h3>
                       {event && (
                         <p className="text-sm text-muted-foreground">
                           {event.title} — {formatDate(event.event_date)}
