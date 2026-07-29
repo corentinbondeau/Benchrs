@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import {
   Dialog,
@@ -246,6 +247,32 @@ function formatTime(dateStr: string) {
 
 // --- Séance Tab ----------------------------------------------------------------
 
+const PHASE_OBJECTIVES: Record<string, string[]> = {
+  "DÉSEQUILIBRER / FINIR": [
+    "Jeu combiné pour créer le surnombre",
+    "Jouer à l'opposé après avoir fixer",
+    "Rechercher joueur lancé dans la profondeur",
+    "Se démarquer, éliminer passer ou tirer face à une défense en place",
+    "Se démarquer, éliminer passer ou tirer face à une défense en crise",
+  ],
+  "CONSERVER / PROGRESSER": [
+    "Créer et utiliser des espaces",
+    "Jouer dans les intervalles et entre les lignes",
+    "Jouer combiné à 2 / à 3 créer de la mobilité et de la vitesse de circulation",
+  ],
+  "S’OPPOSER À LA PROGRESSION": [
+    "Freiner la progression / réorganiser les alignements",
+    "Anticiper la profondeur",
+    "Protéger l'axe, le couloir de jeu direct, organiser les prises en charge",
+  ],
+  "S’ORGANISER POUR RECUPERER": [
+    "S'organiser en déséquilibre",
+    "Densifier dans le couloir de jeu",
+    "Couvrir le partenaire dans l'action défensive",
+  ],
+  ATHLETISATION: [],
+};
+
 function SéanceTab() {
   const { user } = useAuth();
   const { currentTeam } = useTeam();
@@ -263,9 +290,9 @@ function SéanceTab() {
   const [form, setForm] = useState({
     event_id: "",
     title: "",
-    objectives: "",
     notes: "",
   });
+  const [selectedObjectives, setSelectedObjectives] = useState<string[]>([]);
   const [exercises, setExercises] = useState<Exercise[]>([
     { name: "", duration: 15, description: "", drill_type: "échauffement" },
   ]);
@@ -352,10 +379,7 @@ function SéanceTab() {
 
     setSubmitting(true);
     const validExercises = exercises.filter((ex) => ex.name.trim() !== "");
-    const objectives = form.objectives
-      .split(",")
-      .map((o) => o.trim())
-      .filter((o) => o !== "");
+    const objectives = selectedObjectives;
 
     const { error } = await supabase.from("training_sessions").insert({
       event_id: form.event_id,
@@ -379,7 +403,8 @@ function SéanceTab() {
   }
 
   function resetForm() {
-    setForm({ event_id: "", title: "", objectives: "", notes: "" });
+    setForm({ event_id: "", title: "", notes: "" });
+    setSelectedObjectives([]);
     setExercises([{ name: "", duration: 15, description: "", drill_type: "échauffement" }]);
   }
 
@@ -543,7 +568,10 @@ function SéanceTab() {
                   <Label>Phase *</Label>
                   <Select
                     value={form.title}
-                    onValueChange={(v) => setForm({ ...form, title: v ?? "" })}
+                    onValueChange={(v) => {
+                      setForm({ ...form, title: v ?? "" });
+                      setSelectedObjectives([]);
+                    }}
                   >
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder="Sélectionner une phase">
@@ -564,12 +592,40 @@ function SéanceTab() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Objectifs (séparés par des virgules)</Label>
-                  <Input
-                    value={form.objectives}
-                    onChange={(e) => setForm({ ...form, objectives: e.target.value })}
-                    placeholder="Ex: passes, protection balle, pressing"
-                  />
+                  <Label>Objectifs (max 2)</Label>
+                  {PHASE_OBJECTIVES[form.title] && PHASE_OBJECTIVES[form.title].length > 0 ? (
+                    <div className="space-y-1.5">
+                      {PHASE_OBJECTIVES[form.title].map((obj) => {
+                        const checked = selectedObjectives.includes(obj);
+                        const atMax = selectedObjectives.length >= 2 && !checked;
+                        return (
+                          <label
+                            key={obj}
+                            className={`flex items-start gap-2 rounded-lg border px-3 py-2 cursor-pointer transition-colors ${
+                              checked ? "border-[var(--color-gold)] bg-[var(--color-gold)]/5" : "hover:bg-muted"
+                            } ${atMax ? "opacity-40" : ""}`}
+                          >
+                            <Checkbox
+                              checked={checked}
+                              disabled={atMax}
+                              onCheckedChange={() => {
+                                setSelectedObjectives(
+                                  checked
+                                    ? selectedObjectives.filter((o) => o !== obj)
+                                    : [...selectedObjectives, obj]
+                                );
+                              }}
+                            />
+                            <span className="text-sm">{obj}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      {form.title ? "Aucun objectif disponible pour cette phase" : "Sélectionnez d'abord une phase"}
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-2">
