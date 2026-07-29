@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useTeam } from "@/lib/team";
+import Link from "next/link";
 import { Shield, Users, Baby, ChevronRight } from "lucide-react";
 import type { Profile } from "@/types";
 
@@ -100,21 +101,23 @@ export default function RosterPage() {
         <div className="px-4 space-y-2">
           {profiles.map((profile) => {
             const initials = `${profile.first_name[0]}${profile.last_name[0]}`;
+            const isPlayer = section.key === "player";
             return (
-              <div
+              <Link
                 key={profile.id}
+                href={`/stats/${profile.id}`}
                 className="flex items-center gap-3 rounded-xl bg-card border p-4 active:scale-[0.98] transition-transform touch-manipulation"
               >
                 <div
                   className={`flex h-12 w-12 items-center justify-center rounded-full text-base font-bold shrink-0 ${
                     section.key === "coach"
                       ? "bg-amber-100 text-amber-700"
-                      : section.key === "player"
+                      : isPlayer
                       ? "bg-blue-100 text-blue-700"
                       : "bg-green-100 text-green-700"
                   }`}
                 >
-                  {section.key === "player" && profile.shirt_number
+                  {isPlayer && profile.shirt_number
                     ? profile.shirt_number
                     : initials}
                 </div>
@@ -123,13 +126,13 @@ export default function RosterPage() {
                     {profile.first_name} {profile.last_name}
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    {section.key === "player"
+                    {isPlayer
                       ? (positionLabels[profile.position || ""] || "Joueur")
                       : section.label.slice(0, -1)}
                   </p>
                 </div>
                 <ChevronRight className="h-5 w-5 text-muted-foreground/40 shrink-0" />
-              </div>
+              </Link>
             );
           })}
         </div>
