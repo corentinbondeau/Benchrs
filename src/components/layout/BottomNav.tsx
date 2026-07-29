@@ -21,6 +21,7 @@ import {
   Trophy,
   Bell,
   Settings,
+  Settings2,
   UserCog,
   Wallet,
 } from "lucide-react";
@@ -61,29 +62,39 @@ function SheetContentInner({ close }: { close: () => void }) {
       </div>
 
       {currentTeam && (
-        <div className="px-3 py-2 border-b border-white/10">
+        <div className="flex items-center gap-2 px-3 py-2 border-b border-white/10">
           {teams.length > 1 ? (
-            <select
-              value={currentTeam.id}
-              onChange={(e) => {
-                switchTeam(e.target.value);
-                close();
-              }}
-              className="w-full bg-white/10 text-white text-sm rounded-lg px-3 py-2 appearance-none cursor-pointer hover:bg-white/15 transition-colors"
-            >
-              {teams.map((team) => (
-                <option key={team.id} value={team.id} className="bg-[var(--color-navy)]">
-                  {team.club?.name ? `${team.club.name} — ` : ""}{team.name}
-                </option>
-              ))}
-            </select>
+            <>
+              <select
+                value={currentTeam.id}
+                onChange={(e) => {
+                  switchTeam(e.target.value);
+                  close();
+                }}
+                className="flex-1 bg-white/10 text-white text-sm rounded-lg px-3 py-2 appearance-none cursor-pointer hover:bg-white/15 transition-colors"
+              >
+                {teams.map((team) => (
+                  <option key={team.id} value={team.id} className="bg-[var(--color-navy)]">
+                    {team.club?.name ? `${team.club.name} — ` : ""}{team.name}
+                  </option>
+                ))}
+              </select>
+              <Link href="/settings/team" onClick={close} className="text-white/40 hover:text-white shrink-0">
+                <Settings2 className="h-5 w-5" />
+              </Link>
+            </>
           ) : (
-            <div className="px-3 py-2">
-              <p className="text-sm font-medium">{currentTeam.club?.name || currentTeam.name}</p>
-              {currentTeam.club && (
-                <p className="text-xs text-white/50">{currentTeam.name}</p>
-              )}
-            </div>
+            <>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">{currentTeam.club?.name || currentTeam.name}</p>
+                {currentTeam.club && (
+                  <p className="text-xs text-white/50 truncate">{currentTeam.name}</p>
+                )}
+              </div>
+              <Link href="/settings/team" onClick={close} className="text-white/40 hover:text-white shrink-0">
+                <Settings2 className="h-5 w-5" />
+              </Link>
+            </>
           )}
         </div>
       )}
@@ -140,7 +151,7 @@ function SheetContentInner({ close }: { close: () => void }) {
         </>
       )}
 
-      <div className="border-t border-white/10 p-3 space-y-0.5">
+      <div className="border-t border-white/10 p-3">
         <Link
           href="/settings"
           onClick={close}
@@ -148,14 +159,6 @@ function SheetContentInner({ close }: { close: () => void }) {
         >
           <Settings className="h-4 w-4" />
           Mon profil
-        </Link>
-        <Link
-          href="/settings/team"
-          onClick={close}
-          className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-white/60 hover:bg-white/10 hover:text-white transition-colors"
-        >
-          <Settings className="h-4 w-4" />
-          Équipe
         </Link>
       </div>
     </SheetContent>

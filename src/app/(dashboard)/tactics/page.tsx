@@ -1096,24 +1096,16 @@ function FeuilletMatchTab() {
           </div>
         </div>
 
-        {/* Pitch */}
-        <div className="mx-auto max-w-sm">
+        {/* Pitch — desktop */}
+        <div className="hidden md:block mx-auto max-w-sm">
           <div className="relative aspect-[2/3] rounded-lg shadow-lg">
-            {/* Grass base */}
-            <div
-              className="absolute inset-0 rounded-lg bg-green-700 pointer-events-none overflow-hidden"
+            <div className="absolute inset-0 rounded-lg bg-green-700 pointer-events-none overflow-hidden"
               style={{
                 backgroundImage:
                   "repeating-linear-gradient(180deg, rgba(255,255,255,0.04) 0px, rgba(255,255,255,0.04) 40px, transparent 40px, transparent 80px)",
               }}
             />
-
-            {/* Field markings SVG */}
-            <svg
-              viewBox="0 0 300 450"
-              className="absolute inset-0 h-full w-full pointer-events-none rounded-lg"
-              preserveAspectRatio="none"
-            >
+            <svg viewBox="0 0 300 450" className="absolute inset-0 h-full w-full pointer-events-none rounded-lg" preserveAspectRatio="none">
               <rect x="8" y="8" width="284" height="434" fill="none" stroke="rgba(255,255,255,0.45)" strokeWidth="2" rx="2" />
               <line x1="8" y1="225" x2="292" y2="225" stroke="rgba(255,255,255,0.45)" strokeWidth="1.5" />
               <circle cx="150" cy="225" r="50" fill="none" stroke="rgba(255,255,255,0.45)" strokeWidth="1.5" />
@@ -1133,82 +1125,67 @@ function FeuilletMatchTab() {
               <path d="M 8 434 A 8 8 0 0 0 16 442" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" />
               <path d="M 284 442 A 8 8 0 0 0 292 434" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" />
             </svg>
-
-              {/* Player position slots */}
-              {currentPositions.map((pos, i) => {
-                const slotKey = `slot-${i}`;
-                const pid = assignments[slotKey];
-                const player = pid ? players.find((p) => p.id === pid) : null;
-                const isCapt = captainId === pid;
-                const isSelected = selectedPlayerId !== null;
-                const isDragOver = dragOverSlot === slotKey;
-                return (
-                  <div
-                    key={i}
-                    className="absolute z-10 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center"
-                    style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
-                  >
-                  <button
-                    type="button"
-                    onClick={() => handleSlotClick(slotKey)}
+            {currentPositions.map((pos, i) => {
+              const slotKey = `slot-${i}`;
+              const pid = assignments[slotKey];
+              const player = pid ? players.find((p) => p.id === pid) : null;
+              const isCapt = captainId === pid;
+              const isSelected = selectedPlayerId !== null;
+              const isDragOver = dragOverSlot === slotKey;
+              return (
+                <div key={i} className="absolute z-10 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center"
+                  style={{ left: `${pos.x}%`, top: `${pos.y}%` }}>
+                  <button type="button" onClick={() => handleSlotClick(slotKey)}
                     onDragOver={(e) => handleSlotDragOver(slotKey, e)}
                     onDragLeave={handleSlotDragLeave}
                     onDrop={(e) => handleSlotDrop(slotKey, e)}
                     className={`relative flex h-10 w-10 items-center justify-center rounded-full text-xs font-bold shadow-lg transition-all ${
-                      isDragOver
-                        ? "ring-2 ring-[var(--color-gold)] ring-offset-2 ring-offset-green-700 scale-110"
-                        : isSelected && !player
-                          ? "ring-2 ring-[var(--color-gold)] ring-offset-2 ring-offset-green-700"
-                          : ""
-                    } ${
-                      player
-                        ? isCapt
-                          ? "bg-yellow-400 text-black ring-2 ring-yellow-300"
-                          : "bg-[var(--color-royal)] text-white"
-                        : "border-2 border-dashed border-white/30 text-[9px] text-white/50"
-                    }`}
-                  >
-                    {player ? (
-                      <>
-                        {player.shirt_number ?? "?"}
-                        {isCapt && <Crown className="ml-0.5 h-3 w-3" />}
-                      </>
-                    ) : (
-                      pos.label
-                        .split(" ")
-                        .map((w) => w[0])
-                        .join("")
-                        .slice(0, 2)
-                    )}
-                    {player && (
-                      <span
-                        role="button"
-                        tabIndex={0}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleRemovePlayer(pid!);
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") {
-                            e.stopPropagation();
-                            handleRemovePlayer(pid!);
-                          }
-                        }}
-                        className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-white text-[8px] leading-none font-bold hover:bg-red-600"
-                      >
-                        ×
-                      </span>
-                    )}
+                      isDragOver ? "ring-2 ring-[var(--color-gold)] ring-offset-2 ring-offset-green-700 scale-110" : isSelected && !player ? "ring-2 ring-[var(--color-gold)] ring-offset-2 ring-offset-green-700" : ""
+                    } ${player ? (isCapt ? "bg-yellow-400 text-black ring-2 ring-yellow-300" : "bg-[var(--color-royal)] text-white") : "border-2 border-dashed border-white/30 text-[9px] text-white/50"}`}>
+                    {player ? <>{player.shirt_number ?? "?"}{isCapt && <Crown className="ml-0.5 h-3 w-3" />}</> : pos.label.split(" ").map((w) => w[0]).join("").slice(0, 2)}
+                    {player && <span role="button" tabIndex={0} onClick={(e) => { e.stopPropagation(); handleRemovePlayer(pid!); }} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.stopPropagation(); handleRemovePlayer(pid!); }}} className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-white text-[8px] leading-none font-bold hover:bg-red-600">×</span>}
                   </button>
-                  <span className="mt-0.5 text-[9px] font-medium text-white/80 text-center max-w-[70px] truncate drop-shadow">
-                    {player
-                      ? `${player.first_name.charAt(0)}. ${player.last_name}`
-                      : pos.label}
-                  </span>
+                  <span className="mt-0.5 text-[9px] font-medium text-white/80 text-center max-w-[70px] truncate drop-shadow">{player ? `${player.first_name.charAt(0)}. ${player.last_name}` : pos.label}</span>
                 </div>
               );
             })}
           </div>
+        </div>
+
+        {/* Mobile: position assignment list */}
+        <div className="md:hidden space-y-2">
+          {currentPositions.map((pos, i) => {
+            const slotKey = `slot-${i}`;
+            const pid = assignments[slotKey];
+            const player = pid ? players.find((p) => p.id === pid) : null;
+            return (
+              <div key={i} className="flex items-center gap-2">
+                <span className="w-28 text-xs text-muted-foreground shrink-0">{pos.label}</span>
+                <select
+                  value={pid ?? ""}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val) {
+                      const newAssignments = { ...assignments, [slotKey]: val };
+                      const oldSlot = Object.entries(assignments).find(([k, v]) => v === val && k !== slotKey);
+                      if (oldSlot) delete newAssignments[oldSlot[0]];
+                      setAssignments(newAssignments);
+                    } else {
+                      const newAssignments = { ...assignments };
+                      delete newAssignments[slotKey];
+                      setAssignments(newAssignments);
+                    }
+                  }}
+                  className="flex-1 bg-white/10 border border-input text-sm rounded-lg px-3 py-2 appearance-none cursor-pointer"
+                >
+                  <option value="">—</option>
+                  {players.filter(p => !Object.entries(assignments).some(([k, v]) => v === p.id && k !== slotKey)).map((p) => (
+                    <option key={p.id} value={p.id}>#{p.shirt_number ?? "?"} {p.first_name} {p.last_name}</option>
+                  ))}
+                </select>
+              </div>
+            );
+          })}
         </div>
 
         {/* Bench */}
@@ -1449,8 +1426,8 @@ function FeuilletMatchTab() {
             </div>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* Pitch with grass */}
-            <div className="mx-auto max-w-sm">
+            {/* Pitch with grass — desktop */}
+            <div className="hidden md:block mx-auto max-w-sm">
               <div className="relative aspect-[2/3] rounded-lg overflow-hidden shadow-lg">
                 <div
                   className="absolute inset-0 bg-green-700 pointer-events-none"

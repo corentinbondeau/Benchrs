@@ -128,6 +128,17 @@ export function Leaderboard() {
     );
   }
 
+  const statValue = (player: LeaderboardEntry) => {
+    switch (sortKey) {
+      case "goals": return { label: `${player.goals} buts`, badge: true, color: "bg-[var(--color-gold)] text-[var(--color-navy)]" };
+      case "assists": return { label: `${player.assists} passes`, badge: true, color: "bg-[var(--color-royal)] text-white" };
+      case "yellow_cards": return { label: `${player.yellow_cards} jaune${player.yellow_cards > 1 ? "s" : ""}`, badge: false, color: "" };
+      case "red_cards": return { label: `${player.red_cards} rouge${player.red_cards > 1 ? "s" : ""}`, badge: false, color: "" };
+      case "minutes_played": return { label: `${player.minutes_played}'`, badge: false, color: "" };
+      case "attendance_rate": return { label: `${player.attendance_rate}%`, badge: true, color: player.attendance_rate >= 80 ? "bg-green-100 text-green-700" : player.attendance_rate >= 50 ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700" };
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap gap-2">
@@ -147,7 +158,44 @@ export function Leaderboard() {
         ))}
       </div>
 
-      <div className="rounded-lg border">
+      {/* Mobile: card list */}
+      <div className="md:hidden space-y-2">
+        {sorted.map((player, index) => {
+          const sv = statValue(player);
+          return (
+            <div key={player.player_id} className="flex items-center gap-3 rounded-lg border px-4 py-3">
+              <div className="flex-shrink-0 w-6 text-center">{rankIcon(index)}</div>
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--color-royal)]/10 text-[var(--color-royal)] text-xs font-bold shrink-0">
+                  {player.first_name[0]}{player.last_name[0]}
+                </div>
+                <div className="min-w-0">
+                  <p className="font-medium text-sm truncate">{player.first_name} {player.last_name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {player.matches_played} match{player.matches_played > 1 ? "s" : ""}
+                    {player.shirt_number && ` · #${player.shirt_number}`}
+                  </p>
+                </div>
+              </div>
+              <div className="shrink-0">
+                {sv.badge ? (
+                  <Badge className={sv.color}>{sv.label}</Badge>
+                ) : (
+                  <span className="text-sm font-medium">{sv.label}</span>
+                )}
+              </div>
+            </div>
+          );
+        })}
+        {sorted.length === 0 && (
+          <p className="text-center py-8 text-muted-foreground">
+            Aucune statistique disponible.
+          </p>
+        )}
+      </div>
+
+      {/* Desktop: table */}
+      <div className="hidden md:block rounded-lg border">
         <Table>
           <TableHeader>
             <TableRow>
