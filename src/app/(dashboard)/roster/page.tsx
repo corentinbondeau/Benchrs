@@ -69,22 +69,6 @@ export default function RosterPage() {
   const players = allProfiles.filter((p) => p.role === "player");
   const parents = allProfiles.filter((p) => p.role === "parent");
 
-  const roleMap: Record<string, Profile[]> = {
-    all: allProfiles,
-    coach: coaches,
-    player: players,
-    parent: parents,
-  };
-
-  const filteredProfiles = roleMap[activeRole] || [];
-
-  const roleCounts: Record<string, number> = {
-    all: allProfiles.length,
-    coach: coaches.length,
-    player: players.length,
-    parent: parents.length,
-  };
-
   if (loading) {
     return (
       <div className="p-4 pb-24">
