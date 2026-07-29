@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useTeam } from "@/lib/team";
-import { UserPlus, Shield, Users, Baby, ChevronRight } from "lucide-react";
+import { Shield, Users, Baby, ChevronRight } from "lucide-react";
 import type { Profile } from "@/types";
 
 const positionLabels: Record<string, string> = {
@@ -14,19 +14,19 @@ const positionLabels: Record<string, string> = {
   forward: "Attaquant",
 };
 
-const ROLE_TABS = [
-  { key: "all", label: "Tous", icon: Users },
+type Section = { key: "coach" | "player" | "parent"; label: string; icon: typeof Shield };
+
+const SECTIONS: Section[] = [
   { key: "coach", label: "Coachs", icon: Shield },
   { key: "player", label: "Joueurs", icon: Users },
   { key: "parent", label: "Parents", icon: Baby },
-] as const;
+];
 
 export default function RosterPage() {
   const { user } = useAuth();
   const { currentTeam } = useTeam();
   const [allProfiles, setAllProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeRole, setActiveRole] = useState("all");
 
   useEffect(() => {
     if (!currentTeam) return;
@@ -98,96 +98,81 @@ export default function RosterPage() {
     );
   }
 
+  function RoleSection({ section }: { section: Section }) {
+    const profiles = section.key === "coach" ? coaches : section.key === "player" ? players : parents;
+    const Icon = section.icon;
+
+    if (profiles.length === 0) return null;
+
+    return (
+      <div>
+        <div className="flex items-center gap-2 px-4 pt-5 pb-3">
+          <Icon className="h-5 w-5 text-muted-foreground" />
+          <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wider">
+            {section.label}
+          </h3>
+          <span className="text-xs text-muted-foreground/60">({profiles.length})</span>
+        </div>
+        <div className="px-4 space-y-2">
+          {profiles.map((profile) => {
+            const initials = `${profile.first_name[0]}${profile.last_name[0]}`;
+            return (
+              <div
+                key={profile.id}
+                className="flex items-center gap-3 rounded-xl bg-card border p-4 active:scale-[0.98] transition-transform touch-manipulation"
+              >
+                <div
+                  className={`flex h-12 w-12 items-center justify-center rounded-full text-base font-bold shrink-0 ${
+                    section.key === "coach"
+                      ? "bg-amber-100 text-amber-700"
+                      : section.key === "player"
+                      ? "bg-blue-100 text-blue-700"
+                      : "bg-green-100 text-green-700"
+                  }`}
+                >
+                  {section.key === "player" && profile.shirt_number
+                    ? profile.shirt_number
+                    : initials}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-[15px]">
+                    {profile.first_name} {profile.last_name}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {section.key === "player"
+                      ? (positionLabels[profile.position || ""] || "Joueur")
+                      : section.label.slice(0, -1)}
+                  </p>
+                </div>
+                <ChevronRight className="h-5 w-5 text-muted-foreground/40 shrink-0" />
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="pb-24">
-      {/* Header */}
-      <div className="px-4 pt-4 pb-2">
+      <div className="px-4 pt-4 pb-1">
         <h2 className="text-xl font-bold">Effectif</h2>
         <p className="text-sm text-muted-foreground mt-0.5">
-          {coaches.length > 0 && `${coaches.length} coach${coaches.length > 1 ? "s" : ""}`}
-          {coaches.length > 0 && players.length > 0 && " · "}
-          {players.length > 0 && `${players.length} joueur${players.length > 1 ? "s" : ""}`}
-          {((coaches.length > 0 || players.length > 0) && parents.length > 0) && " · "}
-          {parents.length > 0 && `${parents.length} parent${parents.length > 1 ? "s" : ""}`}
+          {allProfiles.length} membre{allProfiles.length > 1 ? "s" : ""}
         </p>
       </div>
 
-      {/* Role filter chips */}
-      <div className="flex gap-2 px-4 py-3 overflow-x-auto scrollbar-none">
-        {ROLE_TABS.map((tab) => {
-          const count = roleCounts[tab.key];
-          const isActive = activeRole === tab.key;
-          return (
-            <button
-              key={tab.key}
-              onClick={() => setActiveRole(tab.key)}
-              className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium whitespace-nowrap transition-colors touch-manipulation ${
-                isActive
-                  ? "bg-[var(--color-gold)] text-[var(--color-navy)]"
-                  : "bg-muted text-muted-foreground hover:bg-muted/80"
-              }`}
-            >
-              <tab.icon className="h-4 w-4" />
-              {tab.label} ({count})
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Player list */}
-      <div className="px-4 space-y-2">
-        {filteredProfiles.map((profile) => {
-          const roleKey = profile.role || "player";
-          const initials = `${profile.first_name[0]}${profile.last_name[0]}`;
-          const roleBadgeLabels: Record<string, string> = {
-            coach: "Coach",
-            player: "Joueur",
-            parent: "Parent",
-          };
-
-          return (
-            <div
-              key={profile.id}
-              className="flex items-center gap-3 rounded-xl bg-card border p-4 active:scale-[0.98] transition-transform touch-manipulation"
-            >
-              <div
-                className={`flex h-12 w-12 items-center justify-center rounded-full text-base font-bold shrink-0 ${
-                  roleKey === "coach"
-                    ? "bg-amber-100 text-amber-700"
-                    : roleKey === "player"
-                    ? "bg-blue-100 text-blue-700"
-                    : "bg-green-100 text-green-700"
-                }`}
-              >
-                {roleKey === "player" && profile.shirt_number
-                  ? profile.shirt_number
-                  : initials}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold text-[15px]">
-                  {profile.first_name} {profile.last_name}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  {roleKey === "player"
-                    ? (positionLabels[profile.position || ""] || "Joueur")
-                    : roleBadgeLabels[roleKey]}
-                </p>
-              </div>
-              <ChevronRight className="h-5 w-5 text-muted-foreground/40 shrink-0" />
-            </div>
-          );
-        })}
-
-        {filteredProfiles.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-16 text-center">
-            <UserPlus className="h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="font-semibold text-lg">Aucun membre</h3>
-            <p className="text-muted-foreground text-sm mt-1">
-              Les membres inscrits apparaitront ici.
-            </p>
-          </div>
-        )}
-      </div>
+      {allProfiles.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-20 text-center px-4">
+          <Users className="h-12 w-12 text-muted-foreground mb-4" />
+          <h3 className="font-semibold text-lg">Aucun membre</h3>
+          <p className="text-muted-foreground text-sm mt-1">
+            Invitez des joueurs via le code d&apos;invitation de l&apos;équipe.
+          </p>
+        </div>
+      ) : (
+        SECTIONS.map((section) => <RoleSection key={section.key} section={section} />)
+      )}
     </div>
   );
 }
