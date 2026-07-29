@@ -215,6 +215,26 @@ export default function ChampionshipPage() {
                   {!scrapedTeams ? (
                     <>
                       <div className="space-y-2">
+                        <Label>HTML de la page (recommandé si l&apos;URL échoue)</Label>
+                        <textarea
+                          value={fffHtml}
+                          onChange={(e) => setFffHtml(e.target.value)}
+                          placeholder="Collez ici le HTML complet de la page classement FFF..."
+                          className="w-full h-32 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Faites clic droit &gt; "Enregistrer la page sous..." ou Ctrl+U puis Ctrl+A puis Ctrl+C sur la page classement FFF
+                        </p>
+                      </div>
+                      <div className="relative">
+                        <div className="absolute inset-0 flex items-center">
+                          <span className="w-full border-t" />
+                        </div>
+                        <div className="relative flex justify-center text-xs uppercase">
+                          <span className="bg-background px-2 text-muted-foreground">ou</span>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
                         <Label>URL de la page FFF</Label>
                         <Input
                           value={fffUrl}
@@ -222,19 +242,7 @@ export default function ChampionshipPage() {
                           placeholder="https://www.fff.fr/competition/classement/..."
                         />
                         <p className="text-xs text-muted-foreground">
-                          Collez l&apos;URL de la page classement du site FFF
-                        </p>
-                      </div>
-                      <div className="space-y-2">
-                        <Label>HTML (alternative)</Label>
-                        <textarea
-                          value={fffHtml}
-                          onChange={(e) => setFffHtml(e.target.value)}
-                          placeholder="Collez le code HTML du tableau de classement..."
-                          className="w-full h-32 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                        />
-                        <p className="text-xs text-muted-foreground">
-                          Si l&apos;URL ne fonctionne pas, copiez le HTML depuis votre navigateur
+                          Collez l&apos;URL de la page classement du site FFF (peut être bloquée)
                         </p>
                       </div>
                       <Button
