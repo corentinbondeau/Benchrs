@@ -18,6 +18,7 @@ import {
   Trophy,
   Bell,
   Settings,
+  Settings2,
   Medal,
   UserCog,
   Wallet,
@@ -106,17 +107,22 @@ export function Sidebar() {
       {currentTeam && (
         <div className="px-3 py-2 border-b border-white/10">
           {teams.length > 1 ? (
-            <select
-              value={currentTeam.id}
-              onChange={(e) => switchTeam(e.target.value)}
-              className="w-full bg-white/10 text-white text-sm rounded-lg px-3 py-2 appearance-none cursor-pointer hover:bg-white/15 transition-colors"
-            >
-              {teams.map((team) => (
-                <option key={team.id} value={team.id} className="bg-[var(--color-navy)]">
-                  {team.club?.name ? `${team.club.name} — ` : ""}{team.name}
-                </option>
-              ))}
-            </select>
+            <div className="flex items-center gap-2">
+              <select
+                value={currentTeam.id}
+                onChange={(e) => switchTeam(e.target.value)}
+                className="flex-1 bg-white/10 text-white text-sm rounded-lg px-3 py-2 appearance-none cursor-pointer hover:bg-white/15 transition-colors"
+              >
+                {teams.map((team) => (
+                  <option key={team.id} value={team.id} className="bg-[var(--color-navy)]">
+                    {team.club?.name ? `${team.club.name} — ` : ""}{team.name}
+                  </option>
+                ))}
+              </select>
+              <Link href="/settings/team" className="text-white/40 hover:text-white shrink-0">
+                <Settings2 className="h-5 w-5" />
+              </Link>
+            </div>
           ) : (
             <div className="flex items-center gap-2 px-3 py-2">
               <div className="flex-1 min-w-0">
@@ -125,15 +131,12 @@ export function Sidebar() {
                   <p className="text-xs text-white/50 truncate">{currentTeam.name}</p>
                 )}
               </div>
+              <Link href="/settings/team" className="text-white/40 hover:text-white shrink-0">
+                <Settings2 className="h-5 w-5" />
+              </Link>
               <ChevronsUpDown className="h-4 w-4 text-white/40 shrink-0" />
             </div>
           )}
-          <Link
-            href="/settings/team"
-            className="block mt-1 text-xs text-white/40 hover:text-white/60 text-center"
-          >
-            Paramètres d&apos;équipe
-          </Link>
           <Dialog open={createOpen} onOpenChange={setCreateOpen}>
             <DialogTrigger render={<button className="block w-full mt-0.5 text-xs text-white/40 hover:text-white/60 text-center" />}>
               + Créer une équipe
