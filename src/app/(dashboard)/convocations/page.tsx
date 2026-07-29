@@ -135,6 +135,17 @@ export default function ConvocationsPage() {
     fetchData();
   }
 
+  async function updateAttendanceStatus(attendanceId: string, status: string) {
+    const supabase = createClient();
+    const { error } = await supabase.from("attendances").update({ status }).eq("id", attendanceId);
+    if (error) {
+      toast.error("Erreur lors de la mise à jour");
+      return;
+    }
+    toast.success("Statut mis à jour");
+    fetchData();
+  }
+
   async function removeConvocation(attendanceId: string) {
     const supabase = createClient();
     const { error } = await supabase.from("attendances").delete().eq("id", attendanceId);
@@ -193,6 +204,7 @@ export default function ConvocationsPage() {
           addConvocation={addConvocation}
           convocateAll={convocateAll}
           removeConvocation={removeConvocation}
+          updateAttendanceStatus={updateAttendanceStatus}
         />
       ) : (
         <PlayerView
@@ -215,6 +227,7 @@ function CoachView({
   addConvocation,
   convocateAll,
   removeConvocation,
+  updateAttendanceStatus,
 }: {
   events: EventWithAttendances[];
   players: Profile[];
@@ -223,6 +236,7 @@ function CoachView({
   addConvocation: (eventId: string, playerId: string) => void;
   convocateAll: (eventId: string) => void;
   removeConvocation: (attendanceId: string) => void;
+  updateAttendanceStatus: (attendanceId: string, status: string) => void;
 }) {
   return (
     <div className="space-y-4">
@@ -317,13 +331,22 @@ function CoachView({
                         )}
                       </div>
                       <div className="flex items-center gap-2">
-                        <Badge className={statusColors[att.status] || "bg-gray-100"}>
-                          {statusLabels[att.status] || att.status}
-                        </Badge>
+                        <Select value={att.status || "pending"} onValueChange={(v) => v && updateAttendanceStatus(att.id, v)}>
+                          <SelectTrigger className={`gap-1 h-7 px-2.5 py-0 text-xs font-medium rounded-full border-0 ${statusColors[att.status || "pending"]}`}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="present">Présent</SelectItem>
+                            <SelectItem value="absent">Absent</SelectItem>
+                            <SelectItem value="late">En retard</SelectItem>
+                            <SelectItem value="excused">Excusé</SelectItem>
+                            <SelectItem value="pending">En attente</SelectItem>
+                          </SelectContent>
+                        </Select>
                         <Button
                           size="icon"
                           variant="ghost"
-                          className="h-7 w-7 text-destructive"
+                          className="h-7 w-7 text-destructive shrink-0"
                           onClick={() => removeConvocation(att.id)}
                         >
                           <Trash2 className="h-3 w-3" />
