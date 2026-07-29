@@ -207,8 +207,9 @@ export default function ChatPage() {
   return (
     <div className="pb-20 md:pb-0">
       {/* Mobile: channel list */}
-      {selectedChannel ? (
-        <div className="flex flex-col h-[calc(100vh-8rem-5rem)] md:h-[calc(100vh-8rem)]">
+      <div className="md:hidden">
+        {selectedChannel ? (
+          <div className="flex flex-col h-[calc(100vh-8rem-5rem)] md:h-[calc(100vh-8rem)]">
           {/* Mobile channel header */}
           <div className="flex items-center gap-2 px-3 py-2 border-b shrink-0">
             <button
@@ -347,6 +348,7 @@ export default function ChatPage() {
           </div>
         </div>
       )}
+      </div>
 
       {/* Desktop: split view */}
       <div className="hidden md:flex rounded-lg border overflow-hidden h-[calc(100vh-8rem)]">

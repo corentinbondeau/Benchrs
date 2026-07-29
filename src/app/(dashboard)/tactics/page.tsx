@@ -258,6 +258,7 @@ function SéanceTab() {
   const [createOpen, setCreateOpen] = useState(false);
   const [selectedSession, setSelectedSession] = useState<TrainingSession | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [attendanceCount, setAttendanceCount] = useState<{ present: number; total: number } | null>(null);
 
   const [form, setForm] = useState({
     event_id: "",
@@ -295,6 +296,20 @@ function SéanceTab() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  useEffect(() => {
+    if (!selectedSession?.event_id || !currentTeam) return;
+    supabase
+      .from("attendances")
+      .select("status")
+      .eq("event_id", selectedSession.event_id)
+      .eq("team_id", currentTeam.id)
+      .then(({ data }) => {
+        if (!data) { setAttendanceCount(null); return; }
+        const present = data.filter((a) => a.status === "present" || a.status === "late").length;
+        setAttendanceCount({ present, total: data.length });
+      });
+  }, [selectedSession?.event_id, currentTeam]);
 
   function addExercise() {
     setExercises([
@@ -396,6 +411,13 @@ function SéanceTab() {
                   <p className="mt-1 text-sm text-muted-foreground">
                     {event.title} — {formatDate(event.event_date)}
                   </p>
+                )}
+                {attendanceCount && (
+                  <div className="mt-3 flex items-center gap-1.5 text-sm">
+                    <Users className="h-4 w-4 text-muted-foreground" />
+                    <span className="font-medium text-foreground">{attendanceCount.present}</span>
+                    <span className="text-muted-foreground">/ {attendanceCount.total} présents</span>
+                  </div>
                 )}
               </div>
             </div>
