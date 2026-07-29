@@ -12,7 +12,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { LogOut, Settings, User } from "lucide-react";
-import { MobileNav } from "./MobileNav";
 
 export function TopBar() {
   const { user, signOut } = useAuth();
@@ -25,8 +24,7 @@ export function TopBar() {
 
   return (
     <header className="flex h-14 items-center gap-4 border-b bg-background px-4 lg:px-6">
-      <MobileNav />
-      <img src="/logo.svg" alt="SportPlus" className="h-6 w-6 lg:hidden" />
+      <img src="/logo.svg" alt="SportPlus" className="h-6 w-6" />
       <div className="flex-1" />
       {currentTeam && (
         <span className="text-sm text-muted-foreground hidden sm:block">
