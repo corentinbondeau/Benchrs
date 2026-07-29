@@ -136,10 +136,20 @@ export default function ConvocationsPage() {
   }
 
   async function updateAttendanceStatus(attendanceId: string, status: string) {
+    setEvents((prev) =>
+      prev.map((event) => ({
+        ...event,
+        attendances: event.attendances.map((att) =>
+          att.id === attendanceId ? { ...att, status: status as Attendance["status"] } : att
+        ),
+      }))
+    );
+
     const supabase = createClient();
     const { error } = await supabase.from("attendances").update({ status }).eq("id", attendanceId);
     if (error) {
       toast.error("Erreur lors de la mise à jour");
+      fetchData();
       return;
     }
     toast.success("Statut mis à jour");
