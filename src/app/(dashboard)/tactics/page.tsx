@@ -345,8 +345,8 @@ function SéanceTab() {
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.event_id || !form.title) {
-      toast.error("Veuillez remplir tous les champs obligatoires");
+    if (!form.event_id) {
+      toast.error("Veuillez sélectionner un événement");
       return;
     }
 
@@ -405,7 +405,7 @@ function SéanceTab() {
           <CardHeader>
             <div className="flex items-start justify-between">
               <div>
-                <CardTitle className="text-xl">Phase : {selectedSession.title}</CardTitle>
+                <CardTitle className="text-xl">{selectedSession.title ? `Phase : ${selectedSession.title}` : "(Sans phase)"}</CardTitle>
                 {event && (
                   <p className="mt-1 text-sm text-muted-foreground">
                     {event.title} — {formatDate(event.event_date)}
@@ -700,7 +700,7 @@ function SéanceTab() {
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between">
                     <div className="space-y-1">
-                      <h3 className="font-medium">Phase : {session.title}</h3>
+                      <h3 className="font-medium">{session.title ? `Phase : ${session.title}` : "(Sans phase)"}</h3>
                       {event && (
                         <p className="text-sm text-muted-foreground">
                           {event.title} — {formatDate(event.event_date)}
