@@ -22,9 +22,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Users, Check, X, Clock, UserPlus, Trash2, Calendar } from "lucide-react";
+import { Users, Check, X, ChevronDown, UserPlus, Trash2, Calendar } from "lucide-react";
 import type { Event, Attendance, Profile } from "@/types";
 
 interface EventWithAttendances extends Event {
@@ -341,18 +348,23 @@ function CoachView({
                         )}
                       </div>
                       <div className="flex items-center gap-2">
-                        <Select value={att.status || "pending"} onValueChange={(v) => v && updateAttendanceStatus(att.id, v)}>
-                          <SelectTrigger className={`gap-1 h-7 px-2.5 py-0 text-xs font-medium rounded-full border-0 ${statusColors[att.status || "pending"]}`}>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="present">Présent</SelectItem>
-                            <SelectItem value="absent">Absent</SelectItem>
-                            <SelectItem value="late">En retard</SelectItem>
-                            <SelectItem value="excused">Excusé</SelectItem>
-                            <SelectItem value="pending">En attente</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger render={
+                            <button className={`inline-flex items-center gap-1 h-7 px-2.5 text-xs font-medium rounded-full border-0 ${statusColors[att.status || "pending"]}`}>
+                              {statusLabels[att.status || "pending"]}
+                              <ChevronDown className="h-3 w-3 opacity-60" />
+                            </button>
+                          } />
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuRadioGroup value={att.status || "pending"} onValueChange={(v) => updateAttendanceStatus(att.id, v)}>
+                              <DropdownMenuRadioItem value="present">Présent</DropdownMenuRadioItem>
+                              <DropdownMenuRadioItem value="absent">Absent</DropdownMenuRadioItem>
+                              <DropdownMenuRadioItem value="late">En retard</DropdownMenuRadioItem>
+                              <DropdownMenuRadioItem value="excused">Excusé</DropdownMenuRadioItem>
+                              <DropdownMenuRadioItem value="pending">En attente</DropdownMenuRadioItem>
+                            </DropdownMenuRadioGroup>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                         <Button
                           size="icon"
                           variant="ghost"
