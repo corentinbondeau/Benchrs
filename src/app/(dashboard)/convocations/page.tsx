@@ -25,8 +25,7 @@ import {
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
+  DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
@@ -356,13 +355,11 @@ function CoachView({
                             </button>
                           } />
                           <DropdownMenuContent align="end">
-                            <DropdownMenuRadioGroup value={att.status || "pending"} onValueChange={(v) => updateAttendanceStatus(att.id, v)}>
-                              <DropdownMenuRadioItem value="present">Présent</DropdownMenuRadioItem>
-                              <DropdownMenuRadioItem value="absent">Absent</DropdownMenuRadioItem>
-                              <DropdownMenuRadioItem value="late">En retard</DropdownMenuRadioItem>
-                              <DropdownMenuRadioItem value="excused">Excusé</DropdownMenuRadioItem>
-                              <DropdownMenuRadioItem value="pending">En attente</DropdownMenuRadioItem>
-                            </DropdownMenuRadioGroup>
+                            <DropdownMenuItem onClick={() => updateAttendanceStatus(att.id, "present")}>Présent</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => updateAttendanceStatus(att.id, "absent")}>Absent</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => updateAttendanceStatus(att.id, "late")}>En retard</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => updateAttendanceStatus(att.id, "excused")}>Excusé</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => updateAttendanceStatus(att.id, "pending")}>En attente</DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                         <Button
