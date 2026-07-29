@@ -36,6 +36,8 @@ import {
   Shirt,
   Users,
   Crown,
+  Swords,
+  ClipboardList,
 } from "lucide-react";
 import { toast } from "sonner";
 import type {
@@ -1096,8 +1098,8 @@ function FeuilletMatchTab() {
           </div>
         </div>
 
-        {/* Pitch — desktop */}
-        <div className="hidden md:block mx-auto max-w-sm">
+        {/* Pitch */}
+        <div className="mx-auto max-w-sm">
           <div className="relative aspect-[2/3] rounded-lg shadow-lg">
             <div className="absolute inset-0 rounded-lg bg-green-700 pointer-events-none overflow-hidden"
               style={{
@@ -1150,42 +1152,6 @@ function FeuilletMatchTab() {
               );
             })}
           </div>
-        </div>
-
-        {/* Mobile: position assignment list */}
-        <div className="md:hidden space-y-2">
-          {currentPositions.map((pos, i) => {
-            const slotKey = `slot-${i}`;
-            const pid = assignments[slotKey];
-            const player = pid ? players.find((p) => p.id === pid) : null;
-            return (
-              <div key={i} className="flex items-center gap-2">
-                <span className="w-28 text-xs text-muted-foreground shrink-0">{pos.label}</span>
-                <select
-                  value={pid ?? ""}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    if (val) {
-                      const newAssignments = { ...assignments, [slotKey]: val };
-                      const oldSlot = Object.entries(assignments).find(([k, v]) => v === val && k !== slotKey);
-                      if (oldSlot) delete newAssignments[oldSlot[0]];
-                      setAssignments(newAssignments);
-                    } else {
-                      const newAssignments = { ...assignments };
-                      delete newAssignments[slotKey];
-                      setAssignments(newAssignments);
-                    }
-                  }}
-                  className="flex-1 bg-white/10 border border-input text-sm rounded-lg px-3 py-2 appearance-none cursor-pointer"
-                >
-                  <option value="">—</option>
-                  {players.filter(p => !Object.entries(assignments).some(([k, v]) => v === p.id && k !== slotKey)).map((p) => (
-                    <option key={p.id} value={p.id}>#{p.shirt_number ?? "?"} {p.first_name} {p.last_name}</option>
-                  ))}
-                </select>
-              </div>
-            );
-          })}
         </div>
 
         {/* Bench */}
@@ -1426,8 +1392,8 @@ function FeuilletMatchTab() {
             </div>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* Pitch with grass — desktop */}
-            <div className="hidden md:block mx-auto max-w-sm">
+            {/* Pitch with grass */}
+            <div className="mx-auto max-w-sm">
               <div className="relative aspect-[2/3] rounded-lg overflow-hidden shadow-lg">
                 <div
                   className="absolute inset-0 bg-green-700 pointer-events-none"
@@ -1694,8 +1660,8 @@ export default function TacticsPage() {
 
       <Tabs defaultValue="seance" className="space-y-4">
         <TabsList className="overflow-x-auto">
-          <TabsTrigger value="seance" className="shrink-0">Séance</TabsTrigger>
-          <TabsTrigger value="match" className="shrink-0">Feuillet Match</TabsTrigger>
+          <TabsTrigger value="seance" className="shrink-0"><ClipboardList className="h-4 w-4 mr-1.5" />Séance</TabsTrigger>
+          <TabsTrigger value="match" className="shrink-0"><Swords className="h-4 w-4 mr-1.5" />Feuillet Match</TabsTrigger>
         </TabsList>
         <TabsContent value="seance">
           <SéanceTab />
