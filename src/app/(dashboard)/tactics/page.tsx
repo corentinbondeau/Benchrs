@@ -57,19 +57,6 @@ const DRILL_TYPES = [
   "jeu",
 ];
 
-const POSITION_LABELS = [
-  "Gardien",
-  "Défenseur Central",
-  "Arrière Droit",
-  "Arrière Gauche",
-  "Milieu Défenseur",
-  "Milieu Central",
-  "Milieu Offensif",
-  "Ailier Droit",
-  "Ailier Gauche",
-  "Buteur",
-];
-
 const FORMATION_POSITIONS: Record<string, { x: number; y: number; label: string }[]> = {
   "4-3-3": [
     { x: 50, y: 90, label: "Gardien" },
@@ -665,7 +652,7 @@ function SéanceTab() {
           Aucune séance enregistrée
         </div>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-3">
           {sessions.map((session) => {
             const event = eventMap.get(session.event_id);
             return (
@@ -684,7 +671,7 @@ function SéanceTab() {
                         </p>
                       )}
                     </div>
-                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                    <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
                   </div>
                   <div className="mt-3 flex flex-wrap gap-1.5">
                     {session.exercises && session.exercises.length > 0 && (
@@ -710,6 +697,33 @@ function SéanceTab() {
   );
 }
 
+// --- Pitch SVG (reusable) ---
+
+function PitchSVG() {
+  return (
+    <svg viewBox="0 0 300 450" className="absolute inset-0 h-full w-full pointer-events-none" preserveAspectRatio="none">
+      <rect x="8" y="8" width="284" height="434" fill="none" stroke="rgba(255,255,255,0.45)" strokeWidth="2" rx="2" />
+      <line x1="8" y1="225" x2="292" y2="225" stroke="rgba(255,255,255,0.45)" strokeWidth="1.5" />
+      <circle cx="150" cy="225" r="50" fill="none" stroke="rgba(255,255,255,0.45)" strokeWidth="1.5" />
+      <circle cx="150" cy="225" r="3" fill="rgba(255,255,255,0.5)" />
+      <rect x="75" y="8" width="150" height="80" fill="none" stroke="rgba(255,255,255,0.45)" strokeWidth="1.5" />
+      <rect x="105" y="8" width="90" height="35" fill="none" stroke="rgba(255,255,255,0.45)" strokeWidth="1.5" />
+      <circle cx="150" cy="55" r="3" fill="rgba(255,255,255,0.5)" />
+      <path d="M 115 88 Q 150 72 185 88" fill="none" stroke="rgba(255,255,255,0.45)" strokeWidth="1.5" />
+      <rect x="120" y="0" width="60" height="8" fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="2" />
+      <rect x="75" y="362" width="150" height="80" fill="none" stroke="rgba(255,255,255,0.45)" strokeWidth="1.5" />
+      <rect x="105" y="407" width="90" height="35" fill="none" stroke="rgba(255,255,255,0.45)" strokeWidth="1.5" />
+      <circle cx="150" cy="395" r="3" fill="rgba(255,255,255,0.5)" />
+      <path d="M 115 362 Q 150 378 185 362" fill="none" stroke="rgba(255,255,255,0.45)" strokeWidth="1.5" />
+      <rect x="120" y="442" width="60" height="8" fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="2" />
+      <path d="M 8 16 A 8 8 0 0 1 16 8" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" />
+      <path d="M 284 8 A 8 8 0 0 1 292 16" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" />
+      <path d="M 8 434 A 8 8 0 0 0 16 442" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" />
+      <path d="M 284 442 A 8 8 0 0 0 292 434" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" />
+    </svg>
+  );
+}
+
 // --- Feuillet Match Tab --------------------------------------------------------
 
 function FeuilletMatchTab() {
@@ -723,7 +737,7 @@ function FeuilletMatchTab() {
   const [events, setEvents] = useState<Event[]>([]);
   const [players, setPlayers] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedLineup, setSelectedLineup] = useState<{
+  const [selectedSheet, setSelectedSheet] = useState<{
     event: Event;
     formation: Formation;
     lineups: MatchLineup[];
@@ -735,10 +749,6 @@ function FeuilletMatchTab() {
   const [formationName, setFormationName] = useState("4-3-3");
   const [assignments, setAssignments] = useState<Record<string, string>>({});
   const [captainId, setCaptainId] = useState("");
-
-  const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
-  const [draggedPlayerId, setDraggedPlayerId] = useState<string | null>(null);
-  const [dragOverSlot, setDragOverSlot] = useState<string | null>(null);
 
   if (!currentTeam) {
     return <div className="flex items-center justify-center h-64"><p className="text-muted-foreground">Chargement de l'équipe...</p></div>;
@@ -795,117 +805,52 @@ function FeuilletMatchTab() {
 
   const currentPositions = FORMATION_POSITIONS[formationName] || FORMATION_POSITIONS["4-3-3"];
 
-  const assignedPlayerIds = new Set(
-    Object.entries(assignments)
-      .filter(([_, loc]) => loc !== "pool")
-      .map(([id]) => id)
-  );
-  const poolPlayers = players.filter((p) => !assignedPlayerIds.has(p.id));
+  const allSlotKeys = [
+    ...currentPositions.map((_, i) => `slot-${i}`),
+    ...["bench-0", "bench-1", "bench-2"],
+  ];
+  const assignedPlayers = new Set(Object.values(assignments));
 
-  const benchPlayerIds = [0, 1, 2].map((i) => {
-    const entry = Object.entries(assignments).find(([_, loc]) => loc === `bench-${i}`);
-    return entry ? entry[0] : null;
-  });
-
-  function handlePlayerClick(playerId: string) {
-    if (selectedPlayerId === playerId) {
-      setSelectedPlayerId(null);
-    } else {
-      setSelectedPlayerId(playerId);
-    }
-  }
-
-  function handleSlotClick(slotKey: string) {
-    if (!selectedPlayerId) {
-      const occupant = assignments[slotKey];
-      if (occupant) {
-        setSelectedPlayerId(occupant);
-        setAssignments((prev) => {
-          const next = { ...prev };
-          delete next[occupant];
-          return next;
-        });
-      }
-      return;
-    }
-
+  function handleAssign(slotKey: string, playerId: string) {
     setAssignments((prev) => {
       const next = { ...prev };
-      const sourceLocation = next[selectedPlayerId];
-      const currentOccupant = Object.entries(next).find(
-        ([id, loc]) => loc === slotKey && id !== selectedPlayerId
-      )?.[0];
-
-      next[selectedPlayerId] = slotKey;
-
-      if (currentOccupant) {
-        next[currentOccupant] =
-          sourceLocation === slotKey ? "pool" : sourceLocation || "pool";
-      }
-
+      const oldSlotForThisPlayer = Object.entries(next).find(
+        ([k, v]) => v === playerId && k !== slotKey
+      );
+      if (oldSlotForThisPlayer) delete next[oldSlotForThisPlayer[0]];
+      const oldPlayerInThisSlot = Object.entries(next).find(
+        ([k, v]) => k !== playerId && v === slotKey
+      );
+      if (oldPlayerInThisSlot) delete next[oldPlayerInThisSlot[0]];
+      if (playerId) next[slotKey] = playerId;
+      else delete next[slotKey];
       return next;
     });
-    setSelectedPlayerId(null);
   }
 
-  function handleRemovePlayer(playerId: string) {
-    setAssignments((prev) => {
-      const next = { ...prev };
-      delete next[playerId];
-      return next;
-    });
-    if (selectedPlayerId === playerId) {
-      setSelectedPlayerId(null);
-    }
+  function availablePlayers(currentSlot: string) {
+    const currentPlayerId = assignments[currentSlot];
+    return players.filter(
+      (p) =>
+        p.id === currentPlayerId || !assignedPlayers.has(p.id)
+    );
   }
 
-  // --- Drag and Drop handlers ---
-
-  function handleDragStart(playerId: string, e: React.DragEvent) {
-    setDraggedPlayerId(playerId);
-    e.dataTransfer.effectAllowed = "move";
-    e.dataTransfer.setData("text/plain", playerId);
+  function formatPlayer(p: Profile) {
+    return `#${p.shirt_number ?? "?"} ${p.first_name} ${p.last_name}`;
   }
 
-  function handleDragEnd() {
-    setDraggedPlayerId(null);
-    setDragOverSlot(null);
+  function playerBySlot(slotKey: string): Profile | undefined {
+    const pid = assignments[slotKey];
+    return pid ? players.find((p) => p.id === pid) : undefined;
   }
 
-  function handleSlotDragOver(slotKey: string, e: React.DragEvent) {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
-    setDragOverSlot(slotKey);
-  }
-
-  function handleSlotDragLeave() {
-    setDragOverSlot(null);
-  }
-
-  function handleSlotDrop(slotKey: string, e: React.DragEvent) {
-    e.preventDefault();
-    const playerId = e.dataTransfer.getData("text/plain") || draggedPlayerId;
-    if (!playerId) return;
-
-    setAssignments((prev) => {
-      const next = { ...prev };
-      const sourceLocation = next[playerId];
-      const currentOccupant = Object.entries(next).find(
-        ([id, loc]) => loc === slotKey && id !== playerId
-      )?.[0];
-
-      next[playerId] = slotKey;
-
-      if (currentOccupant) {
-        next[currentOccupant] =
-          sourceLocation === slotKey ? "pool" : sourceLocation || "pool";
-      }
-
-      return next;
-    });
-
-    setDraggedPlayerId(null);
-    setDragOverSlot(null);
+  function resetCreateMode() {
+    setCreateMode(false);
+    setSelectedEventId("");
+    setFormationName("4-3-3");
+    setAssignments({});
+    setCaptainId("");
   }
 
   async function handleCreate() {
@@ -914,16 +859,14 @@ function FeuilletMatchTab() {
       return;
     }
 
-    const starterIds = currentPositions.map(
-      (_, i) => assignments[`slot-${i}`]
-    );
+    const starterIds = currentPositions.map((_, i) => assignments[`slot-${i}`]);
     if (starterIds.some((id) => !id)) {
       toast.error("Tous les postes doivent être remplis");
       return;
     }
 
-    const benchIds = benchPlayerIds.filter(Boolean);
-    if (benchIds.length !== 3) {
+    const benchIds = [0, 1, 2].map((i) => assignments[`bench-${i}`]);
+    if (benchIds.some((id) => !id)) {
       toast.error("Le banc doit comporter 3 remplaçants");
       return;
     }
@@ -999,14 +942,6 @@ function FeuilletMatchTab() {
     setSubmitting(false);
   }
 
-  function resetCreateMode() {
-    setCreateMode(false);
-    setSelectedEventId("");
-    setFormationName("4-3-3");
-    setAssignments({});
-    setCaptainId("");
-  }
-
   async function handleDeleteFormation(formationId: string, eventId: string) {
     if (!confirm("Supprimer ce feuillet de match ?")) return;
     const [fErr] = await Promise.all([
@@ -1017,16 +952,16 @@ function FeuilletMatchTab() {
       toast.error("Erreur lors de la suppression");
     } else {
       toast.success("Feuillet supprimé");
-      setSelectedLineup(null);
+      setSelectedSheet(null);
       fetchData();
     }
   }
 
-  // --- Create Mode (Click-based) ---
+  // --- Create Mode ---
 
   if (createMode) {
     return (
-      <div className="space-y-5">
+      <div className="space-y-5 pb-20">
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="sm" onClick={resetCreateMode}>
             <ArrowLeft className="mr-2 h-4 w-4" />
@@ -1034,31 +969,20 @@ function FeuilletMatchTab() {
           </Button>
         </div>
 
-        {selectedPlayerId && (
-          <div className="rounded-lg border border-[var(--color-gold)] bg-[var(--color-gold)]/10 px-4 py-2 text-sm text-[var(--color-gold)]">
-            {(() => {
-              const sp = players.find((p) => p.id === selectedPlayerId);
-              return sp
-                ? `Sélectionné : ${sp.first_name} ${sp.last_name} — cliquez sur un poste ou le banc pour y placer ce joueur.`
-                : "Joueur sélectionné — cliquez sur un poste.";
-            })()}
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label>Match *</Label>
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Match</Label>
             <Select
               value={selectedEventId}
               onValueChange={(v) => setSelectedEventId(v ?? "")}
             >
-              <SelectTrigger className="w-full">
+              <SelectTrigger className="w-full h-11">
                 <SelectValue placeholder="Sélectionner un match">
                   {(v) => {
                     if (!v) return "Sélectionner un match";
                     const ev = events.find((e) => e.id === v);
                     return ev
-                      ? `${ev.title}${ev.opponent ? ` vs ${ev.opponent}` : ""} — ${formatDate(ev.event_date)}`
+                      ? `${ev.title}${ev.opponent ? ` vs ${ev.opponent}` : ""}`
                       : v;
                   }}
                 </SelectValue>
@@ -1074,8 +998,8 @@ function FeuilletMatchTab() {
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-2">
-            <Label>Formation</Label>
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Formation</Label>
             <Select
               value={formationName}
               onValueChange={(v) => {
@@ -1084,7 +1008,7 @@ function FeuilletMatchTab() {
                 setCaptainId("");
               }}
             >
-              <SelectTrigger className="w-full">
+              <SelectTrigger className="w-full h-11">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -1098,237 +1022,182 @@ function FeuilletMatchTab() {
           </div>
         </div>
 
-        {/* Pitch */}
-        <div className="mx-auto max-w-sm">
-          <div className="relative aspect-[2/3] rounded-lg shadow-lg">
-            <div className="absolute inset-0 rounded-lg bg-green-700 pointer-events-none overflow-hidden"
+        <div className="mx-auto max-w-[240px]">
+          <div className="relative aspect-[2/3] rounded-lg shadow-lg overflow-hidden bg-green-700">
+            <div
+              className="absolute inset-0 pointer-events-none"
               style={{
                 backgroundImage:
                   "repeating-linear-gradient(180deg, rgba(255,255,255,0.04) 0px, rgba(255,255,255,0.04) 40px, transparent 40px, transparent 80px)",
               }}
             />
-            <svg viewBox="0 0 300 450" className="absolute inset-0 h-full w-full pointer-events-none rounded-lg" preserveAspectRatio="none">
-              <rect x="8" y="8" width="284" height="434" fill="none" stroke="rgba(255,255,255,0.45)" strokeWidth="2" rx="2" />
-              <line x1="8" y1="225" x2="292" y2="225" stroke="rgba(255,255,255,0.45)" strokeWidth="1.5" />
-              <circle cx="150" cy="225" r="50" fill="none" stroke="rgba(255,255,255,0.45)" strokeWidth="1.5" />
-              <circle cx="150" cy="225" r="3" fill="rgba(255,255,255,0.5)" />
-              <rect x="75" y="8" width="150" height="80" fill="none" stroke="rgba(255,255,255,0.45)" strokeWidth="1.5" />
-              <rect x="105" y="8" width="90" height="35" fill="none" stroke="rgba(255,255,255,0.45)" strokeWidth="1.5" />
-              <circle cx="150" cy="55" r="3" fill="rgba(255,255,255,0.5)" />
-              <path d="M 115 88 Q 150 72 185 88" fill="none" stroke="rgba(255,255,255,0.45)" strokeWidth="1.5" />
-              <rect x="120" y="0" width="60" height="8" fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="2" />
-              <rect x="75" y="362" width="150" height="80" fill="none" stroke="rgba(255,255,255,0.45)" strokeWidth="1.5" />
-              <rect x="105" y="407" width="90" height="35" fill="none" stroke="rgba(255,255,255,0.45)" strokeWidth="1.5" />
-              <circle cx="150" cy="395" r="3" fill="rgba(255,255,255,0.5)" />
-              <path d="M 115 362 Q 150 378 185 362" fill="none" stroke="rgba(255,255,255,0.45)" strokeWidth="1.5" />
-              <rect x="120" y="442" width="60" height="8" fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="2" />
-              <path d="M 8 16 A 8 8 0 0 1 16 8" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" />
-              <path d="M 284 8 A 8 8 0 0 1 292 16" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" />
-              <path d="M 8 434 A 8 8 0 0 0 16 442" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" />
-              <path d="M 284 442 A 8 8 0 0 0 292 434" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" />
-            </svg>
+            <PitchSVG />
             {currentPositions.map((pos, i) => {
-              const slotKey = `slot-${i}`;
-              const pid = assignments[slotKey];
-              const player = pid ? players.find((p) => p.id === pid) : null;
-              const isCapt = captainId === pid;
-              const isSelected = selectedPlayerId !== null;
-              const isDragOver = dragOverSlot === slotKey;
+              const player = playerBySlot(`slot-${i}`);
+              const isCapt = captainId === player?.id;
               return (
-                <div key={i} className="absolute z-10 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center"
-                  style={{ left: `${pos.x}%`, top: `${pos.y}%` }}>
-                  <button type="button" onClick={() => handleSlotClick(slotKey)}
-                    onDragOver={(e) => handleSlotDragOver(slotKey, e)}
-                    onDragLeave={handleSlotDragLeave}
-                    onDrop={(e) => handleSlotDrop(slotKey, e)}
-                    className={`relative flex h-10 w-10 items-center justify-center rounded-full text-xs font-bold shadow-lg transition-all ${
-                      isDragOver ? "ring-2 ring-[var(--color-gold)] ring-offset-2 ring-offset-green-700 scale-110" : isSelected && !player ? "ring-2 ring-[var(--color-gold)] ring-offset-2 ring-offset-green-700" : ""
-                    } ${player ? (isCapt ? "bg-yellow-400 text-black ring-2 ring-yellow-300" : "bg-[var(--color-royal)] text-white") : "border-2 border-dashed border-white/30 text-[9px] text-white/50"}`}>
-                    {player ? <>{player.shirt_number ?? "?"}{isCapt && <Crown className="ml-0.5 h-3 w-3" />}</> : pos.label.split(" ").map((w) => w[0]).join("").slice(0, 2)}
-                    {player && <span role="button" tabIndex={0} onClick={(e) => { e.stopPropagation(); handleRemovePlayer(pid!); }} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.stopPropagation(); handleRemovePlayer(pid!); }}} className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-white text-[8px] leading-none font-bold hover:bg-red-600">×</span>}
-                  </button>
-                  <span className="mt-0.5 text-[9px] font-medium text-white/80 text-center max-w-[70px] truncate drop-shadow">{player ? `${player.first_name.charAt(0)}. ${player.last_name}` : pos.label}</span>
+                <div
+                  key={i}
+                  className="absolute z-10 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center"
+                  style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
+                >
+                  <div
+                    className={`flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold shadow-lg ${
+                      isCapt
+                        ? "bg-yellow-400 text-black ring-2 ring-yellow-300"
+                        : player
+                          ? "bg-[var(--color-royal)] text-white"
+                          : "border-2 border-dashed border-white/30 text-white/40 text-[9px]"
+                    }`}
+                  >
+                    {player ? (
+                      <>
+                        {player.shirt_number ?? "?"}
+                        {isCapt && <Crown className="ml-0.5 h-3 w-3" />}
+                      </>
+                    ) : (
+                      "?"
+                    )}
+                  </div>
+                  <span className="mt-0.5 max-w-[64px] truncate text-[9px] font-medium text-white/90 drop-shadow text-center">
+                    {player
+                      ? `${player.first_name.charAt(0)}. ${player.last_name}`
+                      : pos.label}
+                  </span>
                 </div>
               );
             })}
           </div>
         </div>
 
-        {/* Bench */}
-        <div className="rounded-xl border bg-muted/20 p-4">
-          <h4 className="text-sm font-semibold text-muted-foreground mb-3 flex items-center gap-2">
-            <Users className="h-4 w-4" />
-            Banc — Remplaçants ({benchPlayerIds.filter(Boolean).length}/3)
-          </h4>
-          <div className="grid grid-cols-3 gap-3">
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Shirt className="h-4 w-4" />
+              Titulaires
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2.5">
+            {currentPositions.map((pos, i) => {
+              const slotKey = `slot-${i}`;
+              const player = playerBySlot(slotKey);
+              return (
+                <div key={i} className="flex items-center gap-3">
+                  <span className="w-20 shrink-0 text-xs text-muted-foreground">{pos.label}</span>
+                  <div className="flex-1">
+                    <Select
+                      value={player?.id ?? ""}
+                      onValueChange={(v) => handleAssign(slotKey, v ?? "")}
+                    >
+                      <SelectTrigger className="w-full h-10">
+                        <SelectValue placeholder="—">
+                          {(v) => {
+                            if (!v) return "—";
+                            const p = players.find((pl) => pl.id === v);
+                            return p ? formatPlayer(p) : v;
+                          }}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availablePlayers(slotKey).map((p) => (
+                          <SelectItem key={p.id} value={p.id}>
+                            #{p.shirt_number ?? "?"} {p.first_name} {p.last_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Users className="h-4 w-4" />
+              Remplaçants
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2.5">
             {[0, 1, 2].map((i) => {
-              const benchKey = `bench-${i}`;
-              const pid = benchPlayerIds[i];
-              const player = pid ? players.find((p) => p.id === pid) : null;
-              const isSelected = selectedPlayerId !== null;
-              const isDragOver = dragOverSlot === benchKey;
+              const slotKey = `bench-${i}`;
+              const player = playerBySlot(slotKey);
               return (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={() => handleSlotClick(benchKey)}
-                  onDragOver={(e) => handleSlotDragOver(benchKey, e)}
-                  onDragLeave={handleSlotDragLeave}
-                  onDrop={(e) => handleSlotDrop(benchKey, e)}
-                  className={`relative transition-all ${
-                    isDragOver
-                      ? "ring-2 ring-[var(--color-gold)] ring-offset-1 rounded-lg scale-105"
-                      : isSelected && !player
-                        ? "ring-2 ring-[var(--color-gold)] ring-offset-1 rounded-lg"
-                        : ""
-                  }`}
-                >
-                  {player ? (
-                    <div className="flex items-center gap-2 rounded-lg border bg-card p-2.5 shadow-sm">
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--color-royal)] text-white text-xs font-bold">
-                        {player.shirt_number ?? "?"}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="truncate text-xs font-medium">
-                          {player.first_name} {player.last_name}
-                        </p>
-                      </div>
-                      <span
-                        role="button"
-                        tabIndex={0}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleRemovePlayer(pid!);
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") {
-                            e.stopPropagation();
-                            handleRemovePlayer(pid!);
-                          }
-                        }}
-                        className="ml-auto flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-red-500 text-white text-[10px] leading-none font-bold hover:bg-red-600"
-                      >
-                        ×
-                      </span>
-                    </div>
-                  ) : (
-                    <div className="flex h-[52px] items-center justify-center rounded-lg border-2 border-dashed border-muted-foreground/20 text-xs text-muted-foreground/40 font-medium">
-                      R{i + 1}
-                    </div>
-                  )}
-                </button>
+                <div key={i} className="flex items-center gap-3">
+                  <span className="w-20 shrink-0 text-xs text-muted-foreground">R{i + 1}</span>
+                  <div className="flex-1">
+                    <Select
+                      value={player?.id ?? ""}
+                      onValueChange={(v) => handleAssign(slotKey, v ?? "")}
+                    >
+                      <SelectTrigger className="w-full h-10">
+                        <SelectValue placeholder="—">
+                          {(v) => {
+                            if (!v) return "—";
+                            const p = players.find((pl) => pl.id === v);
+                            return p ? formatPlayer(p) : v;
+                          }}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availablePlayers(slotKey).map((p) => (
+                          <SelectItem key={p.id} value={p.id}>
+                            #{p.shirt_number ?? "?"} {p.first_name} {p.last_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
               );
             })}
-          </div>
+          </CardContent>
+        </Card>
+
+        <div className="space-y-1.5">
+          <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Capitaine</Label>
+          <Select
+            value={captainId}
+            onValueChange={(v) => setCaptainId(v ?? "")}
+          >
+            <SelectTrigger className="w-full h-11">
+              <SelectValue placeholder="Aucun capitaine">
+                {(v) => {
+                  if (!v) return "Aucun capitaine";
+                  const p = players.find((pl) => pl.id === v);
+                  return p ? formatPlayer(p) : v;
+                }}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {players
+                .filter((p) => assignedPlayers.has(p.id))
+                .map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    #{p.shirt_number ?? "?"} {p.first_name} {p.last_name}
+                  </SelectItem>
+                ))}
+            </SelectContent>
+          </Select>
         </div>
 
-        {/* Player pool */}
-        <div>
-          <h4 className="text-sm font-semibold text-muted-foreground mb-2 flex items-center gap-2">
-            <Shirt className="h-4 w-4" />
-            Joueurs disponibles ({poolPlayers.length})
-          </h4>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-72 overflow-y-auto rounded-xl border p-3">
-            {poolPlayers.map((player) => {
-              const isCapt = captainId === player.id;
-              const isSelected = selectedPlayerId === player.id;
-              const isDragging = draggedPlayerId === player.id;
-              return (
-                <button
-                  key={player.id}
-                  type="button"
-                  draggable
-                  onDragStart={(e) => handleDragStart(player.id, e)}
-                  onDragEnd={handleDragEnd}
-                  onClick={() => handlePlayerClick(player.id)}
-                  className={`flex items-center gap-2.5 rounded-lg border bg-card p-2.5 shadow-sm transition-all text-left cursor-grab active:cursor-grabbing ${
-                    isDragging
-                      ? "opacity-50 ring-2 ring-[var(--color-gold)]"
-                      : isSelected
-                        ? "ring-2 ring-[var(--color-gold)] bg-[var(--color-gold)]/5"
-                        : isCapt
-                          ? "ring-2 ring-yellow-400"
-                          : ""
-                  }`}
-                >
-                  <div
-                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
-                      isCapt
-                        ? "bg-yellow-400 text-black"
-                        : "bg-[var(--color-royal)] text-white"
-                    }`}
-                  >
-                    {player.shirt_number ?? "?"}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">
-                      {player.first_name} {player.last_name}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {player.position || "Joueur"}
-                    </p>
-                  </div>
-                  {isCapt && (
-                    <Crown className="h-3.5 w-3.5 text-yellow-500 shrink-0" />
-                  )}
-                </button>
-              );
-            })}
-            {poolPlayers.length === 0 && (
-              <p className="col-span-full text-center text-sm text-muted-foreground py-6">
-                Tous les joueurs sont assignés
-              </p>
-            )}
-          </div>
-        </div>
-
-        {/* Captain + actions */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-end gap-4 justify-between pt-2 border-t">
-          <div className="space-y-2 w-full sm:w-auto">
-            <Label>Capitaine</Label>
-            <Select
-              value={captainId}
-              onValueChange={(v) => setCaptainId(v ?? "")}
-            >
-              <SelectTrigger className="w-full sm:w-64">
-                <SelectValue placeholder="Aucun capitaine">
-                  {(v) => {
-                    if (!v) return "Aucun capitaine";
-                    const player = players.find((p) => p.id === v);
-                    return player
-                      ? `#${player.shirt_number ?? "?"} ${player.first_name} ${player.last_name}`
-                      : v;
-                  }}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {players
-                  .filter((p) => assignedPlayerIds.has(p.id))
-                  .map((player) => (
-                    <SelectItem key={player.id} value={player.id}>
-                      #{player.shirt_number ?? "?"} {player.first_name}{" "}
-                      {player.last_name}
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex gap-2 w-full sm:w-auto">
-            <Button
-              variant="outline"
-              onClick={resetCreateMode}
-              className="flex-1 sm:flex-initial border-[var(--color-gold)] text-[var(--color-gold)] hover:bg-[var(--color-gold)]/10"
-            >
-              Annuler
-            </Button>
-            <Button
-              onClick={handleCreate}
-              disabled={submitting}
-              className="flex-1 sm:flex-initial bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
-            >
-              {submitting ? "Création..." : "Créer le feuillet"}
-            </Button>
-          </div>
+        <div className="flex gap-2 pt-2">
+          <Button
+            variant="outline"
+            onClick={resetCreateMode}
+            className="flex-1 border-[var(--color-gold)] text-[var(--color-gold)] hover:bg-[var(--color-gold)]/10"
+          >
+            Annuler
+          </Button>
+          <Button
+            onClick={handleCreate}
+            disabled={submitting}
+            className="flex-1 bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
+          >
+            {submitting ? "Création..." : "Créer le feuillet"}
+          </Button>
         </div>
       </div>
     );
@@ -1336,8 +1205,8 @@ function FeuilletMatchTab() {
 
   // --- Detail Mode ---
 
-  if (selectedLineup) {
-    const { event, formation, lineups: eventLineups } = selectedLineup;
+  if (selectedSheet) {
+    const { event, formation, lineups: eventLineups } = selectedSheet;
     const starterLineups = eventLineups.filter((l) => l.is_starter);
     const subLineups = eventLineups.filter((l) => !l.is_starter);
     const positions =
@@ -1354,12 +1223,12 @@ function FeuilletMatchTab() {
     const captainIdVal = fd?.captain_id;
 
     return (
-      <div className="space-y-4">
+      <div className="space-y-4 pb-20">
         <div className="flex items-center gap-2">
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => setSelectedLineup(null)}
+            onClick={() => setSelectedSheet(null)}
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
             Retour
@@ -1382,51 +1251,26 @@ function FeuilletMatchTab() {
           <CardHeader>
             <div className="flex items-start justify-between">
               <div>
-                <CardTitle className="text-xl">{event.title}</CardTitle>
-                <p className="mt-1 text-sm text-muted-foreground">
+                <CardTitle className="text-lg">{event.title}</CardTitle>
+                <p className="mt-0.5 text-sm text-muted-foreground">
                   {formatDate(event.event_date)} —{" "}
                   {event.opponent || "Adversaire inconnu"}
                 </p>
               </div>
-              <Badge variant="secondary">{formation.name}</Badge>
+              <Badge variant="secondary" className="shrink-0">{formation.name}</Badge>
             </div>
           </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Pitch with grass */}
-            <div className="mx-auto max-w-sm">
-              <div className="relative aspect-[2/3] rounded-lg overflow-hidden shadow-lg">
+          <CardContent className="space-y-5">
+            <div className="mx-auto max-w-[240px]">
+              <div className="relative aspect-[2/3] rounded-lg shadow-lg overflow-hidden bg-green-700">
                 <div
-                  className="absolute inset-0 bg-green-700 pointer-events-none"
+                  className="absolute inset-0 pointer-events-none"
                   style={{
                     backgroundImage:
                       "repeating-linear-gradient(180deg, rgba(255,255,255,0.04) 0px, rgba(255,255,255,0.04) 40px, transparent 40px, transparent 80px)",
                   }}
                 />
-                <svg
-                  viewBox="0 0 300 450"
-                  className="absolute inset-0 h-full w-full pointer-events-none"
-                  preserveAspectRatio="none"
-                >
-                  <rect x="8" y="8" width="284" height="434" fill="none" stroke="rgba(255,255,255,0.45)" strokeWidth="2" rx="2" />
-                  <line x1="8" y1="225" x2="292" y2="225" stroke="rgba(255,255,255,0.45)" strokeWidth="1.5" />
-                  <circle cx="150" cy="225" r="50" fill="none" stroke="rgba(255,255,255,0.45)" strokeWidth="1.5" />
-                  <circle cx="150" cy="225" r="3" fill="rgba(255,255,255,0.5)" />
-                  <rect x="75" y="8" width="150" height="80" fill="none" stroke="rgba(255,255,255,0.45)" strokeWidth="1.5" />
-                  <rect x="105" y="8" width="90" height="35" fill="none" stroke="rgba(255,255,255,0.45)" strokeWidth="1.5" />
-                  <circle cx="150" cy="55" r="3" fill="rgba(255,255,255,0.5)" />
-                  <path d="M 115 88 Q 150 72 185 88" fill="none" stroke="rgba(255,255,255,0.45)" strokeWidth="1.5" />
-                  <rect x="120" y="0" width="60" height="8" fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="2" />
-                  <rect x="75" y="362" width="150" height="80" fill="none" stroke="rgba(255,255,255,0.45)" strokeWidth="1.5" />
-                  <rect x="105" y="407" width="90" height="35" fill="none" stroke="rgba(255,255,255,0.45)" strokeWidth="1.5" />
-                  <circle cx="150" cy="395" r="3" fill="rgba(255,255,255,0.5)" />
-                  <path d="M 115 362 Q 150 378 185 362" fill="none" stroke="rgba(255,255,255,0.45)" strokeWidth="1.5" />
-                  <rect x="120" y="442" width="60" height="8" fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="2" />
-                  <path d="M 8 16 A 8 8 0 0 1 16 8" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" />
-                  <path d="M 284 8 A 8 8 0 0 1 292 16" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" />
-                  <path d="M 8 434 A 8 8 0 0 0 16 442" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" />
-                  <path d="M 284 442 A 8 8 0 0 0 292 434" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" />
-                </svg>
-
+                <PitchSVG />
                 {starterLineups.map((lineup, i) => {
                   const pos = positions[i];
                   const player = lineup.player as Profile | undefined;
@@ -1441,7 +1285,7 @@ function FeuilletMatchTab() {
                       }}
                     >
                       <div
-                        className={`flex h-10 w-10 items-center justify-center rounded-full text-xs font-bold shadow-lg ${
+                        className={`flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold shadow-lg ${
                           isCaptain
                             ? "bg-yellow-400 text-black ring-2 ring-yellow-300"
                             : "bg-[var(--color-royal)] text-white"
@@ -1452,13 +1296,10 @@ function FeuilletMatchTab() {
                           <Crown className="ml-0.5 h-3 w-3" />
                         )}
                       </div>
-                      <span className="mt-0.5 max-w-[80px] truncate text-center text-[10px] font-medium text-foreground drop-shadow-md">
+                      <span className="mt-0.5 max-w-[64px] truncate text-center text-[9px] font-medium text-foreground drop-shadow-md">
                         {player
                           ? `${player.first_name.charAt(0)}. ${player.last_name}`
                           : "N/A"}
-                      </span>
-                      <span className="text-[9px] text-green-200/80">
-                        {lineup.position_label}
                       </span>
                     </div>
                   );
@@ -1467,37 +1308,31 @@ function FeuilletMatchTab() {
             </div>
 
             <div>
-              <h4 className="mb-2 flex items-center gap-2 text-sm font-medium">
+              <h4 className="mb-2.5 flex items-center gap-2 text-sm font-semibold">
                 <Shirt className="h-4 w-4" />
                 Titulaires
               </h4>
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 {starterLineups.map((lineup) => {
                   const player = lineup.player as Profile | undefined;
                   const isCaptain = captainIdVal === lineup.player_id;
                   return (
                     <div
                       key={lineup.id}
-                      className="flex items-center justify-between rounded border p-2 text-sm"
+                      className="flex items-center justify-between rounded-lg border bg-card p-3 text-sm"
                     >
-                      <div className="flex items-center gap-2">
-                        <span className="flex h-6 w-6 items-center justify-center rounded bg-primary/10 text-xs font-bold">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold">
                           {player?.shirt_number ?? "?"}
                         </span>
-                        <span>
+                        <span className="truncate font-medium">
                           {player?.first_name} {player?.last_name}
                         </span>
                         {isCaptain && (
-                          <Badge
-                            variant="outline"
-                            className="border-yellow-500 text-yellow-600 text-xs"
-                          >
-                            <Crown className="mr-1 h-3 w-3" />
-                            (C)
-                          </Badge>
+                          <Crown className="h-3.5 w-3.5 shrink-0 text-yellow-500" />
                         )}
                       </div>
-                      <Badge variant="outline" className="text-xs">
+                      <Badge variant="outline" className="text-xs shrink-0 ml-2">
                         {lineup.position_label}
                       </Badge>
                     </div>
@@ -1508,26 +1343,24 @@ function FeuilletMatchTab() {
 
             {subLineups.length > 0 && (
               <div>
-                <h4 className="mb-2 flex items-center gap-2 text-sm font-medium">
+                <h4 className="mb-2.5 flex items-center gap-2 text-sm font-semibold">
                   <Users className="h-4 w-4" />
                   Remplaçants
                 </h4>
-                <div className="space-y-1">
+                <div className="space-y-1.5">
                   {subLineups.map((lineup) => {
                     const player = lineup.player as Profile | undefined;
                     return (
                       <div
                         key={lineup.id}
-                        className="flex items-center justify-between rounded border p-2 text-sm text-muted-foreground"
+                        className="flex items-center gap-2.5 rounded-lg border bg-card p-3 text-sm text-muted-foreground"
                       >
-                        <div className="flex items-center gap-2">
-                          <span className="flex h-6 w-6 items-center justify-center rounded bg-muted text-xs font-bold">
-                            {player?.shirt_number ?? "?"}
-                          </span>
-                          <span>
-                            {player?.first_name} {player?.last_name}
-                          </span>
-                        </div>
+                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-bold">
+                          {player?.shirt_number ?? "?"}
+                        </span>
+                        <span className="truncate font-medium">
+                          {player?.first_name} {player?.last_name}
+                        </span>
                       </div>
                     );
                   })}
@@ -1570,7 +1403,7 @@ function FeuilletMatchTab() {
           Aucun feuillet de match
         </div>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-3">
           {matchSheets.map((sheet) => {
             const fd = sheet.formation.formation_data as {
               captain_id?: string;
@@ -1580,12 +1413,12 @@ function FeuilletMatchTab() {
               <Card
                 key={sheet.formation.id}
                 className="cursor-pointer transition-colors hover:bg-accent/50"
-                onClick={() => setSelectedLineup(sheet)}
+                onClick={() => setSelectedSheet(sheet)}
               >
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between">
-                    <div className="space-y-1">
-                      <h3 className="font-medium">
+                    <div className="space-y-1 min-w-0">
+                      <h3 className="font-medium truncate">
                         {sheet.event.title}
                       </h3>
                       <p className="text-sm text-muted-foreground">
@@ -1595,7 +1428,7 @@ function FeuilletMatchTab() {
                         — {formatDate(sheet.event.event_date)}
                       </p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 shrink-0 ml-2">
                       <Badge variant="secondary">
                         {sheet.formation.name}
                         {captainIdVal && " (C)"}
