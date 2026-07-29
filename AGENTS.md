@@ -14,7 +14,7 @@ Build a mobile-first football team management app (Sportplus) with Supabase back
 - Convocations: coach attendance status editing uses DropdownMenu with DropdownMenuItem (not controlled Select) to avoid base-ui controlled component bug; optimistic update with setEvents + fetchData for sync
 - Chat page had duplicate views on desktop — fixed by wrapping mobile section in `md:hidden`
 - Tactics: "Phase" select replaces free-text title (5 fixed options); not required; objectives are phase-specific checkbox multi-select (max 2) using `PHASE_OBJECTIVES` constant; objectives stored as array via `selectedObjectives` state
-- FeuilletMatchTab: drag-and-drop system with formation selector (5 formations), pitch with position slots, bench (5 slots), players from attendances (`status="present"`), save to `formations` table, load existing formation on event select
+- FeuilletMatchTab: drag-and-drop system with formation selector (5 formations), pitch with position slots, bench (5 slots), players from attendances (`status="present"`), save to `formations` table, load existing formation on event select; click on slot opens dialog to pick player
 - `createClient()` called inline (no useMemo) — acceptable pattern
 
 ## Completed
