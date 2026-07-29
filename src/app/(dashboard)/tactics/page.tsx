@@ -721,6 +721,10 @@ const FORMATIONS: Record<string, SlotPos[]> = {
 
 const BENCH_SLOTS = ["R1", "R2", "R3", "R4", "R5"];
 
+function benchLabels(count: number) {
+  return Array.from({ length: count }, (_, i) => `R${i + 1}`);
+}
+
 function FeuilletMatchTab() {
   const { user } = useAuth();
   const { currentTeam } = useTeam();
@@ -747,6 +751,7 @@ function FeuilletMatchTab() {
   ]);
 
   const availablePlayers = presentPlayers.filter((p) => !assignedPlayerIds.has(p.id));
+  const benchSize = Math.max(0, presentPlayers.length - 11);
 
   function assignToSlot(slotKey: string, playerId: string) {
     if (slotKey.startsWith("bench-")) {
@@ -1077,7 +1082,7 @@ function FeuilletMatchTab() {
             <div>
               <h4 className="text-sm font-semibold mb-2">Banc</h4>
               <div className="space-y-1.5">
-                {BENCH_SLOTS.map((label, i) => {
+                {benchLabels(benchSize).map((label, i) => {
                   const slotKey = `bench-${i}`;
                   const pid = benchAssignments[slotKey];
                   const player = pid ? playerById(pid) : null;
@@ -1108,7 +1113,7 @@ function FeuilletMatchTab() {
 
             {!loadingPlayers && presentPlayers.length > 0 && (
               <div className="text-xs text-muted-foreground">
-                {Object.keys(assignments).length}/11 postes · {Object.keys(benchAssignments).length}/{BENCH_SLOTS.length} remplaçants
+                {Object.keys(assignments).length}/11 postes · {Object.keys(benchAssignments).length}/{benchSize} remplaçants
               </div>
             )}
           </div>
