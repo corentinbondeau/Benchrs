@@ -737,6 +737,7 @@ function FeuilletMatchTab() {
   const [loadingPlayers, setLoadingPlayers] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loadedFormationId, setLoadedFormationId] = useState<string | null>(null);
+  const [pickingSlot, setPickingSlot] = useState<string | null>(null);
 
   const currentPositions = FORMATIONS[formationName] || FORMATIONS["4-3-3"];
 
@@ -747,71 +748,62 @@ function FeuilletMatchTab() {
 
   const availablePlayers = presentPlayers.filter((p) => !assignedPlayerIds.has(p.id));
 
-  function handleDragStart(e: React.DragEvent, playerId: string) {
-    e.dataTransfer.setData("playerId", playerId);
-    e.dataTransfer.effectAllowed = "move";
-  }
-
-  function handleDropOnSlot(e: React.DragEvent, slotKey: string) {
-    e.preventDefault();
-    const playerId = e.dataTransfer.getData("playerId");
-    if (!playerId) return;
-    setAssignments((prev) => {
-      const next = { ...prev };
-      for (const [k, v] of Object.entries(next)) {
-        if (v === playerId) delete next[k];
-      }
-      for (const [k, v] of Object.entries(benchAssignments)) {
-        if (v === playerId) {
-          setBenchAssignments((b) => {
-            const bNext = { ...b };
-            delete bNext[k];
-            return bNext;
-          });
+  function assignToSlot(slotKey: string, playerId: string) {
+    if (slotKey.startsWith("bench-")) {
+      setBenchAssignments((prev) => {
+        const next = { ...prev };
+        for (const [k, v] of Object.entries(next)) {
+          if (v === playerId) delete next[k];
         }
-      }
-      next[slotKey] = playerId;
-      return next;
-    });
-  }
-
-  function handleDropOnBench(e: React.DragEvent, slotKey: string) {
-    e.preventDefault();
-    const playerId = e.dataTransfer.getData("playerId");
-    if (!playerId) return;
-    setBenchAssignments((prev) => {
-      const next = { ...prev };
-      for (const [k, v] of Object.entries(next)) {
-        if (v === playerId) delete next[k];
-      }
-      for (const [k, v] of Object.entries(assignments)) {
-        if (v === playerId) {
-          setAssignments((a) => {
-            const aNext = { ...a };
-            delete aNext[k];
-            return aNext;
-          });
+        for (const [k, v] of Object.entries(assignments)) {
+          if (v === playerId) {
+            setAssignments((a) => {
+              const aNext = { ...a };
+              delete aNext[k];
+              return aNext;
+            });
+          }
         }
-      }
-      next[slotKey] = playerId;
-      return next;
-    });
+        next[slotKey] = playerId;
+        return next;
+      });
+    } else {
+      setAssignments((prev) => {
+        const next = { ...prev };
+        for (const [k, v] of Object.entries(next)) {
+          if (v === playerId) delete next[k];
+        }
+        for (const [k, v] of Object.entries(benchAssignments)) {
+          if (v === playerId) {
+            setBenchAssignments((b) => {
+              const bNext = { ...b };
+              delete bNext[k];
+              return bNext;
+            });
+          }
+        }
+        next[slotKey] = playerId;
+        return next;
+      });
+    }
+    setPickingSlot(null);
   }
 
   function removeFromSlot(slotKey: string) {
-    setAssignments((prev) => {
-      const next = { ...prev };
-      delete next[slotKey];
-      return next;
-    });
-  }
-
-  function removeFromBench(slotKey: string) {
-    setBenchAssignments((prev) => {
-      const next = { ...prev };
-      delete next[slotKey];
-      return next;
-    });
+    if (slotKey.startsWith("bench-")) {
+      setBenchAssignments((prev) => {
+        const next = { ...prev };
+        delete next[slotKey];
+        return next;
+      });
+    } else {
+      setAssignments((prev) => {
+        const next = { ...prev };
+        delete next[slotKey];
+        return next;
+      });
+    }
+    setPickingSlot(null);
   }
 
   function resetAssignments() {
@@ -1044,40 +1036,34 @@ function FeuilletMatchTab() {
                 </div>
               ) : (
                 currentPositions.map((slot, i) => {
-                  const pid = assignments[`slot-${i}`];
+                  const slotKey = `slot-${i}`;
+                  const pid = assignments[slotKey];
                   const player = pid ? playerById(pid) : null;
                   return (
                     <div
                       key={i}
-                      className="absolute z-10 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center"
+                      className="absolute z-10 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center cursor-pointer"
                       style={{ left: `${slot.x}%`, top: `${slot.y}%` }}
-                      onDragOver={(e) => e.preventDefault()}
-                      onDrop={(e) => handleDropOnSlot(e, `slot-${i}`)}
+                      onClick={() => setPickingSlot(slotKey)}
                     >
                       {player ? (
-                        <div
-                          className="relative cursor-pointer group"
-                          onClick={() => removeFromSlot(`slot-${i}`)}
-                        >
-                          <div className="flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold shadow-lg bg-[var(--color-royal)] text-white">
+                        <div className="relative group">
+                          <div className="flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold shadow-lg bg-[var(--color-royal)] text-white ring-2 ring-white/20">
                             {player.shirt_number ?? "?"}
                           </div>
                           <span className="mt-0.5 max-w-[64px] truncate text-[9px] font-medium text-white/90 drop-shadow text-center block">
                             {player.first_name.charAt(0)}. {player.last_name}
                           </span>
-                          <div className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-red-500 text-white text-[8px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                            ×
-                          </div>
                         </div>
                       ) : (
-                        <div className="flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold border-2 border-dashed border-white/30 text-white/40">
-                          ?
+                        <div className="flex flex-col items-center opacity-70 hover:opacity-100 transition-opacity">
+                          <div className="flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold border-2 border-dashed border-white/40 text-white/50 bg-white/5">
+                            ?
+                          </div>
+                          <span className="mt-0.5 text-[8px] text-white/50 truncate max-w-[56px] text-center">
+                            {slot.label}
+                          </span>
                         </div>
-                      )}
-                      {!player && (
-                        <span className="mt-0.5 text-[8px] text-white/40 truncate max-w-[56px] text-center">
-                          {slot.label}
-                        </span>
                       )}
                     </div>
                   );
@@ -1086,84 +1072,94 @@ function FeuilletMatchTab() {
             </div>
           </div>
 
-          {/* Player list + Bench */}
+          {/* Bench */}
           <div className="space-y-4">
-            {loadingPlayers ? (
-              <div className="flex items-center justify-center h-32">
-                <div className="h-6 w-6 animate-spin rounded-full border-2 border-muted-foreground/40 border-t-muted-foreground" />
-              </div>
-            ) : (
-              <>
-                <div>
-                  <h4 className="text-sm font-semibold mb-2">
-                    Joueurs présents ({availablePlayers.length + assignedPlayerIds.size})
-                  </h4>
-                  <div className="space-y-1.5">
-                    {availablePlayers.length === 0 && assignedPlayerIds.size > 0 && (
-                      <p className="text-xs text-muted-foreground">Tous les joueurs sont placés</p>
-                    )}
-                    {availablePlayers.map((p) => (
-                      <div
-                        key={p.id}
-                        draggable
-                        onDragStart={(e) => handleDragStart(e, p.id)}
-                        className="flex items-center gap-2.5 rounded-lg border bg-card p-2.5 text-sm cursor-grab active:cursor-grabbing hover:bg-accent/50 transition-colors"
-                      >
-                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold">
-                          {p.shirt_number ?? "?"}
-                        </span>
-                        <span className="truncate font-medium text-sm">
-                          {p.first_name} {p.last_name}
-                        </span>
-                      </div>
-                    ))}
-                    {availablePlayers.length === 0 && assignedPlayerIds.size === 0 && (
-                      <p className="text-xs text-muted-foreground">Aucun joueur présent</p>
-                    )}
-                  </div>
-                </div>
-
-                <div>
-                  <h4 className="text-sm font-semibold mb-2">Banc</h4>
-                  <div className="space-y-1.5">
-                    {BENCH_SLOTS.map((label, i) => {
-                      const slotKey = `bench-${i}`;
-                      const pid = benchAssignments[slotKey];
-                      const player = pid ? playerById(pid) : null;
-                      return (
-                        <div
-                          key={slotKey}
-                          className="flex items-center gap-2.5 rounded-lg border border-dashed bg-card/50 p-2.5 text-sm"
-                          onDragOver={(e) => e.preventDefault()}
-                          onDrop={(e) => handleDropOnBench(e, slotKey)}
-                        >
-                          <span className="w-6 shrink-0 text-xs text-muted-foreground">{label}</span>
-                          {player ? (
-                            <div
-                              className="flex items-center gap-2 flex-1 min-w-0 cursor-pointer group"
-                              onClick={() => removeFromBench(slotKey)}
-                            >
-                              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-bold">
-                                {player.shirt_number ?? "?"}
-                              </span>
-                              <span className="truncate font-medium text-sm flex-1">
-                                {player.first_name} {player.last_name}
-                              </span>
-                              <span className="text-muted-foreground text-xs opacity-0 group-hover:opacity-100 transition-opacity">×</span>
-                            </div>
-                          ) : (
-                            <span className="text-muted-foreground/50 text-xs">Glisser un joueur</span>
-                          )}
+            <div>
+              <h4 className="text-sm font-semibold mb-2">Banc</h4>
+              <div className="space-y-1.5">
+                {BENCH_SLOTS.map((label, i) => {
+                  const slotKey = `bench-${i}`;
+                  const pid = benchAssignments[slotKey];
+                  const player = pid ? playerById(pid) : null;
+                  return (
+                    <div
+                      key={slotKey}
+                      className="flex items-center gap-2.5 rounded-lg border bg-card p-2.5 text-sm cursor-pointer hover:bg-accent/50 transition-colors"
+                      onClick={() => setPickingSlot(slotKey)}
+                    >
+                      <span className="w-6 shrink-0 text-xs text-muted-foreground">{label}</span>
+                      {player ? (
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-bold">
+                            {player.shirt_number ?? "?"}
+                          </span>
+                          <span className="truncate font-medium text-sm flex-1">
+                            {player.first_name} {player.last_name}
+                          </span>
                         </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </>
+                      ) : (
+                        <span className="text-muted-foreground/50 text-xs">—</span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {!loadingPlayers && presentPlayers.length > 0 && (
+              <div className="text-xs text-muted-foreground">
+                {Object.keys(assignments).length}/11 postes · {Object.keys(benchAssignments).length}/{BENCH_SLOTS.length} remplaçants
+              </div>
             )}
           </div>
         </div>
       )}
+
+      {/* Player picker dialog */}
+      <Dialog open={pickingSlot !== null} onOpenChange={(open) => { if (!open) setPickingSlot(null); }}>
+        <DialogContent className="max-h-[70vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-base">
+              {pickingSlot?.startsWith("bench-") ? "Choisir un remplaçant" : "Choisir un joueur"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-1">
+            {pickingSlot && (() => {
+              const currentPid = pickingSlot.startsWith("bench-")
+                ? benchAssignments[pickingSlot]
+                : assignments[pickingSlot];
+              const currentPlayer = currentPid ? playerById(currentPid) : null;
+              return (
+                <>
+                  {currentPlayer && (
+                    <button
+                      className="flex w-full items-center gap-2.5 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive hover:bg-destructive/10 transition-colors"
+                      onClick={() => removeFromSlot(pickingSlot)}
+                    >
+                      <span>Retirer {currentPlayer.first_name} {currentPlayer.last_name}</span>
+                    </button>
+                  )}
+                  {availablePlayers.length === 0 && !currentPlayer && (
+                    <p className="py-4 text-center text-sm text-muted-foreground">Aucun joueur disponible</p>
+                  )}
+                  {availablePlayers.map((p) => (
+                    <button
+                      key={p.id}
+                      className="flex w-full items-center gap-2.5 rounded-lg border bg-card p-3 text-sm hover:bg-accent/50 transition-colors text-left"
+                      onClick={() => assignToSlot(pickingSlot, p.id)}
+                    >
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold">
+                        {p.shirt_number ?? "?"}
+                      </span>
+                      <span className="truncate font-medium">{p.first_name} {p.last_name}</span>
+                    </button>
+                  ))}
+                </>
+              );
+            })()}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {selectedEventId && (
         <div className="flex items-center justify-between pt-2">
