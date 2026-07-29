@@ -651,6 +651,15 @@ const POSITION_ROW: Record<string, number> = {
   forward: 25,
 };
 
+function normalizePosition(pos: string | null): string {
+  if (!pos) return "forward";
+  const lower = pos.toLowerCase();
+  if (lower.includes("gardien")) return "goalkeeper";
+  if (lower.includes("défense") || lower.includes("arrière")) return "defender";
+  if (lower.includes("milieu") || lower.includes("ailier")) return "midfielder";
+  return "forward";
+}
+
 function FeuilletMatchTab() {
   const { currentTeam } = useTeam();
   const supabase = createClient();
@@ -704,7 +713,7 @@ function FeuilletMatchTab() {
   function pitchPlayers() {
     const grouped: Record<string, Profile[]> = {};
     for (const p of presentPlayers) {
-      const pos = p.position || "forward";
+      const pos = normalizePosition(p.position);
       if (!grouped[pos]) grouped[pos] = [];
       grouped[pos].push(p);
     }
