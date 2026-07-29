@@ -742,6 +742,7 @@ function FeuilletMatchTab() {
   const [saving, setSaving] = useState(false);
   const [loadedFormationId, setLoadedFormationId] = useState<string | null>(null);
   const [pickingSlot, setPickingSlot] = useState<string | null>(null);
+  const [captainId, setCaptainId] = useState<string | null>(null);
 
   const currentPositions = FORMATIONS[formationName] || FORMATIONS["4-3-3"];
 
@@ -815,6 +816,7 @@ function FeuilletMatchTab() {
     setAssignments({});
     setBenchAssignments({});
     setLoadedFormationId(null);
+    setCaptainId(null);
   }
 
   // Fetch events
@@ -879,6 +881,7 @@ function FeuilletMatchTab() {
           });
           setAssignments(newAssignments);
         }
+        setCaptainId(fd.captain_id || null);
       } else {
         resetAssignments();
       }
@@ -899,7 +902,8 @@ function FeuilletMatchTab() {
       label: slot.label,
     }));
 
-    const formationData = { positions };
+    const formationData: Record<string, any> = { positions };
+    if (captainId) formationData.captain_id = captainId;
 
     if (loadedFormationId) {
       const { error } = await supabase
@@ -1025,7 +1029,7 @@ function FeuilletMatchTab() {
       {selectedEventId && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {/* Pitch */}
-          <div className="lg:col-span-2 mx-auto w-full max-w-[280px] lg:max-w-none">
+          <div className="lg:col-span-2 mx-auto w-full max-w-[200px] lg:max-w-none">
             <div className="relative aspect-[2/3] rounded-lg shadow-lg overflow-hidden bg-green-700">
               <div
                 className="absolute inset-0 pointer-events-none"
@@ -1053,8 +1057,9 @@ function FeuilletMatchTab() {
                     >
                       {player ? (
                         <div className="relative group">
-                          <div className="flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold shadow-lg bg-[var(--color-royal)] text-white ring-2 ring-white/20">
+                          <div className={`flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold shadow-lg ring-2 ${player.id === captainId ? "bg-yellow-400 text-black ring-yellow-300" : "bg-[var(--color-royal)] text-white ring-white/20"}`}>
                             {player.shirt_number ?? "?"}
+                            {player.id === captainId && <Crown className="ml-0.5 h-3 w-3" />}
                           </div>
                           <span className="mt-0.5 max-w-[64px] truncate text-[9px] font-medium text-white/90 drop-shadow text-center block">
                             {player.first_name.charAt(0)}. {player.last_name}
@@ -1137,12 +1142,26 @@ function FeuilletMatchTab() {
               return (
                 <>
                   {currentPlayer && (
-                    <button
-                      className="flex w-full items-center gap-2.5 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive hover:bg-destructive/10 transition-colors"
-                      onClick={() => removeFromSlot(pickingSlot)}
-                    >
-                      <span>Retirer {currentPlayer.first_name} {currentPlayer.last_name}</span>
-                    </button>
+                    <>
+                      <button
+                        className="flex w-full items-center gap-2.5 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive hover:bg-destructive/10 transition-colors"
+                        onClick={() => removeFromSlot(pickingSlot)}
+                      >
+                        <span>Retirer {currentPlayer.first_name} {currentPlayer.last_name}</span>
+                      </button>
+                      {!pickingSlot.startsWith("bench-") && (
+                        <button
+                          className={`flex w-full items-center gap-2.5 rounded-lg border p-3 text-sm transition-colors ${captainId === currentPlayer.id ? "border-yellow-300 bg-yellow-50 text-yellow-800 hover:bg-yellow-100" : "border-card bg-card hover:bg-accent/50"}`}
+                          onClick={() => {
+                            setCaptainId(captainId === currentPlayer.id ? null : currentPlayer.id);
+                            setPickingSlot(null);
+                          }}
+                        >
+                          <Crown className={`h-4 w-4 ${captainId === currentPlayer.id ? "text-yellow-500" : "text-muted-foreground"}`} />
+                          <span>{captainId === currentPlayer.id ? "Retirer le brassard" : "Définir comme capitaine"}</span>
+                        </button>
+                      )}
+                    </>
                   )}
                   {availablePlayers.length === 0 && !currentPlayer && (
                     <p className="py-4 text-center text-sm text-muted-foreground">Aucun joueur disponible</p>
