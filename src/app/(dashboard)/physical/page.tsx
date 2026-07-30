@@ -360,7 +360,7 @@ export default function PhysicalPreparationPage() {
             <div className="space-y-4">
               <Button onClick={() => setSessionOpen(true)}>
                 <Plus className="h-4 w-4 mr-1" />
-                Nouvelle séance
+                Ajouter une journée
               </Button>
 
               {sessions.length === 0 ? (
@@ -371,55 +371,56 @@ export default function PhysicalPreparationPage() {
                   </CardContent>
                 </Card>
               ) : (
-                <div className="space-y-6">
-                  {sessions.map((session) => {
-                    const sessionStatuses = statusMap[session.id] || [];
-                    return (
-                      <Card key={session.id}>
-                        <CardHeader className="pb-3">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <CardTitle className="text-sm">{session.title}</CardTitle>
-                              <p className="text-xs text-muted-foreground">
-                                {new Date(session.session_date).toLocaleDateString("fr-FR")}
-                                {session.notes && ` — ${session.notes}`}
-                              </p>
+                <div className="overflow-x-auto rounded-lg border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="sticky left-0 bg-background z-10 min-w-[180px]">Joueur</TableHead>
+                        {[...sessions].sort((a, b) => new Date(a.session_date).getTime() - new Date(b.session_date).getTime()).map((s) => (
+                          <TableHead key={s.id} className="text-center min-w-[100px]">
+                            <div className="flex items-center justify-center gap-1">
+                              <span>{s.title}</span>
+                              <button
+                                className="text-destructive hover:text-destructive/80"
+                                onClick={() => deleteSession(s.id)}
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
                             </div>
-                            <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => deleteSession(session.id)}>
-                              <X className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="space-y-1">
-                            {activePlayers.map((player) => {
-                              const ps = sessionStatuses.find((s) => s.player_id === player.id);
-                              const currentStatus = ps?.status || "pending";
-                              const statusOption = STATUS_OPTIONS.find((o) => o.value === currentStatus);
-                              return (
-                                <div key={player.id} className="flex items-center justify-between rounded-lg border px-3 py-2">
-                                  <span className="text-sm font-medium">
-                                    {player.first_name} {player.last_name}
-                                  </span>
-                                  <div className="flex gap-1">
-                                    {STATUS_OPTIONS.map((opt) => (
-                                      <button
-                                        key={opt.value}
-                                        className={`px-2 py-1 rounded text-xs border transition-all ${currentStatus === opt.value ? "bg-[var(--color-royal)] text-white border-[var(--color-royal)]" : "hover:border-blue-200"}`}
-                                        onClick={() => updatePlayerStatus(session.id, player.id, opt.value)}
-                                      >
-                                        {opt.icon}
-                                      </button>
-                                    ))}
-                                  </div>
+                          </TableHead>
+                        ))}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {activePlayers.map((player) => (
+                        <TableRow key={player.id}>
+                          <TableCell className="sticky left-0 bg-background font-medium whitespace-nowrap">
+                            {player.first_name} {player.last_name}
+                          </TableCell>
+                          {[...sessions].sort((a, b) => new Date(a.session_date).getTime() - new Date(b.session_date).getTime()).map((s) => {
+                            const ps = (statusMap[s.id] || []).find((st) => st.player_id === player.id);
+                            const currentStatus = ps?.status || "pending";
+                            return (
+                              <TableCell key={s.id} className="p-1">
+                                <div className="flex justify-center gap-0.5">
+                                  {STATUS_OPTIONS.map((opt) => (
+                                    <button
+                                      key={opt.value}
+                                      className={`px-1.5 py-1 rounded text-xs border transition-all ${currentStatus === opt.value ? "bg-[var(--color-royal)] text-white border-[var(--color-royal)]" : "hover:border-blue-200"}`}
+                                      onClick={() => updatePlayerStatus(s.id, player.id, opt.value)}
+                                      title={opt.label}
+                                    >
+                                      {opt.icon}
+                                    </button>
+                                  ))}
                                 </div>
-                              );
-                            })}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
+                              </TableCell>
+                            );
+                          })}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
                 </div>
               )}
             </div>
@@ -451,7 +452,7 @@ export default function PhysicalPreparationPage() {
       {/* Create Session Dialog */}
       <Dialog open={sessionOpen} onOpenChange={setSessionOpen}>
         <DialogContent className="sm:max-w-sm">
-          <DialogHeader><DialogTitle>Nouvelle séance</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Ajouter une journée</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>Titre *</Label>
