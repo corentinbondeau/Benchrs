@@ -313,8 +313,8 @@ export default function PhysicalPreparationPage() {
                           </div>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
-                          <a href={doc.file_url} target="_blank" rel="noopener noreferrer">
-                            <Button size="sm" variant="outline">Voir</Button>
+                          <a href={doc.file_url} target="_blank" rel="noopener noreferrer" download>
+                            <Button size="sm" variant="outline">Télécharger</Button>
                           </a>
                           {isCoach && (
                             <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => deleteDoc(doc.id)}>
