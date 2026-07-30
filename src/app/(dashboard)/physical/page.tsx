@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useTeam } from "@/lib/team";
@@ -87,23 +87,23 @@ export default function PhysicalPreparationPage() {
   const [sessionDate, setSessionDate] = useState(new Date().toISOString().slice(0, 10));
   const [sessionNotes, setSessionNotes] = useState("");
 
-  const supabase = createClient();
+  const supabaseRef = useRef(createClient());
 
   const fetchData = useCallback(async () => {
     if (!currentTeam) return;
     const [playersRes, docsRes, sessionsRes] = await Promise.all([
-      supabase
+      supabaseRef.current
         .from("profiles")
         .select("*")
         .eq("role", "player")
         .eq("is_active", true)
         .order("last_name", { ascending: true }),
-      supabase
+      supabaseRef.current
         .from("physical_prep_documents")
         .select("*")
         .eq("team_id", currentTeam.id)
         .order("created_at", { ascending: false }),
-      supabase
+      supabaseRef.current
         .from("physical_prep_sessions")
         .select("*")
         .eq("team_id", currentTeam.id)
@@ -117,7 +117,7 @@ export default function PhysicalPreparationPage() {
     if (sessionsRes.data) {
       const sessionIds = (sessionsRes.data as PhysicalPrepSession[]).map((s) => s.id);
       if (sessionIds.length > 0) {
-        const { data: statusData } = await supabase
+        const { data: statusData } = await supabaseRef.current
           .from("physical_prep_status")
           .select("*")
           .in("session_id", sessionIds);
@@ -131,7 +131,7 @@ export default function PhysicalPreparationPage() {
       }
     }
     setLoading(false);
-  }, [currentTeam?.id, supabase]);
+  }, [currentTeam?.id]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -140,12 +140,13 @@ export default function PhysicalPreparationPage() {
     setDocUploading(true);
     const supabase = createClient();
     const ext = docFile.name.split(".").pop();
-    const path = `physical_docs/${currentTeam.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+    const path = `${currentTeam.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
     const buffer = await docFile.arrayBuffer();
+    const contentType = docFile.type || "application/pdf";
     const { error: uploadError } = await supabase.storage
       .from("physical_docs")
-      .upload(path, buffer, { upsert: true, contentType: docFile.type });
-    if (uploadError) { toast.error(uploadError.message); setDocUploading(false); return; }
+      .upload(path, buffer, { upsert: true, contentType });
+    if (uploadError) { toast.error(`Upload échoué: ${uploadError.message}`); setDocUploading(false); return; }
     const { data: urlData } = supabase.storage.from("physical_docs").getPublicUrl(path);
     const { error } = await supabase.from("physical_prep_documents").insert({
       team_id: currentTeam.id,
@@ -164,7 +165,7 @@ export default function PhysicalPreparationPage() {
 
   async function handleCreateSession() {
     if (!sessionTitle.trim() || !currentTeam) return;
-    const { data, error } = await supabase.from("physical_prep_sessions").insert({
+    const { data, error } = await supabaseRef.current.from("physical_prep_sessions").insert({
       team_id: currentTeam.id,
       title: sessionTitle.trim(),
       session_date: sessionDate,
@@ -183,9 +184,9 @@ export default function PhysicalPreparationPage() {
   async function updatePlayerStatus(sessionId: string, playerId: string, status: string) {
     const existing = statusMap[sessionId]?.find((s) => s.player_id === playerId);
     if (existing) {
-      await supabase.from("physical_prep_status").update({ status }).eq("id", existing.id);
+      await supabaseRef.current.from("physical_prep_status").update({ status }).eq("id", existing.id);
     } else {
-      await supabase.from("physical_prep_status").insert({
+      await supabaseRef.current.from("physical_prep_status").insert({
         session_id: sessionId,
         player_id: playerId,
         status,
@@ -196,13 +197,13 @@ export default function PhysicalPreparationPage() {
   }
 
   async function deleteDoc(id: string) {
-    await supabase.from("physical_prep_documents").delete().eq("id", id);
+    await supabaseRef.current.from("physical_prep_documents").delete().eq("id", id);
     toast.success("Document supprimé");
     fetchData();
   }
 
   async function deleteSession(id: string) {
-    await supabase.from("physical_prep_sessions").delete().eq("id", id);
+    await supabaseRef.current.from("physical_prep_sessions").delete().eq("id", id);
     toast.success("Séance supprimée");
     fetchData();
   }

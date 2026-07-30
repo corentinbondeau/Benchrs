@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useTeam } from "@/lib/team";
@@ -105,7 +105,7 @@ function SéanceTab() {
   const { user } = useAuth();
   const { currentTeam } = useTeam();
   const isCoach = user?.profile?.role === "coach";
-  const supabase = createClient();
+  const supabaseRef = useRef(createClient());
 
   const [sessions, setSessions] = useState<TrainingSession[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
@@ -132,12 +132,12 @@ function SéanceTab() {
 
   const fetchData = useCallback(async () => {
     const [sessionsRes, eventsRes] = await Promise.all([
-      supabase
+      supabaseRef.current
         .from("training_sessions")
         .select("*")
         .eq("team_id", currentTeam!.id)
         .order("created_at", { ascending: false }),
-      supabase
+      supabaseRef.current
         .from("events")
         .select("*")
         .eq("team_id", currentTeam!.id)
@@ -147,7 +147,7 @@ function SéanceTab() {
     setSessions((sessionsRes.data as TrainingSession[]) || []);
     setEvents((eventsRes.data as Event[]) || []);
     setLoading(false);
-  }, [supabase, currentTeam]);
+  }, [currentTeam]);
 
   useEffect(() => {
     fetchData();
@@ -155,7 +155,7 @@ function SéanceTab() {
 
   useEffect(() => {
     if (!selectedSession?.event_id || !currentTeam) return;
-    supabase
+    supabaseRef.current
       .from("attendances")
       .select("status")
       .eq("event_id", selectedSession.event_id)
@@ -186,7 +186,7 @@ function SéanceTab() {
   async function handleDeleteSession() {
     if (!selectedSession) return;
     if (!confirm("Supprimer cette séance ?")) return;
-    const { error } = await supabase
+    const { error } = await supabaseRef.current
       .from("training_sessions")
       .delete()
       .eq("id", selectedSession.id);
@@ -210,7 +210,7 @@ function SéanceTab() {
     const validExercises = exercises.filter((ex) => ex.name.trim() !== "");
     const objectives = selectedObjectives;
 
-    const { error } = await supabase.from("training_sessions").insert({
+    const { error } = await supabaseRef.current.from("training_sessions").insert({
       event_id: form.event_id,
       title: form.title,
       objectives: objectives.length > 0 ? objectives : null,
