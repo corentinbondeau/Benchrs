@@ -138,6 +138,9 @@ export default function PhysicalPreparationPage() {
     if (!docTitle.trim() || !docFile || !currentTeam) return;
     setDocUploading(true);
     const supabase = createClient();
+    const res = await fetch("/api/storage/physical-docs-bucket", { method: "POST" });
+    const bucketData = await res.json();
+    if (bucketData.error) { toast.error("Erreur de stockage"); setDocUploading(false); return; }
     const ext = docFile.name.split(".").pop();
     const path = `physical_docs/${currentTeam.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
     const buffer = await docFile.arrayBuffer();
