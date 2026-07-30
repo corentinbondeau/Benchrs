@@ -33,7 +33,6 @@ const navItems = [
   { href: "/carpooling", label: "Covoiturage", icon: Car },
   { href: "/tasks", label: "Tâches", icon: ListTodo },
   { href: "/tactics", label: "Tactique", icon: Swords, coachOnly: true },
-  { href: "/trainings/generate", label: "Générer séance", icon: Plus, coachOnly: true },
   { href: "/gallery", label: "Galerie", icon: Image },
   { href: "/trophies", label: "Trophées", icon: Trophy },
   { href: "/championship", label: "Championnat", icon: Medal },

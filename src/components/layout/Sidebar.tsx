@@ -23,7 +23,6 @@ import {
   UserCog,
   Wallet,
   ChevronsUpDown,
-  Plus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -48,7 +47,6 @@ const navItems = [
   { href: "/carpooling", label: "Covoiturage", icon: Car },
   { href: "/tasks", label: "Tâches", icon: ListTodo },
   { href: "/physical", label: "Prépa physique", icon: Medal, coachOnly: true },
-  { href: "/trainings/generate", label: "Générer séance", icon: Plus, coachOnly: true },
   { href: "/tactics", label: "Tactique", icon: Swords, coachOnly: true },
   { href: "/gallery", label: "Galerie", icon: Image },
   { href: "/trophies", label: "Trophées", icon: Trophy },
