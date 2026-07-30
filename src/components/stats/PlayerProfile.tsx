@@ -125,7 +125,7 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
       .update({ vma: val })
       .eq("id", playerId);
     if (error) {
-      toast.error("Erreur lors de la sauvegarde");
+      toast.error(error.message);
       return;
     }
     setVma(val);
