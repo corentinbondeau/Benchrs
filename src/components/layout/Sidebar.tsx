@@ -65,8 +65,10 @@ export function Sidebar() {
   const { currentTeam, teams, switchTeam, refreshTeams } = useTeam();
   const isCoach = user?.profile?.role === "coach";
   const [createOpen, setCreateOpen] = useState(false);
+  const [joinMode, setJoinMode] = useState(false);
   const [clubName, setClubName] = useState("");
   const [teamName, setTeamName] = useState("");
+  const [inviteCode, setInviteCode] = useState("");
   const [creating, setCreating] = useState(false);
 
   async function handleCreateTeam() {
@@ -88,6 +90,34 @@ export function Sidebar() {
       setCreateOpen(false);
       setClubName("");
       setTeamName("");
+      setInviteCode("");
+      setJoinMode(false);
+      await refreshTeams();
+    } catch {
+      toast.error("Erreur de connexion au serveur");
+    }
+    setCreating(false);
+  }
+
+  async function handleJoinTeam() {
+    if (!inviteCode.trim()) return;
+    setCreating(true);
+    try {
+      const res = await fetch("/api/auth/join-team", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: user!.id, inviteCode: inviteCode.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "Code invalide");
+        setCreating(false);
+        return;
+      }
+      toast.success(data.message || "Équipe rejointe !");
+      setCreateOpen(false);
+      setInviteCode("");
+      setJoinMode(false);
       await refreshTeams();
     } catch {
       toast.error("Erreur de connexion au serveur");
@@ -136,27 +166,43 @@ export function Sidebar() {
               <ChevronsUpDown className="h-4 w-4 text-white/40 shrink-0" />
             </div>
           )}
-          <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+          <Dialog open={createOpen} onOpenChange={(open) => { setCreateOpen(open); if (!open) setJoinMode(false); }}>
             <DialogTrigger render={<button className="block w-full mt-0.5 text-xs text-white/40 hover:text-white/60 text-center" />}>
               + Créer une équipe
             </DialogTrigger>
             <DialogContent className="sm:max-w-sm">
               <DialogHeader>
-                <DialogTitle>Créer une équipe</DialogTitle>
+                <DialogTitle>{joinMode ? "Rejoindre une équipe" : "Créer une équipe"}</DialogTitle>
               </DialogHeader>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Nom du club</Label>
-                  <Input value={clubName} onChange={(e) => setClubName(e.target.value)} placeholder="AS Monaco" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Nom de l&apos;équipe</Label>
-                  <Input value={teamName} onChange={(e) => setTeamName(e.target.value)} placeholder="U17 Senior" />
-                </div>
-                <Button className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold" onClick={handleCreateTeam} disabled={!clubName.trim() || !teamName.trim() || creating}>
-                  {creating ? "Création..." : "Créer l'équipe"}
-                </Button>
+              <div className="flex gap-1 rounded-lg border p-0.5 bg-muted/30 mb-4">
+                <button className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${!joinMode ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"}`} onClick={() => { setJoinMode(false); setInviteCode(""); }}>Créer</button>
+                <button className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${joinMode ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"}`} onClick={() => { setJoinMode(true); setClubName(""); setTeamName(""); }}>Rejoindre</button>
               </div>
+              {joinMode ? (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Code d'invitation</Label>
+                    <Input value={inviteCode} onChange={(e) => setInviteCode(e.target.value)} placeholder="Entrez le code" />
+                  </div>
+                  <Button className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold" onClick={handleJoinTeam} disabled={!inviteCode.trim() || creating}>
+                    {creating ? "Connexion..." : "Rejoindre l'équipe"}
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Nom du club</Label>
+                    <Input value={clubName} onChange={(e) => setClubName(e.target.value)} placeholder="AS Monaco" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Nom de l'équipe</Label>
+                    <Input value={teamName} onChange={(e) => setTeamName(e.target.value)} placeholder="U17 Senior" />
+                  </div>
+                  <Button className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold" onClick={handleCreateTeam} disabled={!clubName.trim() || !teamName.trim() || creating}>
+                    {creating ? "Création..." : "Créer l'équipe"}
+                  </Button>
+                </div>
+              )}
             </DialogContent>
           </Dialog>
         </div>

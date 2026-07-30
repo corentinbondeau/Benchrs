@@ -1,12 +1,16 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { useTeam } from "@/lib/team";
 import { Sheet, SheetContent, SheetClose, SheetTrigger } from "@/components/ui/sheet";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { X, Menu as MenuIcon, Plus, Medal } from "lucide-react";
+import { toast } from "sonner";
 import {
   LayoutDashboard,
   Calendar,
@@ -47,8 +51,31 @@ const coachItems = [
 function SheetContentInner({ close }: { close: () => void }) {
   const pathname = usePathname();
   const { user } = useAuth();
-  const { currentTeam, teams, switchTeam } = useTeam();
+  const { currentTeam, teams, switchTeam, refreshTeams } = useTeam();
   const isCoach = user?.profile?.role === "coach";
+  const [showJoinForm, setShowJoinForm] = useState(false);
+  const [inviteCode, setInviteCode] = useState("");
+  const [joining, setJoining] = useState(false);
+
+  async function handleJoinTeam() {
+    if (!inviteCode.trim() || !user) return;
+    setJoining(true);
+    try {
+      const res = await fetch("/api/auth/join-team", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: user.id, inviteCode: inviteCode.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) { toast.error(data.error || "Code invalide"); setJoining(false); return; }
+      toast.success(data.message || "Équipe rejointe !");
+      setShowJoinForm(false);
+      setInviteCode("");
+      await refreshTeams();
+      close();
+    } catch { toast.error("Erreur de connexion"); }
+    setJoining(false);
+  }
 
   return (
     <SheetContent side="left" className="w-64 p-0 bg-[var(--color-navy)]" showCloseButton={false}>
@@ -122,16 +149,26 @@ function SheetContentInner({ close }: { close: () => void }) {
             <Settings2 className="h-3.5 w-3.5" />
             Gérer
           </Link>
-          <Link
-            href="/settings/team?tab=invite"
-            onClick={close}
+          <button
+            onClick={() => setShowJoinForm(true)}
             className="flex-1 flex items-center justify-center gap-1 rounded-lg bg-white/10 px-2 py-2 text-xs font-medium text-white/80 hover:bg-white/15 transition-colors"
           >
             <Plus className="h-3.5 w-3.5" />
             Rejoindre
-          </Link>
+          </button>
         </div>
       </div>
+
+      {showJoinForm && (
+        <div className="px-3 py-3 border-b border-white/10 space-y-3">
+          <p className="text-xs font-medium text-white/80">Rejoindre une équipe</p>
+          <Input value={inviteCode} onChange={(e) => setInviteCode(e.target.value)} placeholder="Code d'invitation" className="bg-white/10 border-white/20 text-white text-sm placeholder:text-white/40" />
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" className="text-white border-white/20 hover:bg-white/10" onClick={() => { setShowJoinForm(false); setInviteCode(""); }}>Annuler</Button>
+            <Button size="sm" className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold" onClick={handleJoinTeam} disabled={!inviteCode.trim() || joining}>{joining ? "..." : "Rejoindre"}</Button>
+          </div>
+        </div>
+      )}
 
       <nav className="py-3 px-2 space-y-0.5">
         {navItems
