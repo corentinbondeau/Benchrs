@@ -77,6 +77,7 @@ export default function PhysicalPreparationPage() {
   const [tab, setTab] = useState<"vma" | "docs" | "tracking">("vma");
 
   const [docUploadOpen, setDocUploadOpen] = useState(false);
+  const [previewDoc, setPreviewDoc] = useState<string | null>(null);
   const [docTitle, setDocTitle] = useState("");
   const [docFile, setDocFile] = useState<File | null>(null);
   const [docUploading, setDocUploading] = useState(false);
@@ -316,25 +317,37 @@ export default function PhysicalPreparationPage() {
                 <div className="space-y-2">
                   {documents.map((doc) => (
                     <Card key={doc.id}>
-                      <CardContent className="p-4 flex items-center justify-between">
-                        <div className="flex items-center gap-3 min-w-0">
-                          <FileText className="h-5 w-5 text-[var(--color-royal)] shrink-0" />
-                          <div className="min-w-0">
-                            <p className="font-medium text-sm truncate">{doc.title}</p>
-                            {doc.description && <p className="text-xs text-muted-foreground truncate">{doc.description}</p>}
+                      <div className="cursor-pointer" onClick={() => setPreviewDoc(previewDoc === doc.id ? null : doc.id)}>
+                        <CardContent className="p-4 flex items-center justify-between">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <FileText className="h-5 w-5 text-[var(--color-royal)] shrink-0" />
+                            <div className="min-w-0">
+                              <p className="font-medium text-sm truncate">{doc.title}</p>
+                              {doc.description && <p className="text-xs text-muted-foreground truncate">{doc.description}</p>}
+                            </div>
                           </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <a href={doc.file_url} target="_blank" rel="noopener noreferrer" download onClick={(e) => e.stopPropagation()}>
+                              <Button size="sm" variant="outline">Télécharger</Button>
+                            </a>
+                            {isCoach && (
+                              <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={(e) => { e.stopPropagation(); deleteDoc(doc.id); }}>
+                                <X className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </CardContent>
+                      </div>
+                      {previewDoc === doc.id && (
+                        <div className="px-4 pb-4">
+                          <iframe
+                            src={doc.file_url}
+                            className="w-full rounded-lg border"
+                            style={{ height: "80vh" }}
+                            title={doc.title}
+                          />
                         </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <a href={doc.file_url} target="_blank" rel="noopener noreferrer" download>
-                            <Button size="sm" variant="outline">Télécharger</Button>
-                          </a>
-                          {isCoach && (
-                            <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => deleteDoc(doc.id)}>
-                              <X className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </div>
-                      </CardContent>
+                      )}
                     </Card>
                   ))}
                 </div>
