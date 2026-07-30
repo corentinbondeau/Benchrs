@@ -32,8 +32,10 @@ import {
   Clock,
   MapPin,
   Users,
+  Bell,
 } from "lucide-react";
 import { toast } from "sonner";
+import { ConvocationsDialog } from "@/components/ConvocationsDialog";
 import type { Event, Profile } from "@/types";
 
 type Recurrence = "Aucun" | "weekly" | "biweekly" | "monthly";
@@ -82,13 +84,14 @@ export default function CalendarPage() {
   const { user } = useAuth();
   const { currentTeam } = useTeam();
   const router = useRouter();
-  const [view, setView] = useState<"month" | "week">("week");
+  const [view, setView] = useState<"month" | "week" | "list">("list");
   const [currentDate, setCurrentDate] = useState(new Date());
   const [events, setEvents] = useState<EventWithMeeting[]>([]);
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
   const [players, setPlayers] = useState<Profile[]>([]);
   const [attendanceCounts, setAttendanceCounts] = useState<Record<string, { present: number; total: number }>>({});
+  const [convDialogEvent, setConvDialogEvent] = useState<Event | null>(null);
   const [form, setForm] = useState({
     title: "",
     type: "training" as "match" | "training",
@@ -245,7 +248,7 @@ export default function CalendarPage() {
       return;
     }
 
-    if (inserted && form.type === "match" && form.selected_player_ids.length > 0) {
+    if (inserted) {
       const attendanceRows = inserted.flatMap((evt) =>
         form.selected_player_ids.map((pid) => ({
           event_id: evt.id,
@@ -254,7 +257,24 @@ export default function CalendarPage() {
           team_id: currentTeam!.id,
         }))
       );
-      await supabase.from("attendances").insert(attendanceRows);
+      if (attendanceRows.length > 0) {
+        await supabase.from("attendances").insert(attendanceRows);
+      }
+
+      // Auto-send notifications to convoked players
+      const notifications = inserted.flatMap((evt) =>
+        form.selected_player_ids.map((pid) => ({
+          user_id: pid,
+          title: `Convocation: ${form.title}`,
+          body: `Vous êtes convoqué(e) le ${new Date(form.event_date).toLocaleDateString("fr-FR")} à ${new Date(form.event_date).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`,
+          type: "convocation",
+          reference_id: evt.id,
+          team_id: currentTeam!.id,
+        }))
+      );
+      if (notifications.length > 0) {
+        await supabase.from("notifications").insert(notifications);
+      }
     }
 
     setCreateOpen(false);
@@ -439,6 +459,9 @@ export default function CalendarPage() {
         <h3 className="text-sm font-semibold">{title}</h3>
         <div className="flex items-center gap-2">
           <div className="flex rounded-lg border overflow-hidden">
+            <Button variant={view === "list" ? "secondary" : "ghost"} size="sm" className="rounded-none" onClick={() => setView("list")}>
+              Liste
+            </Button>
             <Button variant={view === "month" ? "secondary" : "ghost"} size="sm" className="rounded-none" onClick={() => setView("month")}>
               Mois
             </Button>
@@ -517,6 +540,82 @@ export default function CalendarPage() {
         </div>
       )}
 
+      {/* List View */}
+      {view === "list" && (() => {
+        const now = new Date();
+        const sortedEvents = [...events]
+          .filter((e) => new Date(e.event_date) >= now)
+          .sort((a, b) => new Date(a.event_date).getTime() - new Date(b.event_date).getTime());
+
+        if (sortedEvents.length === 0) {
+          return (
+            <div className="text-center py-12 text-muted-foreground">
+              <CalendarDays className="h-12 w-12 mx-auto mb-3 opacity-40" />
+              <p className="text-lg">Aucun événement à venir</p>
+            </div>
+          );
+        }
+
+        return (
+          <div className="space-y-2">
+            {sortedEvents.map((event) => {
+              const attCount = attendanceCounts[event.id];
+              return (
+                <div key={event.id} className="rounded-lg border p-4 flex items-start gap-3">
+                  <div className="flex flex-col items-center min-w-[48px]">
+                    <span className="text-xs text-muted-foreground uppercase">
+                      {new Date(event.event_date).toLocaleDateString("fr-FR", { month: "short" })}
+                    </span>
+                    <span className="text-xl font-bold leading-tight">
+                      {new Date(event.event_date).getDate()}
+                    </span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className={getEventBadgeColor(event)}>
+                        {event.type === "match" ? "Match" : "Entraînement"}
+                      </Badge>
+                      {event.status === "cancelled" && (
+                        <Badge variant="destructive" className="text-[10px]">Annulé</Badge>
+                      )}
+                    </div>
+                    <p className="font-semibold text-sm mt-1 truncate">{event.title}</p>
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs text-muted-foreground">
+                      <EventTimeDisplay event={event} />
+                      {event.location && (
+                        <span className="flex items-center gap-1">
+                          <MapPin className="h-3 w-3" />{event.location}
+                        </span>
+                      )}
+                      {event.opponent && (
+                        <span>vs {event.opponent}</span>
+                      )}
+                      {event.score_us !== null && event.score_them !== null && (
+                        <span className="font-bold">{event.score_us}-{event.score_them}</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    {attCount && attCount.total > 0 && (
+                      <span className="inline-flex items-center gap-1 text-xs text-muted-foreground mr-1">
+                        <Users className="h-3 w-3" />
+                        {attCount.present}/{attCount.total}
+                      </span>
+                    )}
+                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setConvDialogEvent(event)}>
+                      <Bell className="h-4 w-4" />
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => selectEvent(event)}>
+                      Détails
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        );
+      })()}
+
       {/* Week View */}
       {view === "week" && (() => {
         const weekDays = Array.from({ length: 7 }).map((_, i) => {
@@ -578,6 +677,13 @@ export default function CalendarPage() {
           </div>
         );
       })()}
+
+      {/* Convocations Dialog */}
+      <ConvocationsDialog
+        event={convDialogEvent!}
+        open={!!convDialogEvent}
+        onOpenChange={(open) => { if (!open) setConvDialogEvent(null); }}
+      />
     </div>
   );
 }

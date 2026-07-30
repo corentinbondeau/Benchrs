@@ -43,6 +43,15 @@ interface ScrapedTeam {
   goals_against: number;
 }
 
+interface ScrapedMatch {
+  matchday: number | null;
+  date: string;
+  home_team: string;
+  away_team: string;
+  home_score: number | null;
+  away_score: number | null;
+}
+
 export default function ChampionshipPage() {
   const { user } = useAuth();
   const { currentTeam } = useTeam();
@@ -58,10 +67,12 @@ export default function ChampionshipPage() {
   const [fffHtml, setFffHtml] = useState("");
   const [fffLoading, setFffLoading] = useState(false);
   const [scrapedTeams, setScrapedTeams] = useState<ScrapedTeam[] | null>(null);
+  const [scrapedMatches, setScrapedMatches] = useState<ScrapedMatch[] | null>(null);
   const [importName, setImportName] = useState("");
   const [importSeason, setImportSeason] = useState("2025-2026");
   const [importLevel, setImportLevel] = useState("");
   const [saving, setSaving] = useState(false);
+  const [scrapeTab, setScrapeTab] = useState<"standings" | "calendar">("standings");
 
   useEffect(() => {
     fetch(`/api/championships?team_id=${currentTeam!.id}`)
@@ -99,19 +110,36 @@ export default function ChampionshipPage() {
     }
     setFffLoading(true);
     setScrapedTeams(null);
+    setScrapedMatches(null);
     try {
       const res = await fetch("/api/championships/fff", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: fffUrl || undefined, html: fffHtml || undefined }),
+        body: JSON.stringify({ url: fffUrl || undefined, html: fffHtml || undefined, type: "all" }),
       });
       const data = await res.json();
       if (!res.ok) {
-        toast.error(data.error || "Erreur lors du scraping");
-        return;
+        if (data.teams && data.teams.length > 0) {
+          setScrapedTeams(data.teams);
+        }
+        if (data.matches && data.matches.length > 0) {
+          setScrapedMatches(data.matches);
+        }
+        if (!data.teams && !data.matches) {
+          toast.error(data.error || "Erreur lors du scraping");
+          return;
+        }
+      } else {
+        if (data.teams) setScrapedTeams(data.teams);
+        if (data.matches) setScrapedMatches(data.matches);
       }
-      setScrapedTeams(data.teams);
-      toast.success(`${data.teams.length} équipes importées`);
+      const teamCount = data.teams?.length ?? 0;
+      const matchCount = data.matches?.length ?? 0;
+      const parts: string[] = [];
+      if (teamCount > 0) parts.push(`${teamCount} équipes`);
+      if (matchCount > 0) parts.push(`${matchCount} matchs`);
+      if (parts.length > 0) toast.success(`${parts.join(" et ")} trouvés`);
+      else toast.error("Aucune donnée trouvée dans le contenu");
     } catch {
       toast.error("Erreur de connexion");
     } finally {
@@ -120,7 +148,7 @@ export default function ChampionshipPage() {
   }
 
   async function handleFffSave() {
-    if (!scrapedTeams || scrapedTeams.length === 0) return;
+    if ((!scrapedTeams || scrapedTeams.length === 0) && (!scrapedMatches || scrapedMatches.length === 0)) return;
     if (!importName.trim()) {
       toast.error("Entrez un nom de championnat");
       return;
@@ -143,19 +171,39 @@ export default function ChampionshipPage() {
       }
       const championship = await createRes.json();
 
-      for (const team of scrapedTeams) {
-        await fetch("/api/championships/standings", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            championship_id: championship.id,
-            home_team: team.team_name,
-            away_team: "",
-            home_score: team.points,
-            away_score: 0,
-            team_id: currentTeam!.id,
-          }),
-        });
+      if (scrapedTeams) {
+        for (const team of scrapedTeams) {
+          await fetch("/api/championships/standings", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              championship_id: championship.id,
+              home_team: team.team_name,
+              away_team: "",
+              home_score: team.points,
+              away_score: 0,
+              team_id: currentTeam!.id,
+            }),
+          });
+        }
+      }
+
+      if (scrapedMatches) {
+        for (const m of scrapedMatches) {
+          await fetch("/api/championships/standings", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              championship_id: championship.id,
+              home_team: m.home_team,
+              away_team: m.away_team,
+              home_score: m.home_score ?? 0,
+              away_score: m.away_score ?? 0,
+              matchday_number: m.matchday,
+              team_id: currentTeam!.id,
+            }),
+          });
+        }
       }
 
       toast.success("Championnat importé avec succès");
@@ -174,6 +222,7 @@ export default function ChampionshipPage() {
     setFffUrl("");
     setFffHtml("");
     setScrapedTeams(null);
+    setScrapedMatches(null);
     setImportName("");
     setImportSeason("2025-2026");
     setImportLevel("");
@@ -278,43 +327,85 @@ export default function ChampionshipPage() {
                           <Input value={importLevel} onChange={(e) => setImportLevel(e.target.value)} placeholder="Ex: District" />
                         </div>
                       </div>
-                      <p className="text-sm text-muted-foreground">
-                        {scrapedTeams.length} équipes trouvées
-                      </p>
-                      <div className="max-h-60 overflow-y-auto rounded-lg border">
-                        <table className="w-full text-xs">
-                          <thead className="bg-muted/50 sticky top-0">
-                            <tr>
-                              <th className="p-1.5 text-left">#</th>
-                              <th className="p-1.5 text-left">Équipe</th>
-                              <th className="p-1.5 text-center">J</th>
-                              <th className="p-1.5 text-center">V</th>
-                              <th className="p-1.5 text-center">N</th>
-                              <th className="p-1.5 text-center">D</th>
-                              <th className="p-1.5 text-center">BP</th>
-                              <th className="p-1.5 text-center">BC</th>
-                              <th className="p-1.5 text-center font-bold">Pts</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {scrapedTeams.map((team, idx) => (
-                              <tr key={idx} className="border-t">
-                                <td className="p-1.5">{idx + 1}</td>
-                                <td className="p-1.5 font-medium">{team.team_name}</td>
-                                <td className="p-1.5 text-center">{team.played}</td>
-                                <td className="p-1.5 text-center">{team.won}</td>
-                                <td className="p-1.5 text-center">{team.drawn}</td>
-                                <td className="p-1.5 text-center">{team.lost}</td>
-                                <td className="p-1.5 text-center">{team.goals_for}</td>
-                                <td className="p-1.5 text-center">{team.goals_against}</td>
-                                <td className="p-1.5 text-center font-bold">{team.points}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
+
+                      <div className="flex gap-1 rounded-lg border p-0.5 bg-muted/30">
+                        <button
+                          className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-colors ${scrapeTab === "standings" ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                          onClick={() => setScrapeTab("standings")}
+                        >
+                          Classement {scrapedTeams ? `(${scrapedTeams.length})` : ""}
+                        </button>
+                        <button
+                          className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-colors ${scrapeTab === "calendar" ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                          onClick={() => setScrapeTab("calendar")}
+                        >
+                          Calendrier {scrapedMatches ? `(${scrapedMatches.length})` : ""}
+                        </button>
                       </div>
+
+                      {scrapeTab === "standings" && scrapedTeams && scrapedTeams.length > 0 && (
+                        <div className="max-h-60 overflow-y-auto rounded-lg border">
+                          <table className="w-full text-xs">
+                            <thead className="bg-muted/50 sticky top-0">
+                              <tr>
+                                <th className="p-1.5 text-left">#</th>
+                                <th className="p-1.5 text-left">Équipe</th>
+                                <th className="p-1.5 text-center">J</th>
+                                <th className="p-1.5 text-center">V</th>
+                                <th className="p-1.5 text-center">N</th>
+                                <th className="p-1.5 text-center">D</th>
+                                <th className="p-1.5 text-center">BP</th>
+                                <th className="p-1.5 text-center">BC</th>
+                                <th className="p-1.5 text-center font-bold">Pts</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {scrapedTeams.map((team, idx) => (
+                                <tr key={idx} className="border-t">
+                                  <td className="p-1.5">{idx + 1}</td>
+                                  <td className="p-1.5 font-medium">{team.team_name}</td>
+                                  <td className="p-1.5 text-center">{team.played}</td>
+                                  <td className="p-1.5 text-center">{team.won}</td>
+                                  <td className="p-1.5 text-center">{team.drawn}</td>
+                                  <td className="p-1.5 text-center">{team.lost}</td>
+                                  <td className="p-1.5 text-center">{team.goals_for}</td>
+                                  <td className="p-1.5 text-center">{team.goals_against}</td>
+                                  <td className="p-1.5 text-center font-bold">{team.points}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                      {scrapeTab === "calendar" && scrapedMatches && scrapedMatches.length > 0 && (
+                        <div className="max-h-60 overflow-y-auto rounded-lg border">
+                          <table className="w-full text-xs">
+                            <thead className="bg-muted/50 sticky top-0">
+                              <tr>
+                                <th className="p-1.5 text-left">Date</th>
+                                <th className="p-1.5 text-left">Domicile</th>
+                                <th className="p-1.5 text-center">Score</th>
+                                <th className="p-1.5 text-left">Extérieur</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {scrapedMatches.map((m, idx) => (
+                                <tr key={idx} className="border-t">
+                                  <td className="p-1.5 whitespace-nowrap">{m.date}</td>
+                                  <td className={`p-1.5 font-medium ${m.home_score !== null && (m.home_score ?? 0) > (m.away_score ?? 0) ? "text-green-600" : ""}`}>{m.home_team}</td>
+                                  <td className="p-1.5 text-center font-bold">
+                                    {m.home_score !== null ? `${m.home_score} - ${m.away_score}` : "?"}
+                                  </td>
+                                  <td className={`p-1.5 font-medium ${m.away_score !== null && (m.away_score ?? 0) > (m.home_score ?? 0) ? "text-green-600" : ""}`}>{m.away_team}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+
                       <div className="flex gap-2">
-                        <Button variant="outline" onClick={() => setScrapedTeams(null)} className="flex-1">
+                        <Button variant="outline" onClick={() => { setScrapedTeams(null); setScrapedMatches(null); }} className="flex-1">
                           Retour
                         </Button>
                         <Button
