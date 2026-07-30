@@ -165,20 +165,24 @@ export default function CotisationsPage() {
         toast.error(error.message);
       } else {
         toast.success("Montant mis à jour");
+        setCotisations((prev) => prev.map((c) =>
+          c.id === existing.id ? { ...c, amount_expected: amount, updated_at: new Date().toISOString() } as Cotisation : c
+        ));
       }
     } else {
-      const { error } = await supabaseRef.current.from("cotisations").insert({
+      const { data, error } = await supabaseRef.current.from("cotisations").insert({
         player_id: definePlayer.id,
         season,
         amount_expected: amount,
         amount_paid: 0,
         status: "pending",
         team_id: currentTeam.id,
-      });
+      }).select().single();
       if (error) {
         toast.error(error.message);
       } else {
         toast.success("Cotisation créée");
+        setCotisations((prev) => [...prev, data as Cotisation]);
       }
     }
 
@@ -186,7 +190,6 @@ export default function CotisationsPage() {
     setDefineOpen(false);
     setDefinePlayer(null);
     setDefineAmount("");
-    fetchData();
   }
 
   async function handlePayment() {
@@ -233,6 +236,11 @@ export default function CotisationsPage() {
       toast.error(updErr.message);
     } else {
       toast.success("Paiement enregistré");
+      setCotisations((prev) => prev.map((c) =>
+        c.id === paymentCotisation.id
+          ? { ...c, amount_paid: newPaid, status: newStatus, payment_method: paymentMethod || null, payment_date: paymentDate || null, updated_at: new Date().toISOString() } as Cotisation
+          : c
+      ));
     }
 
     setSaving(false);
@@ -242,7 +250,6 @@ export default function CotisationsPage() {
     setPaymentMethod("");
     setPaymentDate(new Date().toISOString().slice(0, 10));
     setPaymentNotes("");
-    fetchData();
   }
 
   async function handleDeduction() {
@@ -287,6 +294,11 @@ export default function CotisationsPage() {
       toast.error(updErr.message);
     } else {
       toast.success("Déduction enregistrée");
+      setCotisations((prev) => prev.map((c) =>
+        c.id === deductionCotisation.id
+          ? { ...c, amount_paid: newPaid, status: newStatus, updated_at: new Date().toISOString() } as Cotisation
+          : c
+      ));
     }
 
     setSaving(false);
@@ -294,7 +306,6 @@ export default function CotisationsPage() {
     setDeductionCotisation(null);
     setDeductionAmount("");
     setDeductionReason("");
-    fetchData();
   }
 
   async function openHistory(c: Cotisation, player: Profile) {

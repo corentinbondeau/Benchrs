@@ -194,8 +194,8 @@ function SéanceTab() {
       toast.error("Erreur lors de la suppression");
     } else {
       toast.success("Séance supprimée");
+      setSessions((prev) => prev.filter((s) => s.id !== selectedSession.id));
       setSelectedSession(null);
-      fetchData();
     }
   }
 
@@ -210,7 +210,7 @@ function SéanceTab() {
     const validExercises = exercises.filter((ex) => ex.name.trim() !== "");
     const objectives = selectedObjectives;
 
-    const { error } = await supabaseRef.current.from("training_sessions").insert({
+    const { data, error } = await supabaseRef.current.from("training_sessions").insert({
       event_id: form.event_id,
       title: form.title,
       objectives: objectives.length > 0 ? objectives : null,
@@ -218,7 +218,7 @@ function SéanceTab() {
       notes: form.notes || null,
       created_by: user?.id || null,
       team_id: currentTeam!.id,
-    });
+    }).select().single();
 
     if (error) {
       toast.error("Erreur lors de la création");
@@ -226,7 +226,7 @@ function SéanceTab() {
       toast.success("Séance créée avec succès");
       setCreateOpen(false);
       resetForm();
-      fetchData();
+      setSessions((prev) => [data as TrainingSession, ...prev]);
     }
     setSubmitting(false);
   }
