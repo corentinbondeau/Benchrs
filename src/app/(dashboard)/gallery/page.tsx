@@ -489,6 +489,28 @@ export default function GalleryPage() {
           </Button>
           <Button
             size="sm"
+            variant="destructive"
+            disabled={!selectedIds.size}
+            onClick={async () => {
+              if (!confirm(`Supprimer ${selectedIds.size} photo${selectedIds.size !== 1 ? "s" : ""} ?`)) return;
+              const res = await fetch("/api/gallery/delete", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ mediaIds: Array.from(selectedIds) }),
+              });
+              const data = await res.json();
+              if (data.error) { toast.error(data.error); return; }
+              setMedia((prev) => prev.filter((m) => !selectedIds.has(m.id)));
+              toast.success(`${selectedIds.size} photo${selectedIds.size !== 1 ? "s" : ""} supprimée${selectedIds.size !== 1 ? "s" : ""}`);
+              setSelectedIds(new Set());
+              setSelecting(false);
+            }}
+          >
+            <Trash2 className="h-4 w-4 mr-1" />
+            Supprimer
+          </Button>
+          <Button
+            size="sm"
             disabled={!selectedIds.size}
             onClick={async () => {
               for (const id of selectedIds) {

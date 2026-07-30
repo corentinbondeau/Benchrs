@@ -3,37 +3,39 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function POST(req: Request) {
   try {
-    const { mediaId } = await req.json();
-    if (!mediaId) {
-      return NextResponse.json({ error: "Media ID required" }, { status: 400 });
+    const { mediaId, mediaIds } = await req.json();
+    const ids = mediaIds || (mediaId ? [mediaId] : []);
+
+    if (ids.length === 0) {
+      return NextResponse.json({ error: "Media ID(s) required" }, { status: 400 });
     }
 
     const supabase = createAdminClient();
 
-    const { data: media, error: fetchError } = await supabase
+    const { data: mediaList, error: fetchError } = await supabase
       .from("gallery_media")
-      .select("*")
-      .eq("id", mediaId)
-      .single();
+      .select("id, storage_path")
+      .in("id", ids);
 
-    if (fetchError || !media) {
-      return NextResponse.json({ error: "Media not found" }, { status: 404 });
+    if (fetchError) {
+      return NextResponse.json({ error: fetchError.message }, { status: 500 });
     }
 
-    if (media.storage_path) {
-      await supabase.storage.from("gallery").remove([media.storage_path]);
+    const paths = mediaList?.map((m) => m.storage_path).filter(Boolean) as string[];
+    if (paths.length > 0) {
+      await supabase.storage.from("gallery").remove(paths);
     }
 
     const { error: deleteError } = await supabase
       .from("gallery_media")
       .delete()
-      .eq("id", mediaId);
+      .in("id", ids);
 
     if (deleteError) {
       return NextResponse.json({ error: deleteError.message }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, deleted: ids.length });
   } catch {
     return NextResponse.json({ error: "Erreur interne du serveur" }, { status: 500 });
   }
