@@ -43,9 +43,11 @@ import {
   Clock,
   AlertCircle,
   UserCheck,
+  Bell,
 } from "lucide-react";
 import { toast } from "sonner";
-import type { Profile, PhysicalPrepDocument, PhysicalPrepSession, PhysicalPrepStatus } from "@/types";
+import { ConvocationsDialog } from "@/components/ConvocationsDialog";
+import type { Profile, PhysicalPrepDocument, PhysicalPrepSession, PhysicalPrepStatus, Event } from "@/types";
 
 const VMA_PERCENTAGES = [50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100];
 
@@ -86,6 +88,7 @@ export default function PhysicalPreparationPage() {
   const [sessionTitle, setSessionTitle] = useState("");
   const [sessionDate, setSessionDate] = useState(new Date().toISOString().slice(0, 10));
   const [sessionNotes, setSessionNotes] = useState("");
+  const [convDialogEvent, setConvDialogEvent] = useState<Event | null>(null);
 
   const supabaseRef = useRef(createClient());
 
@@ -210,6 +213,44 @@ export default function PhysicalPreparationPage() {
     setSessions(prev => prev.filter(s => s.id !== id));
     setStatusMap(prev => { const n = { ...prev }; delete n[id]; return n; });
     toast.success("Séance supprimée");
+  }
+
+  async function handleConvoquer(session: PhysicalPrepSession) {
+    if (!currentTeam || !user) return;
+    const sessionDateStr = session.session_date.slice(0, 10);
+    const dayStart = `${sessionDateStr}T00:00:00Z`;
+    const dayEnd = `${sessionDateStr}T23:59:59Z`;
+
+    const { data: existing } = await supabaseRef.current
+      .from("events")
+      .select("*")
+      .eq("team_id", currentTeam.id)
+      .eq("type", "training")
+      .gte("event_date", dayStart)
+      .lte("event_date", dayEnd)
+      .maybeSingle();
+
+    if (existing) {
+      setConvDialogEvent(existing as Event);
+      return;
+    }
+
+    const { data: created } = await supabaseRef.current
+      .from("events")
+      .insert({
+        team_id: currentTeam.id,
+        type: "training",
+        title: session.title,
+        event_date: session.session_date,
+        status: "upcoming",
+        created_by: user.id,
+      })
+      .select()
+      .single();
+
+    if (created) {
+      setConvDialogEvent(created as Event);
+    }
   }
 
   if (!currentTeam) {
@@ -386,6 +427,13 @@ export default function PhysicalPreparationPage() {
                             <div className="flex items-center justify-center gap-1">
                               <span>{s.title}</span>
                               <button
+                                className="text-muted-foreground hover:text-[var(--color-gold)]"
+                                onClick={() => handleConvoquer(s)}
+                                title="Convoquer"
+                              >
+                                <Bell className="h-3 w-3" />
+                              </button>
+                              <button
                                 className="text-destructive hover:text-destructive/80"
                                 onClick={() => deleteSession(s.id)}
                               >
@@ -478,6 +526,14 @@ export default function PhysicalPreparationPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {convDialogEvent && (
+        <ConvocationsDialog
+          event={convDialogEvent}
+          open
+          onOpenChange={(open) => { if (!open) setConvDialogEvent(null); }}
+        />
+      )}
     </div>
   );
 }
