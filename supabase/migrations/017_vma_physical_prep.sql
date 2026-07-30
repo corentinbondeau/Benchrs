@@ -1,17 +1,27 @@
 -- Add VMA (Max Aerobic Speed) field to profiles
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS vma NUMERIC(5,2);
 
--- Allow coaches to update player profiles (VMA, etc.)
-DROP POLICY IF EXISTS "Coaches can update player profiles" ON profiles;
-CREATE POLICY "Coaches can update player profiles"
-  ON profiles FOR UPDATE
-  USING (
-    EXISTS (
-      SELECT 1 FROM team_members
-      WHERE user_id = auth.uid()
-      AND role IN ('owner', 'coach')
-    )
-  );
+-- Secure function for coaches to update player VMA (bypasses RLS recursion)
+CREATE OR REPLACE FUNCTION update_player_vma(player_id UUID, new_vma NUMERIC)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM team_members
+    WHERE user_id = auth.uid()
+    AND role IN ('owner', 'coach')
+  ) THEN
+    UPDATE profiles SET vma = new_vma WHERE id = player_id;
+  ELSE
+    RAISE EXCEPTION 'Not authorized';
+  END IF;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION update_player_vma TO authenticated;
 
 -- Exercise library for automatic session generation
 CREATE TABLE IF NOT EXISTS exercise_library (

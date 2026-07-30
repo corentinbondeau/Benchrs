@@ -120,10 +120,10 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
       return;
     }
     const supabase = createClient();
-    const { error } = await supabase
-      .from("profiles")
-      .update({ vma: val })
-      .eq("id", playerId);
+    const { error } = await supabase.rpc("update_player_vma", {
+      player_id: playerId,
+      new_vma: val,
+    });
     if (error) {
       toast.error(error.message);
       return;
