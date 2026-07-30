@@ -148,19 +148,19 @@ export default function PhysicalPreparationPage() {
       .upload(path, buffer, { upsert: true, contentType });
     if (uploadError) { toast.error(`Upload échoué: ${uploadError.message}`); setDocUploading(false); return; }
     const { data: urlData } = supabase.storage.from("physical_docs").getPublicUrl(path);
-    const { error } = await supabase.from("physical_prep_documents").insert({
+    const { data: inserted, error: insertError } = await supabase.from("physical_prep_documents").insert({
       team_id: currentTeam.id,
       title: docTitle.trim(),
       file_url: urlData.publicUrl,
       uploaded_by: user?.id,
-    });
-    if (error) { toast.error(error.message); setDocUploading(false); return; }
+    }).select().single();
+    if (insertError) { toast.error(insertError.message); setDocUploading(false); return; }
+    if (inserted) setDocuments(prev => [inserted as PhysicalPrepDocument, ...prev]);
     toast.success("Document ajouté");
     setDocUploadOpen(false);
     setDocTitle("");
     setDocFile(null);
     setDocUploading(false);
-    fetchData();
   }
 
   async function handleCreateSession() {
@@ -173,39 +173,43 @@ export default function PhysicalPreparationPage() {
       created_by: user?.id,
     }).select().single();
     if (error) { toast.error(error.message); return; }
+    if (data) setSessions(prev => [data as PhysicalPrepSession, ...prev]);
     setSessionOpen(false);
     setSessionTitle("");
     setSessionDate(new Date().toISOString().slice(0, 10));
     setSessionNotes("");
     toast.success("Séance créée");
-    fetchData();
   }
 
   async function updatePlayerStatus(sessionId: string, playerId: string, status: string) {
     const existing = statusMap[sessionId]?.find((s) => s.player_id === playerId);
     if (existing) {
       await supabaseRef.current.from("physical_prep_status").update({ status }).eq("id", existing.id);
-    } else {
-      await supabaseRef.current.from("physical_prep_status").insert({
-        session_id: sessionId,
-        player_id: playerId,
-        status,
-        team_id: currentTeam!.id,
+      setStatusMap(prev => {
+        const next = { ...prev };
+        const arr = (next[sessionId] || []).map(s => s.id === existing.id ? { ...s, status: status as "success" | "partial" | "failed" | "excused" | "pending" } : s);
+        next[sessionId] = arr;
+        return next;
       });
+    } else {
+      const { data: inserted } = await supabaseRef.current.from("physical_prep_status").insert({
+        session_id: sessionId, player_id: playerId, status, team_id: currentTeam!.id,
+      }).select().single();
+      if (inserted) setStatusMap(prev => ({ ...prev, [sessionId]: [...(prev[sessionId] || []), inserted as PhysicalPrepStatus] }));
     }
-    fetchData();
   }
 
   async function deleteDoc(id: string) {
     await supabaseRef.current.from("physical_prep_documents").delete().eq("id", id);
+    setDocuments(prev => prev.filter(d => d.id !== id));
     toast.success("Document supprimé");
-    fetchData();
   }
 
   async function deleteSession(id: string) {
     await supabaseRef.current.from("physical_prep_sessions").delete().eq("id", id);
+    setSessions(prev => prev.filter(s => s.id !== id));
+    setStatusMap(prev => { const n = { ...prev }; delete n[id]; return n; });
     toast.success("Séance supprimée");
-    fetchData();
   }
 
   if (!currentTeam) {
