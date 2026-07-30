@@ -679,11 +679,13 @@ export default function CalendarPage() {
       })()}
 
       {/* Convocations Dialog */}
-      <ConvocationsDialog
-        event={convDialogEvent!}
-        open={!!convDialogEvent}
-        onOpenChange={(open) => { if (!open) setConvDialogEvent(null); }}
-      />
+      {convDialogEvent && (
+        <ConvocationsDialog
+          event={convDialogEvent}
+          open
+          onOpenChange={(open) => { if (!open) setConvDialogEvent(null); }}
+        />
+      )}
     </div>
   );
 }
