@@ -47,7 +47,7 @@ import {
 import { toast } from "sonner";
 import type { Profile, PhysicalPrepDocument, PhysicalPrepSession, PhysicalPrepStatus } from "@/types";
 
-const VMA_PERCENTAGES = [60, 70, 75, 80, 85, 90, 95, 100, 105, 110, 120];
+const VMA_PERCENTAGES = [50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100];
 
 function vmaToPace(vma: number, percentage: number): string {
   const speed = vma * (percentage / 100);
