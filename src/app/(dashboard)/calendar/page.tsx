@@ -561,8 +561,7 @@ export default function CalendarPage() {
             {sortedEvents.map((event) => {
               const attCount = attendanceCounts[event.id];
               return (
-                <div key={event.id} className="rounded-lg border p-4 flex items-start gap-3">
-                  <div className="flex flex-col items-center min-w-[48px]">
+                <div key={event.id} className="rounded-lg border p-4 flex items-start gap-3 cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => selectEvent(event)}>
                     <span className="text-xs text-muted-foreground uppercase">
                       {new Date(event.event_date).toLocaleDateString("fr-FR", { month: "short" })}
                     </span>
@@ -602,11 +601,8 @@ export default function CalendarPage() {
                         {attCount.present}/{attCount.total}
                       </span>
                     )}
-                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setConvDialogEvent(event)}>
+                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); setConvDialogEvent(event); }}>
                       <Bell className="h-4 w-4" />
-                    </Button>
-                    <Button size="sm" variant="ghost" onClick={() => selectEvent(event)}>
-                      Détails
                     </Button>
                   </div>
                 </div>
