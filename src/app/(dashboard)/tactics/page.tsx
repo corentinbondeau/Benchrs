@@ -41,6 +41,7 @@ import {
   ClipboardList,
 } from "lucide-react";
 import { toast } from "sonner";
+import { generateSession, type Phase } from "@/lib/training/generator";
 import type {
   TrainingSession,
   Exercise,
@@ -112,6 +113,7 @@ function SéanceTab() {
   const [createOpen, setCreateOpen] = useState(false);
   const [selectedSession, setSelectedSession] = useState<TrainingSession | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const [attendanceCount, setAttendanceCount] = useState<{ present: number; total: number } | null>(null);
 
   const [form, setForm] = useState({
@@ -233,6 +235,40 @@ function SéanceTab() {
     setForm({ event_id: "", title: "", notes: "" });
     setSelectedObjectives([]);
     setExercises([{ name: "", duration: 15, description: "", drill_type: "échauffement" }]);
+  }
+
+  async function handleGenerateExercises() {
+    if (!form.title) {
+      toast.error("Sélectionnez d'abord une phase");
+      return;
+    }
+    setGenerating(true);
+    try {
+      const playerCount = attendanceCount?.present || 12;
+      const phaseMap: Record<string, Phase> = {
+        "DÉSEQUILIBRER / FINIR": "competition",
+        "CONSERVER / PROGRESSER": "perfectionnement",
+        "S’OPPOSER À LA PROGRESSION": "perfectionnement",
+        "S’ORGANISER POUR RECUPERER": "perfectionnement",
+        ATHLETISATION: "preparation",
+      };
+      const gen = generateSession(phaseMap[form.title] || "perfectionnement", selectedObjectives, playerCount);
+      const drillTypeMap: Record<string, string> = {
+        physical: "physique",
+        recovery: "jeu",
+        technical: "technique",
+      };
+      setExercises(gen.exercises.map((e) => ({
+        name: e.name,
+        duration: e.duration,
+        description: e.description,
+        drill_type: drillTypeMap[e.drill_type] || "technique",
+      })));
+      toast.success("Exercices générés !");
+    } catch {
+      toast.error("Erreur lors de la génération");
+    }
+    setGenerating(false);
   }
 
   const eventMap = new Map(events.map((ev) => [ev.id, ev]));
@@ -453,6 +489,12 @@ function SéanceTab() {
                       {form.title ? "Aucun objectif disponible pour cette phase" : "Sélectionnez d'abord une phase"}
                     </p>
                   )}
+                </div>
+
+                <div className="flex gap-2">
+                  <Button type="button" variant="outline" size="sm" onClick={handleGenerateExercises} disabled={generating || !form.title} className="border-[var(--color-gold)] text-[var(--color-gold)] hover:bg-[var(--color-gold)]/10">
+                    {generating ? "Génération..." : "Générer les exercices"}
+                  </Button>
                 </div>
 
                 <div className="space-y-2">
