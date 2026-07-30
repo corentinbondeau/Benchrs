@@ -78,7 +78,8 @@ export default function PhysicalPreparationPage() {
 
   const [docUploadOpen, setDocUploadOpen] = useState(false);
   const [docTitle, setDocTitle] = useState("");
-  const [docUrl, setDocUrl] = useState("");
+  const [docFile, setDocFile] = useState<File | null>(null);
+  const [docUploading, setDocUploading] = useState(false);
 
   const [sessionOpen, setSessionOpen] = useState(false);
   const [sessionTitle, setSessionTitle] = useState("");
@@ -134,18 +135,29 @@ export default function PhysicalPreparationPage() {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   async function handleUploadDoc() {
-    if (!docTitle.trim() || !docUrl.trim() || !currentTeam) return;
+    if (!docTitle.trim() || !docFile || !currentTeam) return;
+    setDocUploading(true);
+    const supabase = createClient();
+    const ext = docFile.name.split(".").pop();
+    const path = `physical_docs/${currentTeam.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+    const buffer = await docFile.arrayBuffer();
+    const { error: uploadError } = await supabase.storage
+      .from("physical_docs")
+      .upload(path, buffer, { upsert: true, contentType: docFile.type });
+    if (uploadError) { toast.error(uploadError.message); setDocUploading(false); return; }
+    const { data: urlData } = supabase.storage.from("physical_docs").getPublicUrl(path);
     const { error } = await supabase.from("physical_prep_documents").insert({
       team_id: currentTeam.id,
       title: docTitle.trim(),
-      file_url: docUrl.trim(),
+      file_url: urlData.publicUrl,
       uploaded_by: user?.id,
     });
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(error.message); setDocUploading(false); return; }
     toast.success("Document ajouté");
     setDocUploadOpen(false);
     setDocTitle("");
-    setDocUrl("");
+    setDocFile(null);
+    setDocUploading(false);
     fetchData();
   }
 
@@ -412,13 +424,13 @@ export default function PhysicalPreparationPage() {
               <Input value={docTitle} onChange={(e) => setDocTitle(e.target.value)} placeholder="Planification VMA" />
             </div>
             <div className="space-y-2">
-              <Label>URL du fichier *</Label>
-              <Input value={docUrl} onChange={(e) => setDocUrl(e.target.value)} placeholder="https://..." />
+              <Label>Fichier PDF *</Label>
+              <Input type="file" accept=".pdf" onChange={(e) => setDocFile(e.target.files?.[0] || null)} />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDocUploadOpen(false)}>Annuler</Button>
-            <Button onClick={handleUploadDoc} disabled={!docTitle.trim() || !docUrl.trim()}>Ajouter</Button>
+            <Button onClick={handleUploadDoc} disabled={!docTitle.trim() || !docFile || docUploading}>{docUploading ? "Upload..." : "Ajouter"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
