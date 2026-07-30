@@ -67,7 +67,7 @@ export function ConvocationsDialog({ event, open, onOpenChange }: ConvocationsDi
   const [addPlayerOpen, setAddPlayerOpen] = useState(false);
 
   const fetchData = useCallback(async () => {
-    if (!currentTeam) return;
+    if (!currentTeam || !event) return;
     const supabase = createClient();
 
     const { data: evt } = await supabase
@@ -95,7 +95,7 @@ export function ConvocationsDialog({ event, open, onOpenChange }: ConvocationsDi
     });
     setPlayers((playersData as Profile[]) || []);
     setLoading(false);
-  }, [event.id, currentTeam]);
+  }, [event?.id, currentTeam]);
 
   useEffect(() => {
     if (open) fetchData();
