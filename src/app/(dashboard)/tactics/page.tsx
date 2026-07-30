@@ -253,16 +253,12 @@ function SéanceTab() {
         ATHLETISATION: "preparation",
       };
       const gen = generateSession(phaseMap[form.title] || "perfectionnement", selectedObjectives, playerCount);
-      const drillTypeMap: Record<string, string> = {
-        physical: "physique",
-        recovery: "jeu",
-        technical: "technique",
-      };
-      setExercises(gen.exercises.map((e) => ({
+      const drillTypes = ["échauffement", "technique", "jeu"];
+      setExercises(gen.exercises.slice(0, 3).map((e, i) => ({
         name: e.name,
         duration: e.duration,
         description: e.description,
-        drill_type: drillTypeMap[e.drill_type] || "technique",
+        drill_type: drillTypes[i] || "technique",
       })));
       toast.success("Exercices générés !");
     } catch {
