@@ -224,16 +224,16 @@ export default function PhysicalPreparationPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 rounded-lg border p-0.5 bg-muted/30 overflow-x-auto">
+      <div className="flex gap-1 rounded-lg border p-0.5 bg-muted/30">
         <button
-          className={`shrink-0 px-4 py-1.5 text-xs font-medium rounded-md transition-colors ${tab === "vma" ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+          className={`flex-1 px-4 py-1.5 text-xs font-medium rounded-md transition-colors ${tab === "vma" ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
           onClick={() => setTab("vma")}
         >
           <Gauge className="h-3.5 w-3.5 inline mr-1" />
           Tableau VMA
         </button>
         <button
-          className={`shrink-0 px-4 py-1.5 text-xs font-medium rounded-md transition-colors ${tab === "docs" ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+          className={`flex-1 px-4 py-1.5 text-xs font-medium rounded-md transition-colors ${tab === "docs" ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
           onClick={() => setTab("docs")}
         >
           <FileText className="h-3.5 w-3.5 inline mr-1" />
@@ -241,7 +241,7 @@ export default function PhysicalPreparationPage() {
         </button>
         {isCoach && (
           <button
-            className={`shrink-0 px-4 py-1.5 text-xs font-medium rounded-md transition-colors ${tab === "tracking" ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+            className={`flex-1 px-4 py-1.5 text-xs font-medium rounded-md transition-colors ${tab === "tracking" ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
             onClick={() => setTab("tracking")}
           >
             <UserCheck className="h-3.5 w-3.5 inline mr-1" />
