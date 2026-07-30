@@ -53,6 +53,7 @@ export interface Profile {
   shirt_number: number | null;
   is_active: boolean;
   email_notifications?: boolean;
+  vma: number | null;
   team_id: string | null;
   created_at: string;
   updated_at: string;
@@ -401,4 +402,62 @@ export interface User {
   id: string;
   email: string;
   profile: Profile;
+}
+
+export interface ExerciseLibrary {
+  id: string;
+  team_id: string;
+  name: string;
+  description: string | null;
+  duration: number;
+  category: string;
+  phase: string | null;
+  objectives: string[];
+  min_players: number;
+  max_players: number;
+  equipment: string[];
+  intensity: string;
+  created_at: string;
+}
+
+export interface PhysicalPrepDocument {
+  id: string;
+  team_id: string;
+  title: string;
+  description: string | null;
+  file_url: string;
+  file_type: string;
+  uploaded_by: string | null;
+  is_public: boolean;
+  created_at: string;
+}
+
+export interface PhysicalPrepSession {
+  id: string;
+  team_id: string;
+  title: string;
+  session_date: string;
+  notes: string | null;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface PhysicalPrepStatus {
+  id: string;
+  session_id: string;
+  player_id: string;
+  status: "success" | "partial" | "failed" | "excused" | "pending";
+  notes: string | null;
+  created_at: string;
+  player?: Profile;
+}
+
+export interface TeamJoinRequest {
+  id: string;
+  team_id: string;
+  user_id: string;
+  message: string | null;
+  status: "pending" | "approved" | "rejected";
+  created_at: string;
+  user?: Profile;
 }

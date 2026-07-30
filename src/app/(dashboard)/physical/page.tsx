@@ -1,0 +1,452 @@
+"use client";
+
+import { useEffect, useState, useCallback } from "react";
+import { createClient } from "@/lib/supabase/client";
+import { useAuth } from "@/lib/auth";
+import { useTeam } from "@/lib/team";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Dumbbell,
+  Gauge,
+  Upload,
+  Plus,
+  FileText,
+  Check,
+  X,
+  Clock,
+  AlertCircle,
+  UserCheck,
+} from "lucide-react";
+import { toast } from "sonner";
+import type { Profile, PhysicalPrepDocument, PhysicalPrepSession, PhysicalPrepStatus } from "@/types";
+
+const VMA_PERCENTAGES = [60, 70, 75, 80, 85, 90, 95, 100, 105, 110, 120];
+
+function vmaToPace(vma: number, percentage: number): string {
+  const speed = vma * (percentage / 100);
+  if (speed <= 0) return "—";
+  const paceMinPerKm = 60 / speed;
+  const min = Math.floor(paceMinPerKm);
+  const sec = Math.round((paceMinPerKm - min) * 60);
+  return `${min}:${sec.toString().padStart(2, "0")}`;
+}
+
+const STATUS_OPTIONS = [
+  { value: "success", label: "Réussi", icon: "🟢" },
+  { value: "partial", label: "Fait mais objectif non atteint", icon: "🟡" },
+  { value: "failed", label: "Non fait", icon: "🔴" },
+  { value: "excused", label: "Excusé", icon: "⚪" },
+] as const;
+
+export default function PhysicalPreparationPage() {
+  const { user } = useAuth();
+  const { currentTeam } = useTeam();
+  const isCoach = user?.profile?.role === "coach";
+  const [players, setPlayers] = useState<Profile[]>([]);
+  const [documents, setDocuments] = useState<PhysicalPrepDocument[]>([]);
+  const [sessions, setSessions] = useState<PhysicalPrepSession[]>([]);
+  const [statusMap, setStatusMap] = useState<Record<string, PhysicalPrepStatus[]>>({});
+  const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState<"vma" | "docs" | "tracking">("vma");
+
+  const [docUploadOpen, setDocUploadOpen] = useState(false);
+  const [docTitle, setDocTitle] = useState("");
+  const [docUrl, setDocUrl] = useState("");
+
+  const [sessionOpen, setSessionOpen] = useState(false);
+  const [sessionTitle, setSessionTitle] = useState("");
+  const [sessionDate, setSessionDate] = useState(new Date().toISOString().slice(0, 10));
+  const [sessionNotes, setSessionNotes] = useState("");
+
+  const supabase = createClient();
+
+  const fetchData = useCallback(async () => {
+    if (!currentTeam) return;
+    const [playersRes, docsRes, sessionsRes] = await Promise.all([
+      supabase
+        .from("profiles")
+        .select("*")
+        .eq("role", "player")
+        .eq("is_active", true)
+        .order("last_name", { ascending: true }),
+      supabase
+        .from("physical_prep_documents")
+        .select("*")
+        .eq("team_id", currentTeam.id)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("physical_prep_sessions")
+        .select("*")
+        .eq("team_id", currentTeam.id)
+        .order("session_date", { ascending: false }),
+    ]);
+
+    setPlayers((playersRes.data as Profile[]) || []);
+    setDocuments((docsRes.data as PhysicalPrepDocument[]) || []);
+    setSessions((sessionsRes.data as PhysicalPrepSession[]) || []);
+
+    if (sessionsRes.data) {
+      const sessionIds = (sessionsRes.data as PhysicalPrepSession[]).map((s) => s.id);
+      if (sessionIds.length > 0) {
+        const { data: statusData } = await supabase
+          .from("physical_prep_status")
+          .select("*")
+          .in("session_id", sessionIds);
+        const map: Record<string, PhysicalPrepStatus[]> = {};
+        for (const s of statusData || []) {
+          const sId = (s as PhysicalPrepStatus).session_id;
+          if (!map[sId]) map[sId] = [];
+          map[sId].push(s as PhysicalPrepStatus);
+        }
+        setStatusMap(map);
+      }
+    }
+    setLoading(false);
+  }, [currentTeam?.id, supabase]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  async function handleUploadDoc() {
+    if (!docTitle.trim() || !docUrl.trim() || !currentTeam) return;
+    const { error } = await supabase.from("physical_prep_documents").insert({
+      team_id: currentTeam.id,
+      title: docTitle.trim(),
+      file_url: docUrl.trim(),
+      uploaded_by: user?.id,
+    });
+    if (error) { toast.error(error.message); return; }
+    toast.success("Document ajouté");
+    setDocUploadOpen(false);
+    setDocTitle("");
+    setDocUrl("");
+    fetchData();
+  }
+
+  async function handleCreateSession() {
+    if (!sessionTitle.trim() || !currentTeam) return;
+    const { data, error } = await supabase.from("physical_prep_sessions").insert({
+      team_id: currentTeam.id,
+      title: sessionTitle.trim(),
+      session_date: sessionDate,
+      notes: sessionNotes || null,
+      created_by: user?.id,
+    }).select().single();
+    if (error) { toast.error(error.message); return; }
+    setSessionOpen(false);
+    setSessionTitle("");
+    setSessionDate(new Date().toISOString().slice(0, 10));
+    setSessionNotes("");
+    toast.success("Séance créée");
+    fetchData();
+  }
+
+  async function updatePlayerStatus(sessionId: string, playerId: string, status: string) {
+    const existing = statusMap[sessionId]?.find((s) => s.player_id === playerId);
+    if (existing) {
+      await supabase.from("physical_prep_status").update({ status }).eq("id", existing.id);
+    } else {
+      await supabase.from("physical_prep_status").insert({
+        session_id: sessionId,
+        player_id: playerId,
+        status,
+        team_id: currentTeam!.id,
+      });
+    }
+    fetchData();
+  }
+
+  async function deleteDoc(id: string) {
+    await supabase.from("physical_prep_documents").delete().eq("id", id);
+    toast.success("Document supprimé");
+    fetchData();
+  }
+
+  async function deleteSession(id: string) {
+    await supabase.from("physical_prep_sessions").delete().eq("id", id);
+    toast.success("Séance supprimée");
+    fetchData();
+  }
+
+  if (!currentTeam) {
+    return <div className="flex items-center justify-center h-64"><p className="text-muted-foreground">Chargement...</p></div>;
+  }
+
+  const playersWithVma = players.filter((p) => p.vma != null);
+  const activePlayers = players.filter((p) => p.is_active);
+
+  return (
+    <div className="space-y-4 md:space-y-6 pb-20 md:pb-0">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl md:text-2xl font-bold">Préparation Physique</h2>
+          <p className="text-sm text-muted-foreground mt-1">Suivi VMA, documents et tracking</p>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-1 rounded-lg border p-0.5 bg-muted/30 overflow-x-auto">
+        <button
+          className={`shrink-0 px-4 py-1.5 text-xs font-medium rounded-md transition-colors ${tab === "vma" ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+          onClick={() => setTab("vma")}
+        >
+          <Gauge className="h-3.5 w-3.5 inline mr-1" />
+          Tableau VMA
+        </button>
+        <button
+          className={`shrink-0 px-4 py-1.5 text-xs font-medium rounded-md transition-colors ${tab === "docs" ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+          onClick={() => setTab("docs")}
+        >
+          <FileText className="h-3.5 w-3.5 inline mr-1" />
+          Documents
+        </button>
+        {isCoach && (
+          <button
+            className={`shrink-0 px-4 py-1.5 text-xs font-medium rounded-md transition-colors ${tab === "tracking" ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+            onClick={() => setTab("tracking")}
+          >
+            <UserCheck className="h-3.5 w-3.5 inline mr-1" />
+            Suivi individuel
+          </button>
+        )}
+      </div>
+
+      {loading ? (
+        <div className="h-64 animate-pulse rounded-lg bg-muted" />
+      ) : (
+        <>
+          {/* VMA Conversion Table */}
+          {tab === "vma" && (
+            <div className="space-y-4">
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm">Tableau de conversion VMA — Allures (min/km)</CardTitle>
+                </CardHeader>
+                <CardContent className="overflow-x-auto">
+                  {playersWithVma.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-6">
+                      Aucun joueur n&apos;a de VMA renseignée. Les coachs peuvent ajouter la VMA depuis les fiches joueurs.
+                    </p>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="sticky left-0 bg-background">Joueur</TableHead>
+                          <TableHead className="text-right">VMA</TableHead>
+                          {VMA_PERCENTAGES.map((pct) => (
+                            <TableHead key={pct} className="text-right">{pct}%</TableHead>
+                          ))}
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {playersWithVma.map((p) => (
+                          <TableRow key={p.id}>
+                            <TableCell className="sticky left-0 bg-background font-medium">
+                              {p.first_name} {p.last_name}
+                            </TableCell>
+                            <TableCell className="text-right font-bold">{p.vma!.toFixed(1)}</TableCell>
+                            {VMA_PERCENTAGES.map((pct) => (
+                              <TableCell key={pct} className="text-right text-sm">{vmaToPace(p.vma!, pct)}</TableCell>
+                            ))}
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* Documents */}
+          {tab === "docs" && (
+            <div className="space-y-4">
+              {isCoach && (
+                <Button onClick={() => setDocUploadOpen(true)}>
+                  <Upload className="h-4 w-4 mr-1" />
+                  Ajouter un document
+                </Button>
+              )}
+              {documents.length === 0 ? (
+                <Card>
+                  <CardContent className="py-12 text-center text-muted-foreground">
+                    <FileText className="h-12 w-12 mx-auto mb-3 opacity-40" />
+                    <p>Aucun document</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="space-y-2">
+                  {documents.map((doc) => (
+                    <Card key={doc.id}>
+                      <CardContent className="p-4 flex items-center justify-between">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <FileText className="h-5 w-5 text-[var(--color-royal)] shrink-0" />
+                          <div className="min-w-0">
+                            <p className="font-medium text-sm truncate">{doc.title}</p>
+                            {doc.description && <p className="text-xs text-muted-foreground truncate">{doc.description}</p>}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <a href={doc.file_url} target="_blank" rel="noopener noreferrer">
+                            <Button size="sm" variant="outline">Voir</Button>
+                          </a>
+                          {isCoach && (
+                            <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => deleteDoc(doc.id)}>
+                              <X className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Individual Tracking (Coaches only) */}
+          {tab === "tracking" && isCoach && (
+            <div className="space-y-4">
+              <Button onClick={() => setSessionOpen(true)}>
+                <Plus className="h-4 w-4 mr-1" />
+                Nouvelle séance
+              </Button>
+
+              {sessions.length === 0 ? (
+                <Card>
+                  <CardContent className="py-12 text-center text-muted-foreground">
+                    <Dumbbell className="h-12 w-12 mx-auto mb-3 opacity-40" />
+                    <p>Aucune séance de suivi</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="space-y-6">
+                  {sessions.map((session) => {
+                    const sessionStatuses = statusMap[session.id] || [];
+                    return (
+                      <Card key={session.id}>
+                        <CardHeader className="pb-3">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <CardTitle className="text-sm">{session.title}</CardTitle>
+                              <p className="text-xs text-muted-foreground">
+                                {new Date(session.session_date).toLocaleDateString("fr-FR")}
+                                {session.notes && ` — ${session.notes}`}
+                              </p>
+                            </div>
+                            <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => deleteSession(session.id)}>
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-1">
+                            {activePlayers.map((player) => {
+                              const ps = sessionStatuses.find((s) => s.player_id === player.id);
+                              const currentStatus = ps?.status || "pending";
+                              const statusOption = STATUS_OPTIONS.find((o) => o.value === currentStatus);
+                              return (
+                                <div key={player.id} className="flex items-center justify-between rounded-lg border px-3 py-2">
+                                  <span className="text-sm font-medium">
+                                    {player.first_name} {player.last_name}
+                                  </span>
+                                  <div className="flex gap-1">
+                                    {STATUS_OPTIONS.map((opt) => (
+                                      <button
+                                        key={opt.value}
+                                        className={`px-2 py-1 rounded text-xs border transition-all ${currentStatus === opt.value ? "bg-[var(--color-royal)] text-white border-[var(--color-royal)]" : "hover:border-blue-200"}`}
+                                        onClick={() => updatePlayerStatus(session.id, player.id, opt.value)}
+                                      >
+                                        {opt.icon}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Upload Document Dialog */}
+      <Dialog open={docUploadOpen} onOpenChange={setDocUploadOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader><DialogTitle>Ajouter un document</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Titre *</Label>
+              <Input value={docTitle} onChange={(e) => setDocTitle(e.target.value)} placeholder="Planification VMA" />
+            </div>
+            <div className="space-y-2">
+              <Label>URL du fichier *</Label>
+              <Input value={docUrl} onChange={(e) => setDocUrl(e.target.value)} placeholder="https://..." />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDocUploadOpen(false)}>Annuler</Button>
+            <Button onClick={handleUploadDoc} disabled={!docTitle.trim() || !docUrl.trim()}>Ajouter</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Session Dialog */}
+      <Dialog open={sessionOpen} onOpenChange={setSessionOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader><DialogTitle>Nouvelle séance</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Titre *</Label>
+              <Input value={sessionTitle} onChange={(e) => setSessionTitle(e.target.value)} placeholder="Séance VMA J1" />
+            </div>
+            <div className="space-y-2">
+              <Label>Date</Label>
+              <Input type="date" value={sessionDate} onChange={(e) => setSessionDate(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Notes</Label>
+              <Textarea value={sessionNotes} onChange={(e) => setSessionNotes(e.target.value)} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSessionOpen(false)}>Annuler</Button>
+            <Button onClick={handleCreateSession} disabled={!sessionTitle.trim()}>Créer</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}

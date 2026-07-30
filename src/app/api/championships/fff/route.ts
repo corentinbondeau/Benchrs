@@ -12,6 +12,15 @@ interface FFFTeam {
   goals_against: number;
 }
 
+interface FFFMatch {
+  matchday: number | null;
+  date: string;
+  home_team: string;
+  away_team: string;
+  home_score: number | null;
+  away_score: number | null;
+}
+
 function stripTags(html: string): string {
   return html.replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim();
 }
@@ -157,12 +166,98 @@ function fallbackDistribute(team: FFFTeam, nums: number[]) {
   }
 }
 
+function parseCalendarTable(html: string): FFFMatch[] {
+  const matches: FFFMatch[] = [];
+
+  const tableMatch =
+    html.match(/<table[^>]*class="[^"]*calendrier[^"]*"[^>]*>([\s\S]*?)<\/table>/i) ??
+    html.match(/<table[^>]*class="[^"]*resultat[^"]*"[^>]*>([\s\S]*?)<\/table>/i) ??
+    html.match(/<table[^>]*>([\s\S]*?)<\/table>/gi)?.find((t) => /calendrier|resultat|match/i.test(t));
+
+  if (!tableMatch) return matches;
+
+  const tableHtml = Array.isArray(tableMatch) ? tableMatch[1] || tableMatch[0] : tableMatch;
+  const rows = tableHtml.match(/<tr[^>]*>([\s\S]*?)<\/tr>/gi) ?? [];
+
+  let currentMatchday: number | null = null;
+  const dateRegex = /\d{2}\/\d{2}\/\d{4}/;
+  const scoreRegex = /(\d+)\s*[-–]\s*(\d+)/;
+
+  for (const row of rows) {
+    const cells = row.match(/<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/gi) ?? [];
+    if (cells.length < 2) continue;
+
+    const values = cells.map(stripTags);
+
+    const hasHeader = values.some((v) =>
+      /date|equipe|domicile|exterieur|score|journée|journee/i.test(v)
+    );
+    if (hasHeader) continue;
+
+    const firstVal = values[0]?.trim() || "";
+    const dateMatch = firstVal.match(dateRegex);
+
+    if (dateMatch) {
+      const match: FFFMatch = {
+        matchday: currentMatchday,
+        date: dateMatch[0],
+        home_team: "",
+        away_team: "",
+        home_score: null,
+        away_score: null,
+      };
+
+      let scoreFound = false;
+      const textValues = values.filter((v) => {
+        const cleaned = v.replace(/^\d{2}\/\d{2}\/\d{4}/, "").trim();
+        if (cleaned && !/^\d+$/.test(cleaned)) return true;
+        return false;
+      });
+
+      if (values.length >= 4) {
+        const scoreCell = values.find((v) => scoreRegex.test(v));
+        if (scoreCell) {
+          const s = scoreCell.match(scoreRegex);
+          if (s) {
+            match.home_score = parseInt(s[1]);
+            match.away_score = parseInt(s[2]);
+            scoreFound = true;
+          }
+        }
+
+        const nonDateNonScore = values.filter((v) => {
+          const cleaned = v.replace(/^\d{2}\/\d{2}\/\d{4}/, "").trim();
+          if (!cleaned || /^\d+[-–]\d+$/.test(cleaned) || /^\d+$/.test(cleaned)) return false;
+          return true;
+        });
+
+        if (nonDateNonScore.length >= 2) {
+          match.home_team = nonDateNonScore[0];
+          match.away_team = nonDateNonScore[nonDateNonScore.length - 1];
+        } else if (nonDateNonScore.length === 1) {
+          match.home_team = nonDateNonScore[0];
+        }
+      }
+
+      if (match.home_team || match.away_team) {
+        matches.push(match);
+      }
+    } else if (/journ[eè]e/i.test(firstVal)) {
+      const jd = firstVal.match(/(\d+)/);
+      currentMatchday = jd ? parseInt(jd[1]) : null;
+    }
+  }
+
+  return matches;
+}
+
 export async function POST(req: Request) {
   const body = await req.json();
-  const { url, html: rawHtml, championship_id } = body as {
+  const { url, html: rawHtml, championship_id, type = "all" } = body as {
     url?: string;
     html?: string;
     championship_id?: string;
+    type?: "standings" | "calendar" | "all";
   };
 
   if (!url && !rawHtml) {
@@ -222,20 +317,29 @@ export async function POST(req: Request) {
     );
   }
 
-  const teams = parseStandingsTable(html);
+  const result: { teams?: FFFTeam[]; matches?: FFFMatch[] } = {};
 
-  if (teams.length === 0) {
+  if (type === "standings" || type === "all") {
+    const teams = parseStandingsTable(html);
+    result.teams = teams;
+  }
+
+  if (type === "calendar" || type === "all") {
+    const matches = parseCalendarTable(html);
+    result.matches = matches;
+  }
+
+  if ((type === "standings" || type === "all") && (!result.teams || result.teams.length === 0)) {
     return NextResponse.json(
       {
-        error:
-          "Aucun classement trouve dans le contenu. Verifiez que la page contient un tableau de classement.",
-        teams: [],
+        ...result,
+        error: "Aucun classement trouve dans le contenu. Verifiez que la page contient un tableau de classement.",
       },
       { status: 422 }
     );
   }
 
-  if (championship_id) {
+  if (championship_id && result.teams) {
     const supabase = createAdminClient();
 
     const { error: delError } = await supabase
@@ -250,7 +354,14 @@ export async function POST(req: Request) {
       );
     }
 
-    const rows = teams.map((t) => ({
+    const rows: {
+      championship_id: string;
+      home_team: string;
+      away_team: string;
+      home_score: number;
+      away_score: number;
+      matchday_number: number | null;
+    }[] = result.teams.map((t) => ({
       championship_id,
       home_team: t.team_name,
       away_team: "",
@@ -258,6 +369,19 @@ export async function POST(req: Request) {
       away_score: 0,
       matchday_number: null,
     }));
+
+    if (result.matches) {
+      for (const m of result.matches) {
+        rows.push({
+          championship_id,
+          home_team: m.home_team,
+          away_team: m.away_team,
+          home_score: m.home_score ?? 0,
+          away_score: m.away_score ?? 0,
+          matchday_number: m.matchday ?? null,
+        });
+      }
+    }
 
     const { error: insertError } = await supabase
       .from("championship_standings")
@@ -271,5 +395,5 @@ export async function POST(req: Request) {
     }
   }
 
-  return NextResponse.json({ teams });
+  return NextResponse.json(result);
 }

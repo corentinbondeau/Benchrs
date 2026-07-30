@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { useTeam } from "@/lib/team";
 import { Sheet, SheetContent, SheetClose, SheetTrigger } from "@/components/ui/sheet";
-import { X, Menu as MenuIcon } from "lucide-react";
+import { X, Menu as MenuIcon, Plus, Medal } from "lucide-react";
 import {
   LayoutDashboard,
   Calendar,
@@ -28,13 +28,15 @@ import {
 
 const navItems = [
   { href: "/stats", label: "Statistiques", icon: BarChart3 },
-  { href: "/convocations", label: "Convocations", icon: Users },
+  { href: "/physical", label: "Prépa physique", icon: Heart },
   { href: "/medical", label: "Infirmerie", icon: Heart },
   { href: "/carpooling", label: "Covoiturage", icon: Car },
   { href: "/tasks", label: "Tâches", icon: ListTodo },
   { href: "/tactics", label: "Tactique", icon: Swords, coachOnly: true },
+  { href: "/trainings/generate", label: "Générer séance", icon: Plus, coachOnly: true },
   { href: "/gallery", label: "Galerie", icon: Image },
   { href: "/trophies", label: "Trophées", icon: Trophy },
+  { href: "/championship", label: "Championnat", icon: Medal },
   { href: "/notifications", label: "Notifications", icon: Bell },
 ];
 
@@ -98,6 +100,39 @@ function SheetContentInner({ close }: { close: () => void }) {
           )}
         </div>
       )}
+
+      {/* Mobile: Team management actions */}
+      <div className="px-2 py-2 border-b border-white/10">
+        <p className="px-1 pb-1 text-[10px] font-semibold text-white/40 uppercase tracking-wider">
+          Équipe
+        </p>
+        <div className="flex gap-1">
+          <Link
+            href="/roster"
+            onClick={close}
+            className="flex-1 flex items-center justify-center gap-1 rounded-lg bg-white/10 px-2 py-2 text-xs font-medium text-white/80 hover:bg-white/15 transition-colors"
+          >
+            <Users className="h-3.5 w-3.5" />
+            Analyser
+          </Link>
+          <Link
+            href="/settings/team"
+            onClick={close}
+            className="flex-1 flex items-center justify-center gap-1 rounded-lg bg-white/10 px-2 py-2 text-xs font-medium text-white/80 hover:bg-white/15 transition-colors"
+          >
+            <Settings2 className="h-3.5 w-3.5" />
+            Gérer
+          </Link>
+          <Link
+            href="/settings/team?tab=invite"
+            onClick={close}
+            className="flex-1 flex items-center justify-center gap-1 rounded-lg bg-white/10 px-2 py-2 text-xs font-medium text-white/80 hover:bg-white/15 transition-colors"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Rejoindre
+          </Link>
+        </div>
+      </div>
 
       <nav className="py-3 px-2 space-y-0.5">
         {navItems

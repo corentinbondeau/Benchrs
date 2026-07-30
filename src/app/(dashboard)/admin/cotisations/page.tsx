@@ -83,6 +83,11 @@ export default function CotisationsPage() {
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().slice(0, 10));
   const [paymentNotes, setPaymentNotes] = useState("");
 
+  const [deductionOpen, setDeductionOpen] = useState(false);
+  const [deductionCotisation, setDeductionCotisation] = useState<Cotisation | null>(null);
+  const [deductionAmount, setDeductionAmount] = useState("");
+  const [deductionReason, setDeductionReason] = useState("");
+
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyCotisation, setHistoryCotisation] = useState<Cotisation | null>(null);
   const [historyPayments, setHistoryPayments] = useState<PaymentHistory[]>([]);
@@ -237,6 +242,58 @@ export default function CotisationsPage() {
     setPaymentMethod("");
     setPaymentDate(new Date().toISOString().slice(0, 10));
     setPaymentNotes("");
+    fetchData();
+  }
+
+  async function handleDeduction() {
+    if (!deductionCotisation || !deductionAmount || !currentTeam || !user) return;
+    setSaving(true);
+    const amount = parseFloat(deductionAmount);
+    if (isNaN(amount) || amount <= 0) {
+      toast.error("Montant invalide");
+      setSaving(false);
+      return;
+    }
+
+    const newPaid = Math.max(0, Number(deductionCotisation.amount_paid) - amount);
+    const expected = Number(deductionCotisation.amount_expected);
+    const newStatus = newPaid >= expected ? "paid" : newPaid > 0 ? "partial" : "pending";
+
+    const { error: histErr } = await supabase.from("payment_history").insert({
+      cotisation_id: deductionCotisation.id,
+      amount: -amount,
+      payment_method: "Déduction",
+      payment_date: new Date().toISOString().slice(0, 10),
+      recorded_by: user.id,
+      notes: deductionReason ? `Déduction: ${deductionReason}` : "Déduction",
+      team_id: currentTeam.id,
+    });
+    if (histErr) {
+      toast.error(histErr.message);
+      setSaving(false);
+      return;
+    }
+
+    const { error: updErr } = await supabase
+      .from("cotisations")
+      .update({
+        amount_paid: newPaid,
+        status: newStatus,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", deductionCotisation.id);
+
+    if (updErr) {
+      toast.error(updErr.message);
+    } else {
+      toast.success("Déduction enregistrée");
+    }
+
+    setSaving(false);
+    setDeductionOpen(false);
+    setDeductionCotisation(null);
+    setDeductionAmount("");
+    setDeductionReason("");
     fetchData();
   }
 
@@ -445,6 +502,20 @@ export default function CotisationsPage() {
                               </Button>
                               <Button
                                 size="sm"
+                                variant="outline"
+                                className="h-8 text-xs border-red-300 text-red-600 hover:bg-red-50"
+                                onClick={() => {
+                                  setDeductionCotisation(c);
+                                  setDeductionAmount("");
+                                  setDeductionReason("");
+                                  setDeductionOpen(true);
+                                }}
+                              >
+                                <TrendingDown className="h-3 w-3 mr-1" />
+                                Déduire
+                              </Button>
+                              <Button
+                                size="sm"
                                 variant="ghost"
                                 className="h-8 text-xs"
                                 onClick={() => openHistory(c, player)}
@@ -571,6 +642,51 @@ export default function CotisationsPage() {
               onClick={handlePayment}
             >
               {saving ? "Enregistrement..." : "Enregistrer le paiement"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Deduction dialog */}
+      <Dialog open={deductionOpen} onOpenChange={setDeductionOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Déduire un montant</DialogTitle>
+            <DialogDescription>
+              Actuellement payé : {deductionCotisation ? Number(deductionCotisation.amount_paid).toFixed(2) : "0.00"} €
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Montant à déduire *</Label>
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                value={deductionAmount}
+                onChange={(e) => setDeductionAmount(e.target.value)}
+                placeholder="25.00"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Raison (optionnel)</Label>
+              <Input
+                value={deductionReason}
+                onChange={(e) => setDeductionReason(e.target.value)}
+                placeholder="Ex: Aide financière"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeductionOpen(false)}>
+              Annuler
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={!deductionAmount || saving}
+              onClick={handleDeduction}
+            >
+              {saving ? "Enregistrement..." : "Déduire"}
             </Button>
           </DialogFooter>
         </DialogContent>

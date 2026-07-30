@@ -2,10 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useAuth } from "@/lib/auth";
 import { useTeam } from "@/lib/team";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Trophy, Target, Clock, CalendarCheck, Zap } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Trophy, Target, Clock, CalendarCheck, Zap, Gauge, Check, X } from "lucide-react";
+import { toast } from "sonner";
 
 interface PlayerStats {
   player_id: string;
@@ -24,8 +28,13 @@ interface PlayerStats {
 
 export function PlayerProfile({ playerId }: { playerId: string }) {
   const { currentTeam } = useTeam();
+  const { user } = useAuth();
+  const isCoach = user?.profile?.role === "coach";
   const [stats, setStats] = useState<PlayerStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [vma, setVma] = useState<number | null>(null);
+  const [editingVma, setEditingVma] = useState(false);
+  const [vmaInput, setVmaInput] = useState("");
 
   useEffect(() => {
     if (!currentTeam) return;
@@ -96,11 +105,33 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
         yellow_cards: yellowCards,
         red_cards: redCards,
       });
+      setVma(profile.vma);
+      setVmaInput(profile.vma?.toString() ?? "");
       setLoading(false);
     }
 
     fetchPlayerStats();
   }, [playerId, currentTeam]);
+
+  async function handleSaveVma() {
+    const val = parseFloat(vmaInput);
+    if (isNaN(val) || val <= 0 || val > 30) {
+      toast.error("VMA invalide (doit être entre 1 et 30)");
+      return;
+    }
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("profiles")
+      .update({ vma: val })
+      .eq("id", playerId);
+    if (error) {
+      toast.error("Erreur lors de la sauvegarde");
+      return;
+    }
+    setVma(val);
+    setEditingVma(false);
+    toast.success("VMA mise à jour");
+  }
 
   if (!currentTeam) return null;
 
@@ -163,6 +194,45 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
             </CardContent>
           </Card>
         ))}
+        {/* VMA Card */}
+        <Card>
+          <CardContent className="p-4 text-center">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-pink-100 text-pink-700 mx-auto mb-2">
+              <Gauge className="h-5 w-5" />
+            </div>
+            {editingVma ? (
+              <div className="flex items-center gap-1 justify-center">
+                <Input
+                  type="number"
+                  step="0.1"
+                  min="1"
+                  max="30"
+                  value={vmaInput}
+                  onChange={(e) => setVmaInput(e.target.value)}
+                  className="h-8 w-20 text-center text-sm"
+                />
+                <Button size="icon" variant="ghost" className="h-7 w-7 text-green-600" onClick={handleSaveVma}>
+                  <Check className="h-4 w-4" />
+                </Button>
+                <Button size="icon" variant="ghost" className="h-7 w-7 text-red-600" onClick={() => { setEditingVma(false); setVmaInput(vma?.toString() ?? ""); }}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            ) : (
+              <>
+                <p className="text-2xl font-bold">{vma ? `${vma.toFixed(1)}` : "—"}</p>
+                <div className="flex items-center justify-center gap-1">
+                  <p className="text-xs text-muted-foreground">VMA</p>
+                  {isCoach && (
+                    <Button size="icon" variant="ghost" className="h-5 w-5" onClick={() => setEditingVma(true)}>
+                      <Gauge className="h-3 w-3" />
+                    </Button>
+                  )}
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
