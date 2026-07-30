@@ -53,13 +53,36 @@ function SheetContentInner({ close }: { close: () => void }) {
   const { user } = useAuth();
   const { currentTeam, teams, switchTeam, refreshTeams } = useTeam();
   const isCoach = user?.profile?.role === "coach";
-  const [showJoinForm, setShowJoinForm] = useState(false);
+  const [showTeamForm, setShowTeamForm] = useState(false);
+  const [joinMode, setJoinMode] = useState(false);
+  const [clubName, setClubName] = useState("");
+  const [teamName, setTeamName] = useState("");
   const [inviteCode, setInviteCode] = useState("");
-  const [joining, setJoining] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  async function handleCreateTeam() {
+    if (!clubName.trim() || !teamName.trim() || !user) return;
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/auth/create-team", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: user.id, clubName: clubName.trim(), teamName: teamName.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) { toast.error(data.error || "Erreur"); setSubmitting(false); return; }
+      toast.success(`Équipe créée ! Code : ${data.inviteCode}`);
+      setShowTeamForm(false);
+      setClubName(""); setTeamName("");
+      await refreshTeams();
+      close();
+    } catch { toast.error("Erreur de connexion"); }
+    setSubmitting(false);
+  }
 
   async function handleJoinTeam() {
     if (!inviteCode.trim() || !user) return;
-    setJoining(true);
+    setSubmitting(true);
     try {
       const res = await fetch("/api/auth/join-team", {
         method: "POST",
@@ -67,14 +90,14 @@ function SheetContentInner({ close }: { close: () => void }) {
         body: JSON.stringify({ userId: user.id, inviteCode: inviteCode.trim() }),
       });
       const data = await res.json();
-      if (!res.ok) { toast.error(data.error || "Code invalide"); setJoining(false); return; }
+      if (!res.ok) { toast.error(data.error || "Code invalide"); setSubmitting(false); return; }
       toast.success(data.message || "Équipe rejointe !");
-      setShowJoinForm(false);
+      setShowTeamForm(false);
       setInviteCode("");
       await refreshTeams();
       close();
     } catch { toast.error("Erreur de connexion"); }
-    setJoining(false);
+    setSubmitting(false);
   }
 
   return (
@@ -150,7 +173,7 @@ function SheetContentInner({ close }: { close: () => void }) {
             Gérer
           </Link>
           <button
-            onClick={() => setShowJoinForm(true)}
+            onClick={() => { setShowTeamForm(true); setJoinMode(false); }}
             className="flex-1 flex items-center justify-center gap-1 rounded-lg bg-white/10 px-2 py-2 text-xs font-medium text-white/80 hover:bg-white/15 transition-colors"
           >
             <Plus className="h-3.5 w-3.5" />
@@ -159,14 +182,30 @@ function SheetContentInner({ close }: { close: () => void }) {
         </div>
       </div>
 
-      {showJoinForm && (
+      {showTeamForm && (
         <div className="px-3 py-3 border-b border-white/10 space-y-3">
-          <p className="text-xs font-medium text-white/80">Rejoindre une équipe</p>
-          <Input value={inviteCode} onChange={(e) => setInviteCode(e.target.value)} placeholder="Code d'invitation" className="bg-white/10 border-white/20 text-white text-sm placeholder:text-white/40" />
-          <div className="flex gap-2">
-            <Button size="sm" variant="outline" className="text-white border-white/20 hover:bg-white/10" onClick={() => { setShowJoinForm(false); setInviteCode(""); }}>Annuler</Button>
-            <Button size="sm" className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold" onClick={handleJoinTeam} disabled={!inviteCode.trim() || joining}>{joining ? "..." : "Rejoindre"}</Button>
+          <div className="flex gap-1 rounded-lg border border-white/20 p-0.5">
+            <button className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${!joinMode ? "bg-white/20 text-white" : "text-white/60 hover:text-white"}`} onClick={() => { setJoinMode(false); setInviteCode(""); }}>Créer</button>
+            <button className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${joinMode ? "bg-white/20 text-white" : "text-white/60 hover:text-white"}`} onClick={() => { setJoinMode(true); setClubName(""); setTeamName(""); }}>Rejoindre</button>
           </div>
+          {joinMode ? (
+            <div className="space-y-2">
+              <Input value={inviteCode} onChange={(e) => setInviteCode(e.target.value)} placeholder="Code d'invitation" className="bg-white/10 border-white/20 text-white text-sm placeholder:text-white/40" />
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" className="text-white border-white/20 hover:bg-white/10" onClick={() => { setShowTeamForm(false); setInviteCode(""); }}>Annuler</Button>
+                <Button size="sm" className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold" onClick={handleJoinTeam} disabled={!inviteCode.trim() || submitting}>{submitting ? "..." : "Rejoindre"}</Button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <Input value={clubName} onChange={(e) => setClubName(e.target.value)} placeholder="Nom du club" className="bg-white/10 border-white/20 text-white text-sm placeholder:text-white/40" />
+              <Input value={teamName} onChange={(e) => setTeamName(e.target.value)} placeholder="Nom de l'équipe" className="bg-white/10 border-white/20 text-white text-sm placeholder:text-white/40" />
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" className="text-white border-white/20 hover:bg-white/10" onClick={() => { setShowTeamForm(false); setClubName(""); setTeamName(""); }}>Annuler</Button>
+                <Button size="sm" className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold" onClick={handleCreateTeam} disabled={!clubName.trim() || !teamName.trim() || submitting}>{submitting ? "..." : "Créer"}</Button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
