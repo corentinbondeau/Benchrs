@@ -1,6 +1,18 @@
 -- Add VMA (Max Aerobic Speed) field to profiles
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS vma NUMERIC(5,2);
 
+-- Allow coaches to update player profiles (VMA, etc.)
+DROP POLICY IF EXISTS "Coaches can update player profiles" ON profiles;
+CREATE POLICY "Coaches can update player profiles"
+  ON profiles FOR UPDATE
+  USING (
+    EXISTS (
+      SELECT 1 FROM team_members
+      WHERE user_id = auth.uid()
+      AND role IN ('owner', 'coach')
+    )
+  );
+
 -- Exercise library for automatic session generation
 CREATE TABLE IF NOT EXISTS exercise_library (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
