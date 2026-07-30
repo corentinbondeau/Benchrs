@@ -419,7 +419,7 @@ export default function CalendarPage() {
                     <Input type="date" value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} required />
                   </div>
                 )}
-                {form.type === "match" && players.length > 0 && (
+                {players.length > 0 && (
                   <div className="space-y-2">
                     <Label>Convocations</Label>
                     <div className="max-h-48 overflow-y-auto rounded-md border p-2 space-y-1">
