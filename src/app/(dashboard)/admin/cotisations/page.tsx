@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useTeam } from "@/lib/team";
 import { useAuth } from "@/lib/auth";
@@ -95,19 +95,19 @@ export default function CotisationsPage() {
 
   const [saving, setSaving] = useState(false);
 
-  const supabase = createClient();
+  const supabaseRef = useRef(createClient());
 
   const fetchData = useCallback(async () => {
     if (!currentTeam) return;
 
-    const { data: members } = await supabase
+    const { data: members } = await supabaseRef.current
       .from("team_members")
       .select("user_id")
       .eq("team_id", currentTeam.id);
 
     let profiles: Profile[] = [];
     if (members && members.length > 0) {
-      const { data: p } = await supabase
+      const { data: p } = await supabaseRef.current
         .from("profiles")
         .select("*")
         .in("id", members.map((m) => m.user_id))
@@ -116,14 +116,14 @@ export default function CotisationsPage() {
     }
     setPlayers(profiles);
 
-    const { data: c } = await supabase
+    const { data: c } = await supabaseRef.current
       .from("cotisations")
       .select("*")
       .eq("team_id", currentTeam.id)
       .eq("season", season);
     setCotisations((c as Cotisation[]) || []);
     setLoading(false);
-  }, [currentTeam?.id, season, supabase]);
+  }, [currentTeam?.id, season]);
 
   useEffect(() => {
     fetchData();
@@ -157,7 +157,7 @@ export default function CotisationsPage() {
 
     const existing = cotisationMap.get(definePlayer.id);
     if (existing) {
-      const { error } = await supabase
+      const { error } = await supabaseRef.current
         .from("cotisations")
         .update({ amount_expected: amount, updated_at: new Date().toISOString() })
         .eq("id", existing.id);
@@ -167,7 +167,7 @@ export default function CotisationsPage() {
         toast.success("Montant mis à jour");
       }
     } else {
-      const { error } = await supabase.from("cotisations").insert({
+      const { error } = await supabaseRef.current.from("cotisations").insert({
         player_id: definePlayer.id,
         season,
         amount_expected: amount,
@@ -203,7 +203,7 @@ export default function CotisationsPage() {
     const expected = Number(paymentCotisation.amount_expected);
     const newStatus = newPaid >= expected ? "paid" : newPaid > 0 ? "partial" : "pending";
 
-    const { error: payErr } = await supabase.from("payment_history").insert({
+    const { error: payErr } = await supabaseRef.current.from("payment_history").insert({
       cotisation_id: paymentCotisation.id,
       amount,
       payment_method: paymentMethod || null,
@@ -218,7 +218,7 @@ export default function CotisationsPage() {
       return;
     }
 
-    const { error: updErr } = await supabase
+    const { error: updErr } = await supabaseRef.current
       .from("cotisations")
       .update({
         amount_paid: newPaid,
@@ -259,7 +259,7 @@ export default function CotisationsPage() {
     const expected = Number(deductionCotisation.amount_expected);
     const newStatus = newPaid >= expected ? "paid" : newPaid > 0 ? "partial" : "pending";
 
-    const { error: histErr } = await supabase.from("payment_history").insert({
+    const { error: histErr } = await supabaseRef.current.from("payment_history").insert({
       cotisation_id: deductionCotisation.id,
       amount: -amount,
       payment_method: "Déduction",
@@ -274,7 +274,7 @@ export default function CotisationsPage() {
       return;
     }
 
-    const { error: updErr } = await supabase
+    const { error: updErr } = await supabaseRef.current
       .from("cotisations")
       .update({
         amount_paid: newPaid,
@@ -300,7 +300,7 @@ export default function CotisationsPage() {
   async function openHistory(c: Cotisation, player: Profile) {
     setHistoryCotisation(c);
     setHistoryPlayer(player);
-    const { data } = await supabase
+    const { data } = await supabaseRef.current
       .from("payment_history")
       .select("*")
       .eq("cotisation_id", c.id)
