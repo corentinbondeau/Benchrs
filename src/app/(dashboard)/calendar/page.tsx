@@ -562,6 +562,7 @@ export default function CalendarPage() {
               const attCount = attendanceCounts[event.id];
               return (
                 <div key={event.id} className="rounded-lg border p-4 flex items-start gap-3 cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => selectEvent(event)}>
+                  <div className="flex flex-col items-center min-w-[48px]">
                     <span className="text-xs text-muted-foreground uppercase">
                       {new Date(event.event_date).toLocaleDateString("fr-FR", { month: "short" })}
                     </span>
