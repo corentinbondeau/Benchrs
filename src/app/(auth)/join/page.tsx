@@ -14,11 +14,19 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { createClient } from "@/lib/supabase/client";
 
 function JoinTeamForm() {
   const searchParams = useSearchParams();
   const [inviteCode, setInviteCode] = useState(searchParams.get("code") || "");
+  const [role, setRole] = useState<"player" | "coach" | "parent">("player");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState("");
@@ -67,7 +75,7 @@ function JoinTeamForm() {
       const res = await fetch("/api/auth/join-team", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: user.id, inviteCode }),
+        body: JSON.stringify({ userId: user.id, inviteCode, role }),
       });
 
       const data = await res.json();
@@ -120,6 +128,23 @@ function JoinTeamForm() {
               required
               className="text-center text-lg tracking-wider font-mono"
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Votre rôle dans cette équipe</Label>
+            <Select value={role} onValueChange={(v) => v && setRole(v as "player" | "coach" | "parent")}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="player">Joueur</SelectItem>
+                <SelectItem value="coach">Coach</SelectItem>
+                <SelectItem value="parent">Parent</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Vous pouvez avoir un rôle différent dans chaque équipe
+            </p>
           </div>
         </CardContent>
         <CardFooter className="flex flex-col gap-4">

@@ -39,10 +39,29 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true, scheduled: rows.length });
     }
 
+    const prefType = type || "convocation";
+    const { data: prefs } = await supabase
+      .from("notification_preferences")
+      .select("user_id, push_enabled")
+      .eq("type", prefType)
+      .eq("team_id", team_id || null)
+      .in("user_id", user_ids);
+
+    const pushDisabled = new Set(
+      ((prefs || []) as { user_id: string; push_enabled: boolean }[])
+        .filter((p) => !p.push_enabled)
+        .map((p) => p.user_id)
+    );
+    const pushUserIds = user_ids.filter((uid: string) => !pushDisabled.has(uid));
+
+    if (pushUserIds.length === 0) {
+      return NextResponse.json({ ok: true, sent: 0, skipped: user_ids.length });
+    }
+
     const { data: subscriptions } = await supabase
       .from("push_subscriptions")
       .select("endpoint, p256dh, auth")
-      .in("user_id", user_ids);
+      .in("user_id", pushUserIds);
 
     let sent = 0;
     for (const sub of (subscriptions || []) as { endpoint: string; p256dh: string; auth: string }[]) {

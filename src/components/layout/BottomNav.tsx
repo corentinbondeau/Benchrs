@@ -9,6 +9,13 @@ import { Sheet, SheetContent, SheetClose, SheetTrigger } from "@/components/ui/s
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { X, Menu as MenuIcon, Plus, Medal } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -58,6 +65,7 @@ function SheetContentInner({ close }: { close: () => void }) {
   const [clubName, setClubName] = useState("");
   const [teamName, setTeamName] = useState("");
   const [inviteCode, setInviteCode] = useState("");
+  const [joinRole, setJoinRole] = useState<"player" | "coach" | "parent">("player");
   const [submitting, setSubmitting] = useState(false);
 
   async function handleCreateTeam() {
@@ -87,7 +95,7 @@ function SheetContentInner({ close }: { close: () => void }) {
       const res = await fetch("/api/auth/join-team", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: user.id, inviteCode: inviteCode.trim() }),
+        body: JSON.stringify({ userId: user.id, inviteCode: inviteCode.trim(), role: joinRole }),
       });
       const data = await res.json();
       if (!res.ok) { toast.error(data.error || "Code invalide"); setSubmitting(false); return; }
@@ -191,6 +199,19 @@ function SheetContentInner({ close }: { close: () => void }) {
           {joinMode ? (
             <div className="space-y-2">
               <Input value={inviteCode} onChange={(e) => setInviteCode(e.target.value)} placeholder="Code d'invitation" className="bg-white/10 border-white/20 text-white text-sm placeholder:text-white/40" />
+              <div className="space-y-1">
+                <Label className="text-white/60 text-xs">Votre rôle dans cette équipe</Label>
+                <Select value={joinRole} onValueChange={(v) => v && setJoinRole(v as "player" | "coach" | "parent")}>
+                  <SelectTrigger className="bg-white/10 border-white/20 text-white text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="player">Joueur</SelectItem>
+                    <SelectItem value="coach">Coach</SelectItem>
+                    <SelectItem value="parent">Parent</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="flex gap-2">
                 <Button size="sm" variant="outline" className="text-white border-white/20 hover:bg-white/10" onClick={() => { setShowTeamForm(false); setInviteCode(""); }}>Annuler</Button>
                 <Button size="sm" className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold" onClick={handleJoinTeam} disabled={!inviteCode.trim() || submitting}>{submitting ? "..." : "Rejoindre"}</Button>

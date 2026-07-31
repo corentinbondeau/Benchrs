@@ -34,6 +34,13 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import { useState } from "react";
 
@@ -69,6 +76,7 @@ export function Sidebar() {
   const [clubName, setClubName] = useState("");
   const [teamName, setTeamName] = useState("");
   const [inviteCode, setInviteCode] = useState("");
+  const [joinRole, setJoinRole] = useState<"player" | "coach" | "parent">("player");
   const [creating, setCreating] = useState(false);
 
   async function handleCreateTeam() {
@@ -107,7 +115,7 @@ export function Sidebar() {
       const res = await fetch("/api/auth/join-team", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: user!.id, inviteCode: inviteCode.trim() }),
+        body: JSON.stringify({ userId: user!.id, inviteCode: inviteCode.trim(), role: joinRole }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -184,6 +192,19 @@ export function Sidebar() {
                   <div className="space-y-2">
                     <Label>Code d'invitation</Label>
                     <Input value={inviteCode} onChange={(e) => setInviteCode(e.target.value)} placeholder="Entrez le code" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Votre rôle dans cette équipe</Label>
+                    <Select value={joinRole} onValueChange={(v) => v && setJoinRole(v as "player" | "coach" | "parent")}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="player">Joueur</SelectItem>
+                        <SelectItem value="coach">Coach</SelectItem>
+                        <SelectItem value="parent">Parent</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   <Button className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold" onClick={handleJoinTeam} disabled={!inviteCode.trim() || creating}>
                     {creating ? "Connexion..." : "Rejoindre l'équipe"}

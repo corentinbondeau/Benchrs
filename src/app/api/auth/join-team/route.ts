@@ -3,11 +3,19 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function POST(req: Request) {
   try {
-    const { userId, inviteCode } = await req.json();
+    const { userId, inviteCode, role } = await req.json();
 
     if (!userId || !inviteCode) {
       return NextResponse.json(
         { error: "Code d'invitation requis" },
+        { status: 400 }
+      );
+    }
+
+    const allowedRoles = ["coach", "player", "parent"];
+    if (role && !allowedRoles.includes(role)) {
+      return NextResponse.json(
+        { error: "Rôle invalide" },
         { status: 400 }
       );
     }
@@ -43,14 +51,17 @@ export async function POST(req: Request) {
       );
     }
 
-    // Get user profile to determine role
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", userId)
-      .single();
+    // Determine role: explicit from join form, else fall back to profile role
+    let memberRole = role || "player";
+    if (!role) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", userId)
+        .single();
 
-    const memberRole = profile?.role || "player";
+      memberRole = profile?.role || "player";
+    }
 
     // Add as team member
     const { error: memberError } = await supabase

@@ -16,7 +16,7 @@ export async function GET(req: Request) {
 
   const { data: pending } = await supabase
     .from("notifications")
-    .select("id, user_id, title, body, type, reference_id")
+    .select("id, user_id, title, body, type, reference_id, team_id")
     .lte("scheduled_for", now)
     .is("delivered_at", null)
     .limit(500);
@@ -26,6 +26,16 @@ export async function GET(req: Request) {
   }
 
   const userIds = [...new Set(pending.map((n) => n.user_id))];
+
+  const { data: prefs } = await supabase
+    .from("notification_preferences")
+    .select("user_id, team_id, type, push_enabled")
+    .in("user_id", userIds);
+
+  const prefMap = new Map<string, boolean>();
+  for (const p of (prefs || []) as { user_id: string; team_id: string; type: string; push_enabled: boolean }[]) {
+    prefMap.set(`${p.user_id}|${p.team_id}|${p.type}`, p.push_enabled);
+  }
 
   const { data: subscriptions } = await supabase
     .from("push_subscriptions")
@@ -41,6 +51,9 @@ export async function GET(req: Request) {
 
   let sent = 0;
   for (const notif of pending) {
+    if (prefMap.get(`${notif.user_id}|${notif.team_id}|${notif.type}`) === false) {
+      continue;
+    }
     const subs = subsByUser.get(notif.user_id) || [];
     for (const sub of subs) {
       try {

@@ -36,6 +36,7 @@ export default function RegisterPage() {
     phone: "",
     childEmail: "",
     inviteCode: "",
+    joinRole: "player",
     clubName: "",
     teamName: "",
   });
@@ -177,7 +178,11 @@ export default function RegisterPage() {
         const joinRes = await fetch("/api/auth/join-team", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userId: user.id, inviteCode: formData.inviteCode }),
+          body: JSON.stringify({
+            userId: user.id,
+            inviteCode: formData.inviteCode,
+            role: formData.joinRole,
+          }),
         });
         if (!joinRes.ok) {
           const joinData = await joinRes.json();
@@ -249,19 +254,39 @@ export default function RegisterPage() {
             )}
 
             {teamMode === "join" ? (
-              <div className="space-y-2">
-                <Label htmlFor="inviteCode">Code d&apos;invitation</Label>
-                <Input
-                  id="inviteCode"
-                  placeholder="abc123def456"
-                  value={formData.inviteCode}
-                  onChange={(e) => setFormData({ ...formData, inviteCode: e.target.value })}
-                  className="text-center font-mono"
-                />
-                <p className="text-xs text-muted-foreground text-center">
-                  Demandez le code à votre coach
-                </p>
-              </div>
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="inviteCode">Code d&apos;invitation</Label>
+                  <Input
+                    id="inviteCode"
+                    placeholder="abc123def456"
+                    value={formData.inviteCode}
+                    onChange={(e) => setFormData({ ...formData, inviteCode: e.target.value })}
+                    className="text-center font-mono"
+                  />
+                  <p className="text-xs text-muted-foreground text-center">
+                    Demandez le code à votre coach
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label>Votre rôle dans cette équipe</Label>
+                  <Select
+                    value={formData.joinRole}
+                    onValueChange={(value) =>
+                      setFormData({ ...formData, joinRole: value as "player" | "coach" | "parent" })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="player">Joueur</SelectItem>
+                      <SelectItem value="coach">Coach</SelectItem>
+                      <SelectItem value="parent">Parent</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
             ) : (
               <>
                 <div className="space-y-2">
