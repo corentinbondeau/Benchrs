@@ -82,6 +82,7 @@ export interface Event {
   sporteasy_id: string | null;
   created_by: string | null;
   team_id: string;
+  recurrence_group_id: string | null;
   created_at: string;
   updated_at: string;
 }
