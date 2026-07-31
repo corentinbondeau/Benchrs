@@ -23,9 +23,9 @@ interface CoachPendingItem {
 
 export function PendingConvocations() {
   const { user } = useAuth();
-  const { currentTeam } = useTeam();
+  const { currentTeam, userRole } = useTeam();
   const router = useRouter();
-  const isCoach = user?.profile?.role === "coach";
+  const isCoach = userRole === "coach" || userRole === "owner";
 
   const [playerAttendances, setPlayerAttendances] = useState<(Attendance & { event: Event })[]>([]);
   const [coachItems, setCoachItems] = useState<CoachPendingItem[]>([]);
@@ -130,35 +130,31 @@ export function PendingConvocations() {
     const key = `${item.attendance.id}-${target}`;
     setRemindingKey(key);
 
-    const body: Record<string, string> = {
-      eventTitle: item.event.title,
-      eventDate: item.event.event_date,
-    };
-
-    if (target === "parent" && parentProfile) {
-      body.userId = parentProfile.id;
-    } else {
-      body.userId = item.player.id;
-    }
-
-    const res = await fetch("/api/notifications/reminder", {
+    const targetUser = target === "parent" && parentProfile ? parentProfile : item.player;
+    const dateStr = new Date(item.event.event_date).toLocaleDateString("fr-FR");
+    const res = await fetch("/api/notifications/send", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+      body: JSON.stringify({
+        user_ids: [targetUser.id],
+        title: `Relance : ${item.event.title}`,
+        body: `Vous n'avez pas encore répondu à la convocation du ${dateStr}`,
+        type: "rappel",
+        reference_id: item.event.id,
+        team_id: currentTeam!.id,
+        url: "/calendar",
+      }),
     });
 
     setRemindingKey(null);
 
     if (!res.ok) {
       const data = await res.json().catch(() => null);
-      toast.error(data?.error || "Erreur lors de l'envoi de l'email");
+      toast.error(data?.error || "Erreur lors de l'envoi de la notification");
       return;
     }
 
-    const name = target === "parent" && parentProfile
-      ? `${parentProfile.first_name} ${parentProfile.last_name}`
-      : `${item.player.first_name} ${item.player.last_name}`;
-    toast.success(`Email de relance envoyé à ${name}`);
+    toast.success(`Notification de relance envoyée à ${targetUser.first_name}`);
   }
 
   if (loading) {

@@ -4,10 +4,10 @@ import type { UserRole } from "@/types";
 
 export async function POST(req: Request) {
   try {
-    const { email, password, firstName, lastName, role, phone, childEmail } =
+    const { email, password, firstName, lastName, role, phone } =
       await req.json();
 
-    if (!email || !password || !firstName || !lastName || !role) {
+    if (!email || !password || !firstName || !lastName) {
       return NextResponse.json(
         { error: "Champs obligatoires manquants" },
         { status: 400 }
@@ -27,9 +27,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: authError.message }, { status: 400 });
     }
 
+    // Le rôle est per-équipe : il est demandé à la rejoint d'une équipe,
+    // pas à l'inscription. On garde un défaut "player" pour le profil.
     const { error: profileError } = await supabase.from("profiles").insert({
       id: authData.user.id,
-      role: role as UserRole,
+      role: (role as UserRole) || "player",
       first_name: firstName,
       last_name: lastName,
       phone: phone || null,
@@ -42,24 +44,6 @@ export async function POST(req: Request) {
         { error: profileError.message },
         { status: 400 }
       );
-    }
-
-    if (role === "parent" && childEmail) {
-      const { data: childUser } = await supabase.auth.admin.listUsers();
-      const child = childUser?.users?.find((u) => u.email === childEmail);
-      if (child) {
-        const { data: childProfile } = await supabase
-          .from("profiles")
-          .select("id, role")
-          .eq("id", child.id)
-          .single();
-        if (childProfile?.role === "player") {
-          await supabase.from("parent_student").insert({
-            parent_id: authData.user.id,
-            student_id: child.id,
-          });
-        }
-      }
     }
 
     return NextResponse.json({

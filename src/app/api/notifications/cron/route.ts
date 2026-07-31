@@ -50,11 +50,15 @@ export async function GET(req: Request) {
   }
 
   let sent = 0;
+  const deliveredIds: string[] = [];
   for (const notif of pending) {
     if (prefMap.get(`${notif.user_id}|${notif.team_id}|${notif.type}`) === false) {
       continue;
     }
     const subs = subsByUser.get(notif.user_id) || [];
+    if (subs.length === 0) {
+      continue;
+    }
     for (const sub of subs) {
       try {
         await webpush.sendNotification(
@@ -72,13 +76,15 @@ export async function GET(req: Request) {
         console.error("[notifications/cron] push failed for", sub.endpoint, err);
       }
     }
+    deliveredIds.push(notif.id);
   }
 
-  const ids = pending.map((n) => n.id);
-  await supabase
-    .from("notifications")
-    .update({ delivered_at: now })
-    .in("id", ids);
+  if (deliveredIds.length > 0) {
+    await supabase
+      .from("notifications")
+      .update({ delivered_at: now })
+      .in("id", deliveredIds);
+  }
 
-  return NextResponse.json({ ok: true, sent, processed: ids.length });
+  return NextResponse.json({ ok: true, sent, processed: deliveredIds.length });
 }

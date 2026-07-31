@@ -21,7 +21,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { UserRole } from "@/types";
 
 export default function RegisterPage() {
   const [step, setStep] = useState<"info" | "team">("info");
@@ -32,9 +31,7 @@ export default function RegisterPage() {
     email: "",
     password: "",
     confirmPassword: "",
-    role: "" as "coach" | "player" | "parent" | "",
     phone: "",
-    childEmail: "",
     inviteCode: "",
     joinRole: "player",
     clubName: "",
@@ -77,10 +74,6 @@ export default function RegisterPage() {
       setError("Les mots de passe ne correspondent pas");
       return;
     }
-    if (!formData.role) {
-      setError("Veuillez sélectionner un rôle");
-      return;
-    }
 
     setStep("team");
   }
@@ -102,9 +95,7 @@ export default function RegisterPage() {
         lastName: formData.lastName,
         email: formData.email,
         password: formData.password,
-        role: formData.role,
         phone: formData.phone || undefined,
-        childEmail: formData.role === "parent" ? formData.childEmail || undefined : undefined,
       }),
     });
 
@@ -135,7 +126,7 @@ export default function RegisterPage() {
           if (!existingProfile) {
             await supabase.from("profiles").insert({
               id: user.id,
-              role: formData.role as UserRole,
+              role: "player",
               first_name: formData.firstName,
               last_name: formData.lastName,
               phone: formData.phone || null,
@@ -413,25 +404,6 @@ export default function RegisterPage() {
           </div>
 
           <div className="space-y-2">
-            <Label>Role</Label>
-            <Select
-              value={formData.role}
-              onValueChange={(value) =>
-                setFormData({ ...formData, role: value as "coach" | "player" | "parent" })
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Sélectionnez votre rôle" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="coach">Coach</SelectItem>
-                <SelectItem value="player">Joueur</SelectItem>
-                <SelectItem value="parent">Parent</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
             <Label htmlFor="phone">Téléphone (optionnel)</Label>
             <Input
               id="phone"
@@ -441,22 +413,6 @@ export default function RegisterPage() {
               onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
             />
           </div>
-
-          {formData.role === "parent" && (
-            <div className="space-y-2">
-              <Label htmlFor="childEmail">Email de votre enfant (joueur)</Label>
-              <Input
-                id="childEmail"
-                type="email"
-                placeholder="email@enfant.com"
-                value={formData.childEmail}
-                onChange={(e) => setFormData({ ...formData, childEmail: e.target.value })}
-              />
-              <p className="text-xs text-muted-foreground">
-                L&apos;adresse email du compte joueur de votre enfant
-              </p>
-            </div>
-          )}
 
           <div className="space-y-2">
             <Label htmlFor="password">Mot de passe</Label>

@@ -272,15 +272,30 @@ export default function CalendarPage() {
         const dateStr = new Date(form.event_date).toLocaleDateString("fr-FR");
         for (const evt of inserted) {
           const evtDate = new Date(evt.event_date);
-          const scheduledFor = new Date(evtDate.getTime() - leadDays * 24 * 60 * 60 * 1000);
+          // Convocation push envoyée immédiatement
           await fetch("/api/notifications/send", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               user_ids: convokeIds,
               title: `Convocation : ${form.title}`,
-              body: `Vous êtes convoqué(e) le ${dateStr}`,
+              body: `Vous êtes convoqué(e) le ${new Date(evt.event_date).toLocaleDateString("fr-FR")}`,
               type: "convocation",
+              reference_id: evt.id,
+              team_id: currentTeam!.id,
+              url: "/calendar",
+            }),
+          });
+          // Rappel programmé leadDays avant l'événement
+          const scheduledFor = new Date(evtDate.getTime() - leadDays * 24 * 60 * 60 * 1000);
+          await fetch("/api/notifications/send", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              user_ids: convokeIds,
+              title: `Rappel : ${form.title}`,
+              body: `N'oubliez pas de répondre à la convocation du ${dateStr}`,
+              type: "rappel",
               reference_id: evt.id,
               team_id: currentTeam!.id,
               url: "/calendar",
