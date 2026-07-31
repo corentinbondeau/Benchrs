@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { ConvocationsDialog } from "@/components/ConvocationsDialog";
+import { EventCoachActions } from "@/components/EventCoachActions";
 import {
   AttendanceLists,
   EventInfoCard,
@@ -467,6 +468,11 @@ export default function MatchDetailPage() {
                     <Bell className="h-3.5 w-3.5 mr-1" />
                     Convoquer
                   </Button>
+                  <EventCoachActions
+                    event={match}
+                    isMatch={true}
+                    onSaved={(updated) => setMatch(updated)}
+                  />
                 </div>
               )}
             </div>
