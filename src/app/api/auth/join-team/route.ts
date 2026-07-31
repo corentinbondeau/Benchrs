@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { defaultNotificationPrefs } from "@/lib/notificationTypes";
 
 export async function POST(req: Request) {
   try {
@@ -77,6 +78,12 @@ export async function POST(req: Request) {
       .from("profiles")
       .update({ team_id: team.id })
       .eq("id", userId);
+
+    // Notifications activées par défaut pour la nouvelle équipe
+    await supabase.from("notification_preferences").upsert(
+      defaultNotificationPrefs(userId, team.id),
+      { onConflict: "user_id,team_id,type" }
+    );
 
     return NextResponse.json({
       team,
