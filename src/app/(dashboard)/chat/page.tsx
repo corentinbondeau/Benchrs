@@ -26,8 +26,7 @@ interface MessageWithSender extends Omit<ChatMessage, "sender"> {
 
 export default function ChatPage() {
   const { user } = useAuth();
-  const { currentTeam } = useTeam();
-  const role = user?.profile?.role;
+  const { currentTeam, userRole } = useTeam();
   const [channels, setChannels] = useState<ChatChannel[]>([]);
   const [selectedChannel, setSelectedChannel] = useState<string | null>(null);
   const [messages, setMessages] = useState<MessageWithSender[]>([]);
@@ -54,14 +53,14 @@ export default function ChatPage() {
         const all = (data as ChatChannel[]) || [];
         const visible = all.filter((ch) => {
           if (ch.channel_type === "general") return true;
-          if (ch.channel_type === "parents") return role === "parent" || role === "coach";
-          if (ch.channel_type === "coaches") return role === "coach";
+          if (ch.channel_type === "parents") return userRole === "parent" || userRole === "coach" || userRole === "owner";
+          if (ch.channel_type === "coaches") return userRole === "coach" || userRole === "owner";
           return true;
         });
         setChannels(visible);
         setLoading(false);
       });
-  }, [role, currentTeam]);
+  }, [userRole, currentTeam]);
 
   useEffect(() => {
     if (!currentTeam || !createOpen) return;

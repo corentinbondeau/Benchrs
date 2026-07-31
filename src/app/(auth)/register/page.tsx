@@ -185,7 +185,7 @@ export default function RegisterPage() {
           setLoading(false);
           return;
         }
-        router.push("/");
+        window.location.href = "/";
       } else if (teamMode === "create" && formData.clubName && formData.teamName) {
         const teamRes = await fetch("/api/auth/create-team", {
           method: "POST",
@@ -210,7 +210,7 @@ export default function RegisterPage() {
           description: "Vous le trouverez dans Paramètres > Équipe",
           duration: 5000,
         });
-        router.push("/");
+        window.location.href = "/";
       } else {
         router.push("/create-team");
       }

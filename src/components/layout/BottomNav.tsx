@@ -51,8 +51,8 @@ const coachItems = [
 function SheetContentInner({ close }: { close: () => void }) {
   const pathname = usePathname();
   const { user } = useAuth();
-  const { currentTeam, teams, switchTeam, refreshTeams } = useTeam();
-  const isCoach = user?.profile?.role === "coach";
+  const { currentTeam, teams, switchTeam, refreshTeams, userRole } = useTeam();
+  const isCoach = userRole === "coach" || userRole === "owner";
   const [showTeamForm, setShowTeamForm] = useState(false);
   const [joinMode, setJoinMode] = useState(false);
   const [clubName, setClubName] = useState("");
@@ -74,8 +74,8 @@ function SheetContentInner({ close }: { close: () => void }) {
       toast.success(`Équipe créée ! Code : ${data.inviteCode}`);
       setShowTeamForm(false);
       setClubName(""); setTeamName("");
-      await refreshTeams();
-      close();
+      localStorage.setItem("selectedTeamId", data.team.id);
+      window.location.href = "/";
     } catch { toast.error("Erreur de connexion"); }
     setSubmitting(false);
   }

@@ -69,8 +69,8 @@ const STATUS_OPTIONS = [
 
 export default function PhysicalPreparationPage() {
   const { user } = useAuth();
-  const { currentTeam } = useTeam();
-  const isCoach = user?.profile?.role === "coach";
+  const { currentTeam, userRole } = useTeam();
+  const isCoach = userRole === "coach" || userRole === "owner";
   const [players, setPlayers] = useState<Profile[]>([]);
   const [documents, setDocuments] = useState<PhysicalPrepDocument[]>([]);
   const [sessions, setSessions] = useState<PhysicalPrepSession[]>([]);

@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useAuth } from "@/lib/auth";
 import { useTeam } from "@/lib/team";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -53,9 +52,8 @@ interface ScrapedMatch {
 }
 
 export default function ChampionshipPage() {
-  const { user } = useAuth();
-  const { currentTeam } = useTeam();
-  const isCoach = user?.profile?.role === "coach";
+  const { currentTeam, userRole } = useTeam();
+  const isCoach = userRole === "coach" || userRole === "owner";
   const [championships, setChampionships] = useState<Championship[]>([]);
   const [selectedId, setSelectedId] = useState("");
   const [loading, setLoading] = useState(true);

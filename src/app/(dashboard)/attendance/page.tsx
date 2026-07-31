@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { useAuth } from "@/lib/auth";
 import { useTeam } from "@/lib/team";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,12 +16,11 @@ interface AttendanceWithDetails extends Attendance {
 }
 
 export default function AttendancePage() {
-  const { user } = useAuth();
-  const { currentTeam } = useTeam();
+  const { currentTeam, userRole } = useTeam();
   const [attendances, setAttendances] = useState<AttendanceWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "training" | "match">("all");
-  const isCoach = user?.profile?.role === "coach";
+  const isCoach = userRole === "coach" || userRole === "owner";
 
   useEffect(() => {
     if (!currentTeam) return;

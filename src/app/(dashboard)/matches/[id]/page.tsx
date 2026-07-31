@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useParams, useRouter } from "next/navigation";
-import { useAuth } from "@/lib/auth";
 import { useTeam } from "@/lib/team";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -26,8 +25,11 @@ import {
   Check,
   X,
   Users,
+  Bell,
 } from "lucide-react";
 import { toast } from "sonner";
+import { ConvocationsDialog } from "@/components/ConvocationsDialog";
+import { fetchTeamActivePlayers } from "@/lib/players";
 import type { Event, MatchStat, Formation, MatchLineup, Profile } from "@/types";
 
 type MatchEvent = Event & { meeting_time: string | null };
@@ -107,9 +109,8 @@ function getResultLabel(result: string | null) {
 export default function MatchDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const { user } = useAuth();
-  const { currentTeam } = useTeam();
-  const isCoach = user?.profile?.role === "coach";
+  const { currentTeam, userRole } = useTeam();
+  const isCoach = userRole === "coach" || userRole === "owner";
   const matchId = params.id as string;
 
   if (!currentTeam) {
@@ -130,6 +131,7 @@ export default function MatchDetailPage() {
   const [scoreThem, setScoreThem] = useState<string>("");
   const [matchResult, setMatchResult] = useState<string>("");
   const [matchPlayers, setMatchPlayers] = useState<PlayerAttendance[]>([]);
+  const [convDialogOpen, setConvDialogOpen] = useState(false);
 
   useEffect(() => {
     const supabase = createClient();
@@ -160,12 +162,7 @@ export default function MatchDetailPage() {
           .select("*, profile:profiles!match_lineups_player_id_fkey(id, first_name, last_name, shirt_number, position)")
           .eq("event_id", matchId)
           .eq("team_id", currentTeam!.id),
-        supabase
-          .from("profiles")
-          .select("*")
-          .eq("role", "player")
-          .eq("is_active", true)
-          .order("shirt_number", { ascending: true }),
+        fetchTeamActivePlayers(currentTeam!.id),
         supabase
           .from("attendances")
           .select("id, user_id, status")
@@ -177,10 +174,10 @@ export default function MatchDetailPage() {
       setPlayerStats((statsRes.data as PlayerStat[]) || []);
       setFormation(formRes.data as Formation | null);
       setLineups((lineupsRes.data as LineupEntry[]) || []);
-      setAllPlayers((playersRes.data as Profile[]) || []);
+      setAllPlayers(playersRes);
 
       const atts = (attRes.data || []) as { id: string; user_id: string; status: string }[];
-      const allP = (playersRes.data as Profile[]) || [];
+      const allP = playersRes;
       const merged: PlayerAttendance[] = allP.map((p) => {
         const att = atts.find((a) => a.user_id === p.id);
         return {
@@ -415,6 +412,18 @@ export default function MatchDetailPage() {
               <h2 className="text-2xl font-bold">{match.title}</h2>
               {match.opponent && (
                 <p className="text-white/80 text-lg">vs {match.opponent}</p>
+              )}
+              {isCoach && (
+                <div className="flex flex-wrap gap-2 pt-2">
+                  <Button
+                    size="sm"
+                    className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
+                    onClick={() => setConvDialogOpen(true)}
+                  >
+                    <Bell className="h-3.5 w-3.5 mr-1" />
+                    Convoquer
+                  </Button>
+                </div>
               )}
             </div>
             {match.score_us !== null && match.score_them !== null && (
@@ -924,6 +933,14 @@ export default function MatchDetailPage() {
           )}
         </CardContent>
       </Card>
+
+      {match && (
+        <ConvocationsDialog
+          event={match}
+          open={convDialogOpen}
+          onOpenChange={setConvDialogOpen}
+        />
+      )}
     </div>
   );
 }

@@ -29,8 +29,8 @@ import type { GalleryMedia, Event, Album } from "@/types";
 
 export default function GalleryPage() {
   const { user } = useAuth();
-  const { currentTeam } = useTeam();
-  const isCoach = user?.profile?.role === "coach";
+  const { currentTeam, userRole } = useTeam();
+  const isCoach = userRole === "coach" || userRole === "owner";
   const [media, setMedia] = useState<GalleryMedia[]>([]);
   const [albums, setAlbums] = useState<Album[]>([]);
   const [loading, setLoading] = useState(true);

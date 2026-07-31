@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Users, Check, X, ChevronDown, UserPlus, Trash2, Calendar, Bell, Send } from "lucide-react";
 import { toast } from "sonner";
+import { fetchTeamActivePlayers } from "@/lib/players";
 import type { Event, Attendance, Profile } from "@/types";
 
 interface EventWithAttendances extends Event {
@@ -59,8 +60,8 @@ const statusLabels: Record<string, string> = {
 
 export function ConvocationsDialog({ event, open, onOpenChange }: ConvocationsDialogProps) {
   const { user } = useAuth();
-  const { currentTeam } = useTeam();
-  const isCoach = user?.profile?.role === "coach";
+  const { currentTeam, userRole } = useTeam();
+  const isCoach = userRole === "coach" || userRole === "owner";
   const [eventData, setEventData] = useState<EventWithAttendances | null>(null);
   const [players, setPlayers] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -76,12 +77,7 @@ export function ConvocationsDialog({ event, open, onOpenChange }: ConvocationsDi
       .eq("id", event.id)
       .single();
 
-    const { data: playersData } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("role", "player")
-      .eq("is_active", true)
-      .order("last_name", { ascending: true });
+    const playersData = await fetchTeamActivePlayers(currentTeam.id);
 
     const { data: attData } = await supabase
       .from("attendances")
@@ -93,7 +89,7 @@ export function ConvocationsDialog({ event, open, onOpenChange }: ConvocationsDi
       ...(evt as Event),
       attendances: (attData || []) as EventWithAttendances["attendances"],
     });
-    setPlayers((playersData as Profile[]) || []);
+    setPlayers(playersData);
     setLoading(false);
   }, [event?.id, currentTeam]);
 
@@ -171,26 +167,30 @@ export function ConvocationsDialog({ event, open, onOpenChange }: ConvocationsDi
 
   async function sendConvocationPush() {
     if (!eventData) return;
-    const supabase = createClient();
     const pendingAtts = eventData.attendances.filter((a) => a.status === "pending");
     if (pendingAtts.length === 0) {
       toast.info("Aucune convocation en attente à envoyer");
       return;
     }
-    const notifications = pendingAtts.map((a) => ({
-      user_id: a.user_id,
-      title: `Convocation: ${eventData.title}`,
-      body: `Vous êtes convoqué(e) le ${new Date(eventData.event_date).toLocaleDateString("fr-FR")}`,
-      type: "convocation",
-      reference_id: eventData.id,
-      team_id: currentTeam!.id,
-    }));
-    const { error } = await supabase.from("notifications").insert(notifications);
-    if (error) {
-      toast.error("Erreur lors de l'envoi");
+    const res = await fetch("/api/notifications/send", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        user_ids: pendingAtts.map((a) => a.user_id),
+        title: `Convocation: ${eventData.title}`,
+        body: `Vous êtes convoqué(e) le ${new Date(eventData.event_date).toLocaleDateString("fr-FR")}`,
+        type: "convocation",
+        reference_id: eventData.id,
+        team_id: currentTeam!.id,
+        url: "/calendar",
+      }),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) {
+      toast.error(data?.error || "Erreur lors de l'envoi");
       return;
     }
-    toast.success(`${notifications.length} notification(s) envoyée(s)`);
+    toast.success(`${pendingAtts.length} notification(s) envoyée(s)`);
   }
 
   if (!currentTeam) return null;

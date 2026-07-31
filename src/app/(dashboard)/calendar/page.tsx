@@ -36,6 +36,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { ConvocationsDialog } from "@/components/ConvocationsDialog";
+import { fetchTeamActivePlayers } from "@/lib/players";
 import type { Event, Profile } from "@/types";
 
 type Recurrence = "Aucun" | "weekly" | "biweekly" | "monthly";
@@ -82,7 +83,7 @@ function toLocalDateStr(date: Date): string {
 
 export default function CalendarPage() {
   const { user } = useAuth();
-  const { currentTeam } = useTeam();
+  const { currentTeam, userRole } = useTeam();
   const router = useRouter();
   const [view, setView] = useState<"month" | "week" | "list">("list");
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -101,10 +102,11 @@ export default function CalendarPage() {
     location: "",
     opponent: "",
     recurrence: "Aucun" as Recurrence,
+    convocation_lead_days: "3",
     selected_player_ids: [] as string[],
   });
 
-  const isCoach = user?.profile?.role === "coach";
+  const isCoach = userRole === "coach" || userRole === "owner";
 
   function fetchEvents() {
     const supabase = createClient();
@@ -141,22 +143,9 @@ export default function CalendarPage() {
     });
   }
 
-  function fetchPlayers() {
-    const supabase = createClient();
-    supabase
-      .from("profiles")
-      .select("*")
-      .eq("role", "player")
-      .eq("is_active", true)
-      .order("last_name", { ascending: true })
-      .then(({ data }) => {
-        setPlayers((data as Profile[]) || []);
-      });
-  }
-
   useEffect(() => {
     fetchEvents();
-    fetchPlayers();
+    fetchTeamActivePlayers(currentTeam!.id).then((data) => setPlayers(data));
   }, [currentTeam]);
 
   const year = currentDate.getFullYear();
@@ -223,6 +212,21 @@ export default function CalendarPage() {
     });
   }
 
+  function handleCreateOpenChange(open: boolean) {
+    if (open && players.length > 0) {
+      setForm((prev) => ({ ...prev, selected_player_ids: players.map((p) => p.id) }));
+    }
+    setCreateOpen(open);
+  }
+
+  function selectAllPlayers() {
+    setForm((prev) => ({ ...prev, selected_player_ids: players.map((p) => p.id) }));
+  }
+
+  function clearAllPlayers() {
+    setForm((prev) => ({ ...prev, selected_player_ids: [] }));
+  }
+
   async function handleCreateEvent(e: React.FormEvent) {
     e.preventDefault();
     const supabase = createClient();
@@ -239,9 +243,10 @@ export default function CalendarPage() {
       status: "upcoming" as const,
       created_by: user?.id,
       team_id: currentTeam!.id,
+      convocation_lead_days: parseInt(form.convocation_lead_days, 10) || 3,
     }));
 
-    const { data: inserted, error } = await supabase.from("events").insert(rows).select("id");
+    const { data: inserted, error } = await supabase.from("events").insert(rows).select("id, event_date");
 
     if (error) {
       toast.error("Erreur lors de la création");
@@ -261,19 +266,28 @@ export default function CalendarPage() {
         await supabase.from("attendances").insert(attendanceRows);
       }
 
-      // Auto-send notifications to convoked players
-      const notifications = inserted.flatMap((evt) =>
-        form.selected_player_ids.map((pid) => ({
-          user_id: pid,
-          title: `Convocation: ${form.title}`,
-          body: `Vous êtes convoqué(e) le ${new Date(form.event_date).toLocaleDateString("fr-FR")} à ${new Date(form.event_date).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`,
-          type: "convocation",
-          reference_id: evt.id,
-          team_id: currentTeam!.id,
-        }))
-      );
-      if (notifications.length > 0) {
-        await supabase.from("notifications").insert(notifications);
+      const leadDays = parseInt(form.convocation_lead_days, 10) || 3;
+      const convokeIds = form.selected_player_ids;
+      if (convokeIds.length > 0) {
+        const dateStr = new Date(form.event_date).toLocaleDateString("fr-FR");
+        for (const evt of inserted) {
+          const evtDate = new Date(evt.event_date);
+          const scheduledFor = new Date(evtDate.getTime() - leadDays * 24 * 60 * 60 * 1000);
+          await fetch("/api/notifications/send", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              user_ids: convokeIds,
+              title: `Convocation : ${form.title}`,
+              body: `Vous êtes convoqué(e) le ${dateStr}`,
+              type: "convocation",
+              reference_id: evt.id,
+              team_id: currentTeam!.id,
+              url: "/calendar",
+              scheduled_for: scheduledFor.toISOString(),
+            }),
+          });
+        }
       }
     }
 
@@ -287,6 +301,7 @@ export default function CalendarPage() {
       location: "",
       opponent: "",
       recurrence: "Aucun",
+      convocation_lead_days: "3",
       selected_player_ids: [],
     });
     fetchEvents();
@@ -355,7 +370,7 @@ export default function CalendarPage() {
           <p className="text-sm text-muted-foreground mt-1">Planning de l&apos;équipe</p>
         </div>
         {isCoach && (
-          <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+          <Dialog open={createOpen} onOpenChange={handleCreateOpenChange}>
             <DialogTrigger render={<Button className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold" />}>
               <Plus className="h-4 w-4 mr-1" />
               Événement
@@ -422,6 +437,19 @@ export default function CalendarPage() {
                 {players.length > 0 && (
                   <div className="space-y-2">
                     <Label>Convocations</Label>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs text-muted-foreground">
+                        {form.selected_player_ids.length} joueur{form.selected_player_ids.length > 1 ? "s" : ""} convoqué{form.selected_player_ids.length > 1 ? "s" : ""}
+                      </p>
+                      <div className="flex items-center gap-1">
+                        <Button type="button" variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={selectAllPlayers}>
+                          Tout
+                        </Button>
+                        <Button type="button" variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={clearAllPlayers}>
+                          Aucun
+                        </Button>
+                      </div>
+                    </div>
                     <div className="max-h-48 overflow-y-auto rounded-md border p-2 space-y-1">
                       {players.map((player) => (
                         <label key={player.id} className="flex items-center gap-2 cursor-pointer py-0.5">
@@ -438,11 +466,28 @@ export default function CalendarPage() {
                         </label>
                       ))}
                     </div>
-                    {form.selected_player_ids.length > 0 && (
-                      <p className="text-xs text-muted-foreground">
-                        {form.selected_player_ids.length} joueur{form.selected_player_ids.length > 1 ? "s" : ""} convoque{form.selected_player_ids.length > 1 ? "s" : ""}
-                      </p>
-                    )}
+                  </div>
+                )}
+                {form.selected_player_ids.length > 0 && (
+                  <div className="space-y-2">
+                    <Label>Convocations automatiques</Label>
+                    <div className="flex items-center justify-between gap-2 rounded-md border p-3">
+                      <div className="flex items-center gap-2">
+                        <Bell className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm">Jours avant l&apos;événement</span>
+                      </div>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={30}
+                        className="w-20 h-8"
+                        value={form.convocation_lead_days}
+                        onChange={(e) => setForm({ ...form, convocation_lead_days: e.target.value })}
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Les joueurs convoqués recevront la convocation {parseInt(form.convocation_lead_days, 10) || 3} jour{parseInt(form.convocation_lead_days, 10) || 3 > 1 ? "s" : ""} avant l&apos;événement.
+                    </p>
                   </div>
                 )}
                 <Button type="submit" className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] font-semibold">

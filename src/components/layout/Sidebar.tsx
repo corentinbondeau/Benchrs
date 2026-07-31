@@ -62,8 +62,8 @@ const coachItems = [
 export function Sidebar() {
   const pathname = usePathname();
   const { user } = useAuth();
-  const { currentTeam, teams, switchTeam, refreshTeams } = useTeam();
-  const isCoach = user?.profile?.role === "coach";
+  const { currentTeam, teams, switchTeam, refreshTeams, userRole } = useTeam();
+  const isCoach = userRole === "coach" || userRole === "owner";
   const [createOpen, setCreateOpen] = useState(false);
   const [joinMode, setJoinMode] = useState(false);
   const [clubName, setClubName] = useState("");
@@ -92,7 +92,8 @@ export function Sidebar() {
       setTeamName("");
       setInviteCode("");
       setJoinMode(false);
-      await refreshTeams();
+      localStorage.setItem("selectedTeamId", data.team.id);
+      window.location.href = "/";
     } catch {
       toast.error("Erreur de connexion au serveur");
     }
