@@ -249,7 +249,7 @@ export default function CalendarPage() {
     const { data: inserted, error } = await supabase.from("events").insert(rows).select("id, event_date");
 
     if (error) {
-      toast.error("Erreur lors de la création");
+      toast.error(`Erreur lors de la création : ${error.message}`);
       return;
     }
 
@@ -409,7 +409,7 @@ export default function CalendarPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Entrainement">Entrainement</SelectItem>
+                      <SelectItem value="training">Entraînement</SelectItem>
                       <SelectItem value="match">Match</SelectItem>
                     </SelectContent>
                   </Select>
