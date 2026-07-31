@@ -1,3 +1,9 @@
+self.addEventListener("install", () => self.skipWaiting());
+
+self.addEventListener("activate", (event) => {
+  event.waitUntil(self.clients.claim());
+});
+
 self.addEventListener("push", (event) => {
   const data = event.data?.json() ?? { title: "SportPlus", body: "" };
   const options = {
@@ -12,8 +18,25 @@ self.addEventListener("push", (event) => {
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const urlToOpen = event.notification.data?.url || "/";
+  const urlToOpen = new URL(
+    event.notification.data?.url || "/",
+    self.registration.scope
+  ).toString();
+
   event.waitUntil(
-    self.clients.openWindow(urlToOpen)
+    (async () => {
+      const windowClients = await self.clients.matchAll({
+        type: "window",
+        includeUncontrolled: true,
+      });
+      for (const client of windowClients) {
+        if (client.url.startsWith(new URL("/", self.registration.scope).toString())) {
+          await client.navigate(urlToOpen);
+          await client.focus();
+          return;
+        }
+      }
+      await self.clients.openWindow(urlToOpen);
+    })()
   );
 });
