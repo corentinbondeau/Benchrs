@@ -342,7 +342,7 @@ export default function ChampionshipPage() {
                       </div>
 
                       {scrapeTab === "standings" && scrapedTeams && scrapedTeams.length > 0 && (
-                        <div className="max-h-60 overflow-y-auto rounded-lg border">
+                        <div className="max-h-60 overflow-y-auto overflow-x-auto rounded-lg border">
                           <table className="w-full text-xs">
                             <thead className="bg-muted/50 sticky top-0">
                               <tr>
@@ -376,7 +376,7 @@ export default function ChampionshipPage() {
                         </div>
                       )}
                       {scrapeTab === "calendar" && scrapedMatches && scrapedMatches.length > 0 && (
-                        <div className="max-h-60 overflow-y-auto rounded-lg border">
+                        <div className="max-h-60 overflow-y-auto overflow-x-auto rounded-lg border">
                           <table className="w-full text-xs">
                             <thead className="bg-muted/50 sticky top-0">
                               <tr>
