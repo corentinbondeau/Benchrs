@@ -27,14 +27,14 @@ interface InjuryWithPlayer extends Injury {
 
 export default function MedicalPage() {
   const { user } = useAuth();
-  const { currentTeam } = useTeam();
+  const { currentTeam, userRole } = useTeam();
   const [injuries, setInjuries] = useState<InjuryWithPlayer[]>([]);
   const [players, setPlayers] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
   const [form, setForm] = useState({ playerId: "", description: "", injuryType: "", injuryDate: "", expectedReturn: "" });
 
-  const isCoach = user?.profile?.role === "coach";
+  const isCoach = userRole === "coach" || userRole === "owner";
 
   if (!currentTeam) {
     return <div className="flex items-center justify-center h-64"><p className="text-muted-foreground">Chargement de l&apos;équipe...</p></div>;

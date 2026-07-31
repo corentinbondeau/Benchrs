@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { useAuth } from "@/lib/auth";
 import { useTeam } from "@/lib/team";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -21,8 +20,7 @@ interface TaskWithDetails extends Task {
 }
 
 export default function TasksPage() {
-  const { user } = useAuth();
-  const { currentTeam } = useTeam();
+  const { currentTeam, userRole } = useTeam();
   const [tasks, setTasks] = useState<TaskWithDetails[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
   const [players, setPlayers] = useState<Profile[]>([]);
@@ -30,7 +28,7 @@ export default function TasksPage() {
   const [addOpen, setAddOpen] = useState(false);
   const [form, setForm] = useState({ title: "", description: "", eventId: "", assignedTo: "" });
 
-  const isCoach = user?.profile?.role === "coach";
+  const isCoach = userRole === "coach" || userRole === "owner";
 
   if (!currentTeam) {
     return <div className="flex items-center justify-center h-64"><p className="text-muted-foreground">Chargement de l'équipe...</p></div>;

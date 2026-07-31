@@ -41,7 +41,7 @@ const positions = [
 
 export default function SettingsPage() {
   const { user, signOut } = useAuth();
-  const { currentTeam } = useTeam();
+  const { currentTeam, userRole } = useTeam();
   const [saving, setSaving] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
 
@@ -157,7 +157,7 @@ export default function SettingsPage() {
                 {firstName} {lastName}
               </h3>
               <Badge variant="secondary" className="mt-1">
-                {roleLabels[user?.profile?.role || "player"]}
+                {roleLabels[userRole === "owner" ? "coach" : (userRole || "player")]}
               </Badge>
               <p className="text-sm text-muted-foreground mt-1">{user?.email}</p>
             </div>

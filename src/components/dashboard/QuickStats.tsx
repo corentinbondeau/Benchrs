@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useTeam } from "@/lib/team";
+import { countTeamActivePlayers } from "@/lib/players";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar, Users, Trophy } from "lucide-react";
 
@@ -15,18 +16,14 @@ export function QuickStats() {
     if (!currentTeam) return;
     const supabase = createClient();
     async function fetchStats() {
-      const [eventsRes, playersRes, winsRes] = await Promise.all([
+      const [eventsRes, playersCount, winsRes] = await Promise.all([
         supabase
           .from("events")
           .select("id", { count: "exact", head: true })
           .eq("team_id", currentTeam!.id)
           .eq("status", "upcoming")
           .gte("event_date", new Date().toISOString()),
-        supabase
-          .from("profiles")
-          .select("id", { count: "exact", head: true })
-          .eq("role", "player")
-          .eq("is_active", true),
+        countTeamActivePlayers(currentTeam!.id),
         supabase
           .from("events")
           .select("id", { count: "exact", head: true })
@@ -37,7 +34,7 @@ export function QuickStats() {
 
       setStats({
         upcomingEvents: eventsRes.count || 0,
-        totalPlayers: playersRes.count || 0,
+        totalPlayers: playersCount,
         recentWins: winsRes.count || 0,
       });
       setLoading(false);

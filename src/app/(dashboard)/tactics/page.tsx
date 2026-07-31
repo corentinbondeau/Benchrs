@@ -103,8 +103,8 @@ const PHASE_OBJECTIVES: Record<string, string[]> = {
 
 function SéanceTab() {
   const { user } = useAuth();
-  const { currentTeam } = useTeam();
-  const isCoach = user?.profile?.role === "coach";
+  const { currentTeam, userRole } = useTeam();
+  const isCoach = userRole === "coach" || userRole === "owner";
   const supabaseRef = useRef(createClient());
 
   const [sessions, setSessions] = useState<TrainingSession[]>([]);
@@ -765,9 +765,9 @@ function benchLabels(count: number) {
 
 function FeuilletMatchTab() {
   const { user } = useAuth();
-  const { currentTeam } = useTeam();
+  const { currentTeam, userRole } = useTeam();
   const supabase = createClient();
-  const isCoach = user?.profile?.role === "coach";
+  const isCoach = userRole === "coach" || userRole === "owner";
 
   const [events, setEvents] = useState<Event[]>([]);
   const [selectedEventId, setSelectedEventId] = useState("");

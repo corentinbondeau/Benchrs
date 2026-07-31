@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useParams, useRouter } from "next/navigation";
-import { useAuth } from "@/lib/auth";
 import { useTeam } from "@/lib/team";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -16,8 +15,11 @@ import {
   Users,
   Check,
   X,
+  Bell,
 } from "lucide-react";
 import { toast } from "sonner";
+import { ConvocationsDialog } from "@/components/ConvocationsDialog";
+import { fetchTeamActivePlayers } from "@/lib/players";
 import type { Event, Profile } from "@/types";
 
 type AttendanceStatus = "present" | "absent" | "late" | "excused" | "pending";
@@ -37,9 +39,8 @@ function resolveProfile(raw: unknown): Profile | undefined {
 export default function TrainingDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const { user } = useAuth();
-  const { currentTeam } = useTeam();
-  const isCoach = user?.profile?.role === "coach";
+  const { currentTeam, userRole } = useTeam();
+  const isCoach = userRole === "coach" || userRole === "owner";
   const trainingId = params.id as string;
 
   if (!currentTeam) {
@@ -49,12 +50,13 @@ export default function TrainingDetailPage() {
   const [event, setEvent] = useState<Event | null>(null);
   const [players, setPlayers] = useState<PlayerAttendance[]>([]);
   const [loading, setLoading] = useState(true);
+  const [convDialogOpen, setConvDialogOpen] = useState(false);
 
   useEffect(() => {
     const supabase = createClient();
 
     async function fetchData() {
-      const [eventRes, attRes, playersRes] = await Promise.all([
+      const [eventRes, attRes, allPlayers] = await Promise.all([
         supabase
           .from("events")
           .select("*")
@@ -66,18 +68,12 @@ export default function TrainingDetailPage() {
           .select("id, user_id, status")
           .eq("event_id", trainingId)
           .eq("team_id", currentTeam!.id),
-        supabase
-          .from("profiles")
-          .select("*")
-          .eq("role", "player")
-          .eq("is_active", true)
-          .order("shirt_number", { ascending: true }),
+        fetchTeamActivePlayers(currentTeam!.id),
       ]);
 
       setEvent(eventRes.data as Event | null);
 
       const atts = (attRes.data || []) as { id: string; user_id: string; status: string }[];
-      const allPlayers = (playersRes.data as Profile[]) || [];
 
       const merged: PlayerAttendance[] = allPlayers.map((p) => {
         const att = atts.find((a) => a.user_id === p.id);
@@ -183,6 +179,18 @@ export default function TrainingDetailPage() {
             </div>
             <h2 className="text-2xl font-bold">{event.title}</h2>
           </div>
+          {isCoach && (
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
+                onClick={() => setConvDialogOpen(true)}
+              >
+                <Bell className="h-3.5 w-3.5 mr-1" />
+                Convoquer
+              </Button>
+            </div>
+          )}
           <div className="flex flex-wrap items-center gap-4 mt-4 text-sm text-white/80">
             <span className="flex items-center gap-1">
               <Calendar className="h-3.5 w-3.5" />
@@ -332,6 +340,14 @@ export default function TrainingDetailPage() {
           )}
         </CardContent>
       </Card>
+
+      {event && (
+        <ConvocationsDialog
+          event={event}
+          open={convDialogOpen}
+          onOpenChange={setConvDialogOpen}
+        />
+      )}
     </div>
   );
 }

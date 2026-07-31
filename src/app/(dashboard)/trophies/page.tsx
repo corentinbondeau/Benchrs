@@ -41,8 +41,8 @@ import type { MotmVote, TrophyItem, Profile, Event } from "@/types";
 
 export default function TrophiesPage() {
   const { user } = useAuth();
-  const { currentTeam } = useTeam();
-  const isCoach = user?.profile?.role === "coach";
+  const { currentTeam, userRole } = useTeam();
+  const isCoach = userRole === "coach" || userRole === "owner";
 
   if (!currentTeam) {
     return <div className="flex items-center justify-center h-64"><p className="text-muted-foreground">Chargement de l'équipe...</p></div>;

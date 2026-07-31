@@ -15,7 +15,7 @@ import { LogOut, Settings, User } from "lucide-react";
 
 export function TopBar() {
   const { user, signOut } = useAuth();
-  const { currentTeam } = useTeam();
+  const { currentTeam, userRole } = useTeam();
   const router = useRouter();
 
   const initials = user?.profile
@@ -45,7 +45,7 @@ export function TopBar() {
               {user?.profile?.first_name} {user?.profile?.last_name}
             </p>
             <p className="text-xs text-muted-foreground capitalize">
-              {user?.profile?.role}
+              {userRole === "owner" ? "owner" : (userRole || "player")}
             </p>
           </div>
           <DropdownMenuItem onClick={() => router.push("/settings")}>
