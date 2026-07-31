@@ -266,13 +266,14 @@ export default function CalendarPage() {
       const leadDays = parseInt(form.convocation_lead_days, 10) || 3;
       const convokeIds = form.selected_player_ids;
       if (convokeIds.length > 0) {
-        const dateStr = new Date(form.event_date).toLocaleDateString("fr-FR");
         for (const evt of inserted) {
           const evtDate = new Date(evt.event_date);
+          const scheduledFor = new Date(evtDate.getTime() - leadDays * 24 * 60 * 60 * 1000);
           const evtUrl = form.type === "match"
             ? `/matches/${evt.id}`
             : `/trainings/${evt.id}`;
-          // Convocation push envoyée immédiatement
+          // Convocation programmée leadDays avant l'événement
+          // (envoyée immédiatement par la route si la date est déjà passée)
           await fetch("/api/notifications/send", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -281,21 +282,6 @@ export default function CalendarPage() {
               title: `Convocation : ${form.title}`,
               body: `Vous êtes convoqué(e) le ${new Date(evt.event_date).toLocaleDateString("fr-FR")}`,
               type: "convocation",
-              reference_id: evt.id,
-              team_id: currentTeam!.id,
-              url: evtUrl,
-            }),
-          });
-          // Rappel programmé leadDays avant l'événement
-          const scheduledFor = new Date(evtDate.getTime() - leadDays * 24 * 60 * 60 * 1000);
-          await fetch("/api/notifications/send", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              user_ids: convokeIds,
-              title: `Rappel : ${form.title}`,
-              body: `N'oubliez pas de répondre à la convocation du ${dateStr}`,
-              type: "rappel",
               reference_id: evt.id,
               team_id: currentTeam!.id,
               url: evtUrl,
