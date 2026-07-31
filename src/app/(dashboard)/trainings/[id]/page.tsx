@@ -112,7 +112,7 @@ export default function TrainingDetailPage() {
     setPlayers((prev) =>
       prev.map((p) =>
         p.profile.id === userId
-          ? { ...p, status, attendanceId: p.attendanceId || "new" }
+          ? { ...p, status, attendanceId: p.attendanceId || "new", absenceReason: reason || null }
           : p
       )
     );
@@ -120,9 +120,11 @@ export default function TrainingDetailPage() {
     toast.success(
       status === "present"
         ? "Présence enregistrée"
-        : status === "excused"
-          ? "Excuse enregistrée"
-          : "Absence enregistrée"
+        : status === "late"
+          ? "Retard enregistré"
+          : status === "excused"
+            ? "Excuse enregistrée"
+            : "Absence enregistrée"
     );
   }
 
