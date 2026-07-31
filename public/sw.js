@@ -1,6 +1,6 @@
 self.addEventListener("push", (event) => {
   const data = event.data?.json() ?? { title: "SportPlus", body: "" };
-  const options: NotificationOptions = {
+  const options = {
     body: data.body,
     icon: "/logo.svg",
     badge: "/logo.svg",
