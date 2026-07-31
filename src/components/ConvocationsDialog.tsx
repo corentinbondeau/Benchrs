@@ -179,7 +179,9 @@ export function ConvocationsDialog({ event, open, onOpenChange }: ConvocationsDi
         type: "convocation",
         reference_id: eventData.id,
         team_id: currentTeam!.id,
-        url: "/calendar",
+        url: eventData.type === "match"
+          ? `/matches/${eventData.id}`
+          : `/trainings/${eventData.id}`,
       }),
     });
     const data = await res.json().catch(() => null);

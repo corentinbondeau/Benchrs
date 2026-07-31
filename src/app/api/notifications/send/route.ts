@@ -25,6 +25,7 @@ export async function POST(req: Request) {
       type: type || "convocation",
       reference_id: reference_id || null,
       team_id: team_id || null,
+      url: url || null,
       scheduled_for: isScheduled ? scheduled_for : null,
       delivered_at: isScheduled ? null : now,
     }));

@@ -16,7 +16,7 @@ export async function GET(req: Request) {
 
   const { data: pending } = await supabase
     .from("notifications")
-    .select("id, user_id, title, body, type, reference_id, team_id")
+    .select("id, user_id, title, body, type, reference_id, team_id, url")
     .lte("scheduled_for", now)
     .is("delivered_at", null)
     .limit(500);
@@ -66,9 +66,9 @@ export async function GET(req: Request) {
           JSON.stringify({
             title: notif.title,
             body: notif.body,
-            url: notif.type === "convocation" && notif.reference_id
+            url: notif.url || (notif.type === "convocation" && notif.reference_id
               ? "/calendar"
-              : "/",
+              : "/"),
           })
         );
         sent++;

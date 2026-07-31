@@ -272,6 +272,9 @@ export default function CalendarPage() {
         const dateStr = new Date(form.event_date).toLocaleDateString("fr-FR");
         for (const evt of inserted) {
           const evtDate = new Date(evt.event_date);
+          const evtUrl = form.type === "match"
+            ? `/matches/${evt.id}`
+            : `/trainings/${evt.id}`;
           // Convocation push envoyée immédiatement
           await fetch("/api/notifications/send", {
             method: "POST",
@@ -283,7 +286,7 @@ export default function CalendarPage() {
               type: "convocation",
               reference_id: evt.id,
               team_id: currentTeam!.id,
-              url: "/calendar",
+              url: evtUrl,
             }),
           });
           // Rappel programmé leadDays avant l'événement
@@ -298,7 +301,7 @@ export default function CalendarPage() {
               type: "rappel",
               reference_id: evt.id,
               team_id: currentTeam!.id,
-              url: "/calendar",
+              url: evtUrl,
               scheduled_for: scheduledFor.toISOString(),
             }),
           });

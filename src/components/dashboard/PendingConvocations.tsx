@@ -142,7 +142,9 @@ export function PendingConvocations() {
         type: "rappel",
         reference_id: item.event.id,
         team_id: currentTeam!.id,
-        url: "/calendar",
+        url: item.event.type === "match"
+          ? `/matches/${item.event.id}`
+          : `/trainings/${item.event.id}`,
       }),
     });
 
