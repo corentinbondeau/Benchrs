@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { toast } from "sonner";
+import { NOTIFICATION_TYPES } from "@/lib/notificationTypes";
 import type { Profile } from "@/types";
 
 const roleLabels = { coach: "Coach", player: "Joueur", parent: "Parent" };
@@ -52,6 +53,8 @@ export default function SettingsPage() {
   const [shirtNumber, setShirtNumber] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [emailNotifications, setEmailNotifications] = useState(true);
+  const [pushPrefs, setPushPrefs] = useState<Record<string, boolean>>({});
+  const [prefsLoading, setPrefsLoading] = useState(true);
 
   const [newPassword, setNewPassword] = useState("");
 
@@ -67,6 +70,25 @@ export default function SettingsPage() {
       setEmailNotifications(p.email_notifications ?? true);
     }
   }, [user]);
+
+  useEffect(() => {
+    if (!user?.id || !currentTeam?.id) return;
+    const supabase = createClient();
+    supabase
+      .from("notification_preferences")
+      .select("type, push_enabled")
+      .eq("user_id", user.id)
+      .eq("team_id", currentTeam.id)
+      .then(({ data }) => {
+        const map: Record<string, boolean> = {};
+        for (const t of NOTIFICATION_TYPES) map[t.type] = true;
+        for (const row of (data || []) as { type: string; push_enabled: boolean }[]) {
+          map[row.type] = row.push_enabled;
+        }
+        setPushPrefs(map);
+        setPrefsLoading(false);
+      });
+  }, [user?.id, currentTeam?.id]);
 
   if (!currentTeam) {
     return <div className="flex items-center justify-center h-64"><p className="text-muted-foreground">Chargement de l'équipe...</p></div>;
@@ -109,6 +131,21 @@ export default function SettingsPage() {
     } finally {
       setSaving(false);
     }
+  }
+
+  async function togglePushType(type: string, enabled: boolean) {
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("notification_preferences")
+      .upsert(
+        { user_id: user!.id, team_id: currentTeam!.id, type, push_enabled: enabled },
+        { onConflict: "user_id,team_id,type" }
+      );
+    if (error) {
+      toast.error("Erreur lors de l'enregistrement");
+      return;
+    }
+    setPushPrefs((prev) => ({ ...prev, [type]: enabled }));
   }
 
   async function handleChangePassword() {
@@ -264,6 +301,33 @@ export default function SettingsPage() {
               checked={emailNotifications}
               onCheckedChange={setEmailNotifications}
             />
+          </div>
+
+          <Separator className="my-4" />
+
+          <div className="space-y-3">
+            <div>
+              <p className="text-sm font-medium">Notifications push par motif</p>
+              <p className="text-xs text-muted-foreground">
+                Choisissez les motifs pour lesquels vous recevez des notifications push
+              </p>
+            </div>
+            {prefsLoading ? (
+              <div className="h-16 animate-pulse rounded-md bg-muted" />
+            ) : (
+              NOTIFICATION_TYPES.map((t) => (
+                <div key={t.type} className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm">{t.label}</p>
+                    <p className="text-xs text-muted-foreground">{t.description}</p>
+                  </div>
+                  <Switch
+                    checked={!!pushPrefs[t.type]}
+                    onCheckedChange={(v) => togglePushType(t.type, v)}
+                  />
+                </div>
+              ))
+            )}
           </div>
         </CardContent>
       </Card>

@@ -7,20 +7,12 @@ import { useTeam } from "@/lib/team";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -66,6 +58,7 @@ export function ConvocationsDialog({ event, open, onOpenChange }: ConvocationsDi
   const [players, setPlayers] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const [addPlayerOpen, setAddPlayerOpen] = useState(false);
+  const [selectedNewPlayerIds, setSelectedNewPlayerIds] = useState<string[]>([]);
 
   const fetchData = useCallback(async () => {
     if (!currentTeam || !event) return;
@@ -97,20 +90,24 @@ export function ConvocationsDialog({ event, open, onOpenChange }: ConvocationsDi
     if (open) fetchData();
   }, [open, fetchData]);
 
-  async function addConvocation(playerId: string) {
+  async function convocateSelected() {
     const supabase = createClient();
-    const { error } = await supabase.from("attendances").insert({
+    const ids = selectedNewPlayerIds;
+    if (ids.length === 0) return;
+    const rows = ids.map((pid) => ({
       event_id: event.id,
-      user_id: playerId,
+      user_id: pid,
       status: "pending",
       team_id: currentTeam!.id,
-    });
+    }));
+    const { error } = await supabase.from("attendances").insert(rows);
     if (error) {
-      toast.error("Erreur lors de l'ajout");
+      toast.error("Erreur lors de la convocation");
       return;
     }
-    toast.success("Joueur convoqué");
+    toast.success(`${ids.length} joueur(s) convoqué(s)`);
     setAddPlayerOpen(false);
+    setSelectedNewPlayerIds([]);
     fetchData();
   }
 
@@ -196,6 +193,9 @@ export function ConvocationsDialog({ event, open, onOpenChange }: ConvocationsDi
   if (!currentTeam) return null;
 
   const myAttendance = eventData?.attendances?.find((a) => a.user_id === user?.id);
+  const nonConvokedPlayers = players.filter(
+    (p) => !eventData?.attendances.some((a) => a.user_id === p.id)
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -232,22 +232,67 @@ export function ConvocationsDialog({ event, open, onOpenChange }: ConvocationsDi
             </div>
 
             {addPlayerOpen && (
-              <div className="space-y-2">
-                <Label>Ajouter un joueur</Label>
-                <Select onValueChange={(v: string | null) => { if (v) addConvocation(v); }}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Choisir un joueur" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {players
-                      .filter((p) => !eventData?.attendances.some((a) => a.user_id === p.id))
-                      .map((p) => (
-                        <SelectItem key={p.id} value={p.id}>
+              <div className="space-y-2 rounded-md border p-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium">Convoquer des joueurs</p>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-2 text-xs"
+                      onClick={() => setSelectedNewPlayerIds(nonConvokedPlayers.map((p) => p.id))}
+                    >
+                      Tout
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-2 text-xs"
+                      onClick={() => setSelectedNewPlayerIds([])}
+                    >
+                      Aucun
+                    </Button>
+                  </div>
+                </div>
+                {nonConvokedPlayers.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-2">
+                    Tous les joueurs sont déjà convoqués
+                  </p>
+                ) : (
+                  <div className="max-h-48 overflow-y-auto space-y-1">
+                    {nonConvokedPlayers.map((p) => (
+                      <label key={p.id} className="flex items-center gap-2 cursor-pointer py-0.5">
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 rounded border-gray-300"
+                          checked={selectedNewPlayerIds.includes(p.id)}
+                          onChange={() =>
+                            setSelectedNewPlayerIds((prev) =>
+                              prev.includes(p.id)
+                                ? prev.filter((id) => id !== p.id)
+                                : [...prev, p.id]
+                            )
+                          }
+                        />
+                        <span className="text-sm">
                           {p.first_name} {p.last_name}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
+                          {p.shirt_number ? ` (#${p.shirt_number})` : ""}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+                <Button
+                  type="button"
+                  size="sm"
+                  className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
+                  onClick={convocateSelected}
+                  disabled={selectedNewPlayerIds.length === 0}
+                >
+                  Convoquer ({selectedNewPlayerIds.length})
+                </Button>
               </div>
             )}
 
