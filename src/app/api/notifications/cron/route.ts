@@ -49,6 +49,37 @@ export async function GET(req: Request) {
     subsByUser.set(s.user_id, arr);
   }
 
+  // Resolve target URL for notifications without a stored one (older rows):
+  // fetch the event type so the click opens the séance/match page.
+  const refIds = [
+    ...new Set(
+      pending
+        .filter((n) => !n.url && n.reference_id)
+        .map((n) => n.reference_id as string)
+    ),
+  ];
+  const eventTypeMap = new Map<string, string>();
+  if (refIds.length > 0) {
+    const { data: events } = await supabase
+      .from("events")
+      .select("id, type")
+      .in("id", refIds);
+    for (const evt of (events || []) as { id: string; type: string }[]) {
+      eventTypeMap.set(evt.id, evt.type);
+    }
+  }
+
+  function resolveUrl(notif: { url?: string | null; type?: string | null; reference_id?: string | null }): string {
+    if (notif.url) return notif.url;
+    if (notif.reference_id) {
+      const type = eventTypeMap.get(notif.reference_id);
+      if (type === "match") return `/matches/${notif.reference_id}`;
+      if (type === "training") return `/trainings/${notif.reference_id}`;
+      if (notif.type === "convocation") return "/calendar";
+    }
+    return "/";
+  }
+
   let sent = 0;
   const deliveredIds: string[] = [];
   for (const notif of pending) {
@@ -59,17 +90,12 @@ export async function GET(req: Request) {
     if (subs.length === 0) {
       continue;
     }
+    const url = resolveUrl(notif);
     for (const sub of subs) {
       try {
         await webpush.sendNotification(
           { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-          JSON.stringify({
-            title: notif.title,
-            body: notif.body,
-            url: notif.url || (notif.type === "convocation" && notif.reference_id
-              ? "/calendar"
-              : "/"),
-          })
+          JSON.stringify({ title: notif.title, body: notif.body, url })
         );
         sent++;
       } catch (err) {
