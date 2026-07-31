@@ -239,6 +239,7 @@ export default function CalendarPage() {
       created_by: user?.id,
       team_id: currentTeam!.id,
       convocation_lead_days: parseInt(form.convocation_lead_days, 10) || 3,
+      recurrence_group_id: dates.length > 1 ? crypto.randomUUID() : null,
     }));
 
     const { data: inserted, error } = await supabase.from("events").insert(rows).select("id, event_date");
