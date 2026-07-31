@@ -3,57 +3,44 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useParams, useRouter } from "next/navigation";
+import { useAuth } from "@/lib/auth";
 import { useTeam } from "@/lib/team";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  ArrowLeft,
-  Calendar,
-  Clock,
-  MapPin,
-  Users,
-  Check,
-  X,
-  Bell,
-} from "lucide-react";
+import { ArrowLeft, Bell } from "lucide-react";
 import { toast } from "sonner";
 import { ConvocationsDialog } from "@/components/ConvocationsDialog";
+import {
+  AttendanceLists,
+  EventInfoCard,
+  getParentChildId,
+  type MyPresenceInfo,
+  type PlayerAttendanceRow,
+} from "@/components/EventDetail";
 import { fetchTeamActivePlayers } from "@/lib/players";
-import type { Event, Profile } from "@/types";
+import type { AttendanceStatus, Event } from "@/types";
 
-type AttendanceStatus = "present" | "absent" | "late" | "excused" | "pending";
-
-interface PlayerAttendance {
-  profile: Profile;
-  status: AttendanceStatus | null;
-  attendanceId: string | null;
-}
-
-function resolveProfile(raw: unknown): Profile | undefined {
-  if (!raw) return undefined;
-  if (Array.isArray(raw)) return (raw[0] as Profile) || undefined;
-  return raw as Profile;
-}
+type TrainingEvent = Event & { meeting_time: string | null };
 
 export default function TrainingDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const { user } = useAuth();
   const { currentTeam, userRole } = useTeam();
   const isCoach = userRole === "coach" || userRole === "owner";
   const trainingId = params.id as string;
 
-  if (!currentTeam) {
-    return <div className="flex items-center justify-center h-64"><p className="text-muted-foreground">Chargement de l&apos;équipe...</p></div>;
-  }
-
-  const [event, setEvent] = useState<Event | null>(null);
-  const [players, setPlayers] = useState<PlayerAttendance[]>([]);
+  const [event, setEvent] = useState<TrainingEvent | null>(null);
+  const [players, setPlayers] = useState<PlayerAttendanceRow[]>([]);
+  const [childId, setChildId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [convDialogOpen, setConvDialogOpen] = useState(false);
 
   useEffect(() => {
+    if (!currentTeam) return;
     const supabase = createClient();
+    const team = currentTeam;
 
     async function fetchData() {
       const [eventRes, attRes, allPlayers] = await Promise.all([
@@ -61,21 +48,21 @@ export default function TrainingDetailPage() {
           .from("events")
           .select("*")
           .eq("id", trainingId)
-          .eq("team_id", currentTeam!.id)
+          .eq("team_id", team.id)
           .single(),
         supabase
           .from("attendances")
           .select("id, user_id, status")
           .eq("event_id", trainingId)
-          .eq("team_id", currentTeam!.id),
-        fetchTeamActivePlayers(currentTeam!.id),
+          .eq("team_id", team.id),
+        fetchTeamActivePlayers(team.id),
       ]);
 
-      setEvent(eventRes.data as Event | null);
+      setEvent(eventRes.data as TrainingEvent | null);
 
       const atts = (attRes.data || []) as { id: string; user_id: string; status: string }[];
 
-      const merged: PlayerAttendance[] = allPlayers.map((p) => {
+      const merged: PlayerAttendanceRow[] = allPlayers.map((p) => {
         const att = atts.find((a) => a.user_id === p.id);
         return {
           profile: p,
@@ -89,7 +76,13 @@ export default function TrainingDetailPage() {
     }
 
     fetchData();
-  }, [trainingId]);
+
+    if (!isCoach && user?.id) {
+      if (userRole === "parent") {
+        getParentChildId(user.id, team.id).then(setChildId);
+      }
+    }
+  }, [trainingId, currentTeam, isCoach, user?.id, userRole]);
 
   async function updateAttendance(userId: string, status: AttendanceStatus) {
     const supabase = createClient();
@@ -127,6 +120,14 @@ export default function TrainingDetailPage() {
     );
   }
 
+  if (!currentTeam) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-muted-foreground">Chargement de l&apos;équipe...</p>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -151,10 +152,29 @@ export default function TrainingDetailPage() {
   }
 
   const eventDate = new Date(event.event_date);
-  const present = players.filter((p) => p.status === "present" || p.status === "late");
-  const absent = players.filter((p) => p.status === "absent");
-  const waiting = players.filter((p) => p.status === null || p.status === "pending");
-  const total = players.length;
+
+  let myPresence: MyPresenceInfo | undefined;
+  if (!isCoach && user?.id) {
+    if (userRole === "player") {
+      const me = players.find((p) => p.profile.id === user.id);
+      if (me) {
+        myPresence = {
+          label: "Ma présence",
+          playerId: me.profile.id,
+          status: me.status,
+        };
+      }
+    } else if (userRole === "parent" && childId) {
+      const child = players.find((p) => p.profile.id === childId);
+      if (child) {
+        myPresence = {
+          label: `Présence de ${child.profile.first_name}`,
+          playerId: child.profile.id,
+          status: child.status,
+        };
+      }
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -191,163 +211,30 @@ export default function TrainingDetailPage() {
               </Button>
             </div>
           )}
-          <div className="flex flex-wrap items-center gap-4 mt-4 text-sm text-white/80">
-            <span className="flex items-center gap-1">
-              <Calendar className="h-3.5 w-3.5" />
-              {eventDate.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
-            </span>
-            <span className="flex items-center gap-1">
-              <Clock className="h-3.5 w-3.5" />
-              {eventDate.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
-            </span>
-            {event.location && (
-              <span className="flex items-center gap-1">
-                <MapPin className="h-3.5 w-3.5" />
-                {event.location}
-              </span>
-            )}
-          </div>
         </CardContent>
       </Card>
 
-      {/* Attendance */}
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Users className="h-4 w-4 text-[var(--color-gold)]" />
-              Présences
-              {total > 0 && (
-                <span className="text-sm font-normal text-muted-foreground">
-                  — {present.length}/{total}
-                </span>
-              )}
-            </CardTitle>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {total === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-4">
-              Aucun joueur actif
-            </p>
-          ) : (
-            <div className="space-y-4">
-              {/* Présents */}
-              {present.length > 0 && (
-                <div>
-                  <p className="text-xs font-medium text-green-600 mb-2">
-                    Présents ({present.length})
-                  </p>
-                  <div className="space-y-1">
-                    {present.map((p) => (
-                      <div
-                        key={p.profile.id}
-                        className="flex items-center gap-2 rounded-lg bg-green-50 px-3 py-2"
-                      >
-                        <span className="flex-1 text-sm text-green-900">
-                          {p.profile.first_name} {p.profile.last_name}
-                        </span>
-                        {isCoach && (
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-7 w-7 text-red-500 hover:text-red-700 hover:bg-red-50"
-                            onClick={() => updateAttendance(p.profile.id, "absent")}
-                          >
-                            <X className="h-3.5 w-3.5" />
-                          </Button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+      {/* Partie 1 — Informations globales */}
+      <EventInfoCard
+        date={eventDate}
+        meetingTime={event.meeting_time}
+        location={event.location}
+        myPresence={myPresence}
+        onRespond={myPresence ? (status) => updateAttendance(myPresence.playerId, status) : undefined}
+      />
 
-              {/* Absents */}
-              {absent.length > 0 && (
-                <div>
-                  <p className="text-xs font-medium text-red-600 mb-2">
-                    Absents ({absent.length})
-                  </p>
-                  <div className="space-y-1">
-                    {absent.map((p) => (
-                      <div
-                        key={p.profile.id}
-                        className="flex items-center gap-2 rounded-lg bg-red-50 px-3 py-2"
-                      >
-                        <span className="flex-1 text-sm text-red-900">
-                          {p.profile.first_name} {p.profile.last_name}
-                        </span>
-                        {isCoach && (
-                          <div className="flex gap-1">
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="h-7 w-7 text-green-500 hover:text-green-700 hover:bg-green-50"
-                              onClick={() => updateAttendance(p.profile.id, "present")}
-                            >
-                              <Check className="h-3.5 w-3.5" />
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+      {/* Partie 2 — Liste des présents et absents */}
+      <AttendanceLists
+        players={players}
+        isCoach={isCoach}
+        onUpdate={updateAttendance}
+      />
 
-              {/* En Attente */}
-              {waiting.length > 0 && (
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground mb-2">
-                    En attente ({waiting.length})
-                  </p>
-                  <div className="space-y-1">
-                    {waiting.map((p) => (
-                      <div
-                        key={p.profile.id}
-                        className="flex items-center gap-2 rounded-lg bg-muted/50 px-3 py-2"
-                      >
-                        <span className="flex-1 text-sm text-muted-foreground">
-                          {p.profile.first_name} {p.profile.last_name}
-                        </span>
-                        {isCoach && (
-                          <div className="flex gap-1">
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="h-7 w-7 text-green-500 hover:text-green-700 hover:bg-green-50"
-                              onClick={() => updateAttendance(p.profile.id, "present")}
-                            >
-                              <Check className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="h-7 w-7 text-red-500 hover:text-red-700 hover:bg-red-50"
-                              onClick={() => updateAttendance(p.profile.id, "absent")}
-                            >
-                              <X className="h-3.5 w-3.5" />
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {event && (
-        <ConvocationsDialog
-          event={event}
-          open={convDialogOpen}
-          onOpenChange={setConvDialogOpen}
-        />
-      )}
+      <ConvocationsDialog
+        event={event}
+        open={convDialogOpen}
+        onOpenChange={setConvDialogOpen}
+      />
     </div>
   );
 }
