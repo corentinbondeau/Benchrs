@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useParams, useRouter } from "next/navigation";
+import { useAuth } from "@/lib/auth";
 import { useTeam } from "@/lib/team";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -12,9 +13,6 @@ import { Label } from "@/components/ui/label";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import {
   ArrowLeft,
-  Calendar,
-  Clock,
-  MapPin,
   Swords,
   Target,
   AlertTriangle,
@@ -23,14 +21,26 @@ import {
   Shield,
   Pencil,
   Check,
-  X,
-  Users,
   Bell,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ConvocationsDialog } from "@/components/ConvocationsDialog";
+import {
+  AttendanceLists,
+  EventInfoCard,
+  getParentChildId,
+  type MyPresenceInfo,
+  type PlayerAttendanceRow,
+} from "@/components/EventDetail";
 import { fetchTeamActivePlayers } from "@/lib/players";
-import type { Event, MatchStat, Formation, MatchLineup, Profile } from "@/types";
+import type {
+  AttendanceStatus,
+  Event,
+  MatchStat,
+  Formation,
+  MatchLineup,
+  Profile,
+} from "@/types";
 
 type MatchEvent = Event & { meeting_time: string | null };
 
@@ -53,14 +63,6 @@ interface StatsFormEntry {
   yellow_cards: number;
   red_cards: number;
   minutes_played: number;
-}
-
-type AttendanceStatus = "present" | "absent" | "late" | "excused" | "pending";
-
-interface PlayerAttendance {
-  profile: Profile;
-  status: AttendanceStatus | null;
-  attendanceId: string | null;
 }
 
 const FORMATION_POSITIONS: Record<string, { x: number; y: number; label: string }[]> = {
@@ -109,13 +111,10 @@ function getResultLabel(result: string | null) {
 export default function MatchDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const { user } = useAuth();
   const { currentTeam, userRole } = useTeam();
   const isCoach = userRole === "coach" || userRole === "owner";
   const matchId = params.id as string;
-
-  if (!currentTeam) {
-    return <div className="flex items-center justify-center h-64"><p className="text-muted-foreground">Chargement de l&apos;équipe...</p></div>;
-  }
 
   const [match, setMatch] = useState<MatchEvent | null>(null);
   const [playerStats, setPlayerStats] = useState<PlayerStat[]>([]);
@@ -130,11 +129,14 @@ export default function MatchDetailPage() {
   const [scoreUs, setScoreUs] = useState<string>("");
   const [scoreThem, setScoreThem] = useState<string>("");
   const [matchResult, setMatchResult] = useState<string>("");
-  const [matchPlayers, setMatchPlayers] = useState<PlayerAttendance[]>([]);
+  const [matchPlayers, setMatchPlayers] = useState<PlayerAttendanceRow[]>([]);
+  const [childId, setChildId] = useState<string | null>(null);
   const [convDialogOpen, setConvDialogOpen] = useState(false);
 
   useEffect(() => {
+    if (!currentTeam) return;
     const supabase = createClient();
+    const team = currentTeam;
 
     async function fetchMatchData() {
       const [matchRes, statsRes, formRes, lineupsRes, playersRes, attRes] = await Promise.all([
@@ -142,18 +144,18 @@ export default function MatchDetailPage() {
           .from("events")
           .select("*")
           .eq("id", matchId)
-          .eq("team_id", currentTeam!.id)
+          .eq("team_id", team.id)
           .single(),
         supabase
           .from("match_stats")
           .select("*, profile:profiles!match_stats_player_id_fkey(id, first_name, last_name, shirt_number, position)")
           .eq("event_id", matchId)
-          .eq("team_id", currentTeam!.id),
+          .eq("team_id", team.id),
         supabase
           .from("formations")
           .select("*")
           .eq("event_id", matchId)
-          .eq("team_id", currentTeam!.id)
+          .eq("team_id", team.id)
           .order("created_at", { ascending: false })
           .limit(1)
           .maybeSingle(),
@@ -161,13 +163,13 @@ export default function MatchDetailPage() {
           .from("match_lineups")
           .select("*, profile:profiles!match_lineups_player_id_fkey(id, first_name, last_name, shirt_number, position)")
           .eq("event_id", matchId)
-          .eq("team_id", currentTeam!.id),
-        fetchTeamActivePlayers(currentTeam!.id),
+          .eq("team_id", team.id),
+        fetchTeamActivePlayers(team.id),
         supabase
           .from("attendances")
           .select("id, user_id, status")
           .eq("event_id", matchId)
-          .eq("team_id", currentTeam!.id),
+          .eq("team_id", team.id),
       ]);
 
       setMatch(matchRes.data as MatchEvent | null);
@@ -178,7 +180,7 @@ export default function MatchDetailPage() {
 
       const atts = (attRes.data || []) as { id: string; user_id: string; status: string }[];
       const allP = playersRes;
-      const merged: PlayerAttendance[] = allP.map((p) => {
+      const merged: PlayerAttendanceRow[] = allP.map((p) => {
         const att = atts.find((a) => a.user_id === p.id);
         return {
           profile: p,
@@ -192,7 +194,21 @@ export default function MatchDetailPage() {
     }
 
     fetchMatchData();
-  }, [matchId]);
+
+    if (!isCoach && user?.id) {
+      if (userRole === "parent") {
+        getParentChildId(user.id, team.id).then(setChildId);
+      }
+    }
+  }, [matchId, currentTeam, isCoach, user?.id, userRole]);
+
+  if (!currentTeam) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-muted-foreground">Chargement de l&apos;équipe...</p>
+      </div>
+    );
+  }
 
   function initStatsForm() {
     const form: Record<string, StatsFormEntry> = {};
@@ -389,6 +405,29 @@ export default function MatchDetailPage() {
 
   formEntries.sort((a, b) => (a.profile?.shirt_number ?? 999) - (b.profile?.shirt_number ?? 999));
 
+  let myPresence: MyPresenceInfo | undefined;
+  if (!isCoach && user?.id) {
+    if (userRole === "player") {
+      const me = matchPlayers.find((p) => p.profile.id === user.id);
+      if (me) {
+        myPresence = {
+          label: "Ma présence",
+          playerId: me.profile.id,
+          status: me.status,
+        };
+      }
+    } else if (userRole === "parent" && childId) {
+      const child = matchPlayers.find((p) => p.profile.id === childId);
+      if (child) {
+        myPresence = {
+          label: `Présence de ${child.profile.first_name}`,
+          playerId: child.profile.id,
+          status: child.status,
+        };
+      }
+    }
+  }
+
   return (
     <div className="space-y-6">
       <Button variant="ghost" size="sm" onClick={() => router.back()}>
@@ -405,9 +444,6 @@ export default function MatchDetailPage() {
                 <Badge className={getResultColor(match.match_result)}>
                   {getResultLabel(match.match_result)}
                 </Badge>
-                <span className="text-white/60 text-sm">
-                  {matchDate.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
-                </span>
               </div>
               <h2 className="text-2xl font-bold">{match.title}</h2>
               {match.opponent && (
@@ -436,20 +472,17 @@ export default function MatchDetailPage() {
               </div>
             )}
           </div>
-          <div className="flex items-center gap-4 mt-4 text-sm text-white/70">
-            <span className="flex items-center gap-1">
-              <Clock className="h-3.5 w-3.5" />
-              {matchDate.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
-            </span>
-            {match.location && (
-              <span className="flex items-center gap-1">
-                <MapPin className="h-3.5 w-3.5" />
-                {match.location}
-              </span>
-            )}
-          </div>
         </CardContent>
       </Card>
+
+      {/* Partie 1 — Informations globales */}
+      <EventInfoCard
+        date={matchDate}
+        meetingTime={match.meeting_time}
+        location={match.location}
+        myPresence={myPresence}
+        onRespond={myPresence ? (status) => updateMatchAttendance(myPresence.playerId, status) : undefined}
+      />
 
       {/* Score Section */}
       <Card>
@@ -799,140 +832,12 @@ export default function MatchDetailPage() {
         </div>
       )}
 
-      {/* Attendance */}
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Users className="h-4 w-4 text-[var(--color-gold)]" />
-              Présences
-              {matchPlayers.length > 0 && (
-                <span className="text-sm font-normal text-muted-foreground">
-                  — {matchPlayers.filter((p) => p.status === "present" || p.status === "late").length}/{matchPlayers.length}
-                </span>
-              )}
-            </CardTitle>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {matchPlayers.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-4">
-              Aucun joueur actif
-            </p>
-          ) : (
-            <div className="space-y-4">
-              {/* Présents */}
-              {matchPlayers.filter((p) => p.status === "present" || p.status === "late").length > 0 && (
-                <div>
-                  <p className="text-xs font-medium text-green-600 mb-2">
-                    Présents ({matchPlayers.filter((p) => p.status === "present" || p.status === "late").length})
-                  </p>
-                  <div className="space-y-1">
-                    {matchPlayers
-                      .filter((p) => p.status === "present" || p.status === "late")
-                      .map((p) => (
-                        <div
-                          key={p.profile.id}
-                          className="flex items-center gap-2 rounded-lg bg-green-50 px-3 py-2"
-                        >
-                          <span className="flex-1 text-sm text-green-900">
-                            {p.profile.first_name} {p.profile.last_name}
-                          </span>
-                          {isCoach && (
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="h-7 w-7 text-red-500 hover:text-red-700 hover:bg-red-50"
-                              onClick={() => updateMatchAttendance(p.profile.id, "absent")}
-                            >
-                              <X className="h-3.5 w-3.5" />
-                            </Button>
-                          )}
-                        </div>
-                      ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Absents */}
-              {matchPlayers.filter((p) => p.status === "absent").length > 0 && (
-                <div>
-                  <p className="text-xs font-medium text-red-600 mb-2">
-                    Absents ({matchPlayers.filter((p) => p.status === "absent").length})
-                  </p>
-                  <div className="space-y-1">
-                    {matchPlayers
-                      .filter((p) => p.status === "absent")
-                      .map((p) => (
-                        <div
-                          key={p.profile.id}
-                          className="flex items-center gap-2 rounded-lg bg-red-50 px-3 py-2"
-                        >
-                          <span className="flex-1 text-sm text-red-900">
-                            {p.profile.first_name} {p.profile.last_name}
-                          </span>
-                          {isCoach && (
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="h-7 w-7 text-green-500 hover:text-green-700 hover:bg-green-50"
-                              onClick={() => updateMatchAttendance(p.profile.id, "present")}
-                            >
-                              <Check className="h-3.5 w-3.5" />
-                            </Button>
-                          )}
-                        </div>
-                      ))}
-                  </div>
-                </div>
-              )}
-
-              {/* En Attente */}
-              {matchPlayers.filter((p) => p.status === null || p.status === "pending").length > 0 && (
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground mb-2">
-                    En attente ({matchPlayers.filter((p) => p.status === null || p.status === "pending").length})
-                  </p>
-                  <div className="space-y-1">
-                    {matchPlayers
-                      .filter((p) => p.status === null || p.status === "pending")
-                      .map((p) => (
-                        <div
-                          key={p.profile.id}
-                          className="flex items-center gap-2 rounded-lg bg-muted/50 px-3 py-2"
-                        >
-                          <span className="flex-1 text-sm text-muted-foreground">
-                            {p.profile.first_name} {p.profile.last_name}
-                          </span>
-                          {isCoach && (
-                            <div className="flex gap-1">
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="h-7 w-7 text-green-500 hover:text-green-700 hover:bg-green-50"
-                                onClick={() => updateMatchAttendance(p.profile.id, "present")}
-                              >
-                                <Check className="h-3.5 w-3.5" />
-                              </Button>
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="h-7 w-7 text-red-500 hover:text-red-700 hover:bg-red-50"
-                                onClick={() => updateMatchAttendance(p.profile.id, "absent")}
-                              >
-                                <X className="h-3.5 w-3.5" />
-                              </Button>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {/* Partie 2 — Liste des présents et absents */}
+      <AttendanceLists
+        players={matchPlayers}
+        isCoach={isCoach}
+        onUpdate={updateMatchAttendance}
+      />
 
       {match && (
         <ConvocationsDialog
