@@ -90,6 +90,31 @@ export function ConvocationsDialog({ event, open, onOpenChange }: ConvocationsDi
     if (open) fetchData();
   }, [open, fetchData]);
 
+  async function notifyConvocation(userIds: string[]) {
+    if (userIds.length === 0) return;
+    const res = await fetch("/api/notifications/send", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        user_ids: userIds,
+        title: `Convocation: ${event.title}`,
+        body: `Vous êtes convoqué(e) le ${new Date(event.event_date).toLocaleDateString("fr-FR")}`,
+        type: "convocation",
+        reference_id: event.id,
+        team_id: currentTeam!.id,
+        url: event.type === "match"
+          ? `/matches/${event.id}`
+          : `/trainings/${event.id}`,
+      }),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) {
+      toast.error(data?.error || "Erreur lors de l'envoi");
+      return;
+    }
+    toast.success(`${userIds.length} notification(s) envoyée(s)`);
+  }
+
   async function convocateSelected() {
     const supabase = createClient();
     const ids = selectedNewPlayerIds;
@@ -109,6 +134,7 @@ export function ConvocationsDialog({ event, open, onOpenChange }: ConvocationsDi
     setAddPlayerOpen(false);
     setSelectedNewPlayerIds([]);
     fetchData();
+    notifyConvocation(ids);
   }
 
   async function convocateAll() {
@@ -129,6 +155,7 @@ export function ConvocationsDialog({ event, open, onOpenChange }: ConvocationsDi
     }
     toast.success(`${toInsert.length} joueur(s) convoqué(s)`);
     fetchData();
+    notifyConvocation(toInsert.map((r) => r.user_id));
   }
 
   async function updateAttendanceStatus(attendanceId: string, status: string) {
@@ -169,27 +196,7 @@ export function ConvocationsDialog({ event, open, onOpenChange }: ConvocationsDi
       toast.info("Aucune convocation en attente à envoyer");
       return;
     }
-    const res = await fetch("/api/notifications/send", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        user_ids: pendingAtts.map((a) => a.user_id),
-        title: `Convocation: ${eventData.title}`,
-        body: `Vous êtes convoqué(e) le ${new Date(eventData.event_date).toLocaleDateString("fr-FR")}`,
-        type: "convocation",
-        reference_id: eventData.id,
-        team_id: currentTeam!.id,
-        url: eventData.type === "match"
-          ? `/matches/${eventData.id}`
-          : `/trainings/${eventData.id}`,
-      }),
-    });
-    const data = await res.json().catch(() => null);
-    if (!res.ok) {
-      toast.error(data?.error || "Erreur lors de l'envoi");
-      return;
-    }
-    toast.success(`${pendingAtts.length} notification(s) envoyée(s)`);
+    notifyConvocation(pendingAtts.map((a) => a.user_id));
   }
 
   if (!currentTeam) return null;
