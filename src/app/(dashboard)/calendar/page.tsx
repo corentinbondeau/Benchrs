@@ -65,13 +65,8 @@ function computeRecurrenceDates(eventDate: Date, recurrence: Recurrence, endDate
   return dates;
 }
 
-function toLocalISOString(date: Date): string {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  const h = String(date.getHours()).padStart(2, "0");
-  const min = String(date.getMinutes()).padStart(2, "0");
-  return `${y}-${m}-${d}T${h}:${min}:00`;
+function toUTCISOString(date: Date): string {
+  return date.toISOString();
 }
 
 function toLocalDateStr(date: Date): string {
@@ -236,7 +231,7 @@ export default function CalendarPage() {
     const rows = dates.map((d) => ({
       title: form.title,
       type: form.type,
-      event_date: toLocalISOString(d),
+      event_date: toUTCISOString(d),
       meeting_time: form.meeting_time || null,
       location: form.location || null,
       opponent: form.type === "match" ? form.opponent || null : null,
