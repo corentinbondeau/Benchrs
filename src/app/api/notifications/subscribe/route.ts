@@ -10,16 +10,31 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "user_id and subscription required" }, { status: 400 });
   }
 
-  const { error } = await supabase.from("push_subscriptions").upsert({
+  const row = {
     user_id,
     team_id: team_id || null,
     endpoint: subscription.endpoint,
     p256dh: subscription.keys.p256dh,
     auth: subscription.keys.auth,
-  }, { onConflict: "user_id, endpoint" });
+  };
+
+  const { error } = await supabase.from("push_subscriptions").upsert(row, {
+    onConflict: "user_id, endpoint",
+  });
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    // Constraint may not exist yet in the DB (migration pending):
+    // replace any existing endpoint then insert.
+    await supabase
+      .from("push_subscriptions")
+      .delete()
+      .eq("endpoint", subscription.endpoint);
+    const { error: insertError } = await supabase
+      .from("push_subscriptions")
+      .insert(row);
+    if (insertError) {
+      return NextResponse.json({ error: insertError.message }, { status: 500 });
+    }
   }
 
   return NextResponse.json({ success: true });

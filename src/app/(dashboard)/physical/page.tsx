@@ -373,7 +373,7 @@ export default function PhysicalPreparationPage() {
                             </div>
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
-                            <a href={doc.file_url} target="_blank" rel="noopener noreferrer" download onClick={(e) => e.stopPropagation()}>
+                            <a href={`${doc.file_url}?download=${encodeURIComponent(doc.title)}`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
                               <Button size="sm" variant="outline">Télécharger</Button>
                             </a>
                             {isCoach && (
@@ -388,8 +388,14 @@ export default function PhysicalPreparationPage() {
                         <div className="px-4 pb-4">
                           <iframe
                             src={doc.file_url}
-                            className="w-full rounded-lg border"
+                            className="hidden md:block w-full rounded-lg border"
                             style={{ height: "80vh" }}
+                            title={doc.title}
+                          />
+                          <iframe
+                            src={`https://docs.google.com/viewer?url=${encodeURIComponent(doc.file_url)}&embedded=true`}
+                            className="md:hidden w-full rounded-lg border"
+                            style={{ height: "60vh" }}
                             title={doc.title}
                           />
                         </div>

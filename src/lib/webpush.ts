@@ -8,6 +8,11 @@ if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY || !VAPID_SUBJECT) {
   console.error(
     "[webpush] Missing VAPID env vars: NEXT_PUBLIC_VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT"
   );
+} else if (VAPID_PRIVATE_KEY.length < 40 || VAPID_PUBLIC_KEY.length < 80) {
+  console.error(
+    "[webpush] VAPID env vars look invalid (private ~43 chars, public ~87 chars base64url). " +
+      "Fix the values in Vercel and redeploy, otherwise push sends will fail."
+  );
 }
 
 webpush.setVapidDetails(
