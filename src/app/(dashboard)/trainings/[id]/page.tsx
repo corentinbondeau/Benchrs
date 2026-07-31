@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, Bell } from "lucide-react";
 import { toast } from "sonner";
 import { ConvocationsDialog } from "@/components/ConvocationsDialog";
+import { EventCoachActions } from "@/components/EventCoachActions";
 import {
   AttendanceLists,
   EventInfoCard,
@@ -217,6 +218,11 @@ export default function TrainingDetailPage() {
                 <Bell className="h-3.5 w-3.5 mr-1" />
                 Convoquer
               </Button>
+              <EventCoachActions
+                event={event}
+                isMatch={false}
+                onSaved={(updated) => setEvent(updated)}
+              />
             </div>
           )}
         </CardContent>
