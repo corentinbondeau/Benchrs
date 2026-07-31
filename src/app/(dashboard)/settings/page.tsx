@@ -23,6 +23,12 @@ import {
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { toast } from "sonner";
 import { NOTIFICATION_TYPES } from "@/lib/notificationTypes";
+import {
+  isPushEnabledLocal,
+  getPushSubscriptionCount,
+  enablePushSubscription,
+  disablePushSubscription,
+} from "@/lib/push";
 import type { Profile } from "@/types";
 
 const roleLabels = { coach: "Coach", player: "Joueur", parent: "Parent" };
@@ -55,6 +61,9 @@ export default function SettingsPage() {
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [pushPrefs, setPushPrefs] = useState<Record<string, boolean>>({});
   const [prefsLoading, setPrefsLoading] = useState(true);
+  const [pushMaster, setPushMaster] = useState<boolean>(() => isPushEnabledLocal());
+  const [pushSubscribed, setPushSubscribed] = useState(false);
+  const [pushBusy, setPushBusy] = useState(false);
 
   const [newPassword, setNewPassword] = useState("");
 
@@ -89,6 +98,38 @@ export default function SettingsPage() {
         setPrefsLoading(false);
       });
   }, [user?.id, currentTeam?.id]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    getPushSubscriptionCount(user.id).then((n) => setPushSubscribed(n > 0));
+  }, [user?.id]);
+
+  async function togglePushMaster(enabled: boolean) {
+    setPushBusy(true);
+    setPushMaster(enabled);
+    try {
+      if (enabled) {
+        const res = await enablePushSubscription(user!.id, currentTeam!.id);
+        if (!res.ok) {
+          setPushMaster(false);
+          toast.error(res.error || "Activation impossible");
+          return;
+        }
+        toast.success("Notifications push activées");
+      } else {
+        const res = await disablePushSubscription();
+        if (!res.ok) {
+          setPushMaster(true);
+          toast.error(res.error || "Désactivation impossible");
+          return;
+        }
+        toast.success("Notifications push désactivées");
+      }
+      getPushSubscriptionCount(user!.id).then((n) => setPushSubscribed(n > 0));
+    } finally {
+      setPushBusy(false);
+    }
+  }
 
   if (!currentTeam) {
     return <div className="flex items-center justify-center h-64"><p className="text-muted-foreground">Chargement de l'équipe...</p></div>;
@@ -292,6 +333,26 @@ export default function SettingsPage() {
         <CardContent>
           <div className="flex items-center justify-between">
             <div>
+              <p className="text-sm font-medium">Notifications push</p>
+              <p className="text-xs text-muted-foreground">
+                {pushMaster
+                  ? pushSubscribed
+                    ? "Activées sur cet appareil"
+                    : "Autorisation requise — activez-les pour les recevoir"
+                  : "Désactivées"}
+              </p>
+            </div>
+            <Switch
+              checked={pushMaster}
+              onCheckedChange={togglePushMaster}
+              disabled={pushBusy}
+            />
+          </div>
+
+          <Separator className="my-4" />
+
+          <div className="flex items-center justify-between">
+            <div>
               <p className="text-sm font-medium">Notifications par email</p>
               <p className="text-xs text-muted-foreground">
                 Recevoir les convocations et rappels par email
@@ -323,6 +384,7 @@ export default function SettingsPage() {
                   </div>
                   <Switch
                     checked={!!pushPrefs[t.type]}
+                    disabled={!pushMaster}
                     onCheckedChange={(v) => togglePushType(t.type, v)}
                   />
                 </div>
