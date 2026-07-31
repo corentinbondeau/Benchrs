@@ -296,7 +296,8 @@ export function AttendanceLists({
   isCoach: boolean;
   onUpdate: (userId: string, status: AttendanceStatus) => void;
 }) {
-  const present = players.filter((p) => p.status === "present" || p.status === "late");
+  const present = players.filter((p) => p.status === "present");
+  const late = players.filter((p) => p.status === "late");
   const absent = players.filter((p) => p.status === "absent");
   const excused = players.filter((p) => p.status === "excused");
   const waiting = players.filter((p) => p.status === null || p.status === "pending");
@@ -310,7 +311,7 @@ export function AttendanceLists({
           Présents et absents
           {total > 0 && (
             <span className="text-sm font-normal text-muted-foreground">
-              — {present.length}/{total}
+              — {present.length + late.length}/{total}
             </span>
           )}
         </CardTitle>
@@ -339,6 +340,38 @@ export function AttendanceLists({
                       >
                         <X className="h-3.5 w-3.5" />
                       </Button>
+                    )
+                  : undefined
+              }
+            />
+
+            <PlayerListSection
+              title={`En retard (${late.length})`}
+              titleClass="text-amber-600"
+              rowClass="bg-amber-50"
+              textClass="text-amber-900"
+              players={late}
+              actions={
+                isCoach
+                  ? (p) => (
+                      <div className="flex gap-1">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7 text-green-500 hover:text-green-700 hover:bg-green-50"
+                          onClick={() => onUpdate(p.profile.id, "present")}
+                        >
+                          <Check className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7 text-red-500 hover:text-red-700 hover:bg-red-50"
+                          onClick={() => onUpdate(p.profile.id, "absent")}
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
                     )
                   : undefined
               }
