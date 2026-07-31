@@ -52,7 +52,7 @@ export default function TrainingDetailPage() {
           .single(),
         supabase
           .from("attendances")
-          .select("id, user_id, status")
+          .select("id, user_id, status, absence_reason")
           .eq("event_id", trainingId)
           .eq("team_id", team.id),
         fetchTeamActivePlayers(team.id),
@@ -60,7 +60,7 @@ export default function TrainingDetailPage() {
 
       setEvent(eventRes.data as TrainingEvent | null);
 
-      const atts = (attRes.data || []) as { id: string; user_id: string; status: string }[];
+      const atts = (attRes.data || []) as { id: string; user_id: string; status: string; absence_reason: string | null }[];
 
       const merged: PlayerAttendanceRow[] = allPlayers.map((p) => {
         const att = atts.find((a) => a.user_id === p.id);
@@ -68,6 +68,7 @@ export default function TrainingDetailPage() {
           profile: p,
           status: att ? (att.status as AttendanceStatus) : null,
           attendanceId: att ? att.id : null,
+          absenceReason: att?.absence_reason ?? null,
         };
       });
 
@@ -84,14 +85,18 @@ export default function TrainingDetailPage() {
     }
   }, [trainingId, currentTeam, isCoach, user?.id, userRole]);
 
-  async function updateAttendance(userId: string, status: AttendanceStatus) {
+  async function updateAttendance(userId: string, status: AttendanceStatus, reason?: string) {
     const supabase = createClient();
     const existing = players.find((p) => p.profile.id === userId);
 
     if (existing?.attendanceId) {
       await supabase
         .from("attendances")
-        .update({ status, responded_at: new Date().toISOString() })
+        .update({
+          status,
+          responded_at: new Date().toISOString(),
+          absence_reason: reason || null,
+        })
         .eq("id", existing.attendanceId);
     } else {
       await supabase.from("attendances").insert({
@@ -100,6 +105,7 @@ export default function TrainingDetailPage() {
         team_id: currentTeam!.id,
         status,
         responded_at: new Date().toISOString(),
+        absence_reason: reason || null,
       });
     }
 
@@ -220,7 +226,7 @@ export default function TrainingDetailPage() {
         meetingTime={event.meeting_time}
         location={event.location}
         myPresence={myPresence}
-        onRespond={myPresence ? (status) => updateAttendance(myPresence.playerId, status) : undefined}
+        onRespond={myPresence ? (status, reason) => updateAttendance(myPresence.playerId, status, reason) : undefined}
       />
 
       {/* Partie 2 — Liste des présents et absents */}

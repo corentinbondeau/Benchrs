@@ -167,7 +167,7 @@ export default function MatchDetailPage() {
         fetchTeamActivePlayers(team.id),
         supabase
           .from("attendances")
-          .select("id, user_id, status")
+          .select("id, user_id, status, absence_reason")
           .eq("event_id", matchId)
           .eq("team_id", team.id),
       ]);
@@ -178,7 +178,7 @@ export default function MatchDetailPage() {
       setLineups((lineupsRes.data as LineupEntry[]) || []);
       setAllPlayers(playersRes);
 
-      const atts = (attRes.data || []) as { id: string; user_id: string; status: string }[];
+      const atts = (attRes.data || []) as { id: string; user_id: string; status: string; absence_reason: string | null }[];
       const allP = playersRes;
       const merged: PlayerAttendanceRow[] = allP.map((p) => {
         const att = atts.find((a) => a.user_id === p.id);
@@ -186,6 +186,7 @@ export default function MatchDetailPage() {
           profile: p,
           status: att ? (att.status as AttendanceStatus) : null,
           attendanceId: att ? att.id : null,
+          absenceReason: att?.absence_reason ?? null,
         };
       });
       setMatchPlayers(merged);
@@ -326,14 +327,18 @@ export default function MatchDetailPage() {
     return allPlayers.find((p) => p.id === playerId);
   }
 
-  async function updateMatchAttendance(userId: string, status: AttendanceStatus) {
+  async function updateMatchAttendance(userId: string, status: AttendanceStatus, reason?: string) {
     const supabase = createClient();
     const existing = matchPlayers.find((p) => p.profile.id === userId);
 
     if (existing?.attendanceId) {
       await supabase
         .from("attendances")
-        .update({ status, responded_at: new Date().toISOString() })
+        .update({
+          status,
+          responded_at: new Date().toISOString(),
+          absence_reason: reason || null,
+        })
         .eq("id", existing.attendanceId);
     } else {
       await supabase.from("attendances").insert({
@@ -342,6 +347,7 @@ export default function MatchDetailPage() {
         team_id: currentTeam!.id,
         status,
         responded_at: new Date().toISOString(),
+        absence_reason: reason || null,
       });
     }
 
@@ -481,7 +487,7 @@ export default function MatchDetailPage() {
         meetingTime={match.meeting_time}
         location={match.location}
         myPresence={myPresence}
-        onRespond={myPresence ? (status) => updateMatchAttendance(myPresence.playerId, status) : undefined}
+        onRespond={myPresence ? (status, reason) => updateMatchAttendance(myPresence.playerId, status, reason) : undefined}
       />
 
       {/* Score Section */}

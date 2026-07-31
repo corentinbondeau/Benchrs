@@ -100,6 +100,13 @@ export async function GET(req: Request) {
         sent++;
       } catch (err) {
         console.error("[notifications/cron] push failed for", sub.endpoint, err);
+        const statusCode = (err as { statusCode?: number })?.statusCode;
+        if (statusCode === 404 || statusCode === 410) {
+          await supabase
+            .from("push_subscriptions")
+            .delete()
+            .eq("endpoint", sub.endpoint);
+        }
       }
     }
     deliveredIds.push(notif.id);

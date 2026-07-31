@@ -4,6 +4,8 @@ import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Calendar,
   Check,
@@ -15,13 +17,14 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import type { AttendanceStatus, Profile } from "@/types";
 
 export interface PlayerAttendanceRow {
   profile: Profile;
   status: AttendanceStatus | null;
   attendanceId: string | null;
+  absenceReason: string | null;
 }
 
 export interface MyPresenceInfo {
@@ -117,8 +120,11 @@ export function EventInfoCard({
   meetingTime: string | null;
   location: string | null;
   myPresence?: MyPresenceInfo;
-  onRespond?: (status: "present" | "late" | "absent") => void;
+  onRespond?: (status: "present" | "late" | "absent", reason?: string) => void;
 }) {
+  const [showRetardReason, setShowRetardReason] = useState(false);
+  const [retardReason, setRetardReason] = useState("");
+
   const dateStr = date.toLocaleDateString("fr-FR", {
     weekday: "long",
     day: "numeric",
@@ -129,6 +135,22 @@ export function EventInfoCard({
     hour: "2-digit",
     minute: "2-digit",
   });
+
+  function startRespond(status: "present" | "late" | "absent") {
+    if (!onRespond) return;
+    if (status === "late") {
+      setShowRetardReason(true);
+      return;
+    }
+    onRespond(status);
+  }
+
+  function confirmRetard() {
+    if (!onRespond || !retardReason.trim()) return;
+    onRespond("late", retardReason.trim());
+    setShowRetardReason(false);
+    setRetardReason("");
+  }
 
   return (
     <Card>
@@ -159,15 +181,15 @@ export function EventInfoCard({
               <ResponseButton
                 active={myPresence.status === "present"}
                 activeClass="bg-green-600 text-white border-green-600 hover:bg-green-700"
-                onClick={() => onRespond("present")}
+                onClick={() => startRespond("present")}
               >
                 <Check className="h-3.5 w-3.5 mr-1" />
                 Présent
               </ResponseButton>
               <ResponseButton
-                active={myPresence.status === "late"}
+                active={myPresence.status === "late" || showRetardReason}
                 activeClass="bg-amber-500 text-white border-amber-500 hover:bg-amber-600"
-                onClick={() => onRespond("late")}
+                onClick={() => startRespond("late")}
               >
                 <Clock className="h-3.5 w-3.5 mr-1" />
                 Retard
@@ -175,12 +197,45 @@ export function EventInfoCard({
               <ResponseButton
                 active={myPresence.status === "absent"}
                 activeClass="bg-red-600 text-white border-red-600 hover:bg-red-700"
-                onClick={() => onRespond("absent")}
+                onClick={() => startRespond("absent")}
               >
                 <X className="h-3.5 w-3.5 mr-1" />
                 Absent
               </ResponseButton>
             </div>
+            {showRetardReason && (
+              <div className="space-y-2 pt-1">
+                <Label className="text-xs">Explication du retard (obligatoire)</Label>
+                <Input
+                  placeholder="Ex: Retenu(e) au travail, embouteillages..."
+                  value={retardReason}
+                  onChange={(e) => setRetardReason(e.target.value)}
+                  className="text-sm h-8"
+                  autoFocus
+                />
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    className="h-7 text-xs bg-amber-500 text-white hover:bg-amber-600 flex-1"
+                    disabled={!retardReason.trim()}
+                    onClick={confirmRetard}
+                  >
+                    Confirmer
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 text-xs flex-1"
+                    onClick={() => {
+                      setShowRetardReason(false);
+                      setRetardReason("");
+                    }}
+                  >
+                    Annuler
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </CardContent>
@@ -213,9 +268,16 @@ function PlayerListSection({
             key={p.profile.id}
             className={`flex items-center gap-2 rounded-lg ${rowClass} px-3 py-2`}
           >
-            <span className={`flex-1 text-sm ${textClass}`}>
-              {p.profile.first_name} {p.profile.last_name}
-            </span>
+            <div className="flex-1 min-w-0">
+              <span className={`text-sm ${textClass}`}>
+                {p.profile.first_name} {p.profile.last_name}
+              </span>
+              {p.absenceReason && (
+                <p className={`text-xs mt-0.5 truncate ${textClass} opacity-70`}>
+                  {p.absenceReason}
+                </p>
+              )}
+            </div>
             {actions?.(p)}
           </div>
         ))}
