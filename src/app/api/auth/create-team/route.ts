@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { defaultNotificationPrefs } from "@/lib/notificationTypes";
 
 export async function POST(req: Request) {
   try {
@@ -88,6 +89,12 @@ export async function POST(req: Request) {
     if (channelError) {
       console.error("[create-team] chat channel error:", channelError);
     }
+
+    // Notifications activées par défaut pour le créateur de l'équipe
+    await supabase.from("notification_preferences").upsert(
+      defaultNotificationPrefs(userId, team.id),
+      { onConflict: "user_id,team_id,type" }
+    );
 
     return NextResponse.json({
       team,

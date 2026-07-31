@@ -26,3 +26,13 @@ export const NOTIFICATION_TYPES: NotificationTypeConfig[] = [
     description: "Rappels avant un événement",
   },
 ];
+
+export function defaultNotificationPrefs(userId: string, teamId: string) {
+  return NOTIFICATION_TYPES.map((t) => ({
+    user_id: userId,
+    team_id: teamId,
+    type: t.type,
+    push_enabled: true,
+    email_enabled: true,
+  }));
+}
