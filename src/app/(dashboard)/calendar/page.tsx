@@ -251,18 +251,6 @@ export default function CalendarPage() {
     }
 
     if (inserted) {
-      const attendanceRows = inserted.flatMap((evt) =>
-        form.selected_player_ids.map((pid) => ({
-          event_id: evt.id,
-          user_id: pid,
-          status: "pending" as const,
-          team_id: currentTeam!.id,
-        }))
-      );
-      if (attendanceRows.length > 0) {
-        await supabase.from("attendances").insert(attendanceRows);
-      }
-
       const leadDays = parseInt(form.convocation_lead_days, 10) || 3;
       const convokeIds = form.selected_player_ids;
       if (convokeIds.length > 0) {

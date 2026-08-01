@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { ensureAttendanceRows } from "@/lib/convocations";
 import webpush from "@/lib/webpush";
 
 export const dynamic = "force-dynamic";
@@ -41,6 +42,9 @@ export async function POST(req: Request) {
         .from("events")
         .update({ convocations_sent_at: now })
         .eq("id", reference_id);
+      if (team_id) {
+        await ensureAttendanceRows(reference_id, team_id, user_ids);
+      }
     }
 
     if (isScheduled) {
