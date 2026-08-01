@@ -385,21 +385,36 @@ export function LiveMatchTracker({
     }
   }
 
-  function notifyLive(title: string, body?: string) {
-    if (players.length === 0) return;
-    fetch("/api/notifications/send", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        user_ids: players.map((p) => p.id),
-        title,
-        body: body || eventTitle || "Match en direct",
-        type: "match_live",
-        reference_id: eventId,
-        team_id: teamId,
-        url: `/matches/${eventId}`,
-      }),
-    }).catch((err) => console.error("[live-match] notify error:", err));
+  async function notifyLive(title: string, body?: string) {
+    try {
+      if (players.length === 0) return;
+      const supabase = createClient();
+      const { data: links } = await supabase
+        .from("parent_student")
+        .select("parent_id")
+        .eq("team_id", teamId)
+        .in("student_id", players.map((p) => p.id));
+      const parentIds = [
+        ...new Set((links || []).map((l) => (l as { parent_id: string }).parent_id)),
+      ];
+      const userIds = [...new Set([...players.map((p) => p.id), ...parentIds])];
+      if (userIds.length === 0) return;
+      await fetch("/api/notifications/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_ids: userIds,
+          title,
+          body: body || eventTitle || "Match en direct",
+          type: "match_live",
+          reference_id: eventId,
+          team_id: teamId,
+          url: `/matches/${eventId}`,
+        }),
+      });
+    } catch (err) {
+      console.error("[live-match] notify error:", err);
+    }
   }
 
   function notifyLiveEvent(
