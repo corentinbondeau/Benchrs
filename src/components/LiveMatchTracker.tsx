@@ -458,6 +458,21 @@ export function LiveMatchTracker({
       }
     }
 
+    const orphaned = Array.from(existingMap.keys()).filter((pid) => !counters.has(pid));
+    for (const playerId of orphaned) {
+      const ex = existingMap.get(playerId);
+      if (!ex) continue;
+      const hasData = (ex.minutes_played ?? 0) > 0;
+      if (hasData) {
+        await supabase
+          .from("match_stats")
+          .update({ goals: 0, assists: 0, yellow_cards: 0, red_cards: 0 })
+          .eq("id", ex.id);
+      } else {
+        await supabase.from("match_stats").delete().eq("id", ex.id);
+      }
+    }
+
     onStatsChangeRef.current();
   }
 
