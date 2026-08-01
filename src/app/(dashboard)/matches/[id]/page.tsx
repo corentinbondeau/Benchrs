@@ -34,6 +34,7 @@ import {
   type PlayerAttendanceRow,
 } from "@/components/EventDetail";
 import { fetchTeamActivePlayers } from "@/lib/players";
+import { LiveMatchTracker } from "@/components/LiveMatchTracker";
 import type {
   AttendanceStatus,
   Event,
@@ -848,6 +849,21 @@ export default function MatchDetailPage() {
           </Card>
         </div>
       )}
+
+      {/* Match en direct */}
+      <LiveMatchTracker
+        eventId={matchId}
+        teamId={currentTeam.id}
+        players={allPlayers}
+        canEdit={isCoach || userRole === "parent"}
+        isCoach={isCoach}
+        userId={user?.id}
+        startedAt={match.match_started_at ?? null}
+        endedAt={match.match_ended_at ?? null}
+        onMatchUpdate={(patch) =>
+          setMatch((prev) => (prev ? { ...prev, ...patch } : prev))
+        }
+      />
 
       {/* Partie 2 — Liste des présents et absents */}
       <AttendanceLists
