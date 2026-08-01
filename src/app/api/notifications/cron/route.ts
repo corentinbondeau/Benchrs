@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { ensureAttendanceRows } from "@/lib/convocations";
 import webpush from "@/lib/webpush";
 
 export const dynamic = "force-dynamic";
@@ -82,7 +83,10 @@ export async function GET(req: Request) {
 
   let sent = 0;
   const deliveredIds: string[] = [];
-  const convokedEventIds = new Set<string>();
+  const convokedEvents = new Map<
+    string,
+    { eventId: string; teamId: string | null; userIds: Set<string> }
+  >();
   for (const notif of pending) {
     if (prefMap.get(`${notif.user_id}|${notif.team_id}|${notif.type}`) === false) {
       continue;
@@ -112,7 +116,14 @@ export async function GET(req: Request) {
     }
     deliveredIds.push(notif.id);
     if (notif.type === "convocation" && notif.reference_id) {
-      convokedEventIds.add(notif.reference_id);
+      const key = `${notif.reference_id}|${notif.team_id}`;
+      const entry = convokedEvents.get(key) || {
+        eventId: notif.reference_id,
+        teamId: notif.team_id || null,
+        userIds: new Set<string>(),
+      };
+      entry.userIds.add(notif.user_id);
+      convokedEvents.set(key, entry);
     }
   }
 
@@ -123,11 +134,14 @@ export async function GET(req: Request) {
       .in("id", deliveredIds);
   }
 
-  if (convokedEventIds.size > 0) {
+  for (const entry of convokedEvents.values()) {
+    if (entry.teamId) {
+      await ensureAttendanceRows(entry.eventId, entry.teamId, [...entry.userIds]);
+    }
     await supabase
       .from("events")
       .update({ convocations_sent_at: now })
-      .in("id", [...convokedEventIds]);
+      .eq("id", entry.eventId);
   }
 
   return NextResponse.json({ ok: true, sent, processed: deliveredIds.length });
