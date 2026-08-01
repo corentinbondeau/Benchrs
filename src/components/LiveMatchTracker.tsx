@@ -236,12 +236,16 @@ export function LiveMatchTracker({
   const clockRef = endMs ?? now;
   let elapsedMs = 0;
   if (startMs !== null) {
-    elapsedMs = clockRef - startMs;
-    if (halftimeMs !== null) {
-      const pauseEnd = resumedMs ?? clockRef;
-      elapsedMs -= Math.max(0, pauseEnd - halftimeMs);
+    if (phase === "ended") {
+      elapsedMs = 90 * 60000;
+    } else if (phase === "halftime") {
+      elapsedMs = 45 * 60000;
+    } else if (halftimeMs !== null && resumedMs !== null) {
+      elapsedMs = 45 * 60000 + Math.max(0, clockRef - resumedMs);
+      elapsedMs = Math.min(elapsedMs, 90 * 60000);
+    } else {
+      elapsedMs = Math.min(Math.max(0, clockRef - startMs), 45 * 60000);
     }
-    elapsedMs = Math.max(0, elapsedMs);
   }
   const currentMinute = Math.floor(elapsedMs / 60000);
 
