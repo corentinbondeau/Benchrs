@@ -22,6 +22,7 @@ import {
   Pencil,
   Check,
   Bell,
+  Radio,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ConvocationsDialog } from "@/components/ConvocationsDialog";
@@ -137,6 +138,19 @@ export default function MatchDetailPage() {
   const [matchPlayers, setMatchPlayers] = useState<PlayerAttendanceRow[]>([]);
   const [childId, setChildId] = useState<string | null>(null);
   const [convDialogOpen, setConvDialogOpen] = useState(false);
+  const [liveNow, setLiveNow] = useState(() => Date.now());
+
+  const liveOpenAt = match?.event_date
+    ? new Date(match.event_date).getTime() - 30 * 60 * 1000
+    : null;
+
+  useEffect(() => {
+    if (liveOpenAt === null || liveOpenAt <= liveNow) return;
+    const t = setTimeout(() => setLiveNow(Date.now()), liveOpenAt - liveNow);
+    return () => clearTimeout(t);
+  }, [liveOpenAt, liveNow]);
+
+  const liveReady = liveOpenAt !== null && liveOpenAt <= liveNow;
 
   useEffect(() => {
     if (!currentTeam) return;
@@ -863,22 +877,38 @@ export default function MatchDetailPage() {
       )}
 
       {/* Match en direct */}
-      <LiveMatchTracker
-        eventId={matchId}
-        teamId={currentTeam.id}
-        players={allPlayers}
-        canEdit={isCoach || userRole === "parent"}
-        isCoach={isCoach}
-        userId={user?.id}
-        startedAt={match.match_started_at ?? null}
-        endedAt={match.match_ended_at ?? null}
-        halftimeAt={match.match_halftime_at ?? null}
-        resumedAt={match.match_resumed_at ?? null}
-        onMatchUpdate={(patch) =>
-          setMatch((prev) => (prev ? { ...prev, ...patch } : prev))
-        }
-        onStatsChange={refreshPlayerStats}
-      />
+      {liveReady ? (
+        <LiveMatchTracker
+          eventId={matchId}
+          teamId={currentTeam.id}
+          players={allPlayers}
+          canEdit={isCoach || userRole === "parent"}
+          isCoach={isCoach}
+          userId={user?.id}
+          startedAt={match.match_started_at ?? null}
+          endedAt={match.match_ended_at ?? null}
+          halftimeAt={match.match_halftime_at ?? null}
+          resumedAt={match.match_resumed_at ?? null}
+          onMatchUpdate={(patch) =>
+            setMatch((prev) => (prev ? { ...prev, ...patch } : prev))
+          }
+          onStatsChange={refreshPlayerStats}
+        />
+      ) : (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Radio className="h-4 w-4 text-[var(--color-gold)]" />
+              Match en direct
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">
+              Le suivi en direct sera disponible 30 minutes avant le début du match.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Partie 2 — Liste des présents et absents */}
       <AttendanceLists
