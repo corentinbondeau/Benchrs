@@ -22,6 +22,7 @@ import {
   Flag,
   Goal,
   Loader2,
+  Pause,
   Play,
   Radio,
   RotateCw,
@@ -46,6 +47,8 @@ export interface LiveMatchPatch {
   score_them?: number | null;
   match_started_at?: string | null;
   match_ended_at?: string | null;
+  match_halftime_at?: string | null;
+  match_resumed_at?: string | null;
   match_result?: "win" | "loss" | "draw" | null;
   status?: EventStatus;
 }
@@ -59,7 +62,10 @@ interface LiveMatchTrackerProps {
   userId?: string | null;
   startedAt: string | null;
   endedAt: string | null;
+  halftimeAt: string | null;
+  resumedAt: string | null;
   onMatchUpdate: (patch: LiveMatchPatch) => void;
+  onStatsChange: () => void;
 }
 
 interface EventTypeConfig {
@@ -190,11 +196,15 @@ export function LiveMatchTracker({
   userId,
   startedAt,
   endedAt,
+  halftimeAt,
+  resumedAt,
   onMatchUpdate,
+  onStatsChange,
 }: LiveMatchTrackerProps) {
   const [events, setEvents] = useState<MatchEventRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogType, setDialogType] = useState<LiveEventType | null>(null);
+  const [minute, setMinute] = useState("");
   const [saving, setSaving] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const [busyLive, setBusyLive] = useState(false);
@@ -203,13 +213,37 @@ export function LiveMatchTracker({
   useEffect(() => {
     onMatchUpdateRef.current = onMatchUpdate;
   }, [onMatchUpdate]);
+  const onStatsChangeRef = useRef(onStatsChange);
+  useEffect(() => {
+    onStatsChangeRef.current = onStatsChange;
+  }, [onStatsChange]);
 
   const playerList = useMemo(() => sortedPlayers(players), [players]);
-  const isLive = !!startedAt && !endedAt;
+
   const startMs = startedAt ? new Date(startedAt).getTime() : null;
+  const halftimeMs = halftimeAt ? new Date(halftimeAt).getTime() : null;
+  const resumedMs = resumedAt ? new Date(resumedAt).getTime() : null;
   const endMs = endedAt ? new Date(endedAt).getTime() : null;
-  const elapsedMs =
-    startMs === null ? 0 : (endMs ?? now) - startMs;
+  const phase: "pre" | "playing" | "halftime" | "ended" =
+    !startedAt
+      ? "pre"
+      : endedAt
+        ? "ended"
+        : halftimeAt && !resumedAt
+          ? "halftime"
+          : "playing";
+
+  const clockRef = endMs ?? now;
+  let elapsedMs = 0;
+  if (startMs !== null) {
+    elapsedMs = clockRef - startMs;
+    if (halftimeMs !== null) {
+      const pauseEnd = resumedMs ?? clockRef;
+      elapsedMs -= Math.max(0, pauseEnd - halftimeMs);
+    }
+    elapsedMs = Math.max(0, elapsedMs);
+  }
+  const currentMinute = Math.floor(elapsedMs / 60000);
 
   const fetchEvents = useCallback(async () => {
     const supabase = createClient();
@@ -228,7 +262,7 @@ export function LiveMatchTracker({
     const supabase = createClient();
     const { data } = await supabase
       .from("events")
-      .select("score_us, score_them, match_started_at, match_ended_at, match_result, status")
+      .select("score_us, score_them, match_started_at, match_ended_at, match_halftime_at, match_resumed_at, match_result, status")
       .eq("id", eventId)
       .maybeSingle();
     if (!data) return;
@@ -238,6 +272,8 @@ export function LiveMatchTracker({
       score_them: data.score_them as number | null,
       match_started_at: data.match_started_at as string | null,
       match_ended_at: data.match_ended_at as string | null,
+      match_halftime_at: data.match_halftime_at as string | null,
+      match_resumed_at: data.match_resumed_at as string | null,
       match_result: data.match_result as LiveMatchPatch["match_result"],
       status: data.status as EventStatus,
     });
@@ -292,21 +328,37 @@ export function LiveMatchTracker({
         () => refreshMatch()
       )
       .subscribe();
+    const statsCh = supabase
+      .channel(`live_match_stats_${eventId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "match_stats",
+          filter: `event_id=eq.${eventId}`,
+        },
+        () => onStatsChangeRef.current()
+      )
+      .subscribe();
     const pollEvents = setInterval(fetchEvents, 20000);
     const pollMatch = setInterval(refreshMatch, 20000);
+    const pollStats = setInterval(() => onStatsChangeRef.current(), 20000);
     return () => {
       supabase.removeChannel(eventsCh);
       supabase.removeChannel(matchCh);
+      supabase.removeChannel(statsCh);
       clearInterval(pollEvents);
       clearInterval(pollMatch);
+      clearInterval(pollStats);
     };
   }, [eventId, fetchEvents, refreshMatch]);
 
   useEffect(() => {
-    if (!isLive) return;
+    if (phase !== "playing") return;
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
-  }, [isLive]);
+  }, [phase]);
 
   async function syncScore() {
     const supabase = createClient();
@@ -325,6 +377,88 @@ export function LiveMatchTracker({
     if (!error) {
       onMatchUpdateRef.current({ score_us: us, score_them: them });
     }
+  }
+
+  async function syncStats() {
+    const supabase = createClient();
+    const { data } = await supabase
+      .from("match_events")
+      .select("event_type, player_id, related_player_id")
+      .eq("event_id", eventId)
+      .eq("team_id", teamId);
+    const rows = (data || []) as {
+      event_type: string;
+      player_id: string | null;
+      related_player_id: string | null;
+    }[];
+
+    const counters = new Map<
+      string,
+      { goals: number; assists: number; yellow_cards: number; red_cards: number }
+    >();
+    const bump = (id: string | null, key: "goals" | "assists" | "yellow_cards" | "red_cards") => {
+      if (!id) return;
+      const c = counters.get(id) || { goals: 0, assists: 0, yellow_cards: 0, red_cards: 0 };
+      c[key] += 1;
+      counters.set(id, c);
+    };
+    for (const r of rows) {
+      if (r.event_type === "goal") {
+        bump(r.player_id, "goals");
+        bump(r.related_player_id, "assists");
+      } else if (r.event_type === "yellow_card") {
+        bump(r.player_id, "yellow_cards");
+      } else if (r.event_type === "red_card") {
+        bump(r.player_id, "red_cards");
+      }
+    }
+
+    const { data: existingRows } = await supabase
+      .from("match_stats")
+      .select("id, player_id, minutes_played")
+      .eq("event_id", eventId)
+      .eq("team_id", teamId);
+    const existingMap = new Map(
+      (existingRows || []).map((e) => [
+        e.player_id as string,
+        e as { id: string; minutes_played: number },
+      ])
+    );
+
+    for (const [playerId, c] of counters) {
+      const ex = existingMap.get(playerId);
+      const minutes = ex?.minutes_played ?? 0;
+      const hasData =
+        c.goals > 0 || c.assists > 0 || c.yellow_cards > 0 || c.red_cards > 0 || minutes > 0;
+      if (ex) {
+        if (hasData) {
+          await supabase
+            .from("match_stats")
+            .update({
+              goals: c.goals,
+              assists: c.assists,
+              yellow_cards: c.yellow_cards,
+              red_cards: c.red_cards,
+            })
+            .eq("id", ex.id);
+        } else {
+          await supabase.from("match_stats").delete().eq("id", ex.id);
+        }
+      } else if (hasData) {
+        await supabase.from("match_stats").insert({
+          event_id: eventId,
+          player_id: playerId,
+          team_id: teamId,
+          goals: c.goals,
+          assists: c.assists,
+          yellow_cards: c.yellow_cards,
+          red_cards: c.red_cards,
+          minutes_played: minutes,
+        });
+      }
+    }
+
+    onStatsChangeRef.current();
   }
 
   async function handleAdd(eventType: LiveEventType) {
@@ -381,6 +515,9 @@ export function LiveMatchTracker({
     if (eventType === "goal" || eventType === "opponent_goal") {
       syncScore();
     }
+    if (["goal", "yellow_card", "red_card"].includes(eventType)) {
+      syncStats();
+    }
   }
 
   async function handleDelete(id: string, eventType: string) {
@@ -398,6 +535,9 @@ export function LiveMatchTracker({
     if (eventType === "goal" || eventType === "opponent_goal") {
       syncScore();
     }
+    if (["goal", "yellow_card", "red_card"].includes(eventType)) {
+      syncStats();
+    }
   }
 
   async function startMatch() {
@@ -406,7 +546,13 @@ export function LiveMatchTracker({
     const nowIso = new Date().toISOString();
     const { error } = await supabase
       .from("events")
-      .update({ match_started_at: nowIso, match_ended_at: null, status: "ongoing" })
+      .update({
+        match_started_at: nowIso,
+        match_halftime_at: null,
+        match_resumed_at: null,
+        match_ended_at: null,
+        status: "ongoing",
+      })
       .eq("id", eventId);
     setBusyLive(false);
     if (error) {
@@ -414,12 +560,49 @@ export function LiveMatchTracker({
       return;
     }
     setNow(Date.now());
-    toast.success("Match commencé");
+    toast.success("Début du match");
     onMatchUpdateRef.current({
       match_started_at: nowIso,
+      match_halftime_at: null,
+      match_resumed_at: null,
       match_ended_at: null,
       status: "ongoing",
     });
+  }
+
+  async function halfTime() {
+    const supabase = createClient();
+    setBusyLive(true);
+    const nowIso = new Date().toISOString();
+    const { error } = await supabase
+      .from("events")
+      .update({ match_halftime_at: nowIso })
+      .eq("id", eventId);
+    setBusyLive(false);
+    if (error) {
+      toast.error("Erreur lors de la mi-temps");
+      return;
+    }
+    toast.success("Mi-temps");
+    onMatchUpdateRef.current({ match_halftime_at: nowIso });
+  }
+
+  async function resumeMatch() {
+    const supabase = createClient();
+    setBusyLive(true);
+    const nowIso = new Date().toISOString();
+    const { error } = await supabase
+      .from("events")
+      .update({ match_resumed_at: nowIso })
+      .eq("id", eventId);
+    setBusyLive(false);
+    if (error) {
+      toast.error("Erreur lors de la reprise");
+      return;
+    }
+    setNow(Date.now());
+    toast.success("Début de la 2e mi-temps");
+    onMatchUpdateRef.current({ match_resumed_at: nowIso });
   }
 
   async function endMatch() {
@@ -483,6 +666,11 @@ export function LiveMatchTracker({
     }
   }
 
+  function openDialog(type: LiveEventType) {
+    setMinute(startMs !== null ? String(currentMinute) : "");
+    setDialogType(type);
+  }
+
   function renderPlayerSelect(
     name: string,
     label: string,
@@ -532,13 +720,15 @@ export function LiveMatchTracker({
         </>
       )}
       <div className="space-y-1.5">
-        <Label className="text-xs">Minute (facultatif)</Label>
+        <Label className="text-xs">Minute</Label>
         <Input
           name="minute"
           type="number"
           min={0}
           max={120}
-          placeholder="Ex : 34"
+          value={minute}
+          onChange={(e) => setMinute(e.target.value)}
+          placeholder={startMs !== null ? `Auto : ${currentMinute}` : "Ex : 34"}
           className="h-9"
         />
       </div>
@@ -566,7 +756,7 @@ export function LiveMatchTracker({
             </CardTitle>
             {startMs !== null && (
               <div className="flex items-center gap-2">
-                {isLive && (
+                {phase === "playing" && (
                   <span className="relative flex h-2.5 w-2.5">
                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500 opacity-75" />
                     <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-600" />
@@ -574,7 +764,7 @@ export function LiveMatchTracker({
                 )}
                 <span
                   className={`flex items-center gap-1 rounded-lg px-2 py-1 font-mono text-sm font-bold tabular-nums ${
-                    isLive
+                    phase === "playing"
                       ? "bg-red-50 text-red-600"
                       : "bg-muted text-muted-foreground"
                   }`}
@@ -584,17 +774,22 @@ export function LiveMatchTracker({
                 </span>
               </div>
             )}
-            {isLive && (
+            {phase === "playing" && (
               <Badge className="bg-red-600 text-white border-red-500 text-[10px]">
                 LIVE
               </Badge>
             )}
-            {!isLive && startedAt && endedAt && (
+            {phase === "halftime" && (
+              <Badge className="bg-amber-100 text-amber-700 border-amber-200 text-[10px]">
+                Mi-temps
+              </Badge>
+            )}
+            {phase === "ended" && (
               <Badge className="bg-muted text-muted-foreground border text-[10px]">
                 Terminé
               </Badge>
             )}
-            {!startedAt && (
+            {phase === "pre" && (
               <Badge className="bg-muted text-muted-foreground border text-[10px]">
                 Non démarré
               </Badge>
@@ -602,7 +797,7 @@ export function LiveMatchTracker({
           </div>
           <div className="flex items-center gap-2">
             {isCoach && (
-              !startedAt ? (
+              phase === "pre" ? (
                 <Button
                   size="sm"
                   className="h-7 text-xs gap-1 bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
@@ -610,9 +805,31 @@ export function LiveMatchTracker({
                   disabled={busyLive}
                 >
                   {busyLive ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
-                  Démarrer le match
+                  Début du match
                 </Button>
-              ) : isLive ? (
+              ) : phase === "playing" && !halftimeAt ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs gap-1"
+                  onClick={halfTime}
+                  disabled={busyLive}
+                >
+                  {busyLive ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Pause className="h-3.5 w-3.5" />}
+                  Mi-temps
+                </Button>
+              ) : phase === "halftime" ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs gap-1"
+                  onClick={resumeMatch}
+                  disabled={busyLive}
+                >
+                  {busyLive ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
+                  Début 2e mi-temps
+                </Button>
+              ) : phase === "playing" ? (
                 <Button
                   size="sm"
                   variant="outline"
@@ -621,7 +838,7 @@ export function LiveMatchTracker({
                   disabled={busyLive}
                 >
                   {busyLive ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Flag className="h-3.5 w-3.5" />}
-                  Terminer
+                  Fin du match
                 </Button>
               ) : (
                 <Button
@@ -659,7 +876,7 @@ export function LiveMatchTracker({
                   size="sm"
                   variant="outline"
                   className="h-7 text-xs gap-1 px-2"
-                  onClick={() => setDialogType(type)}
+                  onClick={() => openDialog(type)}
                 >
                   <cfg.icon className={`h-3.5 w-3.5 ${cfg.iconClass}`} />
                   {cfg.shortLabel}

@@ -216,6 +216,18 @@ export default function MatchDetailPage() {
     );
   }
 
+  async function refreshPlayerStats() {
+    const supabase = createClient();
+    const { data } = await supabase
+      .from("match_stats")
+      .select("*, profile:profiles!match_stats_player_id_fkey(id, first_name, last_name, shirt_number, position)")
+      .eq("event_id", matchId)
+      .eq("team_id", currentTeam!.id);
+    if (data) {
+      setPlayerStats((data as PlayerStat[]) || []);
+    }
+  }
+
   function initStatsForm() {
     const form: Record<string, StatsFormEntry> = {};
 
@@ -860,9 +872,12 @@ export default function MatchDetailPage() {
         userId={user?.id}
         startedAt={match.match_started_at ?? null}
         endedAt={match.match_ended_at ?? null}
+        halftimeAt={match.match_halftime_at ?? null}
+        resumedAt={match.match_resumed_at ?? null}
         onMatchUpdate={(patch) =>
           setMatch((prev) => (prev ? { ...prev, ...patch } : prev))
         }
+        onStatsChange={refreshPlayerStats}
       />
 
       {/* Partie 2 — Liste des présents et absents */}

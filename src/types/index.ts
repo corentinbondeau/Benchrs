@@ -85,6 +85,8 @@ export interface Event {
   recurrence_group_id: string | null;
   match_started_at?: string | null;
   match_ended_at?: string | null;
+  match_halftime_at?: string | null;
+  match_resumed_at?: string | null;
   created_at: string;
   updated_at: string;
 }
