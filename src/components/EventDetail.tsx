@@ -290,17 +290,21 @@ function PlayerListSection({
 export function AttendanceLists({
   players,
   isCoach,
+  convocationsSent,
   onUpdate,
 }: {
   players: PlayerAttendanceRow[];
   isCoach: boolean;
+  convocationsSent: boolean;
   onUpdate: (userId: string, status: AttendanceStatus) => void;
 }) {
   const present = players.filter((p) => p.status === "present");
   const late = players.filter((p) => p.status === "late");
   const absent = players.filter((p) => p.status === "absent");
   const excused = players.filter((p) => p.status === "excused");
-  const waiting = players.filter((p) => p.status === null || p.status === "pending");
+  const waiting = players.filter(
+    (p) => p.attendanceId !== null && (p.status === null || p.status === "pending")
+  );
   const total = players.length;
 
   return (
@@ -421,37 +425,45 @@ export function AttendanceLists({
               }
             />
 
-            <PlayerListSection
-              title={`En attente (${waiting.length})`}
-              titleClass="text-muted-foreground"
-              rowClass="bg-muted/50"
-              textClass="text-muted-foreground"
-              players={waiting}
-              actions={
-                isCoach
-                  ? (p) => (
-                      <div className="flex gap-1">
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-7 w-7 text-green-500 hover:text-green-700 hover:bg-green-50"
-                          onClick={() => onUpdate(p.profile.id, "present")}
-                        >
-                          <Check className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-7 w-7 text-red-500 hover:text-red-700 hover:bg-red-50"
-                          onClick={() => onUpdate(p.profile.id, "absent")}
-                        >
-                          <X className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    )
-                  : undefined
-              }
-            />
+            {!convocationsSent && waiting.length > 0 ? (
+              <div className="rounded-lg bg-muted/50 px-3 py-2">
+                <p className="text-sm text-muted-foreground">
+                  Aucune convocation envoyée
+                </p>
+              </div>
+            ) : (
+              <PlayerListSection
+                title={`En attente (${waiting.length})`}
+                titleClass="text-muted-foreground"
+                rowClass="bg-muted/50"
+                textClass="text-muted-foreground"
+                players={waiting}
+                actions={
+                  isCoach
+                    ? (p) => (
+                        <div className="flex gap-1">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7 text-green-500 hover:text-green-700 hover:bg-green-50"
+                            onClick={() => onUpdate(p.profile.id, "present")}
+                          >
+                            <Check className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7 text-red-500 hover:text-red-700 hover:bg-red-50"
+                            onClick={() => onUpdate(p.profile.id, "absent")}
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      )
+                    : undefined
+                }
+              />
+            )}
           </div>
         )}
       </CardContent>

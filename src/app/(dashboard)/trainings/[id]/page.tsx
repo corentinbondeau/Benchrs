@@ -22,7 +22,10 @@ import {
 import { fetchTeamActivePlayers } from "@/lib/players";
 import type { AttendanceStatus, Event } from "@/types";
 
-type TrainingEvent = Event & { meeting_time: string | null };
+type TrainingEvent = Event & {
+  meeting_time: string | null;
+  convocations_sent_at?: string | null;
+};
 
 export default function TrainingDetailPage() {
   const params = useParams();
@@ -241,6 +244,7 @@ export default function TrainingDetailPage() {
       <AttendanceLists
         players={players}
         isCoach={isCoach}
+        convocationsSent={!!event.convocations_sent_at}
         onUpdate={updateAttendance}
       />
 
