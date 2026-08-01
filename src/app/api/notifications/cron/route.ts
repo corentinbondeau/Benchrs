@@ -82,6 +82,7 @@ export async function GET(req: Request) {
 
   let sent = 0;
   const deliveredIds: string[] = [];
+  const convokedEventIds = new Set<string>();
   for (const notif of pending) {
     if (prefMap.get(`${notif.user_id}|${notif.team_id}|${notif.type}`) === false) {
       continue;
@@ -110,6 +111,9 @@ export async function GET(req: Request) {
       }
     }
     deliveredIds.push(notif.id);
+    if (notif.type === "convocation" && notif.reference_id) {
+      convokedEventIds.add(notif.reference_id);
+    }
   }
 
   if (deliveredIds.length > 0) {
@@ -117,6 +121,13 @@ export async function GET(req: Request) {
       .from("notifications")
       .update({ delivered_at: now })
       .in("id", deliveredIds);
+  }
+
+  if (convokedEventIds.size > 0) {
+    await supabase
+      .from("events")
+      .update({ convocations_sent_at: now })
+      .in("id", [...convokedEventIds]);
   }
 
   return NextResponse.json({ ok: true, sent, processed: deliveredIds.length });

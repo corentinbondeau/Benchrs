@@ -43,7 +43,10 @@ import type {
   Profile,
 } from "@/types";
 
-type MatchEvent = Event & { meeting_time: string | null };
+type MatchEvent = Event & {
+  meeting_time: string | null;
+  convocations_sent_at?: string | null;
+};
 
 interface PlayerStat extends MatchStat {
   profile?: Profile;
@@ -850,6 +853,7 @@ export default function MatchDetailPage() {
       <AttendanceLists
         players={matchPlayers}
         isCoach={isCoach}
+        convocationsSent={!!match?.convocations_sent_at}
         onUpdate={updateMatchAttendance}
       />
 

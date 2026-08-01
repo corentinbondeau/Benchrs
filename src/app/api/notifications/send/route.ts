@@ -36,6 +36,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: insertError.message }, { status: 500 });
     }
 
+    if (!isScheduled && type === "convocation" && reference_id) {
+      await supabase
+        .from("events")
+        .update({ convocations_sent_at: now })
+        .eq("id", reference_id);
+    }
+
     if (isScheduled) {
       return NextResponse.json({ ok: true, scheduled: rows.length });
     }
