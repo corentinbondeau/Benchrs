@@ -885,6 +885,7 @@ export default function MatchDetailPage() {
           canEdit={isCoach || userRole === "parent"}
           isCoach={isCoach}
           userId={user?.id}
+          eventTitle={match.title}
           startedAt={match.match_started_at ?? null}
           endedAt={match.match_ended_at ?? null}
           halftimeAt={match.match_halftime_at ?? null}

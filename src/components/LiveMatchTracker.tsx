@@ -60,6 +60,7 @@ interface LiveMatchTrackerProps {
   canEdit: boolean;
   isCoach: boolean;
   userId?: string | null;
+  eventTitle?: string;
   startedAt: string | null;
   endedAt: string | null;
   halftimeAt: string | null;
@@ -194,6 +195,7 @@ export function LiveMatchTracker({
   canEdit,
   isCoach,
   userId,
+  eventTitle,
   startedAt,
   endedAt,
   halftimeAt,
@@ -383,6 +385,61 @@ export function LiveMatchTracker({
     }
   }
 
+  function notifyLive(title: string, body?: string) {
+    if (players.length === 0) return;
+    fetch("/api/notifications/send", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        user_ids: players.map((p) => p.id),
+        title,
+        body: body || eventTitle || "Match en direct",
+        type: "match_live",
+        reference_id: eventId,
+        team_id: teamId,
+        url: `/matches/${eventId}`,
+      }),
+    }).catch((err) => console.error("[live-match] notify error:", err));
+  }
+
+  function notifyLiveEvent(
+    eventType: LiveEventType,
+    playerId: string | null,
+    minute: number | null
+  ) {
+    if (!["goal", "opponent_goal", "yellow_card", "red_card", "injury"].includes(eventType)) {
+      return;
+    }
+    const p = playerList.find((pl) => pl.id === playerId);
+    const name = playerName(p);
+    const minStr = minute !== null ? ` (${minute}')` : "";
+    let title = "";
+    switch (eventType) {
+      case "goal": {
+        const us = events.filter((e) => e.event_type === "goal").length + 1;
+        const them = events.filter((e) => e.event_type === "opponent_goal").length;
+        title = `⚽ But de ${name || "notre équipe"}${minStr} — ${us}-${them}`;
+        break;
+      }
+      case "opponent_goal": {
+        const us = events.filter((e) => e.event_type === "goal").length;
+        const them = events.filter((e) => e.event_type === "opponent_goal").length + 1;
+        title = `But de l'adversaire${minStr} — ${us}-${them}`;
+        break;
+      }
+      case "yellow_card":
+        title = `Carton jaune pour ${name || "un joueur"}${minStr}`;
+        break;
+      case "red_card":
+        title = `Carton rouge pour ${name || "un joueur"}${minStr}`;
+        break;
+      case "injury":
+        title = `Blessure de ${name || "un joueur"}${minStr}`;
+        break;
+    }
+    if (title) notifyLive(title);
+  }
+
   async function syncStats() {
     const supabase = createClient();
     const { data } = await supabase
@@ -537,6 +594,7 @@ export function LiveMatchTracker({
     if (["goal", "yellow_card", "red_card"].includes(eventType)) {
       syncStats();
     }
+    notifyLiveEvent(eventType, playerId, minute);
   }
 
   async function handleDelete(id: string, eventType: string) {
@@ -587,6 +645,7 @@ export function LiveMatchTracker({
       match_ended_at: null,
       status: "ongoing",
     });
+    notifyLive("Début du match");
   }
 
   async function halfTime() {
@@ -604,6 +663,7 @@ export function LiveMatchTracker({
     }
     toast.success("Mi-temps");
     onMatchUpdateRef.current({ match_halftime_at: nowIso });
+    notifyLive("Mi-temps");
   }
 
   async function resumeMatch() {
@@ -622,6 +682,7 @@ export function LiveMatchTracker({
     setNow(Date.now());
     toast.success("Début de la 2e mi-temps");
     onMatchUpdateRef.current({ match_resumed_at: nowIso });
+    notifyLive("Début de la 2e mi-temps");
   }
 
   async function endMatch() {
@@ -652,6 +713,11 @@ export function LiveMatchTracker({
       status: "completed",
       match_result: result,
     });
+    const scoreStr =
+      ev && ev.score_us !== null && ev.score_them !== null
+        ? ` : ${ev.score_us}-${ev.score_them}`
+        : "";
+    notifyLive(`Match terminé${scoreStr}`);
   }
 
   async function reopenMatch() {
