@@ -23,7 +23,10 @@ export function TopBar() {
     : "??";
 
   return (
-    <header className="flex h-12 items-center gap-4 border-b bg-background px-4 lg:px-6">
+    <header
+      className="flex min-h-12 items-center gap-4 border-b bg-background px-4 lg:px-6"
+      style={{ paddingTop: "env(safe-area-inset-top)" }}
+    >
       <img src="/logo.svg" alt="Benchrs" className="h-10 w-10" />
       <div className="flex-1" />
       {currentTeam && (
