@@ -20,6 +20,7 @@ import {
   Settings,
   Settings2,
   Medal,
+  Dumbbell,
   UserCog,
   Wallet,
   ChevronsUpDown,
@@ -53,7 +54,7 @@ const navItems = [
   { href: "/medical", label: "Infirmerie", icon: Heart },
   { href: "/carpooling", label: "Covoiturage", icon: Car },
   { href: "/tasks", label: "Tâches", icon: ListTodo },
-  { href: "/physical", label: "Prépa physique", icon: Medal, coachOnly: true },
+  { href: "/physical", label: "Prépa physique", icon: Dumbbell, coachOnly: true },
   { href: "/tactics", label: "Tactique", icon: Swords, coachOnly: true },
   { href: "/gallery", label: "Galerie", icon: Image },
   { href: "/trophies", label: "Trophées", icon: Trophy },
@@ -136,9 +137,9 @@ export function Sidebar() {
 
   return (
     <aside className="hidden lg:flex lg:w-64 lg:flex-col bg-[var(--color-navy)] text-white">
-      <div className="flex h-14 items-center gap-2 px-4 border-b border-white/10">
-        <img src="/logo.svg" alt="Benchrs" className="h-8 w-8" />
-        <span className="text-xl font-bold">Benchrs</span>
+      <div className="flex h-12 items-center gap-2 px-4 border-b border-white/10">
+        <img src="/logo.svg" alt="Benchrs" className="h-10 w-10" />
+        <span className="text-2xl font-bold">Benchrs</span>
       </div>
 
       {/* Team selector */}
