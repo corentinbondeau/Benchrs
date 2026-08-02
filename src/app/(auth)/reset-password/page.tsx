@@ -84,7 +84,7 @@ export default function ResetPasswordPage() {
   return (
     <Card className="w-full max-w-md">
       <CardHeader className="text-center">
-        <img src="/favicon.png" alt="SportPlus" className="h-12 w-12 mx-auto mb-2" />
+        <img src="/favicon.png" alt="Benchrs" className="h-12 w-12 mx-auto mb-2" />
         <CardTitle className="text-2xl">Nouveau mot de passe</CardTitle>
         <CardDescription>
           Choisissez un nouveau mot de passe pour votre compte

@@ -40,7 +40,7 @@ export function InstallPrompt() {
   return (
     <div className="fixed bottom-4 left-4 right-4 z-50 mx-auto max-w-md rounded-xl border border-[var(--color-gold)]/30 bg-[var(--color-navy)] p-4 shadow-lg">
       <p className="mb-3 text-sm font-medium text-white">
-        Installe SportPlus sur ton écran d'accueil pour un accès rapide !
+        Installe Benchrs sur ton écran d'accueil pour un accès rapide !
       </p>
       <div className="flex gap-2">
         <button

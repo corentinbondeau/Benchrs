@@ -46,10 +46,10 @@ export default function LoginPage() {
   return (
     <Card className="w-full max-w-md">
       <CardHeader className="text-center">
-        <img src="/favicon.png" alt="SportPlus" className="h-12 w-12 mx-auto mb-2" />
+        <img src="/favicon.png" alt="Benchrs" className="h-12 w-12 mx-auto mb-2" />
         <CardTitle className="text-2xl">Connexion</CardTitle>
         <CardDescription>
-          Connectez-vous à votre compte SportPlus
+          Connectez-vous à votre compte Benchrs
         </CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit}>

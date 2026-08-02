@@ -137,8 +137,8 @@ export function Sidebar() {
   return (
     <aside className="hidden lg:flex lg:w-64 lg:flex-col bg-[var(--color-navy)] text-white">
       <div className="flex h-14 items-center gap-2 px-4 border-b border-white/10">
-        <img src="/logo.svg" alt="SportPlus" className="h-6 w-6" />
-        <span className="text-lg font-bold">SportPlus</span>
+        <img src="/logo.svg" alt="Benchrs" className="h-6 w-6" />
+        <span className="text-lg font-bold">Benchrs</span>
       </div>
 
       {/* Team selector */}

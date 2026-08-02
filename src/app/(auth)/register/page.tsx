@@ -228,7 +228,7 @@ export default function RegisterPage() {
     return (
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <img src="/favicon.png" alt="SportPlus" className="h-12 w-12 mx-auto mb-2" />
+          <img src="/favicon.png" alt="Benchrs" className="h-12 w-12 mx-auto mb-2" />
           <CardTitle className="text-2xl">Votre équipe</CardTitle>
           <CardDescription>
             {teamMode === "join"
@@ -354,10 +354,10 @@ export default function RegisterPage() {
   return (
     <Card className="w-full max-w-md">
       <CardHeader className="text-center">
-        <img src="/favicon.png" alt="SportPlus" className="h-12 w-12 mx-auto mb-2" />
+        <img src="/favicon.png" alt="Benchrs" className="h-12 w-12 mx-auto mb-2" />
         <CardTitle className="text-2xl">Créer un compte</CardTitle>
         <CardDescription>
-          Rejoignez SportPlus en quelques clics
+          Rejoignez Benchrs en quelques clics
         </CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmitInfo}>
