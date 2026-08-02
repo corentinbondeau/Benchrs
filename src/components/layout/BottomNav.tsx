@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { X, Menu as MenuIcon, Plus, Medal } from "lucide-react";
+import { X, Menu as MenuIcon, Plus, Medal, Dumbbell } from "lucide-react";
 import { toast } from "sonner";
 import {
   LayoutDashboard,
@@ -39,7 +39,7 @@ import {
 
 const navItems = [
   { href: "/stats", label: "Statistiques", icon: BarChart3 },
-  { href: "/physical", label: "Prépa physique", icon: Heart },
+  { href: "/physical", label: "Prépa physique", icon: Dumbbell },
   { href: "/medical", label: "Infirmerie", icon: Heart },
   { href: "/carpooling", label: "Covoiturage", icon: Car },
   { href: "/tasks", label: "Tâches", icon: ListTodo },
@@ -110,10 +110,10 @@ function SheetContentInner({ close }: { close: () => void }) {
 
   return (
     <SheetContent side="left" className="w-64 p-0 bg-[var(--color-navy)]" showCloseButton={false}>
-      <div className="flex h-14 items-center justify-between px-4 border-b border-white/10">
+      <div className="flex h-12 items-center justify-between px-4 border-b border-white/10">
         <div className="flex items-center gap-2">
-          <img src="/logo.svg" alt="Benchrs" className="h-8 w-8" />
-          <span className="text-xl font-bold text-white">Benchrs</span>
+          <img src="/logo.svg" alt="Benchrs" className="h-10 w-10" />
+          <span className="text-2xl font-bold text-white">Benchrs</span>
         </div>
         <SheetClose className="text-white/60 hover:text-white">
           <X className="h-5 w-5" />

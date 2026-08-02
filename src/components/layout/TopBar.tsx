@@ -23,8 +23,8 @@ export function TopBar() {
     : "??";
 
   return (
-    <header className="flex h-14 items-center gap-4 border-b bg-background px-4 lg:px-6">
-      <img src="/logo.svg" alt="Benchrs" className="h-8 w-8" />
+    <header className="flex h-12 items-center gap-4 border-b bg-background px-4 lg:px-6">
+      <img src="/logo.svg" alt="Benchrs" className="h-10 w-10" />
       <div className="flex-1" />
       {currentTeam && (
         <span className="text-sm text-muted-foreground hidden sm:block">
