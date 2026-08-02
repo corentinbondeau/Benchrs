@@ -191,8 +191,7 @@ export function EventCoachActions({
   }
 
   async function saveEdit() {
-    if (!editTitle.trim()) return;
-    if (scope === "single" && !editDate) return;
+    if (!editTitle.trim() || !editDate) return;
     setSaving(true);
     const supabase = createClient();
 
@@ -202,31 +201,60 @@ export function EventCoachActions({
       location: editLocation.trim() || null,
       opponent: isMatch && editOpponent.trim() ? editOpponent.trim() : null,
     };
-    if (scope === "single") {
-      patch.event_date = new Date(editDate).toISOString();
-    }
 
-    const q = supabase
-      .from("events")
-      .update(patch)
-      .eq("team_id", event.team_id);
     if (scope === "all" && event.recurrence_group_id) {
-      q.eq("recurrence_group_id", event.recurrence_group_id);
+      const deltaMs = new Date(editDate).getTime() - new Date(event.event_date).getTime();
+      if (deltaMs !== 0) {
+        const { data: groupRows } = await supabase
+          .from("events")
+          .select("id, event_date")
+          .eq("recurrence_group_id", event.recurrence_group_id)
+          .eq("team_id", event.team_id);
+        if (groupRows) {
+          for (const row of groupRows) {
+            const shifted = new Date(new Date(row.event_date).getTime() + deltaMs).toISOString();
+            const { error } = await supabase
+              .from("events")
+              .update({ ...patch, event_date: shifted })
+              .eq("id", row.id)
+              .eq("team_id", event.team_id);
+            if (error) {
+              toast.error(`Erreur lors de la modification : ${error.message}`);
+              setSaving(false);
+              return;
+            }
+          }
+        }
+      } else {
+        const { error } = await supabase
+          .from("events")
+          .update(patch)
+          .eq("recurrence_group_id", event.recurrence_group_id)
+          .eq("team_id", event.team_id);
+        if (error) {
+          toast.error(`Erreur lors de la modification : ${error.message}`);
+          setSaving(false);
+          return;
+        }
+      }
     } else {
-      q.eq("id", event.id);
-    }
-    const { error } = await q;
-
-    if (error) {
-      toast.error(`Erreur lors de la modification : ${error.message}`);
-      setSaving(false);
-      return;
+      patch.event_date = new Date(editDate).toISOString();
+      const { error } = await supabase
+        .from("events")
+        .update(patch)
+        .eq("id", event.id)
+        .eq("team_id", event.team_id);
+      if (error) {
+        toast.error(`Erreur lors de la modification : ${error.message}`);
+        setSaving(false);
+        return;
+      }
     }
 
     onSaved({
       ...event,
       title: editTitle.trim(),
-      event_date: scope === "single" ? new Date(editDate).toISOString() : event.event_date,
+      event_date: new Date(editDate).toISOString(),
       meeting_time: editMeeting || null,
       location: editLocation.trim() || null,
       opponent: isMatch && editOpponent.trim() ? editOpponent.trim() : null,
@@ -418,17 +446,20 @@ export function EventCoachActions({
               <Label>Titre *</Label>
               <Input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} required />
             </div>
-            {!(hasRecurrences && scope === "all") && (
-              <div className="space-y-2">
-                <Label>Date et heure *</Label>
-                <Input
-                  type="datetime-local"
-                  value={editDate}
-                  onChange={(e) => setEditDate(e.target.value)}
-                  required
-                />
-              </div>
-            )}
+            <div className="space-y-2">
+              <Label>Date et heure *</Label>
+              <Input
+                type="datetime-local"
+                value={editDate}
+                onChange={(e) => setEditDate(e.target.value)}
+                required
+              />
+              {hasRecurrences && scope === "all" && (
+                <p className="text-xs text-muted-foreground">
+                  Le décalage est appliqué à toutes les occurrences (la première prend cette date).
+                </p>
+              )}
+            </div>
             <div className="space-y-2">
               <Label>Heure de RDV</Label>
               <Input type="time" value={editMeeting} onChange={(e) => setEditMeeting(e.target.value)} />
@@ -455,7 +486,7 @@ export function EventCoachActions({
               <Button
                 type="button"
                 className="flex-1 bg-[var(--color-gold)] text-[var(--color-navy)] font-semibold"
-                disabled={!editTitle.trim() || (scope === "single" && !editDate) || saving}
+                disabled={!editTitle.trim() || !editDate || saving}
                 onClick={saveEdit}
               >
                 {saving ? "..." : "Enregistrer"}
