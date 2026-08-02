@@ -38,7 +38,7 @@ export async function POST(req: Request) {
     );
   }
 
-  const redirectTo = "https://sportplus-neon.vercel.app/reset-password";
+  const redirectTo = "https://benchrs.vercel.app/reset-password";
 
   const { data: linkData, error: linkError } =
     await admin.auth.admin.generateLink({
