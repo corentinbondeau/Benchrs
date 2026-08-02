@@ -5,7 +5,7 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("push", (event) => {
-  const data = event.data?.json() ?? { title: "SportPlus", body: "" };
+  const data = event.data?.json() ?? { title: "Benchrs", body: "" };
   const options = {
     body: data.body,
     icon: "/logo.svg",

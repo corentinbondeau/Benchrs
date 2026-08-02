@@ -61,10 +61,10 @@ export async function POST(req: Request) {
 
   try {
     await transporter.sendMail({
-      from: `"Sportplus" <${process.env.SMTP_USER}>`,
+      from: `"Benchrs" <${process.env.SMTP_USER}>`,
       to: email,
-      subject: "Réinitialisation de votre mot de passe — Sportplus",
-      text: `Bonjour,\n\nVous avez demandé la réinitialisation de votre mot de passe.\n\nCliquez sur le lien suivant pour en créer un nouveau :\n\n${resetUrl}\n\nCe lien est valable 1 heure.\n\nSi vous n'êtes pas à l'origine de cette demande, ignorez cet email.\n\n— Équipe Sportplus`,
+      subject: "Réinitialisation de votre mot de passe — Benchrs",
+      text: `Bonjour,\n\nVous avez demandé la réinitialisation de votre mot de passe.\n\nCliquez sur le lien suivant pour en créer un nouveau :\n\n${resetUrl}\n\nCe lien est valable 1 heure.\n\nSi vous n'êtes pas à l'origine de cette demande, ignorez cet email.\n\n— Équipe Benchrs`,
     });
   } catch (err) {
     console.error("[forgot-password] SMTP error:", err);

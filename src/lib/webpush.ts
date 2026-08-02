@@ -12,7 +12,7 @@ const VAPID_PUBLIC_KEY =
   process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || FALLBACK_VAPID_PUBLIC_KEY;
 const VAPID_PRIVATE_KEY =
   process.env.VAPID_PRIVATE_KEY || FALLBACK_VAPID_PRIVATE_KEY;
-const VAPID_SUBJECT = process.env.VAPID_SUBJECT || "mailto:support@sportplus.app";
+const VAPID_SUBJECT = process.env.VAPID_SUBJECT || "mailto:support@benchrs.app";
 
 if (process.env.VAPID_PRIVATE_KEY && process.env.VAPID_PRIVATE_KEY.length < 40) {
   console.error(

@@ -1,6 +1,6 @@
 {
-  "name": "SportPlus",
-  "short_name": "SportPlus",
+  "name": "Benchrs",
+  "short_name": "Benchrs",
   "description": "Gestion d'équipe de football amateur",
   "start_url": "/",
   "display": "standalone",
@@ -13,6 +13,12 @@
   "categories": ["sports", "utilities"],
   "prefer_related_applications": false,
   "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
     {
       "src": "/icons/icon-48.png",
       "sizes": "48x48",
