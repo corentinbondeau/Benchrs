@@ -251,32 +251,12 @@ export default function CalendarPage() {
     }
 
     if (inserted) {
-      const leadDays = parseInt(form.convocation_lead_days, 10) || 3;
       const convokeIds = form.selected_player_ids;
       if (convokeIds.length > 0) {
-        for (const evt of inserted) {
-          const evtDate = new Date(evt.event_date);
-          const scheduledFor = new Date(evtDate.getTime() - leadDays * 24 * 60 * 60 * 1000);
-          const evtUrl = form.type === "match"
-            ? `/matches/${evt.id}`
-            : `/trainings/${evt.id}`;
-          // Convocation programmée leadDays avant l'événement
-          // (envoyée immédiatement par la route si la date est déjà passée)
-          await fetch("/api/notifications/send", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              user_ids: convokeIds,
-              title: `Convocation : ${form.title}`,
-              body: `Vous êtes convoqué(e) le ${new Date(evt.event_date).toLocaleDateString("fr-FR")}`,
-              type: "convocation",
-              reference_id: evt.id,
-              team_id: currentTeam!.id,
-              url: evtUrl,
-              scheduled_for: scheduledFor.toISOString(),
-            }),
-          });
-        }
+        const leadDays = parseInt(form.convocation_lead_days, 10) || 3;
+        const type = form.type;
+        const title = form.title;
+        scheduleConvocations(inserted, convokeIds, leadDays, type, title);
       }
     }
 
@@ -299,6 +279,40 @@ export default function CalendarPage() {
       toast.success("Événement créé !");
     } else {
       toast.success(`${dates.length} événements créés !`);
+    }
+  }
+
+  function scheduleConvocations(
+    events: { id: string; event_date: string }[],
+    userIds: string[],
+    leadDays: number,
+    type: "match" | "training",
+    title: string
+  ) {
+    for (const evt of events) {
+      const evtDate = new Date(evt.event_date);
+      const scheduledFor = new Date(evtDate.getTime() - leadDays * 24 * 60 * 60 * 1000);
+      const evtUrl = type === "match"
+        ? `/matches/${evt.id}`
+        : `/trainings/${evt.id}`;
+      // Convocation programmée leadDays avant l'événement
+      // (envoyée immédiatement par la route si la date est déjà passée)
+      fetch("/api/notifications/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_ids: userIds,
+          title: `Convocation : ${title}`,
+          body: `Vous êtes convoqué(e) le ${evtDate.toLocaleDateString("fr-FR")}`,
+          type: "convocation",
+          reference_id: evt.id,
+          team_id: currentTeam!.id,
+          url: evtUrl,
+          scheduled_for: scheduledFor.toISOString(),
+        }),
+      }).catch(() => {
+        // La création de l'événement ne doit pas dépendre de l'envoi des convocations
+      });
     }
   }
 
