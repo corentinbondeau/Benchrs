@@ -3,6 +3,7 @@
 import { useAuth } from "@/lib/auth";
 import { useTeam } from "@/lib/team";
 import { authFetch } from "@/lib/api-client";
+import { useChatUnread } from "@/lib/useChatUnread";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -73,6 +74,7 @@ export function Sidebar() {
   const { user } = useAuth();
   const { currentTeam, teams, switchTeam, refreshTeams, userRole } = useTeam();
   const isCoach = userRole === "coach" || userRole === "owner";
+  const { total: unreadChat } = useChatUnread(currentTeam?.id, user?.id, userRole ?? undefined);
   const [createOpen, setCreateOpen] = useState(false);
   const [joinMode, setJoinMode] = useState(false);
   const [clubName, setClubName] = useState("");
@@ -237,6 +239,7 @@ export function Sidebar() {
           .filter((item) => !item.coachOnly || isCoach)
           .map((item) => {
           const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+          const badge = item.href === "/chat" ? unreadChat : 0;
           return (
             <Link
               key={item.href}
@@ -247,7 +250,14 @@ export function Sidebar() {
                   : "text-white/60 hover:bg-white/10 hover:text-white"
               }`}
             >
-              <item.icon className="h-4 w-4 shrink-0" />
+              <span className="relative">
+                <item.icon className="h-4 w-4 shrink-0" />
+                {badge > 0 && (
+                  <span className="absolute -top-1.5 -right-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold text-white">
+                    {badge > 99 ? "99+" : badge}
+                  </span>
+                )}
+              </span>
               {item.label}
             </Link>
           );
