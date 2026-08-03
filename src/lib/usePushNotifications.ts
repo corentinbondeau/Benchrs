@@ -16,6 +16,7 @@ export function usePushNotifications() {
     if (!uid || !tid || registered.current) return;
     if (!isPushEnabledLocal()) return;
     if (!("Notification" in window) || !("serviceWorker" in navigator)) return;
+    if (Notification.permission !== "granted") return;
 
     async function register() {
       const res = await enablePushSubscription(uid as string, tid as string);

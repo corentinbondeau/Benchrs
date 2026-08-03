@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { ensureChatMemberships } from "@/lib/chat";
 
@@ -19,6 +19,7 @@ export function useChatUnread(
   role: string | undefined
 ): UnreadCounts {
   const [counts, setCounts] = useState<Record<string, number>>({});
+  const instanceId = useId();
 
   useEffect(() => {
     if (!teamId || !userId) return;
@@ -47,7 +48,7 @@ export function useChatUnread(
     refresh();
 
     const channel = supabase
-      .channel(`chat-unread:${team}`)
+      .channel(`chat-unread:${team}:${instanceId}`)
       .on(
         "postgres_changes",
         {
