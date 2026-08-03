@@ -10,6 +10,8 @@ This version has breaking changes — APIs, conventions, and file structure may 
 Build a mobile-first football team management app (Sportplus) with Supabase backend.
 
 ## Important Details
+- Déploiement : l'intégration GitHub déploie automatiquement depuis `main` (commit vérifiable via `vercel inspect <url>` → `githubCommitSha`) ; `vercel --prod --yes` en secours.
+- Génération de séances IA (`/api/trainings/generate`) : Mistral (clé `MISTRAL_API_KEY`, pas de SDK, `fetch` direct), 4 sections, somme des durées = 90 min (validation + 1 retry), PDF via `@react-pdf/renderer`. **Gotcha mobile** : ne PAS afficher le PDF via une URL `data:application/pdf` dans un `<iframe>` (invisible sur iOS/Android) → convertir le base64 en `Blob` + `URL.createObjectURL` dans la page `trainings/generate/page.tsx`.
 - Roster page links player cards to `/stats/[playerId]` (shows PlayerProfile component)
 - Convocations: coach attendance status editing uses DropdownMenu with DropdownMenuItem (not controlled Select) to avoid base-ui controlled component bug; optimistic update with setEvents + fetchData for sync
 - Chat page had duplicate views on desktop — fixed by wrapping mobile section in `md:hidden`
