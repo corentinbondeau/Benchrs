@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { useTeam } from "@/lib/team";
 import { authFetch } from "@/lib/api-client";
+import { useChatUnread } from "@/lib/useChatUnread";
 import { Sheet, SheetContent, SheetClose, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -299,6 +300,9 @@ function SheetContentInner({ close }: { close: () => void }) {
 
 export function BottomNav() {
   const pathname = usePathname();
+  const { user } = useAuth();
+  const { currentTeam, userRole } = useTeam();
+  const { total: unreadChat } = useChatUnread(currentTeam?.id, user?.id, userRole ?? undefined);
   const close = useCallback(() => {
     const closeBtn = document.querySelector<HTMLButtonElement>('[data-bottom-sheet-close]');
     closeBtn?.click();
@@ -319,6 +323,7 @@ export function BottomNav() {
       >
         {items.map((item) => {
           const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+          const badge = item.href === "/chat" ? unreadChat : 0;
           return (
             <Link
               key={item.href}
@@ -332,7 +337,14 @@ export function BottomNav() {
               {active && (
                 <span className="absolute -top-px left-1/4 right-1/4 h-0.5 rounded-full bg-[var(--color-gold)]" />
               )}
-              <item.icon className="h-6 w-6" />
+              <span className="relative">
+                <item.icon className="h-6 w-6" />
+                {badge > 0 && (
+                  <span className="absolute -top-1 -right-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold text-white">
+                    {badge > 99 ? "99+" : badge}
+                  </span>
+                )}
+              </span>
               {item.label}
             </Link>
           );

@@ -194,8 +194,10 @@ export interface ChatChannel {
   name: string;
   description: string | null;
   is_private: boolean;
-  channel_type: "general" | "parents" | "coaches";
+  channel_type: "general" | "parents" | "coaches" | "custom";
   team_id: string;
+  created_by: string | null;
+  is_default: boolean;
   created_at: string;
 }
 
@@ -214,6 +216,9 @@ export interface ChatMember {
   channel_id: string;
   user_id: string;
   team_id: string;
+  notifications_enabled: boolean;
+  last_read_at: string;
+  left_at: string | null;
   joined_at: string;
 }
 

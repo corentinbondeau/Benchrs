@@ -2,8 +2,15 @@
 
 import { useEffect, useState, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { authFetch } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth";
 import { useTeam } from "@/lib/team";
+import { useChatUnread } from "@/lib/useChatUnread";
+import {
+  ensureChatMemberships,
+  fetchChannelRecipients,
+  channelVisibleForRole,
+} from "@/lib/chat";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,7 +22,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Send, Plus, Loader2 } from "lucide-react";
+import { ChannelSettingsDialog } from "@/components/chat/ChannelSettingsDialog";
+import { Send, Plus, Loader2, Settings } from "lucide-react";
 import type { ChatChannel, ChatMessage, Profile } from "@/types";
 
 interface MessageWithSender extends Omit<ChatMessage, "sender"> {
@@ -25,6 +33,7 @@ interface MessageWithSender extends Omit<ChatMessage, "sender"> {
 export default function ChatPage() {
   const { user } = useAuth();
   const { currentTeam, userRole } = useTeam();
+  const teamId = currentTeam?.id ?? null;
   const [channels, setChannels] = useState<ChatChannel[]>([]);
   const [selectedChannel, setSelectedChannel] = useState<string | null>(null);
   const [messages, setMessages] = useState<MessageWithSender[]>([]);
@@ -39,26 +48,58 @@ export default function ChatPage() {
   const [allMembers, setAllMembers] = useState<Profile[]>([]);
   const [creating, setCreating] = useState(false);
 
+  // Channel settings state
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsChannel, setSettingsChannel] = useState<ChatChannel | null>(null);
+
+  const { counts: unreadCounts } = useChatUnread(teamId, user?.id, userRole ?? undefined);
+
+  const selectedChannelObj = channels.find((c) => c.id === selectedChannel) || null;
+
   useEffect(() => {
-    if (!currentTeam) return;
-    const supabase = createClient();
-    supabase
-      .from("chat_channels")
-      .select("*")
-      .eq("team_id", currentTeam!.id)
-      .order("name")
-      .then(({ data }) => {
-        const all = (data as ChatChannel[]) || [];
-        const visible = all.filter((ch) => {
-          if (ch.channel_type === "general") return true;
-          if (ch.channel_type === "parents") return userRole === "parent" || userRole === "coach" || userRole === "owner";
-          if (ch.channel_type === "coaches") return userRole === "coach" || userRole === "owner";
-          return true;
-        });
-        setChannels(visible);
-        setLoading(false);
+    if (!currentTeam || !user) return;
+    const team = currentTeam;
+    const me = user;
+    let ignore = false;
+    async function load() {
+      const supabase = createClient();
+
+      const { data: all } = await supabase
+        .from("chat_channels")
+        .select("*")
+        .eq("team_id", team.id)
+        .order("name");
+      const roleVisible =
+        (all as ChatChannel[] | null)?.filter(
+          (ch) => ch.channel_type === "custom" || channelVisibleForRole(ch, userRole ?? undefined)
+        ) || [];
+
+      await ensureChatMemberships(team.id, me.id, userRole ?? undefined);
+
+      const { data: rows } = await supabase
+        .from("chat_members")
+        .select("channel_id, left_at")
+        .eq("user_id", me.id)
+        .eq("team_id", team.id);
+      const rowMap = new Map(
+        (rows || []).map((r) => [r.channel_id, r.left_at as string | null])
+      );
+
+      const visible = roleVisible.filter((ch) => {
+        const leftAt = rowMap.get(ch.id);
+        return leftAt === null;
       });
-  }, [userRole, currentTeam]);
+
+      if (ignore) return;
+      setChannels(visible);
+      setSelectedChannel((prev) =>
+        prev && visible.some((c) => c.id === prev) ? prev : null
+      );
+      setLoading(false);
+    }
+    load();
+    return () => { ignore = true; };
+  }, [currentTeam, user, userRole]);
 
   useEffect(() => {
     if (!currentTeam || !createOpen) return;
@@ -83,8 +124,17 @@ export default function ChatPage() {
   }, [currentTeam, createOpen, user?.id]);
 
   useEffect(() => {
-    if (!selectedChannel) return;
+    if (!selectedChannel || !currentTeam) return;
     const supabase = createClient();
+
+    async function markRead() {
+      if (!user?.id) return;
+      await supabase
+        .from("chat_members")
+        .update({ last_read_at: new Date().toISOString() })
+        .eq("channel_id", selectedChannel)
+        .eq("user_id", user.id);
+    }
 
     supabase
       .from("chat_messages")
@@ -98,22 +148,30 @@ export default function ChatPage() {
         setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
       });
 
+    markRead();
+
     const channel = supabase
-      .channel(`chat:${selectedChannel}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "chat_messages", filter: `channel_id=eq.${selectedChannel}` }, async (payload) => {
-        const msg = payload.new as MessageWithSender;
-        if (msg.sender_id === user?.id) return;
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("first_name, last_name")
-          .eq("id", msg.sender_id)
-          .single();
-        setMessages((prev) => [...prev, { ...msg, sender: profile }]);
-      })
+      .channel(`chat:${currentTeam!.id}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "chat_messages", filter: `team_id=eq.${currentTeam!.id}` },
+        async (payload) => {
+          const msg = payload.new as MessageWithSender;
+          if (msg.channel_id !== selectedChannel) return;
+          if (msg.sender_id === user?.id) return;
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("first_name, last_name")
+            .eq("id", msg.sender_id)
+            .single();
+          setMessages((prev) => [...prev, { ...msg, sender: profile }]);
+          markRead();
+        }
+      )
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [selectedChannel, user?.id]);
+  }, [selectedChannel, currentTeam, user?.id]);
 
   async function createChannel() {
     if (!channelName.trim() || !currentTeam || !user) return;
@@ -126,7 +184,9 @@ export default function ChatPage() {
         name: channelName.trim(),
         description: null,
         is_private: false,
-        channel_type: "general",
+        channel_type: "custom",
+        is_default: false,
+        created_by: user.id,
         team_id: currentTeam.id,
       })
       .select()
@@ -153,12 +213,56 @@ export default function ChatPage() {
       toast.error("Erreur lors de l'ajout des membres");
     }
 
-    setChannels((prev) => [...prev, channel]);
+    // Notification aux membres ajoutés (pas au créateur)
+    if (selectedMembers.length > 0) {
+      authFetch("/api/notifications/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_ids: selectedMembers,
+          title: `Nouveau canal : ${channelName.trim()}`,
+          body: `Vous avez été ajouté au canal ${channelName.trim()}`,
+          type: "message",
+          reference_id: channel.id,
+          team_id: currentTeam.id,
+          url: "/chat",
+        }),
+      });
+    }
+
+    setChannels((prev) => [...prev, channel as ChatChannel]);
     setSelectedChannel(channel.id);
     setChannelName("");
     setSelectedMembers([]);
     setCreateOpen(false);
     setCreating(false);
+  }
+
+  async function notifyMessage(channel: ChatChannel, content: string) {
+    if (!currentTeam || !user?.id) return;
+    try {
+      const recipients = await fetchChannelRecipients(channel, currentTeam.id);
+      const others = recipients.filter((uid) => uid !== user.id);
+      if (others.length === 0) return;
+      const senderName = user.profile
+        ? `${user.profile.first_name} ${user.profile.last_name}`.trim()
+        : "Quelqu'un";
+      await authFetch("/api/notifications/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_ids: others,
+          title: channel.name,
+          body: `${senderName} : ${content.slice(0, 100)}`,
+          type: "message",
+          reference_id: channel.id,
+          team_id: currentTeam.id,
+          url: "/chat",
+        }),
+      });
+    } catch {
+      // la notification ne doit pas casser l'envoi du message
+    }
   }
 
   async function sendMessage(e: React.FormEvent) {
@@ -190,7 +294,48 @@ export default function ChatPage() {
 
     if (error) {
       setMessages((prev) => prev.filter((m) => m.id !== optimisticMsg.id));
+      return;
     }
+
+    await supabase
+      .from("chat_members")
+      .update({ last_read_at: new Date().toISOString() })
+      .eq("channel_id", selectedChannel)
+      .eq("user_id", user.id);
+    if (selectedChannelObj) notifyMessage(selectedChannelObj, content);
+  }
+
+  function openSettings(channel: ChatChannel) {
+    setSettingsChannel(channel);
+    setSettingsOpen(true);
+  }
+
+  function handleSettingsOpenChange(open: boolean) {
+    setSettingsOpen(open);
+    if (!open) setSettingsChannel(null);
+  }
+
+  function onRenamed(name: string) {
+    setChannels((prev) =>
+      prev.map((c) => (c.id === settingsChannel?.id ? { ...c, name } : c))
+    );
+    setSettingsChannel((prev) => (prev ? { ...prev, name } : prev));
+  }
+
+  function onDeleted() {
+    if (settingsChannel) {
+      setChannels((prev) => prev.filter((c) => c.id !== settingsChannel.id));
+      if (selectedChannel === settingsChannel.id) setSelectedChannel(null);
+    }
+    handleSettingsOpenChange(false);
+  }
+
+  function onLeft() {
+    if (settingsChannel) {
+      setChannels((prev) => prev.filter((c) => c.id !== settingsChannel.id));
+      if (selectedChannel === settingsChannel.id) setSelectedChannel(null);
+    }
+    handleSettingsOpenChange(false);
   }
 
   if (!currentTeam) {
@@ -205,87 +350,117 @@ export default function ChatPage() {
     );
   }
 
+  const channelUnread = (channelId: string) => unreadCounts[channelId] || 0;
+
+  const channelList = (
+    <div className="flex-1 overflow-y-auto p-2 space-y-1">
+      {channels.map((channel) => {
+        const unread = channelUnread(channel.id);
+        return (
+          <button
+            key={channel.id}
+            onClick={() => setSelectedChannel(channel.id)}
+            className={`w-full text-left rounded-xl px-4 py-3 text-sm font-medium transition-colors hover:bg-muted active:bg-muted/80 touch-manipulation ${
+              selectedChannel === channel.id ? "bg-muted" : ""
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <span className="flex-1 truncate">{channel.name}</span>
+              {unread > 0 && (
+                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--color-gold)] px-1.5 text-[11px] font-semibold text-[var(--color-navy)]">
+                  {unread > 99 ? "99+" : unread}
+                </span>
+              )}
+            </div>
+          </button>
+        );
+      })}
+      {channels.length === 0 && (
+        <p className="text-sm text-muted-foreground text-center py-8">Aucun canal</p>
+      )}
+    </div>
+  );
+
+  const messageThread = (
+    <>
+      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        {messages.map((msg) => {
+          const isMe = msg.sender_id === user?.id;
+          return (
+            <div key={msg.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
+              <div className={`max-w-[85%] md:max-w-[70%] rounded-lg px-3 py-2 ${isMe ? "bg-[var(--color-royal)] text-white" : "bg-muted"}`}>
+                {!isMe && (
+                  <p className="text-xs font-medium mb-1 opacity-70">
+                    {msg.sender?.first_name} {msg.sender?.last_name}
+                  </p>
+                )}
+                <p className="text-sm">{msg.content}</p>
+              </div>
+            </div>
+          );
+        })}
+        <div ref={messagesEndRef} />
+      </div>
+      <form onSubmit={sendMessage} className="p-3 border-t flex gap-2 shrink-0">
+        <Input
+          value={newMessage}
+          onChange={(e) => setNewMessage(e.target.value)}
+          placeholder="Votre message..."
+          className="flex-1"
+        />
+        <Button type="submit" size="icon" className="bg-[var(--color-royal)] text-white" disabled={!newMessage.trim()}>
+          <Send className="h-4 w-4" />
+        </Button>
+      </form>
+    </>
+  );
+
   return (
     <div className="pb-20 md:pb-0">
       {/* Mobile: channel list */}
       <div className="md:hidden">
         {selectedChannel ? (
           <div className="flex flex-col h-[calc(100vh-8rem-5rem)] md:h-[calc(100vh-8rem)]">
-          {/* Mobile channel header */}
-          <div className="flex items-center gap-2 px-3 py-2 border-b shrink-0">
-            <button
-              onClick={() => setSelectedChannel(null)}
-              className="md:hidden text-sm text-[var(--color-royal)] font-medium"
-            >
-              ← Canaux
-            </button>
-            <h3 className="font-semibold text-sm">
-              {channels.find((c) => c.id === selectedChannel)?.name}
-            </h3>
-          </div>
-          {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-3">
-            {messages.map((msg) => {
-              const isMe = msg.sender_id === user?.id;
-              return (
-                <div key={msg.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
-                  <div className={`max-w-[85%] md:max-w-[70%] rounded-lg px-3 py-2 ${isMe ? "bg-[var(--color-royal)] text-white" : "bg-muted"}`}>
-                    {!isMe && (
-                      <p className="text-xs font-medium mb-1 opacity-70">
-                        {msg.sender?.first_name} {msg.sender?.last_name}
-                      </p>
-                    )}
-                    <p className="text-sm">{msg.content}</p>
-                  </div>
-                </div>
-              );
-            })}
-            <div ref={messagesEndRef} />
-          </div>
-          {/* Input */}
-          <form onSubmit={sendMessage} className="p-3 border-t flex gap-2 shrink-0">
-            <Input
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              placeholder="Votre message..."
-              className="flex-1"
-            />
-            <Button type="submit" size="icon" className="bg-[var(--color-royal)] text-white" disabled={!newMessage.trim()}>
-              <Send className="h-4 w-4" />
-            </Button>
-          </form>
-        </div>
-      ) : (
-        <div className="flex flex-col h-[calc(100vh-8rem-5rem)] md:h-[calc(100vh-8rem)]">
-          {/* Channel list header */}
-          <div className="p-3 border-b flex items-center justify-between shrink-0">
-            <h3 className="font-semibold text-base">Canaux</h3>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-[var(--color-gold)] hover:text-[var(--color-gold)] hover:bg-[var(--color-gold)]/10"
-              onClick={() => setCreateOpen(true)}
-            >
-              <Plus className="h-4 w-4" />
-            </Button>
-          </div>
-          {/* Channel list */}
-          <div className="flex-1 overflow-y-auto p-2 space-y-1">
-            {channels.map((channel) => (
+            {/* Mobile channel header */}
+            <div className="flex items-center gap-2 px-3 py-2 border-b shrink-0">
               <button
-                key={channel.id}
-                onClick={() => setSelectedChannel(channel.id)}
-                className="w-full text-left rounded-xl px-4 py-3 text-sm font-medium transition-colors hover:bg-muted active:bg-muted/80 touch-manipulation"
+                onClick={() => setSelectedChannel(null)}
+                className="md:hidden text-sm text-[var(--color-royal)] font-medium"
               >
-                {channel.name}
+                ← Canaux
               </button>
-            ))}
-            {channels.length === 0 && (
-              <p className="text-sm text-muted-foreground text-center py-8">Aucun canal</p>
-            )}
+              <h3 className="font-semibold text-sm flex-1 truncate">
+                {channels.find((c) => c.id === selectedChannel)?.name}
+              </h3>
+              {selectedChannelObj && (
+                <button
+                  onClick={() => openSettings(selectedChannelObj)}
+                  className="text-muted-foreground hover:text-foreground p-1"
+                  aria-label="Paramètres du canal"
+                >
+                  <Settings className="h-5 w-5" />
+                </button>
+              )}
+            </div>
+            {messageThread}
           </div>
-        </div>
-      )}
+        ) : (
+          <div className="flex flex-col h-[calc(100vh-8rem-5rem)] md:h-[calc(100vh-8rem)]">
+            {/* Channel list header */}
+            <div className="p-3 border-b flex items-center justify-between shrink-0">
+              <h3 className="font-semibold text-base">Canaux</h3>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-[var(--color-gold)] hover:text-[var(--color-gold)] hover:bg-[var(--color-gold)]/10"
+                onClick={() => setCreateOpen(true)}
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
+            {channelList}
+          </div>
+        )}
       </div>
 
       {/* Desktop: split view */}
@@ -303,19 +478,31 @@ export default function ChatPage() {
             </Button>
           </div>
           <div className="flex-1 p-1 overflow-y-auto">
-            {channels.map((channel) => (
-              <button
-                key={channel.id}
-                onClick={() => setSelectedChannel(channel.id)}
-                className={`w-full text-left rounded-lg px-3 py-2 text-sm transition-colors ${
-                  selectedChannel === channel.id
-                    ? "bg-[var(--color-royal)] text-white"
-                    : "hover:bg-muted text-foreground"
-                }`}
-              >
-                {channel.name}
-              </button>
-            ))}
+            {channels.map((channel) => {
+              const unread = channelUnread(channel.id);
+              return (
+                <button
+                  key={channel.id}
+                  onClick={() => setSelectedChannel(channel.id)}
+                  className={`w-full text-left rounded-lg px-3 py-2 text-sm transition-colors flex items-center gap-2 ${
+                    selectedChannel === channel.id
+                      ? "bg-[var(--color-royal)] text-white"
+                      : "hover:bg-muted text-foreground"
+                  }`}
+                >
+                  <span className="flex-1 truncate">{channel.name}</span>
+                  {unread > 0 && (
+                    <span className={`flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold ${
+                      selectedChannel === channel.id
+                        ? "bg-white text-[var(--color-navy)]"
+                        : "bg-[var(--color-gold)] text-[var(--color-navy)]"
+                    }`}>
+                      {unread > 99 ? "99+" : unread}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
             {channels.length === 0 && (
               <p className="text-xs text-muted-foreground text-center py-4">Aucun canal</p>
             )}
@@ -323,35 +510,21 @@ export default function ChatPage() {
         </div>
         {selectedChannel ? (
           <div className="flex-1 flex flex-col">
-            <div className="flex-1 overflow-y-auto p-4 space-y-3">
-              {messages.map((msg) => {
-                const isMe = msg.sender_id === user?.id;
-                return (
-                  <div key={msg.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
-                    <div className={`max-w-[70%] rounded-lg px-3 py-2 ${isMe ? "bg-[var(--color-royal)] text-white" : "bg-muted"}`}>
-                      {!isMe && (
-                        <p className="text-xs font-medium mb-1 opacity-70">
-                          {msg.sender?.first_name} {msg.sender?.last_name}
-                        </p>
-                      )}
-                      <p className="text-sm">{msg.content}</p>
-                    </div>
-                  </div>
-                );
-              })}
-              <div ref={messagesEndRef} />
+            <div className="flex items-center gap-2 px-3 py-2 border-b shrink-0">
+              <h3 className="font-semibold text-sm flex-1 truncate">
+                {channels.find((c) => c.id === selectedChannel)?.name}
+              </h3>
+              {selectedChannelObj && (
+                <button
+                  onClick={() => openSettings(selectedChannelObj)}
+                  className="text-muted-foreground hover:text-foreground p-1"
+                  aria-label="Paramètres du canal"
+                >
+                  <Settings className="h-4 w-4" />
+                </button>
+              )}
             </div>
-            <form onSubmit={sendMessage} className="p-3 border-t flex gap-2">
-              <Input
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                placeholder="Votre message..."
-                className="flex-1"
-              />
-              <Button type="submit" size="icon" className="bg-[var(--color-royal)] text-white" disabled={!newMessage.trim()}>
-                <Send className="h-4 w-4" />
-              </Button>
-            </form>
+            {messageThread}
           </div>
         ) : (
           <div className="flex-1 flex items-center justify-center text-muted-foreground">
@@ -433,6 +606,18 @@ export default function ChatPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <ChannelSettingsDialog
+        key={settingsChannel?.id ?? "none"}
+        open={settingsOpen}
+        onOpenChange={handleSettingsOpenChange}
+        channel={settingsChannel}
+        myUserId={user?.id || ""}
+        teamId={currentTeam.id}
+        onRenamed={onRenamed}
+        onDeleted={onDeleted}
+        onLeft={onLeft}
+      />
     </div>
   );
 }
