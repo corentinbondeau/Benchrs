@@ -253,7 +253,7 @@ export function Sidebar() {
               <span className="relative">
                 <item.icon className="h-4 w-4 shrink-0" />
                 {badge > 0 && (
-                  <span className="absolute -top-1.5 -right-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold text-white">
+                  <span className="absolute -top-1.5 -right-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--color-gold)] px-1 text-[10px] font-semibold text-[var(--color-navy)]">
                     {badge > 99 ? "99+" : badge}
                   </span>
                 )}
