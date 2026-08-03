@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useTeam } from "@/lib/team";
 import { useRouter } from "next/navigation";
+import { useQueryCache } from "@/lib/queryCache";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Trophy, Calendar } from "lucide-react";
@@ -12,24 +12,21 @@ import type { Event } from "@/types";
 export function NewsFeed() {
   const router = useRouter();
   const { currentTeam } = useTeam();
-  const [events, setEvents] = useState<Event[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (!currentTeam) return;
-    const supabase = createClient();
-    supabase
-      .from("events")
-      .select("*")
-      .eq("team_id", currentTeam!.id)
-      .in("status", ["completed", "upcoming"])
-      .order("event_date", { ascending: true })
-      .limit(5)
-      .then(({ data }) => {
-        setEvents((data as Event[]) || []);
-        setLoading(false);
-      });
-  }, [currentTeam]);
+  const { data: events, loading } = useQueryCache<Event[]>(
+    currentTeam ? `events:feed:${currentTeam.id}` : null,
+    async () => {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from("events")
+        .select("*")
+        .eq("team_id", currentTeam!.id)
+        .in("status", ["completed", "upcoming"])
+        .order("event_date", { ascending: true })
+        .limit(5);
+      return (data as Event[]) || [];
+    },
+    { ttl: 60_000 }
+  );
 
   if (!currentTeam) return null;
 
@@ -42,6 +39,8 @@ export function NewsFeed() {
       </Card>
     );
   }
+
+  if (!events) return null;
 
   return (
     <Card>

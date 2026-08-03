@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useTeam } from "@/lib/team";
 import { useRouter } from "next/navigation";
+import { useQueryCache, clearQueryCache } from "@/lib/queryCache";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -21,87 +22,87 @@ interface CoachPendingItem {
   parents: Profile[];
 }
 
+type PendingData =
+  | { role: "coach"; items: CoachPendingItem[] }
+  | { role: "player"; items: (Attendance & { event: Event })[] };
+
 export function PendingConvocations() {
   const { user } = useAuth();
   const { currentTeam, userRole } = useTeam();
   const router = useRouter();
   const isCoach = userRole === "coach" || userRole === "owner";
 
-  const [playerAttendances, setPlayerAttendances] = useState<(Attendance & { event: Event })[]>([]);
-  const [coachItems, setCoachItems] = useState<CoachPendingItem[]>([]);
-  const [loading, setLoading] = useState(true);
   const [absenceReason, setAbsenceReason] = useState("");
   const [pendingAbsentId, setPendingAbsentId] = useState<string | null>(null);
   const [remindingKey, setRemindingKey] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!user?.id || !currentTeam) return;
-    const supabase = createClient();
+  const key = currentTeam && user?.id
+    ? `convocations:pending:${currentTeam.id}:${isCoach ? "coach" : user.id}`
+    : null;
 
-    if (isCoach) {
-      Promise.all([
-        supabase
-          .from("attendances")
-          .select("*, event:events!attendances_event_id_fkey(*)")
-          .eq("team_id", currentTeam!.id)
-          .eq("status", "pending")
-          .order("created_at", { ascending: false }),
-        supabase
-          .from("profiles")
-          .select("*")
-          .eq("role", "player")
-          .eq("is_active", true),
-        supabase
-          .from("parent_student")
-          .select("parent_id, student_id")
-          .eq("team_id", currentTeam!.id),
-      ]).then(([attRes, playersRes, psRes]) => {
+  const { data, loading, revalidate } = useQueryCache<PendingData>(
+    key,
+    async () => {
+      const supabase = createClient();
+      if (isCoach) {
+        const [attRes, playersRes, psRes] = await Promise.all([
+          supabase
+            .from("attendances")
+            .select("*, event:events!attendances_event_id_fkey(*)")
+            .eq("team_id", currentTeam!.id)
+            .eq("status", "pending")
+            .order("created_at", { ascending: false }),
+          supabase
+            .from("profiles")
+            .select("*")
+            .eq("role", "player")
+            .eq("is_active", true),
+          supabase
+            .from("parent_student")
+            .select("parent_id, student_id")
+            .eq("team_id", currentTeam!.id),
+        ]);
+
         const atts = (attRes.data as (Attendance & { event: Event })[]) || [];
         const allPlayers = (playersRes.data as Profile[]) || [];
         const links = (psRes.data as { parent_id: string; student_id: string }[]) || [];
 
         const parentIds = [...new Set(links.map((l) => l.parent_id))];
-        let allParents: Profile[] = [];
-        if (parentIds.length > 0) {
-          // fetch in batches if needed — Supabase `in` supports up to ~100
-        }
-        // Fetch parents separately
-        supabase
+        const { data: parentData } = await supabase
           .from("profiles")
           .select("*")
-          .in("id", parentIds.length > 0 ? parentIds : ["00000000-0000-0000-0000-000000000000"])
-          .then(({ data }) => {
-            allParents = (data as Profile[]) || [];
+          .in("id", parentIds.length > 0 ? parentIds : ["00000000-0000-0000-0000-000000000000"]);
+        const allParents = (parentData as Profile[]) || [];
 
-            const items: CoachPendingItem[] = atts
-              .map((att) => {
-                const player = allPlayers.find((p) => p.id === att.user_id);
-                if (!player || !att.event) return null;
-                const parentIdsForPlayer = links
-                  .filter((l) => l.student_id === att.user_id)
-                  .map((l) => l.parent_id);
-                const parents = allParents.filter((p) => parentIdsForPlayer.includes(p.id));
-                return { attendance: att, event: att.event, player, parents };
-              })
-              .filter(Boolean) as CoachPendingItem[];
-            setCoachItems(items);
-            setLoading(false);
-          });
-      });
-    } else {
-      supabase
+        const items: CoachPendingItem[] = atts
+          .map((att) => {
+            const player = allPlayers.find((p) => p.id === att.user_id);
+            if (!player || !att.event) return null;
+            const parentIdsForPlayer = links
+              .filter((l) => l.student_id === att.user_id)
+              .map((l) => l.parent_id);
+            const parents = allParents.filter((p) => parentIdsForPlayer.includes(p.id));
+            return { attendance: att, event: att.event, player, parents };
+          })
+          .filter(Boolean) as CoachPendingItem[];
+
+        return { role: "coach", items } as PendingData;
+      }
+
+      const { data: attData } = await supabase
         .from("attendances")
         .select("*, event:events!attendances_event_id_fkey(*)")
-        .eq("user_id", user.id)
+        .eq("user_id", user!.id)
         .eq("team_id", currentTeam!.id)
         .eq("status", "pending")
-        .order("created_at", { ascending: false })
-        .then(({ data }) => {
-          setPlayerAttendances((data as (Attendance & { event: Event })[]) || []);
-          setLoading(false);
-        });
-    }
-  }, [user?.id, isCoach, currentTeam]);
+        .order("created_at", { ascending: false });
+      return { role: "player", items: (attData as (Attendance & { event: Event })[]) || [] } as PendingData;
+    },
+    { ttl: 15_000 }
+  );
+
+  const coachItems = data?.role === "coach" ? data.items : [];
+  const playerAttendances = data?.role === "player" ? data.items : [];
 
   if (!currentTeam) return null;
 
@@ -121,7 +122,8 @@ export function PendingConvocations() {
       })
       .eq("id", attendanceId);
 
-    setPlayerAttendances((prev) => prev.filter((a) => a.id !== attendanceId));
+    clearQueryCache();
+    revalidate();
     setPendingAbsentId(null);
     setAbsenceReason("");
   }

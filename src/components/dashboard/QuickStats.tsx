@@ -1,21 +1,24 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useTeam } from "@/lib/team";
+import { useQueryCache } from "@/lib/queryCache";
 import { countTeamActivePlayers } from "@/lib/players";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar, Users, Trophy } from "lucide-react";
 
+interface QuickStatsData {
+  upcomingEvents: number;
+  totalPlayers: number;
+  recentWins: number;
+}
+
 export function QuickStats() {
   const { currentTeam } = useTeam();
-  const [stats, setStats] = useState({ upcomingEvents: 0, totalPlayers: 0, recentWins: 0 });
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (!currentTeam) return;
-    const supabase = createClient();
-    async function fetchStats() {
+  const { data: stats, loading } = useQueryCache<QuickStatsData>(
+    currentTeam ? `stats:quick:${currentTeam.id}` : null,
+    async () => {
+      const supabase = createClient();
       const [eventsRes, playersCount, winsRes] = await Promise.all([
         supabase
           .from("events")
@@ -32,25 +35,18 @@ export function QuickStats() {
           .gte("event_date", new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()),
       ]);
 
-      setStats({
+      return {
         upcomingEvents: eventsRes.count || 0,
         totalPlayers: playersCount,
         recentWins: winsRes.count || 0,
-      });
-      setLoading(false);
-    }
-    fetchStats();
-  }, [currentTeam]);
+      };
+    },
+    { ttl: 60_000 }
+  );
 
   if (!currentTeam) return null;
 
-  const items = [
-    { icon: Calendar, label: "Événements à venir", value: stats.upcomingEvents, color: "text-[var(--color-royal)]", bg: "bg-blue-50" },
-    { icon: Users, label: "Joueurs actifs", value: stats.totalPlayers, color: "text-green-600", bg: "bg-green-50" },
-    { icon: Trophy, label: "Victoires (30j)", value: stats.recentWins, color: "text-[var(--color-gold)]", bg: "bg-amber-50" },
-  ];
-
-  if (loading) {
+  if (loading || !stats) {
     return (
       <Card>
         <CardContent className="p-6">
@@ -59,6 +55,12 @@ export function QuickStats() {
       </Card>
     );
   }
+
+  const items = [
+    { icon: Calendar, label: "Événements à venir", value: stats.upcomingEvents, color: "text-[var(--color-royal)]", bg: "bg-blue-50" },
+    { icon: Users, label: "Joueurs actifs", value: stats.totalPlayers, color: "text-green-600", bg: "bg-green-50" },
+    { icon: Trophy, label: "Victoires (30j)", value: stats.recentWins, color: "text-[var(--color-gold)]", bg: "bg-amber-50" },
+  ];
 
   return (
     <Card>

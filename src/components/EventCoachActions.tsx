@@ -15,6 +15,7 @@ import {
 import { CalendarClock, Pencil, RotateCcw, Trash2, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { clearQueryCache } from "@/lib/queryCache";
 import type { Event } from "@/types";
 
 export type EventWithMeeting = Event & { meeting_time: string | null };
@@ -180,6 +181,7 @@ export function EventCoachActions({
     setSaving(false);
     setReportOpen(false);
     toast.success("Événement reporté");
+    clearQueryCache();
     await notifyPlayers(
       event.id,
       event.team_id,
@@ -266,6 +268,7 @@ export function EventCoachActions({
         ? `Toutes les occurrences modifiées (${groupCount})`
         : "Événement modifié"
     );
+    clearQueryCache();
   }
 
   async function saveCancel() {
@@ -313,6 +316,7 @@ export function EventCoachActions({
         scope === "all" ? `Toutes les occurrences réactivées (${groupCount})` : "Événement réactivé"
       );
     }
+    clearQueryCache();
   }
 
   const isCancelled = event.status === "cancelled";
@@ -343,6 +347,7 @@ export function EventCoachActions({
     toast.success(
       scope === "all" ? `Toutes les occurrences supprimées (${groupCount})` : "Événement supprimé"
     );
+    clearQueryCache();
     router.push("/calendar");
   }
 

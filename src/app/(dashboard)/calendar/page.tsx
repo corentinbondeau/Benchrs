@@ -37,6 +37,7 @@ import {
 import { toast } from "sonner";
 import { ConvocationsDialog } from "@/components/ConvocationsDialog";
 import { fetchTeamActivePlayers } from "@/lib/players";
+import { clearQueryCache } from "@/lib/queryCache";
 import type { Event, Profile } from "@/types";
 
 type Recurrence = "Aucun" | "weekly" | "biweekly" | "monthly";
@@ -274,6 +275,7 @@ export default function CalendarPage() {
       selected_player_ids: [],
     });
     fetchEvents();
+    clearQueryCache();
 
     if (dates.length === 1) {
       toast.success("Événement créé !");

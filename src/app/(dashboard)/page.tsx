@@ -1,14 +1,39 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useAuth } from "@/lib/auth";
+import { LazyMount } from "@/components/LazyMount";
 import { NextEventCard } from "@/components/dashboard/NextEventCard";
 import { PendingConvocations } from "@/components/dashboard/PendingConvocations";
-import { NewsFeed } from "@/components/dashboard/NewsFeed";
 import { QuickStats } from "@/components/dashboard/QuickStats";
 import { RecentResults } from "@/components/dashboard/RecentResults";
-import { SeasonSummary } from "@/components/dashboard/SeasonSummary";
 import { PlayerDashboard } from "@/components/dashboard/PlayerDashboard";
 import { ParentDashboard } from "@/components/dashboard/ParentDashboard";
+import { Card, CardContent } from "@/components/ui/card";
+
+function WidgetSkeleton({ className = "" }: { className?: string }) {
+  return (
+    <Card>
+      <CardContent className="p-6">
+        <div className={`animate-pulse rounded-lg bg-muted ${className}`} />
+      </CardContent>
+    </Card>
+  );
+}
+
+const NewsFeed = dynamic(
+  () => import("@/components/dashboard/NewsFeed").then((m) => m.NewsFeed),
+  {
+    loading: () => <WidgetSkeleton className="h-28" />,
+  }
+);
+
+const SeasonSummary = dynamic(
+  () => import("@/components/dashboard/SeasonSummary").then((m) => m.SeasonSummary),
+  {
+    loading: () => <WidgetSkeleton className="h-36" />,
+  }
+);
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -39,8 +64,12 @@ export default function DashboardPage() {
         <QuickStats />
         <RecentResults />
         <PendingConvocations />
-        <NewsFeed />
-        <SeasonSummary />
+        <LazyMount fallback={<WidgetSkeleton className="h-28" />}>
+          <NewsFeed />
+        </LazyMount>
+        <LazyMount fallback={<WidgetSkeleton className="h-36" />}>
+          <SeasonSummary />
+        </LazyMount>
       </div>
     </div>
   );
