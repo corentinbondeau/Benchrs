@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useTeam } from "@/lib/team";
+import { authFetch } from "@/lib/api-client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -73,7 +74,7 @@ export default function ChampionshipPage() {
   const [scrapeTab, setScrapeTab] = useState<"standings" | "calendar">("standings");
 
   useEffect(() => {
-    fetch(`/api/championships?team_id=${currentTeam!.id}`)
+    authFetch(`/api/championships?team_id=${currentTeam!.id}`)
       .then((r) => r.json())
       .then((data) => {
         setChampionships(data);
@@ -87,7 +88,7 @@ export default function ChampionshipPage() {
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
-    const res = await fetch("/api/championships", {
+    const res = await authFetch("/api/championships", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...form, team_id: currentTeam!.id }),
@@ -96,7 +97,7 @@ export default function ChampionshipPage() {
       toast.success("Championnat créé");
       setCreateOpen(false);
       setForm({ name: "", season: "2025-2026", level: "" });
-      const data = await fetch(`/api/championships?team_id=${currentTeam!.id}`).then((r) => r.json());
+      const data = await authFetch(`/api/championships?team_id=${currentTeam!.id}`).then((r) => r.json());
       setChampionships(data);
     }
   }
@@ -110,7 +111,7 @@ export default function ChampionshipPage() {
     setScrapedTeams(null);
     setScrapedMatches(null);
     try {
-      const res = await fetch("/api/championships/fff", {
+      const res = await authFetch("/api/championships/fff", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url: fffUrl || undefined, html: fffHtml || undefined, type: "all" }),
@@ -153,7 +154,7 @@ export default function ChampionshipPage() {
     }
     setSaving(true);
     try {
-      const createRes = await fetch("/api/championships", {
+      const createRes = await authFetch("/api/championships", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -171,7 +172,7 @@ export default function ChampionshipPage() {
 
       if (scrapedTeams) {
         for (const team of scrapedTeams) {
-          await fetch("/api/championships/standings", {
+          await authFetch("/api/championships/standings", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -188,7 +189,7 @@ export default function ChampionshipPage() {
 
       if (scrapedMatches) {
         for (const m of scrapedMatches) {
-          await fetch("/api/championships/standings", {
+          await authFetch("/api/championships/standings", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -207,7 +208,7 @@ export default function ChampionshipPage() {
       toast.success("Championnat importé avec succès");
       setFffOpen(false);
       resetFffDialog();
-      const data = await fetch(`/api/championships?team_id=${currentTeam!.id}`).then((r) => r.json());
+      const data = await authFetch(`/api/championships?team_id=${currentTeam!.id}`).then((r) => r.json());
       setChampionships(data);
     } catch {
       toast.error("Erreur lors de la sauvegarde");

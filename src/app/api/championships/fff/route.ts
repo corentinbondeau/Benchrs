@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getAuthUser, unauthorized, forbidden, isTeamMember } from "@/lib/api-auth";
 
 interface FFFTeam {
   team_name: string;
@@ -252,6 +253,9 @@ function parseCalendarTable(html: string): FFFMatch[] {
 }
 
 export async function POST(req: Request) {
+  const user = await getAuthUser(req);
+  if (!user) return unauthorized();
+
   const body = await req.json();
   const { url, html: rawHtml, championship_id, type = "all" } = body as {
     url?: string;
@@ -265,6 +269,42 @@ export async function POST(req: Request) {
       { error: "URL ou HTML requis" },
       { status: 400 }
     );
+  }
+
+  if (championship_id) {
+    const supabaseCheck = createAdminClient();
+    const { data: championship } = await supabaseCheck
+      .from("championships")
+      .select("id, team_id")
+      .eq("id", championship_id)
+      .maybeSingle();
+
+    if (!championship || !(await isTeamMember(user.id, championship.team_id))) {
+      return forbidden();
+    }
+  }
+
+  // SSRF : n'autoriser que le domaine fff.fr en HTTPS
+  if (url) {
+    let parsed: URL;
+    try {
+      parsed = new URL(url);
+    } catch {
+      return NextResponse.json({ error: "URL invalide" }, { status: 400 });
+    }
+    const host = parsed.hostname.toLowerCase();
+    const allowed =
+      host === "fff.fr" ||
+      host === "www.fff.fr" ||
+      host.endsWith(".fff.fr") ||
+      host === "media.fff.fr" ||
+      host.endsWith(".media.fff.fr");
+    if (parsed.protocol !== "https:" || !allowed) {
+      return NextResponse.json(
+        { error: "Seules les URL https://www.fff.fr sont autorisées" },
+        { status: 400 }
+      );
+    }
   }
 
   let html = rawHtml;

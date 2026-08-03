@@ -1,21 +1,24 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getAuthUser, unauthorized, forbidden, isTeamMember } from "@/lib/api-auth";
 
 export async function GET(req: Request) {
+  const user = await getAuthUser(req);
+  if (!user) return unauthorized();
+
   const { searchParams } = new URL(req.url);
   const teamId = searchParams.get("team_id");
 
-  const supabase = createAdminClient();
-  let query = supabase
-    .from("championships")
-    .select("*")
-    .order("created_at", { ascending: false });
-
-  if (teamId) {
-    query = query.eq("team_id", teamId);
+  if (!teamId || !(await isTeamMember(user.id, teamId))) {
+    return forbidden();
   }
 
-  const { data: championships } = await query;
+  const supabase = createAdminClient();
+  const { data: championships } = await supabase
+    .from("championships")
+    .select("*")
+    .eq("team_id", teamId)
+    .order("created_at", { ascending: false });
 
   if (!championships) {
     return NextResponse.json([]);
@@ -36,14 +39,25 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const supabase = createAdminClient();
+  const user = await getAuthUser(req);
+  if (!user) return unauthorized();
+
   const body = await req.json();
 
+  if (!body.team_id || !(await isTeamMember(user.id, body.team_id))) {
+    return forbidden();
+  }
+
+  if (typeof body.name !== "string" || !body.name.trim() || body.name.trim().length > 200) {
+    return NextResponse.json({ error: "Nom invalide" }, { status: 400 });
+  }
+
+  const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("championships")
     .insert({
-      name: body.name,
-      season: body.season,
+      name: body.name.trim(),
+      season: body.season || null,
       level: body.level || null,
       team_id: body.team_id,
     })

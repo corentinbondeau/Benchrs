@@ -1,12 +1,16 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { defaultNotificationPrefs } from "@/lib/notificationTypes";
+import { getAuthUser, unauthorized } from "@/lib/api-auth";
 
 export async function POST(req: Request) {
   try {
-    const { userId, inviteCode, role } = await req.json();
+    const authUser = await getAuthUser(req);
+    if (!authUser) return unauthorized();
 
-    if (!userId || !inviteCode) {
+    const { inviteCode, role } = await req.json();
+
+    if (!inviteCode) {
       return NextResponse.json(
         { error: "Code d'invitation requis" },
         { status: 400 }
@@ -21,13 +25,14 @@ export async function POST(req: Request) {
       );
     }
 
+    const userId = authUser.id;
     const supabase = createAdminClient();
 
     // Find team by invite code
     const { data: team, error: teamError } = await supabase
       .from("teams")
       .select("id, name, club_id")
-      .eq("invite_code", inviteCode)
+      .eq("invite_code", String(inviteCode).trim())
       .single();
 
     if (teamError || !team) {

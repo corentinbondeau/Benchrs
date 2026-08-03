@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { authFetch } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth";
 import { useTeam } from "@/lib/team";
 import { useRouter } from "next/navigation";
@@ -299,7 +300,7 @@ export default function CalendarPage() {
         : `/trainings/${evt.id}`;
       // Convocation programmée leadDays avant l'événement
       // (envoyée immédiatement par la route si la date est déjà passée)
-      fetch("/api/notifications/send", {
+      authFetch("/api/notifications/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

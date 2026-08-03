@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useTeam } from "@/lib/team";
 import { useAuth } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/client";
+import { authFetch } from "@/lib/api-client";
 import {
   Card,
   CardContent,
@@ -157,7 +158,7 @@ export default function TeamSettingsPage() {
     if (!currentTeam) return;
     setDeleting(true);
 
-    const res = await fetch("/api/teams/delete", {
+    const res = await authFetch("/api/teams/delete", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ teamId: currentTeam.id }),

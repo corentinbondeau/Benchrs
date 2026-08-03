@@ -1,6 +1,7 @@
 "use client";
 
 import { createClient } from "@/lib/supabase/client";
+import { authFetch } from "@/lib/api-client";
 
 const FALLBACK_VAPID_KEY =
   "BKp6frQFz94B7dpWC7WlId_rxF1f_7DNJUhSjX1h5wVbMLuxzSR8VHTAaalGdXHf20_CzQ91lez1CkWnFkCczoU";
@@ -72,7 +73,7 @@ export async function enablePushSubscription(
         applicationServerKey: urlBase64ToUint8Array(PUBLIC_VAPID_KEY),
       });
     }
-    const res = await fetch("/api/notifications/subscribe", {
+    const res = await authFetch("/api/notifications/subscribe", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ user_id: userId, team_id: teamId, subscription: sub.toJSON() }),
@@ -94,7 +95,7 @@ export async function disablePushSubscription(): Promise<{ ok: boolean; error?: 
       const registration = await navigator.serviceWorker.getRegistration();
       const sub = await registration?.pushManager.getSubscription();
       if (sub) {
-        await fetch(
+        await authFetch(
           `/api/notifications/subscribe?endpoint=${encodeURIComponent(sub.endpoint)}`,
           { method: "DELETE" }
         );

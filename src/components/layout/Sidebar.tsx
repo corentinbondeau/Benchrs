@@ -2,6 +2,7 @@
 
 import { useAuth } from "@/lib/auth";
 import { useTeam } from "@/lib/team";
+import { authFetch } from "@/lib/api-client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -84,7 +85,7 @@ export function Sidebar() {
     if (!clubName.trim() || !teamName.trim()) return;
     setCreating(true);
     try {
-      const res = await fetch("/api/auth/create-team", {
+      const res = await authFetch("/api/auth/create-team", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId: user!.id, clubName: clubName.trim(), teamName: teamName.trim() }),
@@ -113,7 +114,7 @@ export function Sidebar() {
     if (!inviteCode.trim()) return;
     setCreating(true);
     try {
-      const res = await fetch("/api/auth/join-team", {
+      const res = await authFetch("/api/auth/join-team", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId: user!.id, inviteCode: inviteCode.trim(), role: joinRole }),

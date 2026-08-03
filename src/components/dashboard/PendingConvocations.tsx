@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { authFetch } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth";
 import { useTeam } from "@/lib/team";
 import { useRouter } from "next/navigation";
@@ -134,7 +135,7 @@ export function PendingConvocations() {
 
     const targetUser = target === "parent" && parentProfile ? parentProfile : item.player;
     const dateStr = new Date(item.event.event_date).toLocaleDateString("fr-FR");
-    const res = await fetch("/api/notifications/send", {
+    const res = await authFetch("/api/notifications/send", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
