@@ -42,6 +42,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { generateSession, type Phase } from "@/lib/training/generator";
+import { TACTICAL_PHASES as PHASE_OBJECTIVES } from "@/lib/training/phases";
 import type {
   TrainingSession,
   Exercise,
@@ -74,32 +75,6 @@ function formatTime(dateStr: string) {
 }
 
 // --- Séance Tab ----------------------------------------------------------------
-
-const PHASE_OBJECTIVES: Record<string, string[]> = {
-  "DÉSEQUILIBRER / FINIR": [
-    "Jeu combiné pour créer le surnombre",
-    "Jouer à l'opposé après avoir fixer",
-    "Rechercher joueur lancé dans la profondeur",
-    "Se démarquer, éliminer passer ou tirer face à une défense en place",
-    "Se démarquer, éliminer passer ou tirer face à une défense en crise",
-  ],
-  "CONSERVER / PROGRESSER": [
-    "Créer et utiliser des espaces",
-    "Jouer dans les intervalles et entre les lignes",
-    "Jouer combiné à 2 / à 3 créer de la mobilité et de la vitesse de circulation",
-  ],
-  "S’OPPOSER À LA PROGRESSION": [
-    "Freiner la progression / réorganiser les alignements",
-    "Anticiper la profondeur",
-    "Protéger l'axe, le couloir de jeu direct, organiser les prises en charge",
-  ],
-  "S’ORGANISER POUR RECUPERER": [
-    "S'organiser en déséquilibre",
-    "Densifier dans le couloir de jeu",
-    "Couvrir le partenaire dans l'action défensive",
-  ],
-  ATHLETISATION: [],
-};
 
 function SéanceTab() {
   const { user } = useAuth();
