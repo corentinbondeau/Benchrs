@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { authFetch } from "@/lib/api-client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -399,7 +400,7 @@ export function LiveMatchTracker({
       ];
       const userIds = [...new Set([...players.map((p) => p.id), ...parentIds])];
       if (userIds.length === 0) return;
-      await fetch("/api/notifications/send", {
+      await authFetch("/api/notifications/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

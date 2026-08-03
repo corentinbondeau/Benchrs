@@ -15,6 +15,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
+import { authFetch } from "@/lib/api-client";
 import { toast } from "sonner";
 
 export default function CreateTeamPage() {
@@ -63,7 +64,7 @@ export default function CreateTeamPage() {
     }
 
     try {
-      const res = await fetch("/api/auth/create-team", {
+      const res = await authFetch("/api/auth/create-team", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId: user.id, clubName, teamName }),

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { useTeam } from "@/lib/team";
+import { authFetch } from "@/lib/api-client";
 import { Sheet, SheetContent, SheetClose, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -72,7 +73,7 @@ function SheetContentInner({ close }: { close: () => void }) {
     if (!clubName.trim() || !teamName.trim() || !user) return;
     setSubmitting(true);
     try {
-      const res = await fetch("/api/auth/create-team", {
+      const res = await authFetch("/api/auth/create-team", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId: user.id, clubName: clubName.trim(), teamName: teamName.trim() }),
@@ -92,7 +93,7 @@ function SheetContentInner({ close }: { close: () => void }) {
     if (!inviteCode.trim() || !user) return;
     setSubmitting(true);
     try {
-      const res = await fetch("/api/auth/join-team", {
+      const res = await authFetch("/api/auth/join-team", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId: user.id, inviteCode: inviteCode.trim(), role: joinRole }),

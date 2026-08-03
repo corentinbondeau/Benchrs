@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { authFetch } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -44,7 +45,7 @@ async function notifyPlayers(
     .eq("team_id", teamId);
   const userIds = (atts || []).map((a) => a.user_id);
   if (userIds.length === 0) return;
-  await fetch("/api/notifications/send", {
+  await authFetch("/api/notifications/send", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({

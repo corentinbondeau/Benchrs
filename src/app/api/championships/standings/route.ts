@@ -1,9 +1,28 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getAuthUser, unauthorized, forbidden, isTeamMember } from "@/lib/api-auth";
 
 export async function POST(req: Request) {
-  const supabase = createAdminClient();
+  const user = await getAuthUser(req);
+  if (!user) return unauthorized();
+
   const body = await req.json();
+
+  if (!body.championship_id) {
+    return NextResponse.json({ error: "championship_id requis" }, { status: 400 });
+  }
+
+  const supabase = createAdminClient();
+
+  const { data: championship } = await supabase
+    .from("championships")
+    .select("id, team_id")
+    .eq("id", body.championship_id)
+    .maybeSingle();
+
+  if (!championship || !(await isTeamMember(user.id, championship.team_id))) {
+    return forbidden();
+  }
 
   const { data, error } = await supabase
     .from("championship_standings")

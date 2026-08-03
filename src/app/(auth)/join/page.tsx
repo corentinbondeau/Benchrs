@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { createClient } from "@/lib/supabase/client";
+import { authFetch } from "@/lib/api-client";
 
 function JoinTeamForm() {
   const searchParams = useSearchParams();
@@ -72,7 +73,7 @@ function JoinTeamForm() {
     }
 
     try {
-      const res = await fetch("/api/auth/join-team", {
+      const res = await authFetch("/api/auth/join-team", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId: user.id, inviteCode, role }),

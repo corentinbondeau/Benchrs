@@ -2,16 +2,41 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ensureAttendanceRows } from "@/lib/convocations";
 import webpush from "@/lib/webpush";
+import { getAuthUser, unauthorized, isTeamMember } from "@/lib/api-auth";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
   try {
+    const user = await getAuthUser(req);
+    if (!user) return unauthorized();
+
     const body = await req.json();
     const { user_ids, title, body: notifBody, type, reference_id, team_id, scheduled_for, url } = body;
 
     if (!Array.isArray(user_ids) || user_ids.length === 0 || !title || !notifBody) {
       return NextResponse.json({ error: "Missing fields" }, { status: 400 });
+    }
+
+    if (user_ids.length > 500) {
+      return NextResponse.json({ error: "Trop de destinataires" }, { status: 400 });
+    }
+
+    if (typeof title !== "string" || title.length > 200) {
+      return NextResponse.json({ error: "Titre trop long" }, { status: 400 });
+    }
+    if (typeof notifBody !== "string" || notifBody.length > 2000) {
+      return NextResponse.json({ error: "Contenu trop long" }, { status: 400 });
+    }
+
+    if (scheduled_for != null && Number.isNaN(new Date(scheduled_for).getTime())) {
+      return NextResponse.json({ error: "Date de planification invalide" }, { status: 400 });
+    }
+
+    if (team_id) {
+      if (typeof team_id !== "string" || !(await isTeamMember(user.id, team_id))) {
+        return NextResponse.json({ error: "Accès refusé à cette équipe" }, { status: 403 });
+      }
     }
 
     const supabase = createAdminClient();

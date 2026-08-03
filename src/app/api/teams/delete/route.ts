@@ -1,11 +1,26 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getAuthUser, unauthorized, forbidden } from "@/lib/api-auth";
 
 export async function POST(req: Request) {
   try {
+    const user = await getAuthUser(req);
+    if (!user) return unauthorized();
+
     const { teamId } = await req.json();
     if (!teamId) {
       return NextResponse.json({ error: "Team ID required" }, { status: 400 });
+    }
+
+    const { data: member } = await createAdminClient()
+      .from("team_members")
+      .select("role")
+      .eq("team_id", teamId)
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (!member || member.role !== "owner") {
+      return forbidden();
     }
 
     const supabase = createAdminClient();

@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { UserRole } from "@/types";
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
 export async function POST(req: Request) {
   try {
     const { email, password, firstName, lastName, role, phone } =
@@ -14,11 +16,37 @@ export async function POST(req: Request) {
       );
     }
 
+    if (typeof email !== "string" || !EMAIL_RE.test(email.trim())) {
+      return NextResponse.json({ error: "Email invalide" }, { status: 400 });
+    }
+
+    if (typeof password !== "string" || password.length < 8) {
+      return NextResponse.json(
+        { error: "Le mot de passe doit contenir au moins 8 caractères" },
+        { status: 400 }
+      );
+    }
+
+    if (
+      typeof firstName !== "string" ||
+      typeof lastName !== "string" ||
+      !firstName.trim() ||
+      !lastName.trim() ||
+      firstName.trim().length > 100 ||
+      lastName.trim().length > 100
+    ) {
+      return NextResponse.json({ error: "Nom invalide" }, { status: 400 });
+    }
+
+    if (phone && (typeof phone !== "string" || phone.length > 30)) {
+      return NextResponse.json({ error: "Téléphone invalide" }, { status: 400 });
+    }
+
     const supabase = createAdminClient();
 
     const { data: authData, error: authError } =
       await supabase.auth.admin.createUser({
-        email,
+        email: email.trim().toLowerCase(),
         password,
         email_confirm: true,
       });
@@ -32,8 +60,8 @@ export async function POST(req: Request) {
     const { error: profileError } = await supabase.from("profiles").insert({
       id: authData.user.id,
       role: (role as UserRole) || "player",
-      first_name: firstName,
-      last_name: lastName,
+      first_name: firstName.trim(),
+      last_name: lastName.trim(),
       phone: phone || null,
       is_active: true,
     });

@@ -6,3 +6,8 @@ export function createClient() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 }
+
+export async function getSessionAccessToken(): Promise<string | null> {
+  const { data } = await createClient().auth.getSession();
+  return data.session?.access_token ?? null;
+}

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
+import { authFetch } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth";
 import { useTeam } from "@/lib/team";
 import { Card, CardContent } from "@/components/ui/card";
@@ -120,7 +121,7 @@ export default function GalleryPage() {
 
   async function handleDeleteMedia(mediaId: string, storagePath: string | null) {
     if (!confirm("Supprimer cette photo ?")) return;
-    const res = await fetch("/api/gallery/delete", {
+    const res = await authFetch("/api/gallery/delete", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ mediaId }),
@@ -136,7 +137,7 @@ export default function GalleryPage() {
 
   async function handleDeleteAlbum(albumId: string) {
     if (!confirm("Supprimer cet album ? Les photos ne seront pas supprimées.")) return;
-    const res = await fetch("/api/albums/delete", {
+    const res = await authFetch("/api/albums/delete", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ albumId }),
@@ -494,7 +495,7 @@ export default function GalleryPage() {
             disabled={!selectedIds.size}
             onClick={async () => {
               if (!confirm(`Supprimer ${selectedIds.size} photo${selectedIds.size !== 1 ? "s" : ""} ?`)) return;
-              const res = await fetch("/api/gallery/delete", {
+              const res = await authFetch("/api/gallery/delete", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ mediaIds: Array.from(selectedIds) }),
@@ -515,7 +516,7 @@ export default function GalleryPage() {
             disabled={!selectedIds.size}
             onClick={async () => {
               for (const id of selectedIds) {
-                await fetch("/api/gallery/set-album", {
+                await authFetch("/api/gallery/set-album", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({ mediaId: id, albumId: bulkAlbum === "Aucun" ? null : bulkAlbum }),
@@ -680,7 +681,7 @@ export default function GalleryPage() {
                 size="sm"
                 className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold shrink-0"
                 onClick={async () => {
-                  const res = await fetch("/api/gallery/set-album", {
+                  const res = await authFetch("/api/gallery/set-album", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ mediaId: lightbox.id, albumId: lightboxAlbum === "Aucun" ? null : lightboxAlbum }),

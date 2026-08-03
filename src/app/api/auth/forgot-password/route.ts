@@ -12,11 +12,13 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
 export async function POST(req: Request) {
   const { email } = await req.json();
 
-  if (!email) {
-    return NextResponse.json({ error: "Email requis" }, { status: 400 });
+  if (typeof email !== "string" || !EMAIL_RE.test(email.trim())) {
+    return NextResponse.json({ error: "Email invalide" }, { status: 400 });
   }
 
   const admin = createAdminClient();
@@ -29,13 +31,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Erreur serveur." }, { status: 500 });
   }
 
-  const user = data.users.find((u) => u.email === email);
+  const user = data.users.find((u) => u.email === email.trim().toLowerCase());
 
+  // Réponse générique pour éviter l'énumération de comptes :
+  // qu'un compte existe ou non, on renvoie le même succès.
   if (!user) {
-    return NextResponse.json(
-      { error: "Aucun compte associé à cette adresse email." },
-      { status: 404 }
-    );
+    return NextResponse.json({ message: "Email envoyé." });
   }
 
   const redirectTo = "https://benchrs.vercel.app/reset-password";

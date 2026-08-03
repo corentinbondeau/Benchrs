@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { authFetch } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth";
 import { useTeam } from "@/lib/team";
 import { Button } from "@/components/ui/button";
@@ -92,7 +93,7 @@ export function ConvocationsDialog({ event, open, onOpenChange }: ConvocationsDi
 
   async function notifyConvocation(userIds: string[]) {
     if (userIds.length === 0) return;
-    const res = await fetch("/api/notifications/send", {
+    const res = await authFetch("/api/notifications/send", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

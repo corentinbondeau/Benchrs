@@ -1,18 +1,29 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { defaultNotificationPrefs } from "@/lib/notificationTypes";
+import { getAuthUser, unauthorized } from "@/lib/api-auth";
 
 export async function POST(req: Request) {
   try {
-    const { userId, clubName, teamName } = await req.json();
+    const user = await getAuthUser(req);
+    if (!user) return unauthorized();
 
-    if (!userId || !clubName || !teamName) {
+    const { clubName, teamName } = await req.json();
+
+    if (!clubName || !teamName) {
       return NextResponse.json(
         { error: "Champs obligatoires manquants" },
         { status: 400 }
       );
     }
 
+    const clubNameStr = String(clubName).trim();
+    const teamNameStr = String(teamName).trim();
+    if (!clubNameStr || !teamNameStr || clubNameStr.length > 100 || teamNameStr.length > 100) {
+      return NextResponse.json({ error: "Nom invalide" }, { status: 400 });
+    }
+
+    const userId = user.id;
     const supabase = createAdminClient();
 
     // Find existing club or create new one
@@ -21,7 +32,7 @@ export async function POST(req: Request) {
     const { data: existingClub } = await supabase
       .from("clubs")
       .select("id")
-      .eq("name", clubName)
+      .eq("name", clubNameStr)
       .limit(1)
       .single();
 
@@ -30,7 +41,7 @@ export async function POST(req: Request) {
     } else {
       const { data: newClub, error: clubError } = await supabase
         .from("clubs")
-        .insert({ name: clubName, created_by: userId })
+        .insert({ name: clubNameStr, created_by: userId })
         .select()
         .single();
 
@@ -44,7 +55,7 @@ export async function POST(req: Request) {
     // Create team
     const { data: team, error: teamError } = await supabase
       .from("teams")
-      .insert({ club_id: clubId, name: teamName })
+      .insert({ club_id: clubId, name: teamNameStr })
       .select()
       .single();
 

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { authFetch } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -166,7 +167,7 @@ export default function RegisterPage() {
       }
 
       if (teamMode === "join" && formData.inviteCode) {
-        const joinRes = await fetch("/api/auth/join-team", {
+        const joinRes = await authFetch("/api/auth/join-team", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -183,7 +184,7 @@ export default function RegisterPage() {
         }
         window.location.href = "/";
       } else if (teamMode === "create" && formData.clubName && formData.teamName) {
-        const teamRes = await fetch("/api/auth/create-team", {
+        const teamRes = await authFetch("/api/auth/create-team", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
