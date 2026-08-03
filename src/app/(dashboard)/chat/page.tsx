@@ -4,7 +4,6 @@ import { useEffect, useState, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useTeam } from "@/lib/team";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,7 +14,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Send, Plus, Loader2 } from "lucide-react";
 import type { ChatChannel, ChatMessage, Profile } from "@/types";
@@ -76,9 +74,13 @@ export default function ChatPage() {
           .select("id, first_name, last_name")
           .in("id", rows.map((r) => r.user_id))
           .order("last_name", { ascending: true })
-          .then(({ data }) => setAllMembers((data as Profile[]) || []));
+          .then(({ data }) =>
+            setAllMembers(
+              ((data as Profile[]) || []).filter((m) => m.id !== user?.id)
+            )
+          );
       });
-  }, [currentTeam, createOpen]);
+  }, [currentTeam, createOpen, user?.id]);
 
   useEffect(() => {
     if (!selectedChannel) return;
@@ -258,77 +260,14 @@ export default function ChatPage() {
           {/* Channel list header */}
           <div className="p-3 border-b flex items-center justify-between shrink-0">
             <h3 className="font-semibold text-base">Canaux</h3>
-            <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-              <DialogTrigger render={<Button variant="ghost" size="icon" className="h-8 w-8 text-[var(--color-gold)] hover:text-[var(--color-gold)] hover:bg-[var(--color-gold)]/10"><Plus className="h-4 w-4" /></Button>} />
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Nouveau canal</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4 pt-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="channelName">Nom du canal</Label>
-                    <Input
-                      id="channelName"
-                      value={channelName}
-                      onChange={(e) => setChannelName(e.target.value)}
-                      placeholder="Ex: Match du samedi"
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && !creating) createChannel();
-                      }}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Membres du canal</Label>
-                    <ScrollArea className="h-56 rounded-md border p-2">
-                      {allMembers.map((member) => (
-                        <label
-                          key={member.id}
-                          className="flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-muted cursor-pointer"
-                        >
-                          <Checkbox
-                            checked={selectedMembers.includes(member.id)}
-                            onCheckedChange={(checked) =>
-                              setSelectedMembers(
-                                checked
-                                  ? [...selectedMembers, member.id]
-                                  : selectedMembers.filter((id) => id !== member.id)
-                              )
-                            }
-                          />
-                          <span className="text-sm">
-                            {member.first_name} {member.last_name}
-                          </span>
-                        </label>
-                      ))}
-                      {allMembers.length === 0 && (
-                        <p className="text-sm text-muted-foreground text-center py-4">
-                          Aucun membre disponible
-                        </p>
-                      )}
-                    </ScrollArea>
-                  </div>
-                  <div className="flex justify-end gap-2">
-                    <Button variant="outline" onClick={() => setCreateOpen(false)} className="border-[var(--color-gold)] text-[var(--color-gold)] hover:bg-[var(--color-gold)]/10">
-                      Annuler
-                    </Button>
-                    <Button
-                      onClick={createChannel}
-                      disabled={!channelName.trim() || creating}
-                      className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
-                    >
-                      {creating ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin mr-1" />
-                          Création...
-                        </>
-                      ) : (
-                        "Créer le canal"
-                      )}
-                    </Button>
-                  </div>
-                </div>
-              </DialogContent>
-            </Dialog>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-[var(--color-gold)] hover:text-[var(--color-gold)] hover:bg-[var(--color-gold)]/10"
+              onClick={() => setCreateOpen(true)}
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
           </div>
           {/* Channel list */}
           <div className="flex-1 overflow-y-auto p-2 space-y-1">
@@ -354,9 +293,14 @@ export default function ChatPage() {
         <div className="w-64 border-r bg-muted/30 overflow-y-auto shrink-0 flex flex-col">
           <div className="p-3 border-b flex items-center justify-between">
             <h3 className="font-semibold text-sm">Canaux</h3>
-            <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-              <DialogTrigger render={<Button variant="ghost" size="icon" className="h-7 w-7 text-[var(--color-gold)] hover:text-[var(--color-gold)] hover:bg-[var(--color-gold)]/10"><Plus className="h-4 w-4" /></Button>} />
-            </Dialog>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-[var(--color-gold)] hover:text-[var(--color-gold)] hover:bg-[var(--color-gold)]/10"
+              onClick={() => setCreateOpen(true)}
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
           </div>
           <div className="flex-1 p-1 overflow-y-auto">
             {channels.map((channel) => (
@@ -418,6 +362,77 @@ export default function ChatPage() {
           </div>
         )}
       </div>
+
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Nouveau canal</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="space-y-2">
+              <Label htmlFor="channelName">Nom du canal</Label>
+              <Input
+                id="channelName"
+                value={channelName}
+                onChange={(e) => setChannelName(e.target.value)}
+                placeholder="Ex: Match du samedi"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !creating) createChannel();
+                }}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Membres du canal</Label>
+              <ScrollArea className="h-56 rounded-md border p-2">
+                {allMembers.map((member) => (
+                  <label
+                    key={member.id}
+                    className="flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-muted cursor-pointer"
+                  >
+                    <Checkbox
+                      checked={selectedMembers.includes(member.id)}
+                      onCheckedChange={(checked) =>
+                        setSelectedMembers(
+                          checked
+                            ? [...selectedMembers, member.id]
+                            : selectedMembers.filter((id) => id !== member.id)
+                        )
+                      }
+                    />
+                    <span className="text-sm">
+                      {member.first_name} {member.last_name}
+                    </span>
+                  </label>
+                ))}
+                {allMembers.length === 0 && (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    Aucun membre disponible
+                  </p>
+                )}
+              </ScrollArea>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setCreateOpen(false)} className="border-[var(--color-gold)] text-[var(--color-gold)] hover:bg-[var(--color-gold)]/10">
+                Annuler
+              </Button>
+              <Button
+                onClick={createChannel}
+                disabled={!channelName.trim() || creating}
+                className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
+              >
+                {creating ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                    Création...
+                  </>
+                ) : (
+                  "Créer le canal"
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
