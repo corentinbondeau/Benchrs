@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, Clock, Sparkles, FileDown, Dumbbell } from "lucide-react";
+import { ArrowLeft, Clock, Sparkles, FileDown, Dumbbell, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { TACTICAL_PHASES, TACTICAL_PHASE_NAMES } from "@/lib/training/phases";
 import type { AISession } from "@/lib/training/ai-generator";
@@ -162,27 +162,44 @@ export default function GenerateTrainingPage() {
                   <Clock className="h-3.5 w-3.5" />Séance de 90 min avec schémas et variantes
                 </p>
               </div>
-              <a
-                href={pdfUrl}
-                download={`${session?.title || "seance"}.pdf`.replace(/[^\w\s-]/g, "").trim()}
-                className="shrink-0"
-              >
-                <Button className="bg-[var(--color-gold)] text-[var(--color-navy)] font-semibold">
-                  <FileDown className="h-4 w-4 mr-1" />
-                  Télécharger le PDF
+              <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
+                <Button
+                  variant="outline"
+                  className="bg-white/10 text-white border-white/30"
+                  onClick={() => pdfUrl && window.open(pdfUrl, "_blank")}
+                >
+                  <Eye className="h-4 w-4 mr-1" />
+                  Ouvrir le PDF
                 </Button>
-              </a>
+                <a
+                  href={pdfUrl || undefined}
+                  download={`${session?.title || "seance"}.pdf`.replace(/[^\w\s-]/g, "").trim()}
+                >
+                  <Button className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] font-semibold">
+                    <FileDown className="h-4 w-4 mr-1" />
+                    Télécharger
+                  </Button>
+                </a>
+              </div>
             </CardContent>
           </Card>
 
-          <div className="rounded-lg border bg-muted/30">
+          <div className="rounded-lg border bg-muted/30 hidden md:block">
             <iframe
-              src={pdfUrl}
+              src={pdfUrl || undefined}
               title="Fiche de séance"
               className="w-full rounded-lg"
               style={{ height: "70vh" }}
             />
           </div>
+          <Button
+            variant="outline"
+            className="w-full md:hidden"
+            onClick={() => pdfUrl && window.open(pdfUrl, "_blank")}
+          >
+            <Eye className="h-4 w-4 mr-1" />
+            Ouvrir le PDF (viewer natif)
+          </Button>
 
           {session && (
             <div className="space-y-3">
