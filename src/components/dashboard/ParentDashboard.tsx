@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useTeam } from "@/lib/team";
 import { useRouter } from "next/navigation";
+import { useQueryCache, clearQueryCache } from "@/lib/queryCache";
 import { RecentResults } from "@/components/dashboard/RecentResults";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -27,37 +28,44 @@ interface ChildProfile extends Profile {
   position: string | null;
 }
 
+interface ParentData {
+  child: ChildProfile | null;
+  nextEvent: Event | null;
+  attendanceRate: number | null;
+  pendingConvs: (Attendance & { event: Event })[];
+  noChild: boolean;
+}
+
 export function ParentDashboard() {
   const { user } = useAuth();
   const { currentTeam } = useTeam();
   const router = useRouter();
-  const [child, setChild] = useState<ChildProfile | null>(null);
-  const [nextEvent, setNextEvent] = useState<Event | null>(null);
-  const [attendanceRate, setAttendanceRate] = useState<number | null>(null);
-  const [pendingConvs, setPendingConvs] = useState<
-    (Attendance & { event: Event })[]
-  >([]);
-  const [loading, setLoading] = useState(true);
   const [absenceReason, setAbsenceReason] = useState("");
   const [pendingAbsentId, setPendingAbsentId] = useState<string | null>(null);
-  const [noChild, setNoChild] = useState(false);
 
-  useEffect(() => {
-    if (!user?.id || !currentTeam) return;
-    const supabase = createClient();
+  const key = user?.id && currentTeam ? `parent:data:${user.id}:${currentTeam.id}` : null;
 
-    async function fetchParentData() {
+  const { data, loading, revalidate } = useQueryCache<ParentData>(
+    key,
+    async () => {
+      const supabase = createClient();
+      const empty: ParentData = {
+        child: null,
+        nextEvent: null,
+        attendanceRate: null,
+        pendingConvs: [],
+        noChild: false,
+      };
+
       const { data: link } = await supabase
         .from("parent_student")
         .select("student_id")
         .eq("parent_id", user!.id)
         .eq("team_id", currentTeam!.id)
-        .single();
+        .maybeSingle();
 
       if (!link) {
-        setNoChild(true);
-        setLoading(false);
-        return;
+        return { ...empty, noChild: true };
       }
 
       const { data: childProfile } = await supabase
@@ -65,10 +73,6 @@ export function ParentDashboard() {
         .select("*")
         .eq("id", link.student_id)
         .single();
-
-      if (childProfile) {
-        setChild(childProfile as ChildProfile);
-      }
 
       const { data: trainingEvents } = await supabase
         .from("events")
@@ -86,7 +90,7 @@ export function ParentDashboard() {
           .gte("event_date", new Date().toISOString())
           .order("event_date", { ascending: true })
           .limit(1)
-          .single(),
+          .maybeSingle(),
         trainingIds.length > 0
           ? supabase
               .from("attendances")
@@ -104,23 +108,28 @@ export function ParentDashboard() {
           .order("created_at", { ascending: false }),
       ]);
 
-      if (nextEventRes.data) setNextEvent(nextEventRes.data as Event);
-
       const attendances = attRes.data || [];
       const total = attendances.length;
       const present = attendances.filter(
         (a) => a.status === "present" || a.status === "late"
       ).length;
-      setAttendanceRate(total > 0 ? Math.round((present / total) * 100) : 0);
 
-      setPendingConvs(
-        (convsRes.data as (Attendance & { event: Event })[]) || []
-      );
-      setLoading(false);
-    }
+      return {
+        child: (childProfile as ChildProfile | null) || null,
+        nextEvent: (nextEventRes.data as Event | null) || null,
+        attendanceRate: total > 0 ? Math.round((present / total) * 100) : 0,
+        pendingConvs: (convsRes.data as (Attendance & { event: Event })[]) || [],
+        noChild: false,
+      };
+    },
+    { ttl: 30_000 }
+  );
 
-    fetchParentData();
-  }, [user?.id, currentTeam]);
+  const child = data?.child ?? null;
+  const nextEvent = data?.nextEvent ?? null;
+  const attendanceRate = data?.attendanceRate ?? null;
+  const pendingConvs = data?.pendingConvs ?? [];
+  const noChild = data?.noChild ?? false;
 
   if (!currentTeam) return null;
 
@@ -144,7 +153,8 @@ export function ParentDashboard() {
       })
       .eq("id", attendanceId);
 
-    setPendingConvs((prev) => prev.filter((a) => a.id !== attendanceId));
+    clearQueryCache();
+    revalidate();
     setPendingAbsentId(null);
     setAbsenceReason("");
   }

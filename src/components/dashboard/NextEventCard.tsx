@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useTeam } from "@/lib/team";
 import { useRouter } from "next/navigation";
+import { useQueryCache } from "@/lib/queryCache";
 import type { Event } from "@/types";
 import { Card, CardContent } from "@/components/ui/card";
 import { Calendar, MapPin, Clock } from "lucide-react";
@@ -11,26 +11,23 @@ import { Calendar, MapPin, Clock } from "lucide-react";
 export function NextEventCard() {
   const router = useRouter();
   const { currentTeam } = useTeam();
-  const [event, setEvent] = useState<Event | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (!currentTeam) return;
-    const supabase = createClient();
-    supabase
-      .from("events")
-      .select("*")
-      .eq("team_id", currentTeam!.id)
-      .in("status", ["upcoming", "ongoing"])
-      .gte("event_date", new Date().toISOString())
-      .order("event_date", { ascending: true })
-      .limit(1)
-      .single()
-      .then(({ data }) => {
-        setEvent(data as Event | null);
-        setLoading(false);
-      });
-  }, [currentTeam]);
+  const { data: event, loading } = useQueryCache<Event | null>(
+    currentTeam ? `events:next:${currentTeam.id}` : null,
+    async () => {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from("events")
+        .select("*")
+        .eq("team_id", currentTeam!.id)
+        .in("status", ["upcoming", "ongoing"])
+        .gte("event_date", new Date().toISOString())
+        .order("event_date", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      return (data as Event | null) || null;
+    },
+    { ttl: 60_000 }
+  );
 
   if (!currentTeam) return null;
 

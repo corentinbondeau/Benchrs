@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useTeam } from "@/lib/team";
+import { useQueryCache } from "@/lib/queryCache";
 import { NextEventCard } from "@/components/dashboard/NextEventCard";
 import { PendingConvocations } from "@/components/dashboard/PendingConvocations";
 import { RecentResults } from "@/components/dashboard/RecentResults";
@@ -20,14 +20,10 @@ interface PlayerStats {
 export function PlayerDashboard() {
   const { user } = useAuth();
   const { currentTeam } = useTeam();
-  const [stats, setStats] = useState<PlayerStats | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (!user?.id || !currentTeam) return;
-    const supabase = createClient();
-
-    async function fetchPlayerStats() {
+  const { data: stats, loading } = useQueryCache<PlayerStats>(
+    user?.id && currentTeam ? `player:stats:${user.id}:${currentTeam.id}` : null,
+    async () => {
+      const supabase = createClient();
       const { data: trainingEvents } = await supabase
         .from("events")
         .select("id")
@@ -63,12 +59,10 @@ export function PlayerDashboard() {
       const assists = matchStats.reduce((sum, s) => sum + (s.assists || 0), 0);
       const matchesPlayed = matchStats.length;
 
-      setStats({ attendanceRate, goals, assists, matchesPlayed });
-      setLoading(false);
-    }
-
-    fetchPlayerStats();
-  }, [user?.id, currentTeam]);
+      return { attendanceRate, goals, assists, matchesPlayed };
+    },
+    { ttl: 60_000 }
+  );
 
   if (!currentTeam) return null;
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useTeam } from "@/lib/team";
@@ -309,11 +310,11 @@ export default function GalleryPage() {
                   setLightbox(item); setLightboxAlbum(item.album_id || "Aucun");
                 }
               }}>
-                <div className="aspect-square bg-muted relative">
+                <div className="aspect-square bg-muted relative overflow-hidden">
                   {item.media_type?.startsWith("video/") ? (
-  <video src={item.url} className="w-full h-full object-cover" muted />
+  <video src={item.url} className="w-full h-full object-cover" muted playsInline preload="metadata" />
 ) : (
-  <img src={item.url} alt={item.caption || ""} className="w-full h-full object-cover" />
+  <Image src={item.url} alt={item.caption || ""} fill sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw" className="object-cover" loading="lazy" decoding="async" />
 )}
                   {selecting && (
                     <div className={`absolute inset-0 flex items-start justify-end p-2 ${selectedIds.has(item.id) ? "bg-black/30" : ""}`}>
@@ -544,9 +545,9 @@ export default function GalleryPage() {
               const count = media.filter((m) => m.album_id === album.id).length;
               return (
                 <Card key={album.id} className="overflow-hidden cursor-pointer hover:bg-muted/50 transition-colors group relative" onClick={() => setSelectedAlbum(album)}>
-                  <div className="aspect-video bg-muted flex items-center justify-center">
+                  <div className="aspect-video bg-muted relative flex items-center justify-center overflow-hidden">
                     {cover ? (
-                      <img src={cover} alt={album.title} className="w-full h-full object-cover" />
+                      <Image src={cover} alt={album.title} fill sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw" className="object-cover" loading="lazy" decoding="async" />
                     ) : (
                       <Folder className="h-10 w-10 text-muted-foreground/40" />
                     )}
@@ -595,11 +596,11 @@ export default function GalleryPage() {
                   setLightbox(item); setLightboxAlbum(item.album_id || "Aucun");
                 }
               }}>
-                  <div className="aspect-square bg-muted relative">
+                  <div className="aspect-square bg-muted relative overflow-hidden">
                     {item.media_type?.startsWith("video/") ? (
-  <video src={item.url} className="w-full h-full object-cover" muted />
+  <video src={item.url} className="w-full h-full object-cover" muted playsInline preload="metadata" />
 ) : (
-  <img src={item.url} alt={item.caption || ""} className="w-full h-full object-cover" />
+  <Image src={item.url} alt={item.caption || ""} fill sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw" className="object-cover" loading="lazy" decoding="async" />
 )}
                     {selecting && (
                       <div className={`absolute inset-0 flex items-start justify-end p-2 ${selectedIds.has(item.id) ? "bg-black/30" : ""}`}>
@@ -640,9 +641,9 @@ export default function GalleryPage() {
         <DialogContent className="sm:max-w-2xl p-0 bg-black border-0">
           {lightbox && (
             lightbox.media_type?.startsWith("video/") ? (
-              <video src={lightbox.url} controls className="w-full max-h-[80vh] rounded-lg" autoPlay />
+              <video src={lightbox.url} controls className="w-full max-h-[80vh] rounded-lg" autoPlay playsInline preload="metadata" />
             ) : (
-              <img src={lightbox.url} alt={lightbox.caption || ""} className="w-full h-auto max-h-[80vh] object-contain rounded-lg" />
+              <img src={lightbox.url} alt={lightbox.caption || ""} className="w-full h-auto max-h-[80vh] object-contain rounded-lg" decoding="async" />
             )
           )}
           {lightbox && (

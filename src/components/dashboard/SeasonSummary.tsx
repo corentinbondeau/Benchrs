@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useTeam } from "@/lib/team";
+import { useQueryCache } from "@/lib/queryCache";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TrendingUp, TrendingDown, Minus, Shield } from "lucide-react";
 
@@ -18,47 +18,42 @@ interface SeasonStats {
 
 export function SeasonSummary() {
   const { currentTeam } = useTeam();
-  const [stats, setStats] = useState<SeasonStats | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data: stats, loading } = useQueryCache<SeasonStats | null>(
+    currentTeam ? `stats:season:${currentTeam.id}` : null,
+    async () => {
+      const supabase = createClient();
+      const { data: matches } = await supabase
+        .from("events")
+        .select("match_result, score_us, score_them")
+        .eq("team_id", currentTeam!.id)
+        .eq("type", "match")
+        .eq("status", "completed");
 
-  useEffect(() => {
-    if (!currentTeam) return;
-    const supabase = createClient();
-    supabase
-      .from("events")
-      .select("match_result, score_us, score_them")
-      .eq("team_id", currentTeam!.id)
-      .eq("type", "match")
-      .eq("status", "completed")
-      .then(({ data: matches }) => {
-        if (!matches || matches.length === 0) {
-          setLoading(false);
-          return;
-        }
+      if (!matches || matches.length === 0) return null;
 
-        const season: SeasonStats = {
-          played: matches.length,
-          won: 0,
-          drawn: 0,
-          lost: 0,
-          goalsFor: 0,
-          goalsAgainst: 0,
-          cleanSheets: 0,
-        };
+      const season: SeasonStats = {
+        played: matches.length,
+        won: 0,
+        drawn: 0,
+        lost: 0,
+        goalsFor: 0,
+        goalsAgainst: 0,
+        cleanSheets: 0,
+      };
 
-        for (const m of matches) {
-          if (m.match_result === "win") season.won++;
-          else if (m.match_result === "draw") season.drawn++;
-          else if (m.match_result === "loss") season.lost++;
-          season.goalsFor += m.score_us || 0;
-          season.goalsAgainst += m.score_them || 0;
-          if ((m.score_them || 0) === 0) season.cleanSheets++;
-        }
+      for (const m of matches) {
+        if (m.match_result === "win") season.won++;
+        else if (m.match_result === "draw") season.drawn++;
+        else if (m.match_result === "loss") season.lost++;
+        season.goalsFor += m.score_us || 0;
+        season.goalsAgainst += m.score_them || 0;
+        if ((m.score_them || 0) === 0) season.cleanSheets++;
+      }
 
-        setStats(season);
-        setLoading(false);
-      });
-  }, [currentTeam]);
+      return season;
+    },
+    { ttl: 60_000 }
+  );
 
   if (!currentTeam) return null;
 

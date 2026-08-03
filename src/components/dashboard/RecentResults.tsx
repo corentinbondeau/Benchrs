@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useTeam } from "@/lib/team";
 import { useRouter } from "next/navigation";
+import { useQueryCache } from "@/lib/queryCache";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Trophy, Minus } from "lucide-react";
@@ -12,30 +12,27 @@ import type { Event } from "@/types";
 export function RecentResults() {
   const router = useRouter();
   const { currentTeam } = useTeam();
-  const [matches, setMatches] = useState<Event[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (!currentTeam) return;
-    const supabase = createClient();
-    supabase
-      .from("events")
-      .select("*")
-      .eq("team_id", currentTeam!.id)
-      .eq("type", "match")
-      .eq("status", "completed")
-      .not("score_us", "is", null)
-      .order("event_date", { ascending: false })
-      .limit(10)
-      .then(({ data }) => {
-        setMatches((data as Event[]) || []);
-        setLoading(false);
-      });
-  }, [currentTeam]);
+  const { data: matches, loading } = useQueryCache<Event[]>(
+    currentTeam ? `events:recent:${currentTeam.id}` : null,
+    async () => {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from("events")
+        .select("*")
+        .eq("team_id", currentTeam!.id)
+        .eq("type", "match")
+        .eq("status", "completed")
+        .not("score_us", "is", null)
+        .order("event_date", { ascending: false })
+        .limit(10);
+      return (data as Event[]) || [];
+    },
+    { ttl: 60_000 }
+  );
 
   if (!currentTeam) return null;
 
-  if (loading) {
+  if (loading || !matches) {
     return (
       <Card>
         <CardContent className="p-6">
