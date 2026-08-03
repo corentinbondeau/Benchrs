@@ -503,8 +503,16 @@ export default function CalendarPage() {
       </div>
 
       {/* Navigation */}
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold">{title}</h3>
+      <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+        <div className="flex items-center gap-1">
+          <h3 className="text-sm font-semibold">{title}</h3>
+          <Button variant="outline" size="icon" className="h-11 w-11 md:h-8 md:w-8" onClick={handlePrev}>
+            <ChevronLeft className="h-5 w-5 md:h-4 md:w-4" />
+          </Button>
+          <Button variant="outline" size="icon" className="h-11 w-11 md:h-8 md:w-8" onClick={handleNext}>
+            <ChevronRight className="h-5 w-5 md:h-4 md:w-4" />
+          </Button>
+        </div>
         <div className="flex items-center gap-2">
           <div className="flex rounded-lg border overflow-hidden">
             <Button variant={view === "list" ? "secondary" : "ghost"} size="sm" className="rounded-none" onClick={() => setView("list")}>
@@ -520,12 +528,6 @@ export default function CalendarPage() {
           <Button variant="outline" size="sm" onClick={handleToday}>
             <CalendarDays className="h-3.5 w-3.5 mr-1" />
             Aujourd&apos;hui
-          </Button>
-          <Button variant="outline" size="icon" className="h-11 w-11 md:h-8 md:w-8" onClick={handlePrev}>
-            <ChevronLeft className="h-5 w-5 md:h-4 md:w-4" />
-          </Button>
-          <Button variant="outline" size="icon" className="h-11 w-11 md:h-8 md:w-8" onClick={handleNext}>
-            <ChevronRight className="h-5 w-5 md:h-4 md:w-4" />
           </Button>
         </div>
       </div>

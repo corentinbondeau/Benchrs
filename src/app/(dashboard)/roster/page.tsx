@@ -112,15 +112,13 @@ export default function RosterPage() {
           {profiles.map((profile) => {
             const initials = `${profile.first_name[0]}${profile.last_name[0]}`;
             const isPlayer = section.key === "player";
-            return (
-              <Link
-                key={profile.id}
-                href={`/stats/${profile.id}`}
-                className="flex items-center gap-3 rounded-xl bg-card border p-4 active:scale-[0.98] transition-transform touch-manipulation"
-              >
+            const isCoach = section.key === "coach";
+            const cardClass = "flex items-center gap-3 rounded-xl bg-card border p-4";
+            const inner = (
+              <>
                 <div
                   className={`flex h-12 w-12 items-center justify-center rounded-full text-base font-bold shrink-0 ${
-                    section.key === "coach"
+                    isCoach
                       ? "bg-amber-100 text-amber-700"
                       : isPlayer
                       ? "bg-blue-100 text-blue-700"
@@ -141,7 +139,20 @@ export default function RosterPage() {
                       : section.label.slice(0, -1)}
                   </p>
                 </div>
-                <ChevronRight className="h-5 w-5 text-muted-foreground/40 shrink-0" />
+                {!isCoach && <ChevronRight className="h-5 w-5 text-muted-foreground/40 shrink-0" />}
+              </>
+            );
+            return isCoach ? (
+              <div key={profile.id} className={cardClass}>
+                {inner}
+              </div>
+            ) : (
+              <Link
+                key={profile.id}
+                href={`/stats/${profile.id}`}
+                className={`${cardClass} active:scale-[0.98] transition-transform touch-manipulation`}
+              >
+                {inner}
               </Link>
             );
           })}
