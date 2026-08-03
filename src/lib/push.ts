@@ -17,17 +17,10 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
   return output;
 }
 
-function isValidVapidPublicKey(key: string): boolean {
-  try {
-    return urlBase64ToUint8Array(key).byteLength === 65;
-  } catch {
-    return false;
-  }
-}
-
-const envKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-export const PUBLIC_VAPID_KEY =
-  envKey && isValidVapidPublicKey(envKey) ? envKey : FALLBACK_VAPID_KEY;
+// Clé publique TOUJOURS fixe = celle du keypair intégré côté serveur
+// (src/lib/webpush.ts). Ne jamais dépendre d'env Vercel : un mismatch VAPID
+// rend la souscription inutilisable.
+export const PUBLIC_VAPID_KEY = FALLBACK_VAPID_KEY;
 
 export function isPushEnabledLocal(): boolean {
   if (typeof window === "undefined") return true;

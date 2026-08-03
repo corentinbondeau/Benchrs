@@ -247,7 +247,7 @@ export default function ChatPage() {
       const senderName = user.profile
         ? `${user.profile.first_name} ${user.profile.last_name}`.trim()
         : "Quelqu'un";
-      await authFetch("/api/notifications/send", {
+      const res = await authFetch("/api/notifications/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -260,8 +260,18 @@ export default function ChatPage() {
           url: "/chat",
         }),
       });
-    } catch {
-      // la notification ne doit pas casser l'envoi du message
+      if (!res.ok) {
+        console.error(
+          "[chat] notification send échouée",
+          res.status,
+          await res.text().catch(() => null)
+        );
+      } else {
+        const data = await res.json().catch(() => null);
+        console.info("[chat] notification envoyée", data);
+      }
+    } catch (err) {
+      console.error("[chat] notification send exception", err);
     }
   }
 
