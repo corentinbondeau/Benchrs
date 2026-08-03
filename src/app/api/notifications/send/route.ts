@@ -2,14 +2,14 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ensureAttendanceRows } from "@/lib/convocations";
 import webpush from "@/lib/webpush";
-import { getAuthUser, unauthorized, isTeamMember } from "@/lib/api-auth";
+import { getAuthUserDetailed, unauthorized, isTeamMember } from "@/lib/api-auth";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
   try {
-    const user = await getAuthUser(req);
-    if (!user) return unauthorized();
+    const { user, reason } = await getAuthUserDetailed(req);
+    if (!user) return unauthorized(reason);
 
     const body = await req.json();
     const { user_ids, title, body: notifBody, type, reference_id, team_id, scheduled_for, url } = body;
