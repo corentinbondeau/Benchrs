@@ -18,6 +18,7 @@ export default function GenerateTrainingPage() {
   const [playerCount, setPlayerCount] = useState(12);
   const [generating, setGenerating] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [pdfPages, setPdfPages] = useState<number | null>(null);
   const [session, setSession] = useState<AISession | null>(null);
 
   function toggleObjective(obj: string) {
@@ -39,6 +40,7 @@ export default function GenerateTrainingPage() {
     }
     setGenerating(true);
     setPdfUrl(null);
+    setPdfPages(null);
     setSession(null);
     try {
       const res = await fetch("/api/trainings/generate", {
@@ -57,6 +59,7 @@ export default function GenerateTrainingPage() {
       const bytes = new Uint8Array(binary.length);
       for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
       const blob = new Blob([bytes], { type: "application/pdf" });
+      setPdfPages((base64.match(/\/Type \/Page\b/g) || []).length || null);
       setPdfUrl((prev) => {
         if (prev) URL.revokeObjectURL(prev);
         return URL.createObjectURL(blob);
@@ -161,6 +164,11 @@ export default function GenerateTrainingPage() {
                 <p className="text-sm text-white/80 mt-1 flex items-center gap-1">
                   <Clock className="h-3.5 w-3.5" />Séance de 90 min avec schémas et variantes
                 </p>
+                {pdfPages && (
+                  <p className="text-xs text-emerald-300 mt-1.5 flex items-center gap-1">
+                    ✓ PDF prêt · {pdfPages} pages
+                  </p>
+                )}
               </div>
               <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
                 <Button
