@@ -4,63 +4,61 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Dumbbell, Clock, Target, Users } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { ArrowLeft, Clock, Sparkles, FileDown, Dumbbell } from "lucide-react";
 import { toast } from "sonner";
-import { PHASES, PHASE_OBJECTIVES, THEMES, type Phase } from "@/lib/training/generator";
-
-interface Exercise {
-  name: string;
-  duration: number;
-  description: string;
-  drill_type: string;
-}
-
-interface GeneratedSession {
-  title: string;
-  phase: string;
-  objectives: string[];
-  exercises: Exercise[];
-  totalDuration: number;
-}
+import { TACTICAL_PHASES, TACTICAL_PHASE_NAMES } from "@/lib/training/phases";
+import type { AISession } from "@/lib/training/ai-generator";
 
 export default function GenerateTrainingPage() {
   const router = useRouter();
-  const [phase, setPhase] = useState<Phase>("perfectionnement");
-  const [themes, setThemes] = useState<string[]>([]);
+  const [phase, setPhase] = useState<string>(TACTICAL_PHASE_NAMES[0]);
+  const [objectives, setObjectives] = useState<string[]>([]);
+  const [freeObjective, setFreeObjective] = useState("");
   const [playerCount, setPlayerCount] = useState(12);
   const [generating, setGenerating] = useState(false);
-  const [session, setSession] = useState<GeneratedSession | null>(null);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [session, setSession] = useState<AISession | null>(null);
 
-  function toggleTheme(t: string) {
-    if (themes.includes(t)) {
-      setThemes(themes.filter((x) => x !== t));
-    } else if (themes.length < 2) {
-      setThemes([...themes, t]);
+  function toggleObjective(obj: string) {
+    if (objectives.includes(obj)) {
+      setObjectives(objectives.filter((x) => x !== obj));
+    } else if (objectives.length < 2) {
+      setObjectives([...objectives, obj]);
     }
   }
 
   async function handleGenerate() {
+    const allObjectives = [
+      ...objectives,
+      ...(freeObjective.trim() ? [freeObjective.trim()] : []),
+    ];
+    if (allObjectives.length === 0) {
+      toast.error("Sélectionne un objectif ou décris-en un");
+      return;
+    }
     setGenerating(true);
+    setPdfUrl(null);
     setSession(null);
     try {
       const res = await fetch("/api/trainings/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phase, themes, playerCount }),
+        body: JSON.stringify({ phase, objectives: allObjectives, playerCount }),
       });
-      if (!res.ok) throw new Error("Erreur");
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error || "Erreur");
+      }
       const data = await res.json();
-      setSession(data);
-    } catch {
-      toast.error("Erreur lors de la génération");
+      setPdfUrl(data.pdf as string);
+      setSession(data.session as AISession);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erreur lors de la génération");
     } finally {
       setGenerating(false);
     }
   }
-
-  const phaseObjectives = PHASE_OBJECTIVES[phase] || [];
-  const phaseThemes = THEMES[phase] || [];
 
   return (
     <div className="space-y-4 md:space-y-6 pb-20 md:pb-0">
@@ -70,48 +68,61 @@ export default function GenerateTrainingPage() {
         </button>
         <div>
           <h2 className="text-xl md:text-2xl font-bold">Générer une séance</h2>
-          <p className="text-sm text-muted-foreground mt-0.5">Adaptée à votre phase et effectif</p>
+          <p className="text-sm text-muted-foreground mt-0.5">Fiche de séance complète générée par IA</p>
         </div>
       </div>
 
-      {!session ? (
+      {!pdfUrl ? (
         <div className="space-y-6 max-w-xl">
           {/* Phase */}
           <div className="space-y-3">
-            <label className="text-sm font-semibold">Phase</label>
-            <div className="grid grid-cols-2 gap-2">
-              {PHASES.map((p) => (
+            <label className="text-sm font-semibold">Phase de jeu</label>
+            <div className="grid grid-cols-1 gap-2">
+              {TACTICAL_PHASE_NAMES.map((p) => (
                 <button
-                  key={p.value}
-                  className={`rounded-lg border p-3 text-left transition-all ${phase === p.value ? "border-[var(--color-royal)] bg-blue-50 ring-1 ring-[var(--color-royal)]" : "hover:border-blue-200"}`}
-                  onClick={() => { setPhase(p.value); setThemes([]); }}
+                  key={p}
+                  className={`rounded-lg border p-3 text-left transition-all ${phase === p ? "border-[var(--color-royal)] bg-blue-50 ring-1 ring-[var(--color-royal)]" : "hover:border-blue-200"}`}
+                  onClick={() => { setPhase(p); setObjectives([]); }}
                 >
-                  <p className="font-medium text-sm">{p.label}</p>
+                  <p className="font-medium text-sm">{p}</p>
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Thèmes */}
-          {phaseThemes.length > 0 && (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <label className="text-sm font-semibold">Thèmes (1 ou 2 max)</label>
-                <span className="text-xs text-muted-foreground">{themes.length}/2</span>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {phaseThemes.map((t) => (
+          {/* Objectifs */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-semibold">Objectifs (1 ou 2 max)</label>
+              <span className="text-xs text-muted-foreground">{objectives.length}/2</span>
+            </div>
+            {TACTICAL_PHASES[phase].length > 0 ? (
+              <div className="space-y-2">
+                {TACTICAL_PHASES[phase].map((obj) => (
                   <button
-                    key={t}
-                    className={`px-3 py-2 rounded-lg text-sm border transition-all ${themes.includes(t) ? "bg-[var(--color-royal)] text-white border-[var(--color-royal)]" : "hover:border-blue-200"}`}
-                    onClick={() => toggleTheme(t)}
+                    key={obj}
+                    className={`w-full text-left px-3 py-2 rounded-lg text-sm border transition-all ${objectives.includes(obj) ? "bg-[var(--color-royal)] text-white border-[var(--color-royal)]" : "hover:border-blue-200"}`}
+                    onClick={() => toggleObjective(obj)}
                   >
-                    {t}
+                    {obj}
                   </button>
                 ))}
               </div>
-            </div>
-          )}
+            ) : (
+              <p className="text-sm text-muted-foreground">Aucun objectif prédéfini pour cette phase — choisis la phase de jeu ou décris l&apos;objectif dans le champ libre.</p>
+            )}
+          </div>
+
+          {/* Objectif libre (optionnel) */}
+          <div className="space-y-3">
+            <label className="text-sm font-semibold">Objectif spécifique (optionnel)</label>
+            <Textarea
+              value={freeObjective}
+              onChange={(e) => setFreeObjective(e.target.value)}
+              placeholder="Ex : Améliorer le jeu du troisième homme, travailler la fermeture des espaces intérieurs..."
+              rows={2}
+            />
+          </div>
 
           {/* Joueurs */}
           <div className="space-y-3">
@@ -128,58 +139,122 @@ export default function GenerateTrainingPage() {
             onClick={handleGenerate}
             disabled={generating}
           >
-            {generating ? "Génération..." : "Générer la séance"}
+            <Sparkles className="h-4 w-4 mr-1" />
+            {generating ? "Génération par l'IA..." : "Générer la séance"}
           </Button>
         </div>
       ) : (
-        <div className="space-y-6 max-w-xl">
+        <div className="space-y-4">
           <Card className="bg-gradient-to-r from-[var(--color-navy)] to-[var(--color-royal)] text-white">
-            <CardContent className="p-6">
-              <h3 className="text-xl font-bold">{session.title}</h3>
-              <div className="flex flex-wrap gap-2 mt-3">
-                <Badge className="bg-white/20 text-white border-white/30">{session.phase}</Badge>
-                {session.objectives.map((obj) => (
-                  <Badge key={obj} className="bg-[var(--color-gold)] text-[var(--color-navy)]">{obj}</Badge>
-                ))}
-                <Badge className="bg-white/20 text-white border-white/30">
-                  <Clock className="h-3 w-3 mr-1" />{session.totalDuration} min
-                </Badge>
+            <CardContent className="p-6 flex items-center justify-between gap-4">
+              <div className="min-w-0">
+                <h3 className="text-lg font-bold truncate">{session?.title || "Fiche de séance"}</h3>
+                <p className="text-sm text-white/80 mt-1 flex items-center gap-1">
+                  <Clock className="h-3.5 w-3.5" />Séance de 90 min avec schémas et variantes
+                </p>
               </div>
+              <a
+                href={pdfUrl}
+                download={`${session?.title || "seance"}.pdf`.replace(/[^\w\s-]/g, "").trim()}
+                className="shrink-0"
+              >
+                <Button className="bg-[var(--color-gold)] text-[var(--color-navy)] font-semibold">
+                  <FileDown className="h-4 w-4 mr-1" />
+                  Télécharger le PDF
+                </Button>
+              </a>
             </CardContent>
           </Card>
 
-          <div className="space-y-3">
-            <h4 className="font-semibold flex items-center gap-2">
-              <Dumbbell className="h-4 w-4" />
-              Exercices ({session.exercises.length})
-            </h4>
-            {session.exercises.map((ex, i) => (
-              <Card key={i}>
-                <CardContent className="p-4 flex items-start gap-3">
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--color-royal)]/10 text-[var(--color-royal)] text-xs font-bold">
-                    {i + 1}
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm">{ex.name}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{ex.description}</p>
-                  </div>
-                  <span className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
-                    <Clock className="h-3 w-3" />{ex.duration}min
-                  </span>
-                </CardContent>
-              </Card>
-            ))}
+          <div className="rounded-lg border bg-muted/30">
+            <iframe
+              src={pdfUrl}
+              title="Fiche de séance"
+              className="w-full rounded-lg"
+              style={{ height: "70vh" }}
+            />
           </div>
 
+          {session && (
+            <div className="space-y-3">
+              <h3 className="font-semibold flex items-center gap-2">
+                <Dumbbell className="h-4 w-4" />
+                Fiche détaillée
+              </h3>
+
+              {session.material && (
+                <Card>
+                  <CardContent className="p-4">
+                    <p className="text-sm font-semibold mb-1">Matériel nécessaire</p>
+                    <p className="text-sm text-muted-foreground">{session.material}</p>
+                  </CardContent>
+                </Card>
+              )}
+
+              {session.sections.map((section, i) => (
+                <Card key={i}>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between gap-2 mb-3">
+                      <h4 className="font-semibold text-sm">{section.name}</h4>
+                      {section.duration > 0 && (
+                        <span className="text-xs text-muted-foreground shrink-0">{section.duration} min</span>
+                      )}
+                    </div>
+                    <div className="space-y-3">
+                      {section.items.map((item, j) => (
+                        <div key={j}>
+                          {item.label && <p className="text-xs font-semibold text-[var(--color-royal)] mb-0.5">{item.label}</p>}
+                          <p className="text-sm text-muted-foreground whitespace-pre-wrap">{item.text}</p>
+                        </div>
+                      ))}
+                    </div>
+                    {section.variants.length > 0 && (
+                      <div className="mt-3 border-t pt-3">
+                        <p className="text-xs font-semibold mb-1.5">Variantes / Progression</p>
+                        <ul className="space-y-1">
+                          {section.variants.map((v, k) => (
+                            <li key={k} className="flex items-start gap-2 text-sm text-muted-foreground">
+                              <span className="text-[var(--color-gold)]">•</span>
+                              {v}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+
+              {session.conseilsCoach.length > 0 && (
+                <Card className="border-[var(--color-gold)]/40">
+                  <CardContent className="p-4">
+                    <h4 className="font-semibold text-sm mb-3">Conseils du coach (Méthodologie UEFA B)</h4>
+                    <ol className="space-y-2">
+                      {session.conseilsCoach.map((tip, i) => (
+                        <li key={i} className="flex items-start gap-2 text-sm">
+                          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--color-gold)] text-[var(--color-navy)] text-xs font-bold mt-0.5">
+                            {i + 1}
+                          </span>
+                          <span className="text-muted-foreground">{tip}</span>
+                        </li>
+                      ))}
+                    </ol>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          )}
+
           <div className="flex gap-3">
-            <Button variant="outline" className="flex-1" onClick={() => setSession(null)}>
+            <Button variant="outline" className="flex-1" onClick={() => { setPdfUrl(null); setSession(null); }}>
               Modifier les critères
             </Button>
             <Button
               className="flex-1 bg-[var(--color-gold)] text-[var(--color-navy)] font-semibold"
               onClick={handleGenerate}
+              disabled={generating}
             >
-              Régénérer
+              {generating ? "Génération..." : "Régénérer"}
             </Button>
           </div>
         </div>

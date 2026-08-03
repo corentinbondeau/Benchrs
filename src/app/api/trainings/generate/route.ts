@@ -1,27 +1,45 @@
 import { NextResponse } from "next/server";
-import { generateSession, PHASES, type Phase } from "@/lib/training/generator";
-
-const VALID_PHASES = PHASES.map((p) => p.value) as string[];
+import { TACTICAL_PHASE_NAMES } from "@/lib/training/phases";
+import { generateSessionWithAI } from "@/lib/training/ai-generator";
+import { renderSessionPdf } from "@/lib/training/pdf";
 
 export async function POST(req: Request) {
-  const body = await req.json();
-  const { phase, themes, playerCount } = body;
+  const body = await req.json().catch(() => null);
 
-  if (typeof phase !== "string" || !VALID_PHASES.includes(phase)) {
+  const phase = typeof body?.phase === "string" ? body.phase : "";
+  if (!TACTICAL_PHASE_NAMES.includes(phase)) {
     return NextResponse.json({ error: "Phase invalide" }, { status: 400 });
   }
 
-  if (!Number.isInteger(playerCount) || playerCount < 1 || playerCount > 99) {
-    return NextResponse.json({ error: "Nombre de joueurs invalide" }, { status: 400 });
+  const objectives = Array.isArray(body?.objectives)
+    ? body.objectives
+        .filter((o: unknown): o is string => typeof o === "string" && o.trim().length > 0)
+        .map((o: string) => o.trim().slice(0, 200))
+    : [];
+  if (objectives.length === 0) {
+    return NextResponse.json({ error: "Sélectionne au moins un objectif" }, { status: 400 });
+  }
+  if (objectives.length > 3) {
+    return NextResponse.json({ error: "3 objectifs maximum" }, { status: 400 });
   }
 
-  const safeThemes = Array.isArray(themes)
-    ? themes
-        .filter((t: unknown) => typeof t === "string")
-        .slice(0, 20)
-        .map((t: string) => t.slice(0, 100))
-    : [];
+  const playerCount =
+    Number.isInteger(body?.playerCount) && body.playerCount >= 1 && body.playerCount <= 99
+      ? body.playerCount
+      : null;
 
-  const session = generateSession(phase as Phase, safeThemes, playerCount);
-  return NextResponse.json(session);
+  try {
+    const session = await generateSessionWithAI(phase, objectives, playerCount);
+    const pdfBuffer = await renderSessionPdf(session);
+    return NextResponse.json({
+      session,
+      pdf: `data:application/pdf;base64,${pdfBuffer.toString("base64")}`,
+    });
+  } catch (e) {
+    console.error("[trainings/generate] échec IA:", e);
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : "Erreur lors de la génération" },
+      { status: 500 }
+    );
+  }
 }

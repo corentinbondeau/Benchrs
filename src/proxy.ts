@@ -28,13 +28,14 @@ export function proxy(request: NextRequest) {
     pathname === "/create-team" ||
     pathname === "/join";
   const isApiAuth = pathname.startsWith("/api/auth");
+  const isApiDiag = pathname === "/api/diag";
 
   const sessionToken =
     request.cookies.get("sb-gxksycbwylhkhihcvddw-auth-token")?.value;
 
   const isLoggedIn = !!sessionToken;
 
-  if (isApiAuth) {
+  if (isApiAuth || isApiDiag) {
     return NextResponse.next();
   }
 
