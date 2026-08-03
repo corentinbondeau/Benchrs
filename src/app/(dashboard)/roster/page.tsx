@@ -36,7 +36,7 @@ export default function RosterPage() {
     async function loadMembers() {
       const { data: rows } = await supabase
         .from("team_members")
-        .select("user_id")
+        .select("user_id, role")
         .eq("team_id", currentTeam!.id);
 
       if (!rows || rows.length === 0) {
@@ -45,13 +45,23 @@ export default function RosterPage() {
         return;
       }
 
+      const roleMap: Record<string, string> = {};
+      for (const r of rows) {
+        roleMap[r.user_id] = r.role === "owner" ? "coach" : r.role;
+      }
+
       const { data: profiles } = await supabase
         .from("profiles")
         .select("*")
         .in("id", rows.map((r) => r.user_id))
         .order("last_name", { ascending: true });
 
-      setAllProfiles((profiles as Profile[]) || []);
+      setAllProfiles(
+        ((profiles as Profile[]) || []).map((p) => ({
+          ...p,
+          role: (roleMap[p.id] || p.role) as Profile["role"],
+        }))
+      );
       setLoading(false);
     }
 
