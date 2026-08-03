@@ -11,8 +11,24 @@ export async function getAuthUser(req: Request): Promise<User | null> {
   return data.user;
 }
 
-export function unauthorized() {
-  return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+export async function getAuthUserDetailed(
+  req: Request
+): Promise<{ user: User | null; reason?: string }> {
+  const header = req.headers.get("authorization");
+  const token = header?.startsWith("Bearer ") ? header.slice("Bearer ".length) : null;
+  if (!token) return { user: null, reason: "token_manquant" };
+  const { data, error } = await createAdminClient().auth.getUser(token);
+  if (error || !data.user) {
+    return { user: null, reason: error?.message ?? "utilisateur_introuvable" };
+  }
+  return { user: data.user };
+}
+
+export function unauthorized(detail?: string) {
+  return NextResponse.json(
+    { error: "Non autorisé", ...(detail ? { detail } : {}) },
+    { status: 401 }
+  );
 }
 
 export function forbidden() {
