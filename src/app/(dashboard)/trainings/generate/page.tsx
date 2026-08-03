@@ -51,7 +51,16 @@ export default function GenerateTrainingPage() {
         throw new Error(data?.error || "Erreur");
       }
       const data = await res.json();
-      setPdfUrl(data.pdf as string);
+      const pdfData = data.pdf as string;
+      const base64 = pdfData.split(",")[1] || "";
+      const binary = atob(base64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      const blob = new Blob([bytes], { type: "application/pdf" });
+      setPdfUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return URL.createObjectURL(blob);
+      });
       setSession(data.session as AISession);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Erreur lors de la génération");
@@ -246,7 +255,7 @@ export default function GenerateTrainingPage() {
           )}
 
           <div className="flex gap-3">
-            <Button variant="outline" className="flex-1" onClick={() => { setPdfUrl(null); setSession(null); }}>
+            <Button variant="outline" className="flex-1" onClick={() => { setPdfUrl((prev) => { if (prev) URL.revokeObjectURL(prev); return null; }); setSession(null); }}>
               Modifier les critères
             </Button>
             <Button
