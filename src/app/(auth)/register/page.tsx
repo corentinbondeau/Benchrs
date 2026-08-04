@@ -182,7 +182,13 @@ export default function RegisterPage() {
           setLoading(false);
           return;
         }
-        window.location.href = "/";
+        const joinData = await joinRes.json();
+        localStorage.setItem("selectedTeamId", joinData.team.id);
+        if (formData.joinRole === "parent") {
+          window.location.href = `/link-child?teamId=${joinData.team.id}`;
+        } else {
+          window.location.href = "/";
+        }
       } else if (teamMode === "create" && formData.clubName && formData.teamName) {
         const teamRes = await authFetch("/api/auth/create-team", {
           method: "POST",
@@ -202,6 +208,7 @@ export default function RegisterPage() {
         }
 
         const teamData = await teamRes.json();
+        localStorage.setItem("selectedTeamId", teamData.team.id);
         const { toast } = await import("sonner");
         toast.success(`Code d'invitation : ${teamData.inviteCode}`, {
           description: "Vous le trouverez dans Paramètres > Équipe",

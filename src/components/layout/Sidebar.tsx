@@ -72,7 +72,7 @@ const coachItems = [
 export function Sidebar() {
   const pathname = usePathname();
   const { user } = useAuth();
-  const { currentTeam, teams, switchTeam, refreshTeams, userRole } = useTeam();
+  const { currentTeam, teams, switchTeam, userRole } = useTeam();
   const isCoach = userRole === "coach" || userRole === "owner";
   const { total: unreadChat } = useChatUnread(currentTeam?.id, user?.id, userRole ?? undefined);
   const [createOpen, setCreateOpen] = useState(false);
@@ -131,7 +131,12 @@ export function Sidebar() {
       setCreateOpen(false);
       setInviteCode("");
       setJoinMode(false);
-      await refreshTeams();
+      localStorage.setItem("selectedTeamId", data.team.id);
+      if (joinRole === "parent") {
+        window.location.href = `/link-child?teamId=${data.team.id}`;
+      } else {
+        window.location.href = "/";
+      }
     } catch {
       toast.error("Erreur de connexion au serveur");
     }

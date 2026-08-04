@@ -87,7 +87,12 @@ function JoinTeamForm() {
         return;
       }
 
-      router.push("/");
+      localStorage.setItem("selectedTeamId", data.team.id);
+      if (role === "parent") {
+        router.push(`/link-child?teamId=${data.team.id}`);
+      } else {
+        router.push("/");
+      }
     } catch {
       setError("Erreur de connexion au serveur");
       setLoading(false);
