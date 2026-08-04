@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Trophy, Target, Clock, CalendarCheck, Zap, Gauge, Check, X } from "lucide-react";
+import { Trophy, Target, Clock, CalendarCheck, Zap, Gauge, Check, X, Phone, User, CalendarDays } from "lucide-react";
 import { toast } from "sonner";
 
 interface PlayerStats {
@@ -25,9 +25,29 @@ interface PlayerStats {
   red_cards: number;
 }
 
+interface ProfileData {
+  id: string;
+  role: "coach" | "player" | "parent";
+  first_name: string;
+  last_name: string;
+  position: string | null;
+  shirt_number: number | null;
+  phone: string | null;
+  date_of_birth: string | null;
+  vma: number | null;
+}
+
+const roleLabels: Record<ProfileData["role"], string> = {
+  coach: "Coach",
+  player: "Joueur",
+  parent: "Parent",
+};
+
 export function PlayerProfile({ playerId }: { playerId: string }) {
   const { currentTeam, userRole } = useTeam();
   const isCoach = userRole === "coach" || userRole === "owner";
+
+  const [profile, setProfile] = useState<ProfileData | null>(null);
   const [stats, setStats] = useState<PlayerStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [vma, setVma] = useState<number | null>(null);
@@ -38,14 +58,23 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
     if (!currentTeam) return;
     const supabase = createClient();
 
-    async function fetchPlayerStats() {
+    async function fetchProfile() {
       const { data: profile } = await supabase
         .from("profiles")
-        .select("*")
+        .select("id, role, first_name, last_name, position, shirt_number, phone, date_of_birth, vma")
         .eq("id", playerId)
         .single();
 
       if (!profile) {
+        setLoading(false);
+        return;
+      }
+
+      setProfile(profile as unknown as ProfileData);
+      setVma(profile.vma);
+      setVmaInput(profile.vma?.toString() ?? "");
+
+      if (profile.role !== "player") {
         setLoading(false);
         return;
       }
@@ -103,12 +132,10 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
         yellow_cards: yellowCards,
         red_cards: redCards,
       });
-      setVma(profile.vma);
-      setVmaInput(profile.vma?.toString() ?? "");
       setLoading(false);
     }
 
-    fetchPlayerStats();
+    fetchProfile();
   }, [playerId, currentTeam]);
 
   async function handleSaveVma() {
@@ -141,11 +168,57 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
     );
   }
 
-  if (!stats) return null;
+  if (!profile) return null;
 
-  const positionLabels: Record<string, string> = {
-    goalkeeper: "Gardien", defender: "Défenseur", midfielder: "Milieu", forward: "Attaquant",
-  };
+  const initials = `${profile.first_name[0]}${profile.last_name[0]}`;
+
+  if (profile.role !== "player") {
+    return (
+      <div className="space-y-6">
+        <Card className="bg-gradient-to-r from-blue-900 to-blue-800 text-white">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-6">
+              <div className="flex h-20 w-20 items-center justify-center rounded-full bg-white/20 text-2xl font-bold">
+                {initials}
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold">{profile.first_name} {profile.last_name}</h2>
+                <p className="text-blue-200 mt-1 capitalize">{roleLabels[profile.role]}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Contact */}
+        <Card>
+          <CardContent className="p-4 space-y-3">
+            <p className="text-sm font-medium flex items-center gap-2">
+              <Phone className="h-4 w-4 text-muted-foreground" />
+              Contact
+            </p>
+            <div className="flex items-center gap-2 text-sm">
+              <User className="h-4 w-4 text-muted-foreground shrink-0" />
+              {profile.phone ? (
+                <a href={`tel:${profile.phone}`} className="hover:underline">
+                  {profile.phone}
+                </a>
+              ) : (
+                <span className="text-muted-foreground">Téléphone non renseigné</span>
+              )}
+            </div>
+            {profile.date_of_birth && (
+              <div className="flex items-center gap-2 text-sm">
+                <CalendarDays className="h-4 w-4 text-muted-foreground shrink-0" />
+                {profile.date_of_birth}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!stats) return null;
 
   const statCards = [
     { icon: Trophy, label: "Buts", value: stats.total_goals, color: "text-[var(--color-gold)]", bg: "bg-amber-50" },
@@ -170,7 +243,7 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
             </div>
             <div>
               <h2 className="text-2xl font-bold">{stats.first_name} {stats.last_name}</h2>
-              <p className="text-blue-200 mt-1">{positionLabels[stats.position || ""] || "Joueur"}</p>
+              <p className="text-blue-200 mt-1">{stats.position || "Joueur"}</p>
               <div className="flex gap-2 mt-2">
                 {stats.yellow_cards > 0 && <Badge className="bg-yellow-400 text-yellow-900">{stats.yellow_cards} jaunes</Badge>}
                 {stats.red_cards > 0 && <Badge className="bg-red-500 text-white">{stats.red_cards} rouges</Badge>}
