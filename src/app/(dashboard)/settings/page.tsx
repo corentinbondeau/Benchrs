@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { useAuth } from "@/lib/auth";
 import { useTeam } from "@/lib/team";
 import { createClient } from "@/lib/supabase/client";
@@ -19,6 +20,7 @@ import {
   Bell,
   Save,
   Loader2,
+  Users,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { toast } from "sonner";
@@ -405,6 +407,32 @@ export default function SettingsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Lien parent → enfant */}
+      {userRole === "parent" && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Users className="h-4 w-4" />
+              Lien parent → enfant
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <p className="text-sm text-muted-foreground">
+              Liez le compte de votre enfant pour suivre ses convocations,
+              résultats et notifications.
+            </p>
+            <Link
+              href={`/link-child?teamId=${currentTeam?.id}`}
+              className="w-full"
+            >
+              <Button className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold">
+                Lier mon enfant
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Security */}
       <Card>
