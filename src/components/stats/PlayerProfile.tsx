@@ -70,11 +70,21 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
         return;
       }
 
-      setProfile(profile as unknown as ProfileData);
+      const { data: membership } = await supabase
+        .from("team_members")
+        .select("role")
+        .eq("user_id", playerId)
+        .eq("team_id", currentTeam!.id)
+        .maybeSingle();
+
+      const teamRole = membership?.role === "owner" ? "coach" : membership?.role;
+      const role = (teamRole as ProfileData["role"] | null) || (profile.role as ProfileData["role"]);
+
+      setProfile({ ...(profile as unknown as ProfileData), role });
       setVma(profile.vma);
       setVmaInput(profile.vma?.toString() ?? "");
 
-      if (profile.role !== "player") {
+      if (role !== "player") {
         setLoading(false);
         return;
       }

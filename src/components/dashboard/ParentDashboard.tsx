@@ -186,10 +186,18 @@ export function ParentDashboard() {
               Aucun joueur associé à votre compte
             </p>
             <p className="text-xs text-muted-foreground mt-1">
-              Contactez un coach pour linker votre compte
+              Liez le compte de votre enfant pour suivre ses convocations,
+              résultats et notifications.
             </p>
           </div>
         </div>
+        <Button
+          className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
+          onClick={() => router.push(`/link-child?teamId=${currentTeam.id}`)}
+        >
+          <User className="h-4 w-4" />
+          Lier mon enfant
+        </Button>
       </div>
     );
   }
