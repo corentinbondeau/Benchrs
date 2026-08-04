@@ -24,15 +24,15 @@ export function TopBar() {
 
   return (
     <header
-      className="border-b bg-background"
+      className="border-b bg-[var(--color-navy)] lg:border-border lg:bg-background"
       style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
     >
-      <div className="flex h-12 items-center gap-3 px-4 lg:px-6">
+      <div className="flex h-10 items-center gap-2.5 px-3 lg:h-12 lg:px-6">
         <img src="/logo.svg" alt="Benchrs" className="h-8 w-8 shrink-0 lg:hidden" />
-        <span className="text-lg font-bold shrink-0 lg:hidden">Benchrs</span>
+        <span className="text-lg font-bold text-white leading-none shrink-0 lg:hidden">Benchrs</span>
         <div className="flex-1" />
         {currentTeam && (
-          <span className="text-sm text-muted-foreground hidden sm:block truncate">
+          <span className="hidden lg:block text-sm text-muted-foreground truncate">
             {currentTeam.club?.name ? `${currentTeam.club.name} — ` : ""}{currentTeam.name}
           </span>
         )}
