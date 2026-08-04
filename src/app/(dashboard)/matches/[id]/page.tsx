@@ -525,6 +525,7 @@ export default function MatchDetailPage() {
         meetingTime={match.meeting_time}
         location={match.location}
         myPresence={myPresence}
+        convocationsSent={!!match?.convocations_sent_at}
         onRespond={myPresence ? (status, reason) => updateMatchAttendance(myPresence.playerId, status, reason) : undefined}
       />
 

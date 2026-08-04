@@ -237,6 +237,7 @@ export default function TrainingDetailPage() {
         meetingTime={event.meeting_time}
         location={event.location}
         myPresence={myPresence}
+        convocationsSent={!!event.convocations_sent_at}
         onRespond={myPresence ? (status, reason) => updateAttendance(myPresence.playerId, status, reason) : undefined}
       />
 

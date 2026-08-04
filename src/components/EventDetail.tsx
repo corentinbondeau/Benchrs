@@ -114,12 +114,14 @@ export function EventInfoCard({
   meetingTime,
   location,
   myPresence,
+  convocationsSent,
   onRespond,
 }: {
   date: Date;
   meetingTime: string | null;
   location: string | null;
   myPresence?: MyPresenceInfo;
+  convocationsSent: boolean;
   onRespond?: (status: "present" | "late" | "absent", reason?: string) => void;
 }) {
   const [showRetardReason, setShowRetardReason] = useState(false);
@@ -168,7 +170,7 @@ export function EventInfoCard({
         <InfoRow icon={Clock} label="Début" value={startStr} />
         {location && <InfoRow icon={MapPin} label="Lieu" value={location} />}
 
-        {myPresence && onRespond && (
+        {myPresence && onRespond && convocationsSent && (
           <div className="rounded-lg bg-muted/50 p-3 mt-1 space-y-2">
             <div className="flex items-center justify-between gap-2 flex-wrap">
               <p className="text-sm font-medium flex items-center gap-1.5">

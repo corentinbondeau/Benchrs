@@ -165,7 +165,7 @@ function JoinTeamForm() {
             <Button
               type="button"
               variant="outline"
-              className="w-full border-white/20 text-white hover:bg-white/10"
+              className="w-full"
             >
               Créer mon équipe
             </Button>
