@@ -8,13 +8,6 @@ import Link from "next/link";
 import { Shield, Users, Baby, ChevronRight } from "lucide-react";
 import type { Profile } from "@/types";
 
-const positionLabels: Record<string, string> = {
-  goalkeeper: "Gardien",
-  defender: "Défenseur",
-  midfielder: "Milieu",
-  forward: "Attaquant",
-};
-
 type Section = { key: "coach" | "player" | "parent"; label: string; icon: typeof Shield };
 
 const SECTIONS: Section[] = [
@@ -135,18 +128,14 @@ export default function RosterPage() {
                   </p>
                   <p className="text-sm text-muted-foreground">
                     {isPlayer
-                      ? (positionLabels[profile.position || ""] || "Joueur")
+                      ? (profile.position || "Joueur")
                       : section.label.slice(0, -1)}
                   </p>
                 </div>
-                {!isCoach && <ChevronRight className="h-5 w-5 text-muted-foreground/40 shrink-0" />}
+                <ChevronRight className="h-5 w-5 text-muted-foreground/40 shrink-0" />
               </>
             );
-            return isCoach ? (
-              <div key={profile.id} className={cardClass}>
-                {inner}
-              </div>
-            ) : (
+            return (
               <Link
                 key={profile.id}
                 href={`/stats/${profile.id}`}

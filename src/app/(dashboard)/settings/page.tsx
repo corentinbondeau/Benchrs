@@ -29,26 +29,15 @@ import {
   enablePushSubscription,
   disablePushSubscription,
 } from "@/lib/push";
+import { POSITIONS } from "@/lib/positions";
 import type { Profile } from "@/types";
 
 const roleLabels = { coach: "Coach", player: "Joueur", parent: "Parent" };
 
-const positions = [
-  "Gardien",
-  "Défenseur central",
-  "Latéral droit",
-  "Latéral gauche",
-  "Milieu défensif",
-  "Milieu central",
-  "Milieu offensif",
-  "Ailier droit",
-  "Ailier gauche",
-  "Buteur",
-];
-
 export default function SettingsPage() {
   const { user, signOut } = useAuth();
   const { currentTeam, userRole } = useTeam();
+  const isPlayer = userRole === "player";
   const [saving, setSaving] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
 
@@ -279,20 +268,22 @@ export default function SettingsPage() {
                 onChange={(e) => setDateOfBirth(e.target.value)}
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="position">Poste</Label>
-              <select
-                id="position"
-                value={position}
-                onChange={(e) => setPosition(e.target.value)}
-                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              >
-                <option value="">Aucun</option>
-                {positions.map((pos) => (
-                  <option key={pos} value={pos}>{pos}</option>
-                ))}
-              </select>
-            </div>
+            {isPlayer && (
+              <div className="space-y-2">
+                <Label htmlFor="position">Poste</Label>
+                <select
+                  id="position"
+                  value={position}
+                  onChange={(e) => setPosition(e.target.value)}
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                >
+                  <option value="">Aucun</option>
+                  {POSITIONS.map((pos) => (
+                    <option key={pos} value={pos}>{pos}</option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="shirtNumber">Numéro de maillot</Label>
               <Input
