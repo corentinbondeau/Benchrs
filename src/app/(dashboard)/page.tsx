@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useAuth } from "@/lib/auth";
+import { useTeam } from "@/lib/team";
 import { LazyMount } from "@/components/LazyMount";
 import { NextEventCard } from "@/components/dashboard/NextEventCard";
 import { PendingConvocations } from "@/components/dashboard/PendingConvocations";
@@ -37,13 +38,13 @@ const SeasonSummary = dynamic(
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  const role = user?.profile?.role;
+  const { userRole } = useTeam();
 
-  if (role === "player") {
+  if (userRole === "player") {
     return <PlayerDashboard />;
   }
 
-  if (role === "parent") {
+  if (userRole === "parent") {
     return <ParentDashboard />;
   }
 

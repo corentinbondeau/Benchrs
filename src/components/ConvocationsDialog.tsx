@@ -221,11 +221,11 @@ export function ConvocationsDialog({ event, open, onOpenChange }: ConvocationsDi
           <div className="h-32 animate-pulse rounded-lg bg-muted" />
         ) : isCoach ? (
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-sm text-muted-foreground">
                 {eventData?.attendances.length || 0} convoqué(s)
               </p>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <Button size="sm" variant="outline" onClick={sendConvocationPush}>
                   <Send className="h-3 w-3 mr-1" />
                   Envoyer

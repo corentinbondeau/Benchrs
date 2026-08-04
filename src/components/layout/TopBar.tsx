@@ -24,47 +24,50 @@ export function TopBar() {
 
   return (
     <header
-      className="flex min-h-12 items-center gap-4 border-b bg-background px-4 lg:px-6"
-      style={{ paddingTop: "env(safe-area-inset-top)" }}
+      className="border-b bg-background"
+      style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
     >
-      <img src="/logo.svg" alt="Benchrs" className="h-10 w-10" />
-      <div className="flex-1" />
-      {currentTeam && (
-        <span className="text-sm text-muted-foreground hidden sm:block">
-          {currentTeam.club?.name ? `${currentTeam.club.name} — ` : ""}{currentTeam.name}
-        </span>
-      )}
-      <DropdownMenu>
-        <DropdownMenuTrigger render={<Button variant="ghost" className="relative h-9 w-9 rounded-full" />}>
-              <Avatar className="h-9 w-9">
-                <AvatarFallback className="bg-[var(--color-royal)] text-white text-xs font-bold">
-                  {initials}
-                </AvatarFallback>
-              </Avatar>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-48">
-          <div className="px-2 py-1.5">
-            <p className="text-sm font-medium">
-              {user?.profile?.first_name} {user?.profile?.last_name}
-            </p>
-            <p className="text-xs text-muted-foreground capitalize">
-              {userRole === "owner" ? "owner" : (userRole || "player")}
-            </p>
-          </div>
-          <DropdownMenuItem onClick={() => router.push("/settings")}>
-            <Settings className="mr-2 h-4 w-4" />
-            Paramètres
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => router.push("/stats/my")}>
-            <User className="mr-2 h-4 w-4" />
-            Mon profil
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={signOut} className="text-destructive">
-            <LogOut className="mr-2 h-4 w-4" />
-            Déconnexion
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <div className="flex h-12 items-center gap-3 px-4 lg:px-6">
+        <img src="/logo.svg" alt="Benchrs" className="h-8 w-8 shrink-0 lg:hidden" />
+        <span className="text-lg font-bold shrink-0 lg:hidden">Benchrs</span>
+        <div className="flex-1" />
+        {currentTeam && (
+          <span className="text-sm text-muted-foreground hidden sm:block truncate">
+            {currentTeam.club?.name ? `${currentTeam.club.name} — ` : ""}{currentTeam.name}
+          </span>
+        )}
+        <DropdownMenu>
+          <DropdownMenuTrigger render={<Button variant="ghost" className="relative h-9 w-9 rounded-full" />}>
+                <Avatar className="h-9 w-9">
+                  <AvatarFallback className="bg-[var(--color-royal)] text-white text-xs font-bold">
+                    {initials}
+                  </AvatarFallback>
+                </Avatar>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            <div className="px-2 py-1.5">
+              <p className="text-sm font-medium">
+                {user?.profile?.first_name} {user?.profile?.last_name}
+              </p>
+              <p className="text-xs text-muted-foreground capitalize">
+                {userRole === "owner" ? "owner" : (userRole || "player")}
+              </p>
+            </div>
+            <DropdownMenuItem onClick={() => router.push("/settings")}>
+              <Settings className="mr-2 h-4 w-4" />
+              Paramètres
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => router.push("/stats/my")}>
+              <User className="mr-2 h-4 w-4" />
+              Mon profil
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={signOut} className="text-destructive">
+              <LogOut className="mr-2 h-4 w-4" />
+              Déconnexion
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
     </header>
   );
 }
