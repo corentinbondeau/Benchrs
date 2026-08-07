@@ -37,6 +37,7 @@ import {
   Settings2,
   UserCog,
   Wallet,
+  CalendarRange,
 } from "lucide-react";
 
 const navItems = [
@@ -46,6 +47,7 @@ const navItems = [
   { href: "/carpooling", label: "Covoiturage", icon: Car },
   { href: "/tasks", label: "Tâches", icon: ListTodo },
   { href: "/tactics", label: "Tactique", icon: Swords, coachOnly: true },
+  { href: "/season", label: "Plan de saison", icon: CalendarRange },
   { href: "/gallery", label: "Galerie", icon: Image },
   { href: "/trophies", label: "Trophées", icon: Trophy },
   { href: "/championship", label: "Championnat", icon: Medal },

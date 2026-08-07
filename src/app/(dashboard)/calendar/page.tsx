@@ -90,6 +90,7 @@ export default function CalendarPage() {
   const [players, setPlayers] = useState<Profile[]>([]);
   const [attendanceCounts, setAttendanceCounts] = useState<Record<string, { present: number; total: number }>>({});
   const [convDialogEvent, setConvDialogEvent] = useState<Event | null>(null);
+  const [cycles, setCycles] = useState<{ id: string; name: string; cycle_type: string }[]>([]);
   const [form, setForm] = useState({
     title: "",
     type: "training" as "match" | "training",
@@ -101,6 +102,7 @@ export default function CalendarPage() {
     recurrence: "Aucun" as Recurrence,
     convocation_lead_days: "3",
     selected_player_ids: [] as string[],
+    cycle_id: "",
   });
 
   const isCoach = userRole === "coach" || userRole === "owner";
@@ -143,6 +145,12 @@ export default function CalendarPage() {
   useEffect(() => {
     fetchEvents();
     fetchTeamActivePlayers(currentTeam!.id).then((data) => setPlayers(data));
+    createClient()
+      .from("season_cycles")
+      .select("id, name, cycle_type")
+      .eq("team_id", currentTeam!.id)
+      .order("start_date", { ascending: true })
+      .then(({ data }) => setCycles((data as { id: string; name: string; cycle_type: string }[]) || []));
   }, [currentTeam]);
 
   const year = currentDate.getFullYear();
@@ -243,6 +251,7 @@ export default function CalendarPage() {
       team_id: currentTeam!.id,
       convocation_lead_days: parseInt(form.convocation_lead_days, 10) || 3,
       recurrence_group_id: recurrenceGroupId,
+      cycle_id: form.cycle_id || null,
     }));
 
     const { data: inserted, error } = await supabase.from("events").insert(rows).select("id, event_date");
@@ -274,6 +283,7 @@ export default function CalendarPage() {
       recurrence: "Aucun",
       convocation_lead_days: "3",
       selected_player_ids: [],
+      cycle_id: "",
     });
     fetchEvents();
     clearQueryCache();
@@ -438,6 +448,27 @@ export default function CalendarPage() {
                   <div className="space-y-2">
                     <Label>Date de fin *</Label>
                     <Input type="date" value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} required />
+                  </div>
+                )}
+                {cycles.length > 0 && (
+                  <div className="space-y-2">
+                    <Label>Cycle de saison</Label>
+                    <Select
+                      value={form.cycle_id}
+                      onValueChange={(v) => v && setForm({ ...form, cycle_id: v })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Aucun cycle" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">Aucun cycle</SelectItem>
+                        {cycles.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 )}
                 {players.length > 0 && (
