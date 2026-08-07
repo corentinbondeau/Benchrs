@@ -16,12 +16,14 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
+  Bookmark,
   ClipboardList,
   Clock,
   Dumbbell,
   Eye,
   FileDown,
   FileText,
+  LibraryBig,
   Loader2,
   Lock,
   Plus,
@@ -39,6 +41,8 @@ import {
 } from "@/lib/training/ai-generator";
 import { AIFicheView } from "@/components/training/AIFicheView";
 import { VisibilityPicker, type FicheVisibility } from "@/components/training/FicheVisibilityPicker";
+import { ExerciseLibraryDialog } from "@/components/training/ExerciseLibraryDialog";
+import { DRILL_TYPES } from "@/lib/training/exercises";
 import type { Exercise } from "@/types";
 
 type FicheSource = "ai" | "manual";
@@ -57,8 +61,6 @@ interface SessionFicheRow {
   created_at: string;
   updated_at: string;
 }
-
-const DRILL_TYPES = ["échauffement", "technique", "tactique", "physique", "jeu"];
 
 function isAISession(ex: AISession | Exercise[] | null): ex is AISession {
   return !!ex && Array.isArray((ex as AISession).sections);
@@ -85,6 +87,7 @@ export function SessionFiche({
   const [loading, setLoading] = useState(true);
   const [aiOpen, setAiOpen] = useState(false);
   const [manualOpen, setManualOpen] = useState(false);
+  const [libraryOpen, setLibraryOpen] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
 
@@ -326,6 +329,30 @@ export function SessionFiche({
     const updated = [...manualExercises];
     updated[i] = { ...updated[i], [field]: value };
     setManualExercises(updated);
+  }
+
+  function addFromLibrary(ex: Exercise) {
+    setManualExercises([...manualExercises, ex]);
+  }
+
+  async function saveExerciseToLibrary(ex: Exercise) {
+    if (!ex.name.trim()) {
+      toast.error("Donne un nom à l'exercice avant de l'enregistrer");
+      return;
+    }
+    const supabase = createClient();
+    const { error } = await supabase.from("exercise_library").insert({
+      team_id: currentTeam!.id,
+      name: ex.name.trim(),
+      duration: ex.duration,
+      description: ex.description.trim() || null,
+      drill_type: ex.drill_type,
+    });
+    if (error) {
+      toast.error("Erreur lors de l'enregistrement dans la bibliothèque");
+      return;
+    }
+    toast.success("Exercice ajouté à la bibliothèque");
   }
 
   if (!currentTeam) return null;
@@ -618,10 +645,16 @@ export function SessionFiche({
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label className="text-xs font-semibold">Exercices</Label>
-                <Button variant="outline" size="sm" onClick={addManualExercise}>
-                  <Plus className="h-3.5 w-3.5 mr-1" />
-                  Ajouter
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setLibraryOpen(true)}>
+                    <LibraryBig className="h-3.5 w-3.5 mr-1" />
+                    Bibliothèque
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={addManualExercise}>
+                    <Plus className="h-3.5 w-3.5 mr-1" />
+                    Ajouter
+                  </Button>
+                </div>
               </div>
               <div className="space-y-3">
                 {manualExercises.map((ex, i) => (
@@ -633,6 +666,9 @@ export function SessionFiche({
                         onChange={(e) => updateManualExercise(i, "name", e.target.value)}
                         placeholder="Nom de l'exercice"
                       />
+                      <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-muted-foreground" onClick={() => saveExerciseToLibrary(ex)} title="Enregistrer dans la bibliothèque" aria-label="Enregistrer dans la bibliothèque">
+                        <Bookmark className="h-4 w-4" />
+                      </Button>
                       <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-destructive" onClick={() => removeManualExercise(i)}>
                         <X className="h-4 w-4" />
                       </Button>
@@ -693,6 +729,15 @@ export function SessionFiche({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Bibliothèque d'exercices */}
+      <ExerciseLibraryDialog
+        teamId={currentTeam.id}
+        open={libraryOpen}
+        onOpenChange={setLibraryOpen}
+        onAdd={addFromLibrary}
+        isCoach={isCoach}
+      />
     </>
   );
 }

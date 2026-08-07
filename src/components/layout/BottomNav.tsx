@@ -38,6 +38,7 @@ import {
   UserCog,
   Wallet,
   CalendarRange,
+  Flame,
 } from "lucide-react";
 
 const navItems = [
@@ -48,6 +49,7 @@ const navItems = [
   { href: "/tasks", label: "Tâches", icon: ListTodo },
   { href: "/tactics", label: "Tactique", icon: Swords, coachOnly: true },
   { href: "/season", label: "Plan de saison", icon: CalendarRange },
+  { href: "/challenge", label: "Défi de la semaine", icon: Flame },
   { href: "/gallery", label: "Galerie", icon: Image },
   { href: "/trophies", label: "Trophées", icon: Trophy },
   { href: "/championship", label: "Championnat", icon: Medal },

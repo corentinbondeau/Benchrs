@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { ConvocationsDialog } from "@/components/ConvocationsDialog";
 import { EventCoachActions } from "@/components/EventCoachActions";
 import { SessionFiche } from "@/components/training/SessionFiche";
+import { SessionRpe } from "@/components/training/SessionRpe";
 import {
   AttendanceLists,
   EventInfoCard,
@@ -41,6 +42,7 @@ export default function TrainingDetailPage() {
   const [childId, setChildId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [convDialogOpen, setConvDialogOpen] = useState(false);
+  const [now] = useState(() => Date.now());
 
   useEffect(() => {
     if (!currentTeam) return;
@@ -251,6 +253,18 @@ export default function TrainingDetailPage() {
         isCoach={isCoach}
         convocationsSent={!!event.convocations_sent_at}
         onUpdate={updateAttendance}
+      />
+
+      {/* Suivi de charge (RPE) */}
+      <SessionRpe
+        eventId={trainingId}
+        teamId={currentTeam.id}
+        isCoach={isCoach}
+        userId={user?.id}
+        userRole={userRole}
+        childId={childId}
+        trainingOver={event.status === "completed" || eventDate.getTime() < now}
+        durationHint={90}
       />
 
       <ConvocationsDialog

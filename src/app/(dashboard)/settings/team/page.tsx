@@ -16,9 +16,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import {
+  Activity,
   Copy,
+  Flame,
   Link2,
   Share2,
   RefreshCw,
@@ -29,10 +32,11 @@ import {
   X,
   LogOut,
 } from "lucide-react";
+import { CHALLENGE_DIFFICULTIES, type ChallengeDifficulty } from "@/lib/challenges/ai-generator";
 import type { TeamMember, Profile } from "@/types";
 
 export default function TeamSettingsPage() {
-  const { currentTeam, refreshTeams, switchTeam, teams } = useTeam();
+  const { currentTeam, refreshTeams, switchTeam, teams, userRole } = useTeam();
   const { user } = useAuth();
   const router = useRouter();
   const [members, setMembers] = useState<
@@ -47,11 +51,16 @@ export default function TeamSettingsPage() {
   const [savingColors, setSavingColors] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [leaving, setLeaving] = useState(false);
+  const [difficulty, setDifficulty] = useState<ChallengeDifficulty>("moyen");
+  const [savingDifficulty, setSavingDifficulty] = useState(false);
+  const [enableRpe, setEnableRpe] = useState(false);
+  const [savingRpe, setSavingRpe] = useState(false);
   const supabase = createClient();
 
   const isOwner = members.some(
     (m) => m.user_id === user?.id && m.role === "owner"
   );
+  const isCoach = userRole === "coach" || userRole === "owner";
 
   useEffect(() => {
     if (!currentTeam) return;
@@ -92,6 +101,26 @@ export default function TeamSettingsPage() {
     }
 
     loadMembers();
+
+    supabase
+      .from("weekly_challenge_settings")
+      .select("difficulty")
+      .eq("team_id", currentTeam.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.difficulty) {
+          setDifficulty(data.difficulty as ChallengeDifficulty);
+        }
+      });
+
+    supabase
+      .from("team_settings")
+      .select("enable_rpe")
+      .eq("team_id", currentTeam.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        setEnableRpe(data?.enable_rpe === true);
+      });
   }, [currentTeam, supabase]);
 
   async function regenerateCode() {
@@ -472,6 +501,121 @@ export default function TeamSettingsPage() {
               />
               <span className="text-sm text-muted-foreground">Aperçu</span>
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {isCoach && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Flame className="h-5 w-5" />
+              Défi de la semaine
+            </CardTitle>
+            <CardDescription>
+              Difficulté du défi généré automatiquement chaque semaine par IA.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex gap-1 rounded-lg border p-0.5 w-fit">
+              {CHALLENGE_DIFFICULTIES.map((d) => (
+                <button
+                  key={d}
+                  type="button"
+                  onClick={() => setDifficulty(d)}
+                  className={`rounded-md px-2 py-1 text-xs font-medium transition-colors ${
+                    difficulty === d
+                      ? "bg-[var(--color-navy)] text-white"
+                      : "text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  {d}
+                </button>
+              ))}
+            </div>
+            <Button
+              size="sm"
+              disabled={savingDifficulty}
+              onClick={async () => {
+                if (!currentTeam) return;
+                setSavingDifficulty(true);
+                const { error } = await supabase
+                  .from("weekly_challenge_settings")
+                  .upsert(
+                    {
+                      team_id: currentTeam.id,
+                      difficulty,
+                      updated_by: user?.id ?? null,
+                    },
+                    { onConflict: "team_id" }
+                  );
+                setSavingDifficulty(false);
+                if (error) {
+                  toast.error("Erreur lors de l'enregistrement");
+                } else {
+                  toast.success("Difficulté mise à jour");
+                }
+              }}
+              className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
+            >
+              Enregistrer
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {isCoach && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Activity className="h-5 w-5" />
+              Suivi de charge (RPE)
+            </CardTitle>
+            <CardDescription>
+              Les joueurs notent l&apos;intensité perçue (1-10) après chaque séance pour suivre la
+              charge d&apos;entraînement et prévenir les blessures.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex items-center justify-between rounded-lg border p-3">
+              <div>
+                <p className="text-sm font-medium">Activer le suivi</p>
+                <p className="text-xs text-muted-foreground">
+                  Affiche la carte « Suivi de charge » sur les fiches d&apos;entraînement.
+                </p>
+              </div>
+              <Switch
+                checked={enableRpe}
+                onCheckedChange={(v) => setEnableRpe(v === true)}
+              />
+            </div>
+            <Button
+              size="sm"
+              disabled={savingRpe}
+              onClick={async () => {
+                if (!currentTeam) return;
+                setSavingRpe(true);
+                const { error } = await supabase
+                  .from("team_settings")
+                  .upsert(
+                    {
+                      team_id: currentTeam.id,
+                      enable_rpe: enableRpe,
+                      updated_by: user?.id ?? null,
+                    },
+                    { onConflict: "team_id" }
+                  );
+                setSavingRpe(false);
+                if (error) {
+                  toast.error("Erreur lors de l'enregistrement");
+                } else {
+                  toast.success("Paramètre enregistré");
+                }
+              }}
+              className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
+            >
+              Enregistrer
+            </Button>
           </CardContent>
         </Card>
       )}

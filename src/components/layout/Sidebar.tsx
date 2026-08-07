@@ -27,6 +27,7 @@ import {
   Wallet,
   ChevronsUpDown,
   CalendarRange,
+  Flame,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -60,6 +61,7 @@ const navItems = [
   { href: "/physical", label: "Prépa physique", icon: Dumbbell, coachOnly: true },
   { href: "/tactics", label: "Tactique", icon: Swords, coachOnly: true },
   { href: "/season", label: "Plan de saison", icon: CalendarRange },
+  { href: "/challenge", label: "Défi de la semaine", icon: Flame },
   { href: "/gallery", label: "Galerie", icon: Image },
   { href: "/trophies", label: "Trophées", icon: Trophy },
   { href: "/championship", label: "Championnat", icon: Medal },
