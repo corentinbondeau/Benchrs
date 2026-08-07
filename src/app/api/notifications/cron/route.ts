@@ -15,6 +15,82 @@ export async function GET(req: Request) {
   const supabase = createAdminClient();
   const now = new Date().toISOString();
 
+  // --- Rappels la veille : planifie une notif « demain » pour chaque événement du lendemain ---
+  const startTomorrow = new Date();
+  startTomorrow.setHours(0, 0, 0, 0);
+  startTomorrow.setDate(startTomorrow.getDate() + 1);
+  const endTomorrow = new Date(startTomorrow);
+  endTomorrow.setDate(endTomorrow.getDate() + 1);
+
+  const { data: tomorrowEvents } = await supabase
+    .from("events")
+    .select("id, team_id, type, title, opponent, event_date")
+    .eq("status", "upcoming")
+    .gte("event_date", startTomorrow.toISOString())
+    .lt("event_date", endTomorrow.toISOString());
+
+  for (const ev of (tomorrowEvents || []) as { id: string; team_id: string | null; type: string; title: string; opponent: string | null; event_date: string }[]) {
+    if (!ev.team_id) continue;
+    const { data: existing } = await supabase
+      .from("notifications")
+      .select("id")
+      .eq("type", "rappel")
+      .eq("reference_id", ev.id)
+      .limit(1)
+      .maybeSingle();
+    if (existing) continue;
+
+    const { data: members } = await supabase
+      .from("team_members")
+      .select("user_id")
+      .eq("team_id", ev.team_id)
+      .in("role", ["player"]);
+    const playerIds = (members || []).map((m) => m.user_id);
+    if (playerIds.length === 0) continue;
+
+    const { data: profiles } = await supabase
+      .from("profiles")
+      .select("id")
+      .in("id", playerIds)
+      .eq("is_active", true);
+    const activeIds = (profiles || []).map((p) => p.id);
+    if (activeIds.length === 0) continue;
+
+    const { data: links } = await supabase
+      .from("parent_student")
+      .select("parent_id")
+      .eq("team_id", ev.team_id)
+      .in("student_id", activeIds);
+    const parentIds = [...new Set((links || []).map((l) => (l as { parent_id: string }).parent_id))];
+    const userIds = [...new Set([...activeIds, ...parentIds])];
+
+    const dateLabel = new Date(ev.event_date).toLocaleDateString("fr-FR", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+    });
+    const hour = new Date(ev.event_date).toLocaleTimeString("fr-FR", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    const isMatch = ev.type === "match";
+
+    const rows = userIds.map((uid: string) => ({
+      user_id: uid,
+      team_id: ev.team_id,
+      type: "rappel",
+      title: isMatch ? "Match demain !" : "Entraînement demain",
+      body: `Demain ${dateLabel} à ${hour}${isMatch && ev.opponent ? ` contre ${ev.opponent}` : ""}`,
+      reference_id: ev.id,
+      url: isMatch ? `/matches/${ev.id}` : `/trainings/${ev.id}`,
+      scheduled_for: now,
+    }));
+    const { error: insertErr } = await supabase.from("notifications").insert(rows);
+    if (insertErr) {
+      console.error("[notifications/cron] rappel insert error:", insertErr);
+    }
+  }
+
   const { data: pending } = await supabase
     .from("notifications")
     .select("id, user_id, title, body, type, reference_id, team_id, url")

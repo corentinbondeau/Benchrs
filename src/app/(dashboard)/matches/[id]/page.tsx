@@ -39,6 +39,7 @@ import { LiveMatchTracker } from "@/components/LiveMatchTracker";
 import { MatchReportCard } from "@/components/match/MatchReportCard";
 import { MatchFeedback } from "@/components/match/MatchFeedback";
 import { PlayerRatings } from "@/components/match/PlayerRatings";
+import { MatchMvpCard } from "@/components/match/MatchMvpCard";
 import type {
   AttendanceStatus,
   Event,
@@ -621,6 +622,21 @@ export default function MatchDetailPage() {
 
       {/* Notes entre joueurs et parents */}
       <PlayerRatings
+        eventId={matchId}
+        teamId={currentTeam.id}
+        userId={user?.id ?? ""}
+        childPlayerId={childId ?? undefined}
+        presentPlayers={matchPlayers
+          .filter((p) => p.status === "present" || p.status === "late")
+          .map((p) => ({
+            id: p.profile.id,
+            first_name: p.profile.first_name,
+            last_name: p.profile.last_name,
+          }))}
+      />
+
+      {/* Joueur du match (MVP) */}
+      <MatchMvpCard
         eventId={matchId}
         teamId={currentTeam.id}
         userId={user?.id ?? ""}
