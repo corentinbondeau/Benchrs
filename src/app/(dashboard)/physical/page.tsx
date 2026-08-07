@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { fetchTeamActivePlayers } from "@/lib/players";
 import { useAuth } from "@/lib/auth";
@@ -67,6 +68,7 @@ const STATUS_OPTIONS = [
 ] as const;
 
 export default function PhysicalPreparationPage() {
+  const router = useRouter();
   const { user } = useAuth();
   const { currentTeam, userRole } = useTeam();
   const isCoach = userRole === "coach" || userRole === "owner";
@@ -222,6 +224,15 @@ export default function PhysicalPreparationPage() {
           <h2 className="text-xl md:text-2xl font-bold">Préparation Physique</h2>
           <p className="text-sm text-muted-foreground mt-1">Suivi VMA, documents et tracking</p>
         </div>
+        <Button
+          size="sm"
+          variant="outline"
+          className="shrink-0"
+          onClick={() => router.push("/physical/tests")}
+        >
+          <Gauge className="h-4 w-4 mr-1" />
+          Tests VMA/VMI
+        </Button>
       </div>
 
       {/* Tabs */}
