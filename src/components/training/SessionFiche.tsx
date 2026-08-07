@@ -131,7 +131,10 @@ export function SessionFiche({
       const res = await fetch("/api/trainings/pdf", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ session: f.exercises, source: f.source }),
+        body: JSON.stringify({
+          session: f.exercises,
+          source: f.source || (isAISession(f.exercises) ? "ai" : "manual"),
+        }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => null);
@@ -295,8 +298,9 @@ export function SessionFiche({
 
   if (!currentTeam) return null;
 
-  const aiSession = fiche && fiche.source === "ai" && isAISession(fiche.exercises) ? fiche.exercises : null;
-  const manualExercisesSaved = fiche && fiche.source === "manual" && Array.isArray(fiche.exercises) ? (fiche.exercises as Exercise[]) : null;
+  const ficheIsAi = !!fiche && isAISession(fiche.exercises);
+  const aiSession = fiche && ficheIsAi && isAISession(fiche.exercises) ? fiche.exercises : null;
+  const manualExercisesSaved = fiche && !ficheIsAi && Array.isArray(fiche.exercises) ? (fiche.exercises as Exercise[]) : null;
 
   return (
     <>
@@ -658,7 +662,7 @@ export function SessionFiche({
             <Button variant="outline" onClick={() => setManualOpen(false)}>Annuler</Button>
             <Button onClick={handleSaveManual} disabled={savingManual}>
               {savingManual ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <FileText className="h-4 w-4 mr-1" />}
-              {fiche?.source === "manual" ? "Mettre à jour" : "Enregistrer"}
+              {fiche && !ficheIsAi ? "Mettre à jour" : "Enregistrer"}
             </Button>
           </DialogFooter>
         </DialogContent>

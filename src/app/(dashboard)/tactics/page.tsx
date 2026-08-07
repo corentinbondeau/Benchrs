@@ -39,6 +39,8 @@ import {
   Crown,
   Swords,
   ClipboardList,
+  FileDown,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { generateSession, type Phase } from "@/lib/training/generator";
@@ -90,6 +92,7 @@ function SéanceTab() {
   const [submitting, setSubmitting] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [attendanceCount, setAttendanceCount] = useState<{ present: number; total: number } | null>(null);
+  const [pdfLoading, setPdfLoading] = useState(false);
 
   const [form, setForm] = useState({
     event_id: "",
@@ -171,6 +174,35 @@ function SéanceTab() {
       toast.success("Séance supprimée");
       setSessions((prev) => prev.filter((s) => s.id !== selectedSession.id));
       setSelectedSession(null);
+    }
+  }
+
+  async function handleDownloadPdf(target: TrainingSession) {
+    if (!target.exercises) return;
+    setPdfLoading(true);
+    try {
+      const raw = target.exercises as unknown;
+      const isAi = Array.isArray((raw as { sections?: unknown }).sections);
+      const res = await fetch("/api/trainings/pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session: raw, source: isAi ? "ai" : "manual" }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error || "Erreur");
+      }
+      const data = await res.json();
+      const base64 = (data.pdf as string).split(",")[1] || "";
+      const binary = atob(base64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      const url = URL.createObjectURL(new Blob([bytes], { type: "application/pdf" }));
+      window.open(url, "_blank");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erreur lors de la génération du PDF");
+    } finally {
+      setPdfLoading(false);
     }
   }
 
@@ -259,6 +291,15 @@ function SéanceTab() {
               Supprimer
             </Button>
           )}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => handleDownloadPdf(selectedSession)}
+            disabled={pdfLoading || !selectedSession.exercises}
+          >
+            {pdfLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileDown className="mr-2 h-4 w-4" />}
+            PDF
+          </Button>
         </div>
         <Card>
           <CardHeader>
@@ -603,7 +644,21 @@ function SéanceTab() {
                         </p>
                       )}
                     </div>
-                    <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        aria-label="Télécharger le PDF"
+                        className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDownloadPdf(session);
+                        }}
+                        disabled={!session.exercises}
+                      >
+                        <FileDown className="h-4 w-4" />
+                      </button>
+                      <Calendar className="h-4 w-4 text-muted-foreground" />
+                    </div>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-1.5">
                     {session.exercises && session.exercises.length > 0 && (
