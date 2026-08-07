@@ -123,6 +123,18 @@ export interface MatchStat {
   profile?: Profile;
 }
 
+export interface PlayerPhysicalTest {
+  id: string;
+  player_id: string;
+  team_id: string;
+  test_type: "vma" | "vmi";
+  value: number;
+  tested_at: string;
+  notes: string | null;
+  created_by: string | null;
+  created_at: string;
+}
+
 export interface FitnessRating {
   id: string;
   user_id: string;
