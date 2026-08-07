@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { authFetch } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
@@ -23,7 +23,31 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+function extractCode(next: string | null): string {
+  if (!next) return "";
+  const m = next.match(/[?&]code=([^&]+)/);
+  return m ? decodeURIComponent(m[1]) : "";
+}
+
 export default function RegisterPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center h-64">
+        <p className="text-white/60">Chargement...</p>
+      </div>
+    }>
+      <RegisterForm />
+    </Suspense>
+  );
+}
+
+function RegisterForm() {
+  const searchParams = useSearchParams();
+  const rawNext = searchParams.get("next");
+  const next =
+    rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//")
+      ? rawNext
+      : null;
   const [step, setStep] = useState<"info" | "team">("info");
   const [teamMode, setTeamMode] = useState<"join" | "create">("join");
   const [formData, setFormData] = useState({
@@ -33,7 +57,7 @@ export default function RegisterPage() {
     password: "",
     confirmPassword: "",
     phone: "",
-    inviteCode: "",
+    inviteCode: extractCode(next),
     joinRole: "player",
     clubName: "",
     teamName: "",
@@ -216,7 +240,7 @@ export default function RegisterPage() {
         });
         window.location.href = "/";
       } else {
-        router.push("/create-team");
+        router.push(next || "/create-team");
       }
     } catch {
       setError("Erreur de connexion au serveur");
@@ -350,7 +374,14 @@ export default function RegisterPage() {
                 Rejoindre avec un code
               </Button>
             )}
-            <Link href="/login?registered=true" className="text-sm text-muted-foreground hover:underline">
+            <Link
+              href={
+                next
+                  ? `/login?next=${encodeURIComponent(next)}`
+                  : "/login?registered=true"
+              }
+              className="text-sm text-muted-foreground hover:underline"
+            >
               Se connecter
             </Link>
           </CardFooter>

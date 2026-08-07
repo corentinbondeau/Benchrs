@@ -32,12 +32,14 @@ function JoinTeamForm() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState("");
   const [checking, setChecking] = useState(true);
+  const [user, setUser] = useState<{ id: string } | null>(null);
   const router = useRouter();
 
   useEffect(() => {
     const supabase = createClient();
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) {
+        setUser(null);
         setChecking(false);
         return;
       }
@@ -50,6 +52,7 @@ function JoinTeamForm() {
           if (data && data.length > 0) {
             window.location.href = "/";
           } else {
+            setUser(user as { id: string });
             setChecking(false);
           }
         });
@@ -104,6 +107,39 @@ function JoinTeamForm() {
       <div className="flex items-center justify-center h-64">
         <p className="text-white/60">Chargement...</p>
       </div>
+    );
+  }
+
+  if (!user) {
+    const next = `/join${inviteCode ? `?code=${encodeURIComponent(inviteCode)}` : ""}`;
+    return (
+      <Card className="w-full max-w-md">
+        <CardHeader className="text-center">
+          <img src="/favicon.png" alt="Benchrs" className="h-12 w-12 mx-auto mb-2" />
+          <CardTitle className="text-2xl">Rejoindre une équipe</CardTitle>
+          <CardDescription>
+            Vous avez été invité à rejoindre une équipe. Connectez-vous ou créez un
+            compte pour continuer.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <Link href={`/login?next=${encodeURIComponent(next)}`}>
+            <Button className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold">
+              Se connecter
+            </Button>
+          </Link>
+          <Link href={`/register?next=${encodeURIComponent(next)}`}>
+            <Button type="button" variant="outline" className="w-full">
+              Créer un compte
+            </Button>
+          </Link>
+        </CardContent>
+        <CardFooter>
+          <p className="w-full text-center text-xs text-muted-foreground">
+            Vous pourrez rejoindre l&apos;équipe juste après votre connexion
+          </p>
+        </CardFooter>
+      </Card>
     );
   }
 
