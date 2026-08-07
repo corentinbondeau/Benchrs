@@ -96,11 +96,48 @@ export function TeamProvider({ children }: { children: ReactNode }) {
       })
       .filter(Boolean) as Team[];
 
-    setTeams(userTeams);
+    // Rôle comité/président : ajoute les équipes des clubs où l'on est membre du comité (lecture seule)
+    let clubTeams: Team[] = [];
+    const { data: clubMemberships } = await supabase
+      .from("club_members")
+      .select("club_id")
+      .eq("user_id", userId);
+    if (clubMemberships?.length) {
+      const clubIds = clubMemberships.map((c) => c.club_id as string);
+      const { data: cteams } = await supabase
+        .from("teams")
+        .select("id, name, club_id, invite_code, color_primary, color_secondary, created_at, club:clubs(id, name, logo_url, created_by, created_at)")
+        .in("club_id", clubIds);
+      clubTeams = ((cteams || []) as unknown as {
+        id: string; name: string; club_id: string; invite_code: string;
+        color_primary?: string | null; color_secondary?: string | null;
+        created_at: string;
+        club: { id: string; name: string; logo_url: string | null; created_by: string | null; created_at: string }[] | null;
+      }[])
+        .map((raw) => {
+          const team: Team = {
+            id: raw.id,
+            name: raw.name,
+            club_id: raw.club_id,
+            invite_code: raw.invite_code,
+            color_primary: raw.color_primary || "#EAB308",
+            color_secondary: raw.color_secondary || "#1E40AF",
+            created_at: raw.created_at,
+            club: raw.club?.[0] ?? undefined,
+          };
+          return team;
+        });
+    }
+
+    const merged = [...userTeams, ...clubTeams].filter(
+      (team, index, arr) => arr.findIndex((t) => t.id === team.id) === index
+    );
+
+    setTeams(merged);
 
     const savedTeamId = localStorage.getItem("selectedTeamId");
     const team =
-      userTeams.find((t) => t.id === savedTeamId) || userTeams[0] || null;
+      merged.find((t) => t.id === savedTeamId) || merged[0] || null;
 
     if (team) {
       setCurrentTeam(team);

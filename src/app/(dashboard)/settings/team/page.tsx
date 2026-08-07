@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
 import { useTeam } from "@/lib/team";
 import { useAuth } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/client";
@@ -17,12 +16,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import {
   Activity,
+  Building2,
+  CalendarDays,
   Copy,
+  Download,
   Flame,
   Link2,
+  Loader2,
   Share2,
   RefreshCw,
   Users,
@@ -39,7 +43,6 @@ import type { TeamMember, Profile } from "@/types";
 export default function TeamSettingsPage() {
   const { currentTeam, refreshTeams, switchTeam, teams, userRole } = useTeam();
   const { user } = useAuth();
-  const router = useRouter();
   const [members, setMembers] = useState<
     (TeamMember & { profile?: Profile })[]
   >([]);
@@ -56,6 +59,20 @@ export default function TeamSettingsPage() {
   const [savingDifficulty, setSavingDifficulty] = useState(false);
   const [enableRpe, setEnableRpe] = useState(false);
   const [savingRpe, setSavingRpe] = useState(false);
+  const [icsInfo, setIcsInfo] = useState<{
+    webcalUrl: string;
+    icsUrl: string;
+    downloadUrl: string;
+    teamName: string;
+  } | null>(null);
+  const [icsCopied, setIcsCopied] = useState(false);
+  const [clubMembers, setClubMembers] = useState<
+    { id: string; user_id: string; role: string; profile?: Profile }[]
+  >([]);
+  const [clubTeamsList, setClubTeamsList] = useState<{ id: string; name: string }[]>([]);
+  const [canManageClub, setCanManageClub] = useState(false);
+  const [newMemberEmail, setNewMemberEmail] = useState("");
+  const [addingMember, setAddingMember] = useState(false);
   const supabase = createClient();
 
   const isOwner = members.some(
@@ -84,6 +101,43 @@ export default function TeamSettingsPage() {
       profile: profileMap.get(r.user_id),
     }));
   }, []);
+
+  const loadClubData = useCallback(
+    async (clubId: string) => {
+      const supabase = createClient();
+      const [membersRes, teamsRes, presidentRes, clubRes] = await Promise.all([
+        supabase.from("club_members").select("id, user_id, role").eq("club_id", clubId),
+        supabase.from("teams").select("id, name").eq("club_id", clubId),
+        supabase
+          .from("club_members")
+          .select("id")
+          .eq("club_id", clubId)
+          .eq("user_id", user?.id ?? "")
+          .eq("role", "president")
+          .maybeSingle(),
+        supabase.from("clubs").select("created_by").eq("id", clubId).maybeSingle(),
+      ]);
+
+      const rows = membersRes.data || [];
+      const userIds = rows.map((r) => r.user_id as string);
+      const profilesRes = userIds.length
+        ? await supabase
+            .from("profiles")
+            .select("id, first_name, last_name")
+            .in("id", userIds)
+        : { data: [] };
+      const profileMap = new Map(
+        ((profilesRes.data as Profile[]) || []).map((p) => [p.id, p])
+      );
+
+      return {
+        members: rows.map((r) => ({ ...r, profile: profileMap.get(r.user_id as string) })),
+        teams: teamsRes.data || [],
+        canManage: !!presidentRes.data || clubRes.data?.created_by === user?.id,
+      };
+    },
+    [user?.id]
+  );
 
   useEffect(() => {
     if (!currentTeam) return;
@@ -118,7 +172,26 @@ export default function TeamSettingsPage() {
       .then(({ data }) => {
         setEnableRpe(data?.enable_rpe === true);
       });
-  }, [currentTeam, fetchMembers]);
+
+    if (userRole === "coach" || userRole === "owner") {
+      authFetch(`/api/calendar/url?teamId=${team.id}`)
+        .then((r) => r.json())
+        .then((d) => {
+          if (d?.webcalUrl) setIcsInfo(d);
+        })
+        .catch(() => {
+          /* lien calendrier indisponible */
+        });
+    }
+
+    if (team.club_id) {
+      loadClubData(team.club_id).then(({ members, teams: t, canManage }) => {
+        setClubMembers(members);
+        setClubTeamsList(t);
+        setCanManageClub(canManage);
+      });
+    }
+  }, [currentTeam, fetchMembers, userRole, loadClubData]);
 
   async function regenerateCode() {
     if (!currentTeam) return;
@@ -279,6 +352,69 @@ export default function TeamSettingsPage() {
       setMembers(rows);
       setLoading(false);
     }
+  }
+
+  async function refreshClubData() {
+    if (!currentTeam?.club_id) return;
+    const data = await loadClubData(currentTeam.club_id);
+    setClubMembers(data.members);
+    setClubTeamsList(data.teams);
+    setCanManageClub(data.canManage);
+  }
+
+  async function addClubMember() {
+    if (!currentTeam?.club_id || !newMemberEmail.trim()) return;
+    setAddingMember(true);
+    const res = await authFetch("/api/clubs/members", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clubId: currentTeam.club_id,
+        email: newMemberEmail.trim(),
+        role: "comite",
+      }),
+    });
+    const data = await res.json();
+    setAddingMember(false);
+    if (!res.ok) {
+      toast.error(data.error || "Erreur lors de l'ajout");
+      return;
+    }
+    setNewMemberEmail("");
+    toast.success("Membre du comité ajouté");
+    await refreshClubData();
+  }
+
+  async function removeClubMember(userId: string) {
+    if (!currentTeam?.club_id) return;
+    const res = await authFetch("/api/clubs/members", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ clubId: currentTeam.club_id, userId }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      toast.error(data.error || "Erreur lors du retrait");
+      return;
+    }
+    toast.success("Membre retiré du comité");
+    await refreshClubData();
+  }
+
+  async function changeClubMemberRole(userId: string, role: "president" | "comite") {
+    if (!currentTeam?.club_id) return;
+    const res = await authFetch("/api/clubs/members", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ clubId: currentTeam.club_id, userId, role }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      toast.error(data.error || "Erreur lors du changement de rôle");
+      return;
+    }
+    toast.success(role === "president" ? "Promu président" : "Rétrogradé en comité");
+    await refreshClubData();
   }
 
   async function leaveTeam() {
@@ -645,6 +781,89 @@ export default function TeamSettingsPage() {
         </Card>
       )}
 
+      {/* Synchronisation calendrier */}
+      {isCoach && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CalendarDays className="h-5 w-5" />
+              Synchronisation calendrier
+            </CardTitle>
+            <CardDescription>
+              Abonnez-vous au calendrier de l&apos;équipe dans Google Calendar ou Apple Calendar :
+              les matchs et entraînements apparaissent automatiquement.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {!icsInfo ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Chargement du lien...
+              </div>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  <Label>Lien d&apos;abonnement (webcal)</Label>
+                  <div className="flex gap-2">
+                    <Input value={icsInfo.webcalUrl} readOnly className="font-mono text-xs" />
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(icsInfo.webcalUrl);
+                          setIcsCopied(true);
+                          setTimeout(() => setIcsCopied(false), 1500);
+                        } catch {
+                          toast.error("Copie impossible");
+                        }
+                      }}
+                    >
+                      <Copy className={`h-4 w-4 ${icsCopied ? "text-green-500" : ""}`} />
+                    </Button>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={async () => {
+                      if (navigator.share) {
+                        try {
+                          await navigator.share({
+                            text: `Abonnez-vous au calendrier de ${icsInfo.teamName} (Benchrs)`,
+                            url: icsInfo.webcalUrl,
+                          });
+                        } catch {
+                          /* partage annulé */
+                        }
+                      } else {
+                        window.open(icsInfo.webcalUrl, "_blank");
+                      }
+                    }}
+                  >
+                    <Share2 className="h-3.5 w-3.5 mr-1" />
+                    Partager
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => window.open(icsInfo.downloadUrl, "_blank")}
+                  >
+                    <Download className="h-3.5 w-3.5 mr-1" />
+                    Télécharger .ics
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Google Calendar : Paramètres → Ajouter depuis une URL puis collez le lien.
+                  Apple Calendar : Fichier → Nouvel abonnement au calendrier.
+                </p>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Members */}
       <Card>
         <CardHeader>
@@ -726,6 +945,144 @@ export default function TeamSettingsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Comité du club */}
+      {currentTeam.club_id && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Building2 className="h-5 w-5" />
+              {currentTeam.club?.name || "Club"}
+            </CardTitle>
+            <CardDescription>
+              {clubTeamsList.length > 0
+                ? `Comité : ${clubTeamsList.length} équipe(s) dans le club (visibilité en lecture seule)`
+                : "Comité du club"}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {clubTeamsList.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {clubTeamsList.map((t) => (
+                  <span
+                    key={t.id}
+                    className="text-xs bg-muted px-2 py-1 rounded-full"
+                  >
+                    {t.name}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <Label className="text-xs">
+                Comité ({clubMembers.length})
+              </Label>
+              {clubMembers.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Aucun membre du comité
+                </p>
+              ) : (
+                <div className="divide-y rounded-lg border">
+                  {clubMembers.map((cm) => (
+                    <div
+                      key={cm.id}
+                      className="flex items-center justify-between px-3 py-2"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-sm font-medium truncate">
+                          {cm.profile?.first_name} {cm.profile?.last_name}
+                        </span>
+                        {cm.user_id === user?.id && (
+                          <span className="text-xs text-muted-foreground">
+                            (vous)
+                          </span>
+                        )}
+                        {cm.role === "president" ? (
+                          <span
+                            className="flex items-center gap-1 text-xs text-[var(--color-gold)] font-medium"
+                            title="Président"
+                          >
+                            <Crown className="h-3.5 w-3.5" />
+                            Président
+                          </span>
+                        ) : (
+                          <Badge
+                            variant="secondary"
+                            className="text-[10px]"
+                          >
+                            Comité
+                          </Badge>
+                        )}
+                      </div>
+                      {canManageClub && cm.user_id !== user?.id && (
+                        <div className="flex items-center gap-1">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7 text-[var(--color-gold)]"
+                            title={
+                              cm.role === "president"
+                                ? "Rétrograder en comité"
+                                : "Promouvoir président"
+                            }
+                            onClick={() =>
+                              changeClubMemberRole(
+                                cm.user_id,
+                                cm.role === "president" ? "comite" : "president"
+                              )
+                            }
+                          >
+                            <Crown className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7 text-destructive hover:text-destructive"
+                            title="Retirer du comité"
+                            onClick={() => removeClubMember(cm.user_id)}
+                          >
+                            <LogOut className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {canManageClub && (
+              <div className="space-y-2">
+                <Label className="text-xs">
+                  Ajouter un membre du comité (par email)
+                </Label>
+                <div className="flex gap-2">
+                  <Input
+                    value={newMemberEmail}
+                    onChange={(e) => setNewMemberEmail(e.target.value)}
+                    placeholder="email@exemple.com"
+                    type="email"
+                    className="h-9 text-sm"
+                  />
+                  <Button
+                    size="sm"
+                    className="bg-[var(--color-gold)] text-[var(--color-navy)] font-semibold h-9"
+                    disabled={addingMember}
+                    onClick={addClubMember}
+                  >
+                    {addingMember ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      "Ajouter"
+                    )}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Danger Zone */}
       {isOwner && (
