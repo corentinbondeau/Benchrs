@@ -20,6 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import {
   Activity,
+  BadgeCheck,
   Building2,
   CalendarDays,
   Copy,
@@ -38,6 +39,7 @@ import {
   Crown,
 } from "lucide-react";
 import { CHALLENGE_DIFFICULTIES, type ChallengeDifficulty } from "@/lib/challenges/ai-generator";
+import { normalizeFffNumber } from "@/lib/clubs";
 import type { TeamMember, Profile } from "@/types";
 
 export default function TeamSettingsPage() {
@@ -73,6 +75,15 @@ export default function TeamSettingsPage() {
   const [canManageClub, setCanManageClub] = useState(false);
   const [newMemberEmail, setNewMemberEmail] = useState("");
   const [addingMember, setAddingMember] = useState(false);
+  const [clubIdentity, setClubIdentity] = useState<{
+    name: string;
+    fff_number: string | null;
+  } | null>(null);
+  const [clubAliases, setClubAliases] = useState<{ id: string; alias: string }[]>([]);
+  const [fffInput, setFffInput] = useState("");
+  const [aliasInput, setAliasInput] = useState("");
+  const [savingFff, setSavingFff] = useState(false);
+  const [addingAlias, setAddingAlias] = useState(false);
   const supabase = createClient();
 
   const isOwner = members.some(
@@ -139,6 +150,18 @@ export default function TeamSettingsPage() {
     [user?.id]
   );
 
+  const loadClubIdentity = useCallback(async (clubId: string) => {
+    const supabase = createClient();
+    const [clubRes, aliasesRes] = await Promise.all([
+      supabase.from("clubs").select("id, name, fff_number").eq("id", clubId).maybeSingle(),
+      supabase.from("club_aliases").select("id, alias").eq("club_id", clubId).order("alias"),
+    ]);
+    return {
+      club: clubRes.data ?? null,
+      aliases: aliasesRes.data || [],
+    };
+  }, []);
+
   useEffect(() => {
     if (!currentTeam) return;
 
@@ -190,8 +213,13 @@ export default function TeamSettingsPage() {
         setClubTeamsList(t);
         setCanManageClub(canManage);
       });
+      loadClubIdentity(team.club_id).then(({ club, aliases }) => {
+        setClubIdentity(club);
+        setClubAliases(aliases);
+        setFffInput(club?.fff_number ?? "");
+      });
     }
-  }, [currentTeam, fetchMembers, userRole, loadClubData]);
+  }, [currentTeam, fetchMembers, userRole, loadClubData, loadClubIdentity]);
 
   async function regenerateCode() {
     if (!currentTeam) return;
@@ -415,6 +443,71 @@ export default function TeamSettingsPage() {
     }
     toast.success(role === "president" ? "Promu président" : "Rétrogradé en comité");
     await refreshClubData();
+  }
+
+  async function saveFffNumber() {
+    if (!currentTeam?.club_id) return;
+    const fff = normalizeFffNumber(fffInput);
+    if (!fff) {
+      toast.error("Numéro d'affiliation FFF invalide (6 chiffres requis)");
+      return;
+    }
+    setSavingFff(true);
+    const res = await authFetch("/api/clubs/identity", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ clubId: currentTeam.club_id, fffNumber: fff }),
+    });
+    const data = await res.json();
+    setSavingFff(false);
+    if (!res.ok) {
+      toast.error(data.error || "Erreur lors de l'enregistrement");
+      return;
+    }
+    toast.success("Numéro d'affiliation FFF enregistré");
+    setClubIdentity((prev) => (prev ? { ...prev, fff_number: fff } : prev));
+  }
+
+  async function addAlias() {
+    if (!currentTeam?.club_id || !aliasInput.trim()) return;
+    setAddingAlias(true);
+    const res = await authFetch("/api/clubs/aliases", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ clubId: currentTeam.club_id, alias: aliasInput.trim() }),
+    });
+    const data = await res.json();
+    setAddingAlias(false);
+    if (!res.ok) {
+      toast.error(data.error || "Erreur lors de l'ajout");
+      return;
+    }
+    setAliasInput("");
+    toast.success("Alias ajouté");
+    await refreshClubIdentity();
+  }
+
+  async function removeAlias(alias: string) {
+    if (!currentTeam?.club_id) return;
+    const res = await authFetch("/api/clubs/aliases", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ clubId: currentTeam.club_id, alias }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      toast.error(data.error || "Erreur lors de la suppression");
+      return;
+    }
+    toast.success("Alias supprimé");
+    await refreshClubIdentity();
+  }
+
+  async function refreshClubIdentity() {
+    if (!currentTeam?.club_id) return;
+    const { club, aliases } = await loadClubIdentity(currentTeam.club_id);
+    setClubIdentity(club);
+    setClubAliases(aliases);
   }
 
   async function leaveTeam() {
@@ -945,6 +1038,122 @@ export default function TeamSettingsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Identité du club */}
+      {currentTeam.club_id && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BadgeCheck className="h-5 w-5" />
+              Identité du club
+            </CardTitle>
+            <CardDescription>
+              Le numéro d&apos;affiliation FFF est la clé unique du club (6 chiffres) :
+              deux équipes d&apos;un même club ne peuvent pas créer un doublon.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label className="text-xs">Numéro d&apos;affiliation FFF</Label>
+              <div className="flex gap-2">
+                <Input
+                  value={fffInput}
+                  onChange={(e) => setFffInput(e.target.value)}
+                  placeholder="501234"
+                  inputMode="numeric"
+                  className="h-9 font-mono text-sm"
+                  disabled={!canManageClub}
+                />
+                {canManageClub && (
+                  <Button
+                    size="sm"
+                    className="bg-[var(--color-gold)] text-[var(--color-navy)] font-semibold h-9"
+                    disabled={savingFff}
+                    onClick={saveFffNumber}
+                  >
+                    {savingFff ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : clubIdentity?.fff_number ? (
+                      "Modifier"
+                    ) : (
+                      "Enregistrer"
+                    )}
+                  </Button>
+                )}
+              </div>
+              {clubIdentity?.fff_number ? (
+                <p className="text-xs text-muted-foreground">
+                  Club enregistré sous le numéro {clubIdentity.fff_number}
+                </p>
+              ) : canManageClub ? (
+                <p className="text-xs text-muted-foreground">
+                  Attribuez votre numéro FFF pour éviter les doublons de club.
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Numéro non renseigné — demandez au président du club de le définir.
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-xs">
+                Autres façons d&apos;écrire le nom ({clubAliases.length})
+              </Label>
+              {clubAliases.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Aucun alias. Ajoutez les variantes du nom (ex. « ECC », « Etoile
+                  Camphin ») pour retrouver le club.
+                </p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {clubAliases.map((a) => (
+                    <span
+                      key={a.id}
+                      className="inline-flex items-center gap-1.5 text-xs bg-muted px-2 py-1 rounded-full"
+                    >
+                      {a.alias}
+                      {canManageClub && (
+                        <button
+                          type="button"
+                          className="text-muted-foreground hover:text-destructive"
+                          title="Supprimer"
+                          onClick={() => removeAlias(a.alias)}
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      )}
+                    </span>
+                  ))}
+                </div>
+              )}
+              {canManageClub && (
+                <div className="flex gap-2">
+                  <Input
+                    value={aliasInput}
+                    onChange={(e) => setAliasInput(e.target.value)}
+                    placeholder="ECC"
+                    className="h-9 text-sm"
+                  />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-9"
+                    disabled={addingAlias || !aliasInput.trim()}
+                    onClick={addAlias}
+                  >
+                    {addingAlias ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      "Ajouter"
+                    )}
+                  </Button>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Comité du club */}
       {currentTeam.club_id && (

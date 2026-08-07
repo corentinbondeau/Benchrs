@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { useTeam } from "@/lib/team";
 import { authFetch } from "@/lib/api-client";
+import { normalizeFffNumber } from "@/lib/clubs";
 import { useChatUnread } from "@/lib/useChatUnread";
 import { Sheet, SheetContent, SheetClose, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
@@ -70,24 +71,30 @@ function SheetContentInner({ close }: { close: () => void }) {
   const [joinMode, setJoinMode] = useState(false);
   const [clubName, setClubName] = useState("");
   const [teamName, setTeamName] = useState("");
+  const [fffNumber, setFffNumber] = useState("");
   const [inviteCode, setInviteCode] = useState("");
   const [joinRole, setJoinRole] = useState<"player" | "coach" | "parent">("player");
   const [submitting, setSubmitting] = useState(false);
 
   async function handleCreateTeam() {
     if (!clubName.trim() || !teamName.trim() || !user) return;
+    const fff = normalizeFffNumber(fffNumber);
+    if (!fff) {
+      toast.error("Numéro d'affiliation FFF invalide (6 chiffres requis)");
+      return;
+    }
     setSubmitting(true);
     try {
       const res = await authFetch("/api/auth/create-team", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: user.id, clubName: clubName.trim(), teamName: teamName.trim() }),
+        body: JSON.stringify({ userId: user.id, clubName: clubName.trim(), teamName: teamName.trim(), fffNumber: fff }),
       });
       const data = await res.json();
       if (!res.ok) { toast.error(data.error || "Erreur"); setSubmitting(false); return; }
       toast.success(`Équipe créée ! Code : ${data.inviteCode}`);
       setShowTeamForm(false);
-      setClubName(""); setTeamName("");
+      setClubName(""); setTeamName(""); setFffNumber("");
       localStorage.setItem("selectedTeamId", data.team.id);
       window.location.href = "/";
     } catch { toast.error("Erreur de connexion"); }
@@ -230,9 +237,10 @@ function SheetContentInner({ close }: { close: () => void }) {
           ) : (
             <div className="space-y-2">
               <Input value={clubName} onChange={(e) => setClubName(e.target.value)} placeholder="Nom du club" className="bg-white/10 border-white/20 text-white text-sm placeholder:text-white/40" />
+              <Input inputMode="numeric" value={fffNumber} onChange={(e) => setFffNumber(e.target.value)} placeholder="Numéro FFF (6 chiffres)" className="bg-white/10 border-white/20 text-white text-sm placeholder:text-white/40" />
               <Input value={teamName} onChange={(e) => setTeamName(e.target.value)} placeholder="Nom de l'équipe" className="bg-white/10 border-white/20 text-white text-sm placeholder:text-white/40" />
               <div className="flex gap-2">
-                <Button size="sm" variant="outline" className="text-white border-white/20 hover:bg-white/10" onClick={() => { setShowTeamForm(false); setClubName(""); setTeamName(""); }}>Annuler</Button>
+                <Button size="sm" variant="outline" className="text-white border-white/20 hover:bg-white/10" onClick={() => { setShowTeamForm(false); setClubName(""); setTeamName(""); setFffNumber(""); }}>Annuler</Button>
                 <Button size="sm" className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold" onClick={handleCreateTeam} disabled={!clubName.trim() || !teamName.trim() || submitting}>{submitting ? "..." : "Créer"}</Button>
               </div>
             </div>

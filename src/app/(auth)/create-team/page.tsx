@@ -16,11 +16,14 @@ import {
 } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
 import { authFetch } from "@/lib/api-client";
+import { normalizeFffNumber } from "@/lib/clubs";
 import { toast } from "sonner";
 
 export default function CreateTeamPage() {
   const [clubName, setClubName] = useState("");
   const [teamName, setTeamName] = useState("");
+  const [fffNumber, setFffNumber] = useState("");
+  const [existingClub, setExistingClub] = useState<{ id: string; name: string } | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(true);
@@ -48,9 +51,28 @@ export default function CreateTeamPage() {
     });
   }, [router]);
 
+  async function handleLookupFff(value: string) {
+    const fff = normalizeFffNumber(value);
+    if (!fff) {
+      setExistingClub(null);
+      return;
+    }
+    const res = await authFetch(`/api/clubs/lookup?fffNumber=${fff}`);
+    if (!res.ok) return;
+    const { club } = await res.json();
+    setExistingClub(club ?? null);
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+
+    const fff = normalizeFffNumber(fffNumber);
+    if (!fff) {
+      setError("Numéro d'affiliation FFF invalide (6 chiffres requis)");
+      return;
+    }
+
     setLoading(true);
 
     const supabase = createClient();
@@ -67,7 +89,7 @@ export default function CreateTeamPage() {
       const res = await authFetch("/api/auth/create-team", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: user.id, clubName, teamName }),
+        body: JSON.stringify({ userId: user.id, clubName, teamName, fffNumber: fff }),
       });
 
       const data = await res.json();
@@ -78,10 +100,18 @@ export default function CreateTeamPage() {
         return;
       }
 
-      toast.success(`Code d'invitation : ${data.inviteCode}`, {
-        description: "Vous le trouverez dans Paramètres > Équipe",
-        duration: 5000,
-      });
+      toast.success(
+        data.clubName && data.clubName !== clubName.trim()
+          ? `Équipe ajoutée au club ${data.clubName}`
+          : `Code d'invitation : ${data.inviteCode}`,
+        {
+          description:
+            data.clubName && data.clubName !== clubName.trim()
+              ? "Ce club existait déjà (même numéro FFF)"
+              : "Vous le trouverez dans Paramètres > Équipe",
+          duration: 5000,
+        }
+      );
 
       window.location.href = "/";
     } catch (err) {
@@ -125,6 +155,33 @@ export default function CreateTeamPage() {
               onChange={(e) => setClubName(e.target.value)}
               required
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="fffNumber">
+              Numéro d&apos;affiliation FFF <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              id="fffNumber"
+              inputMode="numeric"
+              placeholder="501234"
+              value={fffNumber}
+              onChange={(e) => {
+                setFffNumber(e.target.value);
+                setExistingClub(null);
+              }}
+              onBlur={() => handleLookupFff(fffNumber)}
+              required
+            />
+            {existingClub && (
+              <p className="text-xs text-[var(--color-royal)] font-medium">
+                Ce numéro appartient au club {existingClub.name} — l&apos;équipe sera
+                ajoutée à ce club existant.
+              </p>
+            )}
+            <p className="text-xs text-muted-foreground">
+              6 chiffres, sur votre licence FFF ou la fiche du club.
+            </p>
           </div>
 
           <div className="space-y-2">
