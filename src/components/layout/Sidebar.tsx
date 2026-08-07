@@ -26,6 +26,7 @@ import {
   UserCog,
   Wallet,
   ChevronsUpDown,
+  CalendarRange,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -58,6 +59,7 @@ const navItems = [
   { href: "/tasks", label: "Tâches", icon: ListTodo },
   { href: "/physical", label: "Prépa physique", icon: Dumbbell, coachOnly: true },
   { href: "/tactics", label: "Tactique", icon: Swords, coachOnly: true },
+  { href: "/season", label: "Plan de saison", icon: CalendarRange },
   { href: "/gallery", label: "Galerie", icon: Image },
   { href: "/trophies", label: "Trophées", icon: Trophy },
   { href: "/championship", label: "Championnat", icon: Medal },
