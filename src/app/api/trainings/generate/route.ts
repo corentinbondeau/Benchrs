@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { TACTICAL_PHASE_NAMES } from "@/lib/training/phases";
-import { generateSessionWithAI } from "@/lib/training/ai-generator";
+import { FOOTBALL_SYSTEMS, generateSessionWithAI } from "@/lib/training/ai-generator";
 import { renderSessionPdf } from "@/lib/training/pdf";
 
 export async function POST(req: Request) {
@@ -28,8 +28,14 @@ export async function POST(req: Request) {
       ? body.playerCount
       : null;
 
+  const systeme =
+    typeof body?.systeme === "string" &&
+    (FOOTBALL_SYSTEMS as readonly string[]).includes(body.systeme)
+      ? (body.systeme as (typeof FOOTBALL_SYSTEMS)[number])
+      : undefined;
+
   try {
-    const session = await generateSessionWithAI(phase, objectives, playerCount);
+    const session = await generateSessionWithAI(phase, objectives, playerCount, systeme);
     const pdfBuffer = await renderSessionPdf(session);
     return NextResponse.json({
       session,

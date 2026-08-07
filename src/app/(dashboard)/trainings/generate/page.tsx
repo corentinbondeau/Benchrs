@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ArrowLeft, Clock, Sparkles, FileDown, Dumbbell, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { TACTICAL_PHASES, TACTICAL_PHASE_NAMES } from "@/lib/training/phases";
-import type { AISession } from "@/lib/training/ai-generator";
+import { FOOTBALL_SYSTEMS, type AISession } from "@/lib/training/ai-generator";
 
 export default function GenerateTrainingPage() {
   const router = useRouter();
@@ -16,6 +16,7 @@ export default function GenerateTrainingPage() {
   const [objectives, setObjectives] = useState<string[]>([]);
   const [freeObjective, setFreeObjective] = useState("");
   const [playerCount, setPlayerCount] = useState(12);
+  const [systeme, setSysteme] = useState<string>("");
   const [generating, setGenerating] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [pdfPages, setPdfPages] = useState<number | null>(null);
@@ -46,7 +47,7 @@ export default function GenerateTrainingPage() {
       const res = await fetch("/api/trainings/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phase, objectives: allObjectives, playerCount }),
+        body: JSON.stringify({ phase, objectives: allObjectives, playerCount, systeme: systeme || undefined }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => null);
@@ -144,6 +145,29 @@ export default function GenerateTrainingPage() {
               <span className="text-2xl font-bold min-w-[3rem] text-center">{playerCount}</span>
               <Button variant="outline" size="sm" onClick={() => setPlayerCount(Math.min(30, playerCount + 1))}>+</Button>
             </div>
+          </div>
+
+          {/* Système de jeu (optionnel) */}
+          <div className="space-y-3">
+            <label className="text-sm font-semibold">Système de jeu (optionnel)</label>
+            <div className="flex flex-wrap gap-2">
+              <button
+                className={`rounded-lg border px-3 py-1.5 text-sm transition-all ${systeme === "" ? "border-[var(--color-royal)] bg-blue-50 ring-1 ring-[var(--color-royal)]" : "hover:border-blue-200"}`}
+                onClick={() => setSysteme("")}
+              >
+                Aucun
+              </button>
+              {FOOTBALL_SYSTEMS.map((s) => (
+                <button
+                  key={s}
+                  className={`rounded-lg border px-3 py-1.5 text-sm transition-all ${systeme === s ? "border-[var(--color-royal)] bg-blue-50 ring-1 ring-[var(--color-royal)]" : "hover:border-blue-200"}`}
+                  onClick={() => setSysteme(s)}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground">L&apos;IA adaptera l&apos;animation offensive/défensive à ce système.</p>
           </div>
 
           <Button
