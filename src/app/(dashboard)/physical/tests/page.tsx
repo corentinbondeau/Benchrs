@@ -20,6 +20,7 @@ import {
 import { ArrowLeft, CalendarPlus, Check, Gauge, Save, Wind } from "lucide-react";
 import { toast } from "sonner";
 import type { Profile } from "@/types";
+import { notifyPhysicalTest } from "@/lib/playerAlerts";
 
 type TestType = "vma" | "vmi";
 
@@ -82,6 +83,13 @@ export default function PhysicalTestsPage() {
       return;
     }
     toast.success(`${player.first_name} : ${testType.toUpperCase()} = ${val.toFixed(1)} enregistrée`);
+    notifyPhysicalTest({
+      playerId: player.id,
+      playerName: `${player.first_name} ${player.last_name}`,
+      testType,
+      value: val,
+      teamId: currentTeam!.id,
+    });
   }
 
   const savedCount = players.filter((p) => valueFor(testType, p.id).trim() !== "").length;

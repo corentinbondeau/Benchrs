@@ -25,6 +25,21 @@ export const NOTIFICATION_TYPES: NotificationTypeConfig[] = [
     label: "Rappels",
     description: "Rappels avant un événement",
   },
+  {
+    type: "physical",
+    label: "Données physiques (VMA/VMI)",
+    description: "Mise à jour de ta VMA ou de ta VMI par le coach",
+  },
+  {
+    type: "match_retour",
+    label: "Retour de match",
+    description: "Note et commentaire du coach après un match",
+  },
+  {
+    type: "match_report",
+    label: "Compte-rendu de match",
+    description: "Compte-rendu IA du match publié par le coach",
+  },
 ];
 
 export function defaultNotificationPrefs(userId: string, teamId: string) {

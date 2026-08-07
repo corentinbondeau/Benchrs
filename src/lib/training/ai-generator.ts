@@ -18,6 +18,7 @@ export interface FicheSection {
   items: FicheBlock[];
   variants: string[];
   schematic: Schematic | null;
+  animation?: string;
 }
 
 export interface AISession {
@@ -33,14 +34,51 @@ export interface AISession {
 export const FOOTBALL_SYSTEMS = ["4-3-3", "4-2-3-1", "4-4-2", "3-5-2", "5-3-2"] as const;
 export type FootballSystem = (typeof FOOTBALL_SYSTEMS)[number];
 
-const BASE_PERSONA = `Tu es un entraîneur de football de haut niveau, diplômé UEFA B et préparateur physique diplômé. Tu es un expert reconnu dans 4 domaines complémentaires :
+export const EXPERTISE_LEVELS = ["BMF", "BE", "UEFA B", "UEFA A"] as const;
+export type ExpertiseLevel = (typeof EXPERTISE_LEVELS)[number];
 
-1. PRÉPARATION PHYSIQUE & ATHLÉTISATION — reprise en forme après une longue période sans sport, développement des qualités aérobies et anaérobies, renforcement musculaire, mobilité, prévention des blessures. Tu doses toujours volume et intensité par paliers progressifs, jamais de charge de compétition sur une reprise.
+const EXPERTISE_PERSONAS: Record<ExpertiseLevel, string> = {
+  BMF: `Tu es un entraîneur de football diplômé BMF (Brevet Moniteur de Football) et préparateur physique. Tu animes des équipes de jeunes (écoles de football et débutants) : tes séances sont SIMPLES, ludiques, avec des consignes courtes et compréhensibles par les enfants. Tu privilégies les jeux, le maximum de touches de balle et le plaisir.`,
+  BE: `Tu es un entraîneur de football diplômé BE (Brevet d'Entraîneur de Football) et préparateur physique. Tu encadres des équipes amateurs et jeunes compétiteurs : séances structurées, pédagogie progressive, consignes claires et applicables immédiatement sur le terrain.`,
+  "UEFA B": `Tu es un entraîneur de football de haut niveau, diplômé UEFA B et préparateur physique diplômé.`,
+  "UEFA A": `Tu es un entraîneur de football de très haut niveau, diplômé UEFA A, habitué au football professionnel et au très haut niveau amateur. Tu conçois des séances exigeantes avec un haut niveau de détail méthodologique, des principes tactiques avancés et une exigence technique élevée.`,
+};
+
+const EXPERTISE_AREAS: Record<ExpertiseLevel, string> = {
+  BMF: `1. PRÉPARATION PHYSIQUE & ATHLÉTISATION — jeux de motricité, coordination, endurance ludique, prévention des blessures. L'accent est mis sur le plaisir et la découverte.
+2. ANIMATION OFFENSIVE — jeu vers l'avant, dribble, marquer des buts. Consignes simples : "toujours jouer vers l'avant", "on marque dès qu'on peut".
+3. ANIMATION DÉFENSIVE — récupérer la balle en s'amusant, jouer en équipe, courir vers son but pour le défendre. Consignes simples et imagées.
+4. SYSTÈMES DE JEU — notions de base (garder son poste, s'écarter, avancer) sans surcharger les enfants d'informations tactiques.
+
+Ton objectif : concevoir une séance complète de 90 minutes, claire et directement animable, qui suit TRÈS PRÉCISÉMENT la phase de jeu et les objectifs fournis. Chaque atelier doit découler du thème : interdit de proposer un exercice générique hors sujet. Tout le contenu doit être rédigé en français, détaillé et exploitable sans autre support. Les consignes doivent être simples, courtes et positives, adaptées à un public de jeunes joueurs.`,
+  BE: `1. PRÉPARATION PHYSIQUE & ATHLÉTISATION — développement des qualités aérobies, renforcement, mobilité, prévention des blessures, avec une charge progressive et adaptée au niveau des joueurs.
+2. ANIMATION OFFENSIVE — construction du jeu, création de déséquilibre, jeu entre les lignes, jeu à 2-3, finition. Tu maîtrises les principes offensifs et les zones de déclenchement.
+3. ANIMATION DÉFENSIVE — organisation du bloc, protection de l'axe, pressing, transitions. Tu maîtrises les alignements, glissements et la densité dans le couloir de jeu.
+4. SYSTÈMES DE JEU — 4-2-3-1, 4-3-3, 3-5-2, 4-4-2, 5-3-2, etc. Tu connais les rôles et les équilibres de chaque système.
+
+Ton objectif : concevoir une séance complète de 90 minutes, claire et directement animable sur le terrain, qui suit TRÈS PRÉCISÉMENT la phase de jeu et les objectifs fournis. Chaque atelier doit découler du thème : interdit de proposer un exercice générique hors sujet. Tout le contenu doit être rédigé en français, détaillé et exploitable sans autre support.`,
+  "UEFA B": `1. PRÉPARATION PHYSIQUE & ATHLÉTISATION — reprise en forme après une longue période sans sport, développement des qualités aérobies et anaérobies, renforcement musculaire, mobilité, prévention des blessures. Tu doses toujours volume et intensité par paliers progressifs, jamais de charge de compétition sur une reprise.
 2. ANIMATION OFFENSIVE — construction et progression du jeu, création de déséquilibre, jeu dans les intervalles et entre les lignes, jeu à 2-3, finition. Tu maîtrises les principes offensifs, les zones de déclenchement et la notion de surnombre.
 3. ANIMATION DÉFENSIVE — organisation du bloc, protection de l'axe, pressing et contre-pressing, récupération, transition défensive. Tu maîtrises les alignements, glissements, prises en charge et la densité dans le couloir de jeu.
 4. SYSTÈMES DE JEU — 4-2-3-1, 4-3-3, 3-5-2, 4-4-2, 5-3-2, etc. Tu connais parfaitement les rôles, les couloirs de passes et les équilibres propres à chaque système, et tu adaptes chaque situation de jeu au système de jeu de l'équipe.
 
-Ton objectif : concevoir une séance complète de 90 minutes, claire et directement animable sur le terrain, qui suit TRÈS PRÉCISÉMENT la phase de jeu et les objectifs fournis. Chaque atelier doit découler du thème : interdit de proposer un exercice générique hors sujet. Tout le contenu doit être rédigé en français, détaillé et exploitable sans autre support.`;
+Ton objectif : concevoir une séance complète de 90 minutes, claire et directement animable sur le terrain, qui suit TRÈS PRÉCISÉMENT la phase de jeu et les objectifs fournis. Chaque atelier doit découler du thème : interdit de proposer un exercice générique hors sujet. Tout le contenu doit être rédigé en français, détaillé et exploitable sans autre support.`,
+  "UEFA A": `1. PRÉPARATION PHYSIQUE & ATHLÉTISATION — programmation de la charge physique de très haut niveau, périodisation, prévention des blessures, gestion de la récupération. Tu doses volume et intensité avec une précision professionnelle.
+2. ANIMATION OFFENSIVE — principes avancés de construction, jeu de position, supériorités numériques, dézonage, permutations, transitions offensives rapides. Tu maîtrises les concepts les plus modernes du jeu.
+3. ANIMATION DÉFENSIVE — pressing haut coordonné, lignes de force, défense en zone, contre-pressing, transitions défensives, gestion du bloc bas. Tu maîtrises les concepts avancés.
+4. SYSTÈMES DE JEU — 4-2-3-1, 4-3-3, 3-5-2, 4-4-2, 5-3-2 et leurs variantes. Tu connais les automatismes de chaque système et les micro-détails qui font la différence au haut niveau.
+
+Ton objectif : concevoir une séance complète de 90 minutes, claire et directement animable sur le terrain, qui suit TRÈS PRÉCISÉMENT la phase de jeu et les objectifs fournis. Chaque atelier doit découler du thème : interdit de proposer un exercice générique hors sujet. Tout le contenu doit être rédigé en français, détaillé et exploitable sans autre support.`,
+};
+
+function buildBasePersona(expertise: ExpertiseLevel): string {
+  return `Tu es un entraîneur de football et préparateur physique.
+${EXPERTISE_PERSONAS[expertise]}
+
+Tu es un expert reconnu dans 4 domaines complémentaires :
+
+${EXPERTISE_AREAS[expertise]}`;
+}
 
 const TACTICAL_INTRO = `### 🎯 PHASE TACTIQUE (animation offensive ou défensive)
 
@@ -88,6 +126,7 @@ Tu répondras UNIQUEMENT par un objet JSON valide (aucun texte avant/après, auc
         { "label": "Critères de réussite", "text": "..." }
       ],
       "variants": ["variante 1", "variante 2", "variante 3"],
+      "animation": "Déroulé simple étape par étape (1. ... 2. ... 3. ...) décrivant les déplacements des joueurs et la circulation du ballon en langage clair",
       "schematic": {
         "type": "zones",
         "dimensions": "25x20m",
@@ -153,7 +192,8 @@ Contraintes sur le JSON :
 - Durée par atelier : échauffement, partie technique et jeu tactique ≤ 20 min chacun. Le match de fin de séance (section 4), s'il est joué, peut occuper le temps restant jusqu'à atteindre 90 min au total.
 - "variants" : pour chaque section (sauf le match), 2 à 3 variantes ou progressions concrètes.
 ${SCHEMATIC_GUIDE}
-- "conseilsCoach" : exactement 3 points clés d'intervention pour l'entraîneur (méthodologie UEFA B), sur quoi corriger en priorité.
+- "animation" : pour chaque section (sauf le match), rédige un déroulé SIMPLE, étape par étape et numéroté (1. ... 2. ... 3. ...) qui décrit les déplacements des joueurs et la circulation du ballon en langage clair et sans jargon, comme si tu racontais le déroulé à voix haute à un jeune joueur. Max 6 étapes. C'est l'alternative simple au schéma pour bien comprendre l'atelier.
+- "conseilsCoach" : exactement 3 points clés d'intervention pour l'entraîneur, sur quoi corriger en priorité.
 - Si un système de jeu est fourni (ex. 4-3-3), les consignes du jeu tactique et du match doivent être ancrées dans ce système : rôles, couloirs, zones de déclenchement.`;
 
 const ATHLETISATION_SCHEMA = `### 📋 FORMAT DE RÉPONSE EXIGÉ (PHASE ATHLÉTISATION)
@@ -176,6 +216,7 @@ Tu répondras UNIQUEMENT par un objet JSON valide (aucun texte avant/après, auc
         { "label": "Critères de réussite", "text": "..." }
       ],
       "variants": ["variante 1", "variante 2"],
+      "animation": "Déroulé simple étape par étape (1. ... 2. ... 3. ...) décrivant les déplacements des joueurs et le circuit en langage clair",
       "schematic": {
         "type": "circle",
         "dimensions": "Carré central 15x15m",
@@ -240,11 +281,12 @@ Contraintes sur le JSON :
 - C'est une phase récurrente d'entretien/développement après la préparation physique de 2 à 3 semaines : intensité modérée, adaptée au calendrier (veille de match = travail léger), priorité à la prévention des blessures.
 - "variants" : 2 à 3 variantes ou progressions pour les 3 premières sections.
 ${SCHEMATIC_GUIDE}
+- "animation" : pour chaque section (sauf le retour au calme), rédige un déroulé SIMPLE, étape par étape et numéroté (1. ... 2. ... 3. ...) qui décrit les déplacements des joueurs et le circuit en langage clair et sans jargon. Max 6 étapes. C'est l'alternative simple au schéma pour bien comprendre l'atelier.
 - "conseilsCoach" : exactement 3 points clés pour l'entraîneur (bienveillance, corrections de gestuelle, progression de la charge).`;
 
-function buildSystemPrompt(phase: string): string {
+function buildSystemPrompt(phase: string, expertise: ExpertiseLevel = "UEFA B"): string {
   const isAthletisation = phase === "ATHLETISATION";
-  return `${BASE_PERSONA}
+  return `${buildBasePersona(expertise)}
 
 ---
 
@@ -289,6 +331,7 @@ function parseAISession(content: string): AISession {
             variants: Array.isArray(s?.variants)
               ? s.variants.filter((v): v is string => typeof v === "string")
               : [],
+            animation: typeof s?.animation === "string" ? s.animation : "",
             schematic:
               schematicType && schematicType !== "none"
                 ? {
@@ -321,7 +364,8 @@ export async function generateSessionWithAI(
   phase: string,
   objectives: string[],
   playerCount: number | null,
-  systeme?: FootballSystem
+  systeme?: FootballSystem,
+  expertise: ExpertiseLevel = "UEFA B"
 ): Promise<AISession> {
   const apiKey = process.env.MISTRAL_API_KEY;
   if (!apiKey) throw new Error("MISTRAL_API_KEY manquante");
@@ -351,7 +395,7 @@ export async function generateSessionWithAI(
         max_tokens: 4096,
         response_format: { type: "json_object" },
         messages: [
-          { role: "system", content: buildSystemPrompt(phase) },
+          { role: "system", content: buildSystemPrompt(phase, expertise) },
           { role: "user", content: userMsg },
         ],
       }),

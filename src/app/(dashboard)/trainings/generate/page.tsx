@@ -8,7 +8,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { ArrowLeft, Clock, Sparkles, FileDown, Dumbbell, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { TACTICAL_PHASES, TACTICAL_PHASE_NAMES } from "@/lib/training/phases";
-import { FOOTBALL_SYSTEMS, type AISession } from "@/lib/training/ai-generator";
+import {
+  EXPERTISE_LEVELS,
+  FOOTBALL_SYSTEMS,
+  type AISession,
+  type ExpertiseLevel,
+} from "@/lib/training/ai-generator";
 
 export default function GenerateTrainingPage() {
   const router = useRouter();
@@ -17,6 +22,7 @@ export default function GenerateTrainingPage() {
   const [freeObjective, setFreeObjective] = useState("");
   const [playerCount, setPlayerCount] = useState(12);
   const [systeme, setSysteme] = useState<string>("");
+  const [expertise, setExpertise] = useState<ExpertiseLevel>("UEFA B");
   const [generating, setGenerating] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [pdfPages, setPdfPages] = useState<number | null>(null);
@@ -47,7 +53,7 @@ export default function GenerateTrainingPage() {
       const res = await fetch("/api/trainings/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phase, objectives: allObjectives, playerCount, systeme: systeme || undefined }),
+        body: JSON.stringify({ phase, objectives: allObjectives, playerCount, systeme: systeme || undefined, expertise }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => null);
@@ -170,6 +176,23 @@ export default function GenerateTrainingPage() {
             <p className="text-xs text-muted-foreground">L&apos;IA adaptera l&apos;animation offensive/défensive à ce système.</p>
           </div>
 
+          {/* Niveau d'expertise */}
+          <div className="space-y-3">
+            <label className="text-sm font-semibold">Niveau d&apos;expertise du coach IA</label>
+            <div className="flex flex-wrap gap-2">
+              {EXPERTISE_LEVELS.map((e) => (
+                <button
+                  key={e}
+                  className={`rounded-lg border px-3 py-1.5 text-sm transition-all ${expertise === e ? "border-[var(--color-royal)] bg-blue-50 ring-1 ring-[var(--color-royal)]" : "hover:border-blue-200"}`}
+                  onClick={() => setExpertise(e)}
+                >
+                  {e}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground">Le niveau adapte la pédagogie et la profondeur de la fiche (consignes simples pour BMF, détails méthodologiques avancés pour UEFA A).</p>
+          </div>
+
           <Button
             className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] font-semibold"
             onClick={handleGenerate}
@@ -186,7 +209,7 @@ export default function GenerateTrainingPage() {
               <div className="min-w-0">
                 <h3 className="text-lg font-bold truncate">{session?.title || "Fiche de séance"}</h3>
                 <p className="text-sm text-white/80 mt-1 flex items-center gap-1">
-                  <Clock className="h-3.5 w-3.5" />Séance de 90 min avec schémas et variantes
+                  <Clock className="h-3.5 w-3.5" />Séance de 90 min · niveau {expertise} · avec animation simple
                 </p>
                 {pdfPages && (
                   <p className="text-xs text-emerald-300 mt-1.5 flex items-center gap-1">
@@ -279,6 +302,12 @@ export default function GenerateTrainingPage() {
                         </ul>
                       </div>
                     )}
+                    {section.animation && (
+                      <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3">
+                        <p className="text-xs font-semibold text-emerald-700 mb-1.5">Animation simple (déroulé)</p>
+                        <p className="text-sm text-emerald-900 whitespace-pre-wrap">{section.animation}</p>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               ))}
@@ -286,7 +315,7 @@ export default function GenerateTrainingPage() {
               {session.conseilsCoach.length > 0 && (
                 <Card className="border-[var(--color-gold)]/40">
                   <CardContent className="p-4">
-                    <h4 className="font-semibold text-sm mb-3">Conseils du coach (Méthodologie UEFA B)</h4>
+                    <h4 className="font-semibold text-sm mb-3">Conseils du coach (niveau {expertise})</h4>
                     <ol className="space-y-2">
                       {session.conseilsCoach.map((tip, i) => (
                         <li key={i} className="flex items-start gap-2 text-sm">

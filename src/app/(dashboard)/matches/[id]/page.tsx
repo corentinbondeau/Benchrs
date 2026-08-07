@@ -36,6 +36,8 @@ import {
 } from "@/components/EventDetail";
 import { fetchTeamActivePlayers } from "@/lib/players";
 import { LiveMatchTracker } from "@/components/LiveMatchTracker";
+import { MatchReportCard } from "@/components/match/MatchReportCard";
+import { MatchFeedback } from "@/components/match/MatchFeedback";
 import type {
   AttendanceStatus,
   Event,
@@ -608,6 +610,14 @@ export default function MatchDetailPage() {
         </CardContent>
       </Card>
 
+      {/* Compte-rendu IA */}
+      <MatchReportCard
+        matchId={matchId}
+        teamId={currentTeam.id}
+        isCoach={isCoach}
+        hasData={match.score_us !== null && match.score_them !== null}
+      />
+
       {positions.length > 0 && (
         <Card>
           <CardHeader className="pb-3">
@@ -831,6 +841,15 @@ export default function MatchDetailPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Retour du coach */}
+      <MatchFeedback
+        matchId={matchId}
+        teamId={currentTeam.id}
+        isCoach={isCoach}
+        userId={user?.id}
+        players={allPlayers}
+      />
 
       {/* Lineups */}
       {lineups.length > 0 && (

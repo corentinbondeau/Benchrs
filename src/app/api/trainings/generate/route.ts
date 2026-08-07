@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { TACTICAL_PHASE_NAMES } from "@/lib/training/phases";
-import { FOOTBALL_SYSTEMS, generateSessionWithAI } from "@/lib/training/ai-generator";
+import {
+  EXPERTISE_LEVELS,
+  FOOTBALL_SYSTEMS,
+  generateSessionWithAI,
+  type ExpertiseLevel,
+} from "@/lib/training/ai-generator";
 import { renderSessionPdf } from "@/lib/training/pdf";
 
 export async function POST(req: Request) {
@@ -34,8 +39,14 @@ export async function POST(req: Request) {
       ? (body.systeme as (typeof FOOTBALL_SYSTEMS)[number])
       : undefined;
 
+  const expertise =
+    typeof body?.expertise === "string" &&
+    (EXPERTISE_LEVELS as readonly string[]).includes(body.expertise)
+      ? (body.expertise as ExpertiseLevel)
+      : "UEFA B";
+
   try {
-    const session = await generateSessionWithAI(phase, objectives, playerCount, systeme);
+    const session = await generateSessionWithAI(phase, objectives, playerCount, systeme, expertise);
     const pdfBuffer = await renderSessionPdf(session);
     return NextResponse.json({
       session,

@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useTeam } from "@/lib/team";
+import { useAuth } from "@/lib/auth";
+import { notifyPhysicalTest } from "@/lib/playerAlerts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -198,6 +200,7 @@ function PhysicalEvolutionChart({
 
 export function PlayerProfile({ playerId }: { playerId: string }) {
   const { currentTeam, userRole } = useTeam();
+  const { user } = useAuth();
   const isCoach = userRole === "coach" || userRole === "owner";
 
   const [profile, setProfile] = useState<ProfileData | null>(null);
@@ -466,6 +469,15 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
       },
     ]);
     toast.success("VMA mise à jour");
+    if (playerId !== user?.id && currentTeam) {
+      notifyPhysicalTest({
+        playerId,
+        playerName: `${profile?.first_name ?? "Joueur"} ${profile?.last_name ?? ""}`.trim(),
+        testType: "vma",
+        value: val,
+        teamId: currentTeam.id,
+      });
+    }
   }
 
   async function handleSaveVmi() {
@@ -500,6 +512,15 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
       },
     ]);
     toast.success("VMI mise à jour");
+    if (playerId !== user?.id && currentTeam) {
+      notifyPhysicalTest({
+        playerId,
+        playerName: `${profile?.first_name ?? "Joueur"} ${profile?.last_name ?? ""}`.trim(),
+        testType: "vmi",
+        value: val,
+        teamId: currentTeam.id,
+      });
+    }
   }
 
   if (!currentTeam) return null;
