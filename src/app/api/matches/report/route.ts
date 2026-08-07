@@ -30,6 +30,71 @@ function cleanJson(text: string): string {
   return t;
 }
 
+function sanitizeManualReport(raw: Record<string, unknown>): MatchReportContent | null {
+  if (!raw) return null;
+  const str = (v: unknown) => (typeof v === "string" ? v.trim().slice(0, 500) : "");
+  const strArr = (v: unknown) =>
+    Array.isArray(v)
+      ? v.map((x) => str(x)).filter(Boolean).slice(0, 8)
+      : [];
+  const num = (v: unknown) =>
+    typeof v === "number" && !Number.isNaN(v) ? Math.min(10, Math.max(0, v)) : 0;
+
+  const title = str(raw.title);
+  if (!title) return null;
+
+  const meilleurs_joueurs = Array.isArray(raw.meilleurs_joueurs)
+    ? (raw.meilleurs_joueurs as Record<string, unknown>[])
+        .map((m) => ({
+          nom: str(m?.nom).slice(0, 120),
+          raison: str(m?.raison),
+        }))
+        .filter((m) => m.nom)
+        .slice(0, 5)
+    : [];
+
+  return {
+    title,
+    summary: str(raw.summary),
+    points_forts: strArr(raw.points_forts),
+    points_faibles: strArr(raw.points_faibles),
+    axes_progression: strArr(raw.axes_progression),
+    note_equipe: num(raw.note_equipe),
+    meilleurs_joueurs,
+  };
+}
+
+async function upsertReport(
+  supabase: ReturnType<typeof createAdminClient>,
+  eventId: string,
+  teamId: string,
+  userId: string,
+  report: MatchReportContent,
+  source: "ai" | "manual"
+) {
+  const now = new Date().toISOString();
+  const { data: existing } = await supabase
+    .from("match_reports")
+    .select("id")
+    .eq("event_id", eventId)
+    .maybeSingle();
+
+  if (existing) {
+    await supabase
+      .from("match_reports")
+      .update({ content: report, source, updated_at: now })
+      .eq("event_id", eventId);
+  } else {
+    await supabase.from("match_reports").insert({
+      event_id: eventId,
+      team_id: teamId,
+      content: report,
+      source,
+      created_by: userId,
+    });
+  }
+}
+
 export async function POST(req: Request) {
   try {
     const { user, reason } = await getAuthUserDetailed(req);
@@ -60,9 +125,26 @@ export async function POST(req: Request) {
     }
     if (!(await isTeamCoach(user.id, teamId))) {
       return NextResponse.json(
-        { error: "Seuls les coachs peuvent générer un compte-rendu" },
+        { error: "Seuls les coachs peuvent générer ou rédiger un compte-rendu" },
         { status: 403 }
       );
+    }
+
+    const mode = body?.mode === "manual" ? "manual" : "ai";
+
+    // Mode manuel : le coach rédige lui-même le compte-rendu
+    if (mode === "manual") {
+      const report = sanitizeManualReport(
+        (body?.report ?? null) as Record<string, unknown>
+      );
+      if (!report) {
+        return NextResponse.json(
+          { error: "Compte-rendu invalide : un titre est requis" },
+          { status: 400 }
+        );
+      }
+      await upsertReport(supabase, eventId, teamId, user.id, report, "manual");
+      return NextResponse.json({ ok: true, report, source: "manual" });
     }
 
     const [statsRes, eventsRes, attRes, membersRes] = await Promise.all([
@@ -219,28 +301,9 @@ Règles :
         : [],
     };
 
-    const now = new Date().toISOString();
-    const { data: existing } = await supabase
-      .from("match_reports")
-      .select("id")
-      .eq("event_id", eventId)
-      .maybeSingle();
+    await upsertReport(supabase, eventId, teamId, user.id, report, "ai");
 
-    if (existing) {
-      await supabase
-        .from("match_reports")
-        .update({ content: report, updated_at: now })
-        .eq("event_id", eventId);
-    } else {
-      await supabase.from("match_reports").insert({
-        event_id: eventId,
-        team_id: teamId,
-        content: report,
-        created_by: user.id,
-      });
-    }
-
-    return NextResponse.json({ ok: true, report });
+    return NextResponse.json({ ok: true, report, source: "ai" });
   } catch (e) {
     console.error("[matches/report] erreur:", e);
     return NextResponse.json(
@@ -274,11 +337,16 @@ export async function GET(req: Request) {
 
     const { data: report } = await supabase
       .from("match_reports")
-      .select("content, created_at, updated_at")
+      .select("content, source, created_at, updated_at")
       .eq("event_id", eventId)
       .maybeSingle();
 
-    return NextResponse.json({ report: report?.content ?? null, created_at: report?.created_at ?? null });
+    return NextResponse.json({
+      report: report?.content ?? null,
+      source: report?.source ?? null,
+      created_at: report?.created_at ?? null,
+      updated_at: report?.updated_at ?? null,
+    });
   } catch (e) {
     console.error("[matches/report] erreur GET:", e);
     return NextResponse.json({ error: "Erreur" }, { status: 500 });
