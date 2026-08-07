@@ -41,10 +41,13 @@ import {
   ClipboardList,
   FileDown,
   Loader2,
+  Sparkles,
+  PenLine,
 } from "lucide-react";
 import { toast } from "sonner";
-import { generateSession, type Phase } from "@/lib/training/generator";
-import { TACTICAL_PHASES as PHASE_OBJECTIVES } from "@/lib/training/phases";
+import { TACTICAL_PHASES as PHASE_OBJECTIVES, TACTICAL_PHASE_NAMES } from "@/lib/training/phases";
+import { FOOTBALL_SYSTEMS, type AISession } from "@/lib/training/ai-generator";
+import { AIFicheView, isAiSessionExercises } from "@/components/training/AIFicheView";
 import type {
   TrainingSession,
   Exercise,
@@ -103,6 +106,11 @@ function SéanceTab() {
   const [exercises, setExercises] = useState<Exercise[]>([
     { name: "", duration: 15, description: "", drill_type: "échauffement" },
   ]);
+  const [mode, setMode] = useState<"ai" | "manual">("ai");
+  const [freeObjective, setFreeObjective] = useState("");
+  const [playerCount, setPlayerCount] = useState(12);
+  const [systeme, setSysteme] = useState("");
+  const [generatedAi, setGeneratedAi] = useState<AISession | null>(null);
 
   if (!currentTeam) {
     return <div className="flex items-center justify-center h-64"><p className="text-muted-foreground">Chargement de l'équipe...</p></div>;
@@ -214,13 +222,43 @@ function SéanceTab() {
     }
 
     setSubmitting(true);
-    const validExercises = exercises.filter((ex) => ex.name.trim() !== "");
-    const objectives = selectedObjectives;
+    const objectives = [
+      ...selectedObjectives,
+      ...(freeObjective.trim() ? [freeObjective.trim()] : []),
+    ];
 
+    if (mode === "ai") {
+      if (!generatedAi) {
+        toast.error("Génère d'abord la fiche IA");
+        setSubmitting(false);
+        return;
+      }
+      const { data, error } = await supabaseRef.current.from("training_sessions").insert({
+        event_id: form.event_id,
+        title: generatedAi.title,
+        objectives: objectives.length > 0 ? objectives : null,
+        exercises: generatedAi as unknown as Exercise[],
+        notes: null,
+        created_by: user?.id || null,
+        team_id: currentTeam!.id,
+      }).select().single();
+      if (error) {
+        toast.error("Erreur lors de la création");
+      } else {
+        toast.success("Séance IA créée avec succès");
+        setCreateOpen(false);
+        resetForm();
+        setSessions((prev) => [data as TrainingSession, ...prev]);
+      }
+      setSubmitting(false);
+      return;
+    }
+
+    const validExercises = exercises.filter((ex) => ex.name.trim() !== "");
     const { data, error } = await supabaseRef.current.from("training_sessions").insert({
       event_id: form.event_id,
       title: form.title,
-      objectives: objectives.length > 0 ? objectives : null,
+      objectives: selectedObjectives.length > 0 ? selectedObjectives : null,
       exercises: validExercises.length > 0 ? validExercises : null,
       notes: form.notes || null,
       created_by: user?.id || null,
@@ -242,42 +280,57 @@ function SéanceTab() {
     setForm({ event_id: "", title: "", notes: "" });
     setSelectedObjectives([]);
     setExercises([{ name: "", duration: 15, description: "", drill_type: "échauffement" }]);
+    setFreeObjective("");
+    setPlayerCount(attendanceCount?.present || 12);
+    setSysteme("");
+    setGeneratedAi(null);
+    setMode("ai");
   }
 
-  async function handleGenerateExercises() {
+  async function handleGenerateAiFiche() {
     if (!form.title) {
       toast.error("Sélectionnez d'abord une phase");
       return;
     }
+    const objectives = [
+      ...selectedObjectives,
+      ...(freeObjective.trim() ? [freeObjective.trim()] : []),
+    ];
+    if (objectives.length === 0) {
+      toast.error("Sélectionne un objectif ou décris-en un");
+      return;
+    }
     setGenerating(true);
     try {
-      const playerCount = attendanceCount?.present || 12;
-      const phaseMap: Record<string, Phase> = {
-        "DÉSEQUILIBRER / FINIR": "competition",
-        "CONSERVER / PROGRESSER": "perfectionnement",
-        "S’OPPOSER À LA PROGRESSION": "perfectionnement",
-        "S’ORGANISER POUR RECUPERER": "perfectionnement",
-        ATHLETISATION: "preparation",
-      };
-      const gen = generateSession(phaseMap[form.title] || "perfectionnement", selectedObjectives, playerCount);
-      const drillTypes = ["échauffement", "technique", "jeu"];
-      setExercises(gen.exercises.slice(0, 3).map((e, i) => ({
-        name: e.name,
-        duration: e.duration,
-        description: e.description,
-        drill_type: drillTypes[i] || "technique",
-      })));
-      toast.success("Exercices générés !");
-    } catch {
-      toast.error("Erreur lors de la génération");
+      const res = await fetch("/api/trainings/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          phase: form.title,
+          objectives,
+          playerCount,
+          systeme: systeme || undefined,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error || "Erreur");
+      }
+      const data = await res.json();
+      setGeneratedAi(data.session as AISession);
+      toast.success("Fiche IA générée !");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erreur lors de la génération");
+    } finally {
+      setGenerating(false);
     }
-    setGenerating(false);
   }
 
   const eventMap = new Map(events.map((ev) => [ev.id, ev]));
 
   if (selectedSession) {
     const event = eventMap.get(selectedSession.event_id);
+    const aiSelected = isAiSessionExercises(selectedSession.exercises);
     return (
       <div className="space-y-4">
         <div className="flex items-center gap-2">
@@ -305,7 +358,10 @@ function SéanceTab() {
           <CardHeader>
             <div className="flex items-start justify-between">
               <div>
-                <CardTitle className="text-xl">{selectedSession.title ? `Phase : ${selectedSession.title}` : "(Sans phase)"}</CardTitle>
+                <CardTitle className="text-xl flex items-center gap-2 flex-wrap">
+                  {aiSelected ? selectedSession.title : (selectedSession.title ? `Phase : ${selectedSession.title}` : "(Sans phase)")}
+                  {aiSelected && <Badge className="bg-[var(--color-gold)] text-[var(--color-navy)] border-transparent">Fiche IA</Badge>}
+                </CardTitle>
                 {event && (
                   <p className="mt-1 text-sm text-muted-foreground">
                     {event.title} — {formatDate(event.event_date)}
@@ -338,7 +394,15 @@ function SéanceTab() {
               </div>
             )}
 
-            {selectedSession.exercises && selectedSession.exercises.length > 0 && (
+            {aiSelected ? (
+              <div>
+                <h4 className="mb-2 flex items-center gap-2 text-sm font-medium">
+                  <Sparkles className="h-4 w-4" />
+                  Fiche de séance (IA)
+                </h4>
+                <AIFicheView session={selectedSession.exercises as unknown as AISession} />
+              </div>
+            ) : selectedSession.exercises && selectedSession.exercises.length > 0 ? (
               <div>
                 <h4 className="mb-2 flex items-center gap-2 text-sm font-medium">
                   <Clock className="h-4 w-4" />
@@ -367,7 +431,7 @@ function SéanceTab() {
                   ))}
                 </div>
               </div>
-            )}
+            ) : null}
 
             {selectedSession.notes && (
               <div>
@@ -439,6 +503,26 @@ function SéanceTab() {
                   </Select>
                 </div>
 
+                {/* Mode de création */}
+                <div className="flex gap-1 rounded-lg border p-0.5 bg-muted/30">
+                  <button
+                    type="button"
+                    className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${mode === "ai" ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                    onClick={() => setMode("ai")}
+                  >
+                    <Sparkles className="h-3.5 w-3.5 inline mr-1" />
+                    Fiche IA
+                  </button>
+                  <button
+                    type="button"
+                    className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${mode === "manual" ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                    onClick={() => setMode("manual")}
+                  >
+                    <PenLine className="h-3.5 w-3.5 inline mr-1" />
+                    Saisie manuelle
+                  </button>
+                </div>
+
                 <div className="space-y-2">
                   <Label>Phase</Label>
                   <Select
@@ -446,6 +530,7 @@ function SéanceTab() {
                     onValueChange={(v) => {
                       setForm({ ...form, title: v ?? "" });
                       setSelectedObjectives([]);
+                      setGeneratedAi(null);
                     }}
                   >
                     <SelectTrigger className="w-full">
@@ -457,11 +542,11 @@ function SéanceTab() {
                       </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="DÉSEQUILIBRER / FINIR">DÉSEQUILIBRER / FINIR</SelectItem>
-                      <SelectItem value="CONSERVER / PROGRESSER">CONSERVER / PROGRESSER</SelectItem>
-                      <SelectItem value="S’OPPOSER À LA PROGRESSION">S’OPPOSER À LA PROGRESSION</SelectItem>
-                      <SelectItem value="S’ORGANISER POUR RECUPERER">S’ORGANISER POUR RECUPERER</SelectItem>
-                      <SelectItem value="ATHLETISATION">ATHLETISATION</SelectItem>
+                      {TACTICAL_PHASE_NAMES.map((p) => (
+                        <SelectItem key={p} value={p}>
+                          {p}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -503,96 +588,168 @@ function SéanceTab() {
                   )}
                 </div>
 
-                <div className="flex gap-2">
-                  <Button type="button" variant="outline" size="sm" onClick={handleGenerateExercises} disabled={generating || !form.title} className="border-[var(--color-gold)] text-[var(--color-gold)] hover:bg-[var(--color-gold)]/10">
-                    {generating ? "Génération..." : "Générer les exercices"}
-                  </Button>
-                </div>
+                {mode === "ai" ? (
+                  <>
+                    <div className="space-y-2">
+                      <Label>Objectif spécifique (optionnel)</Label>
+                      <Textarea
+                        value={freeObjective}
+                        onChange={(e) => setFreeObjective(e.target.value)}
+                        placeholder="Ex : Améliorer le jeu du troisième homme..."
+                        rows={2}
+                      />
+                    </div>
 
-                <div className="space-y-2">
-                  <Label>Notes</Label>
-                  <Textarea
-                    value={form.notes}
-                    onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                    placeholder="Notes supplémentaires..."
-                    rows={3}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label>Exercices</Label>
-                    <Button type="button" variant="outline" size="sm" onClick={addExercise} className="border-[var(--color-gold)] text-[var(--color-gold)] hover:bg-[var(--color-gold)]/10">
-                      <Plus className="mr-1 h-3 w-3" />
-                      Ajouter
-                    </Button>
-                  </div>
-                  <div className="space-y-3">
-                    {exercises.map((ex, i) => (
-                      <div key={i} className="rounded-lg border p-3 space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-medium text-muted-foreground">
-                            Exercice {i + 1}
-                          </span>
-                          {exercises.length > 1 && (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => removeExercise(i)}
-                              className="h-6 px-2 text-destructive"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          )}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-2">
+                        <Label>Joueurs présents</Label>
+                        <div className="flex items-center gap-2">
+                          <Button type="button" variant="outline" size="sm" onClick={() => setPlayerCount(Math.max(4, playerCount - 1))}>-</Button>
+                          <span className="text-lg font-bold flex-1 text-center">{playerCount}</span>
+                          <Button type="button" variant="outline" size="sm" onClick={() => setPlayerCount(Math.min(30, playerCount + 1))}>+</Button>
                         </div>
-                        <Input
-                          value={ex.name}
-                          onChange={(e) => updateExercise(i, "name", e.target.value)}
-                          placeholder="Nom de l'exercice"
-                        />
-                        <div className="flex gap-2">
-                          <div className="flex-1">
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Système de jeu (optionnel)</Label>
+                        <Select value={systeme} onValueChange={(v) => setSysteme(v ?? "")}>
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Aucun" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="">Aucun</SelectItem>
+                            {FOOTBALL_SYSTEMS.map((s) => (
+                              <SelectItem key={s} value={s}>{s}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleGenerateAiFiche}
+                      disabled={generating || !form.title}
+                      className="border-[var(--color-gold)] text-[var(--color-gold)] hover:bg-[var(--color-gold)]/10"
+                    >
+                      {generating ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Sparkles className="mr-1 h-3 w-3" />}
+                      {generating ? "Génération en cours..." : generatedAi ? "Régénérer la fiche" : "Générer la fiche IA"}
+                    </Button>
+
+                    {generatedAi && (
+                      <div className="rounded-lg border border-[var(--color-gold)]/40 p-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm font-semibold truncate">{generatedAi.title}</p>
+                          <span className="text-xs text-muted-foreground shrink-0">90 min</span>
+                        </div>
+                        {generatedAi.material && (
+                          <p className="text-xs text-muted-foreground">
+                            <span className="font-medium text-foreground">Matériel : </span>{generatedAi.material}
+                          </p>
+                        )}
+                        <div className="space-y-1">
+                          {generatedAi.sections.map((s, i) => (
+                            <div key={i} className="flex items-center justify-between text-xs">
+                              <span className="text-muted-foreground truncate">{s.name}</span>
+                              {s.duration > 0 && <span className="shrink-0 ml-2">{s.duration} min</span>}
+                            </div>
+                          ))}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          La fiche complète (consignes, variantes, schémas) sera associée à l&apos;entraînement.
+                        </p>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <div className="space-y-2">
+                      <Label>Notes</Label>
+                      <Textarea
+                        value={form.notes}
+                        onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                        placeholder="Notes supplémentaires..."
+                        rows={3}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label>Exercices</Label>
+                        <Button type="button" variant="outline" size="sm" onClick={addExercise} className="border-[var(--color-gold)] text-[var(--color-gold)] hover:bg-[var(--color-gold)]/10">
+                          <Plus className="mr-1 h-3 w-3" />
+                          Ajouter
+                        </Button>
+                      </div>
+                      <div className="space-y-3">
+                        {exercises.map((ex, i) => (
+                          <div key={i} className="rounded-lg border p-3 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-medium text-muted-foreground">
+                                Exercice {i + 1}
+                              </span>
+                              {exercises.length > 1 && (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => removeExercise(i)}
+                                  className="h-6 px-2 text-destructive"
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              )}
+                            </div>
                             <Input
-                              type="number"
-                              min={1}
-                              value={ex.duration}
-                              onChange={(e) =>
-                                updateExercise(i, "duration", parseInt(e.target.value) || 15)
-                              }
-                              placeholder="Durée (min)"
+                              value={ex.name}
+                              onChange={(e) => updateExercise(i, "name", e.target.value)}
+                              placeholder="Nom de l'exercice"
+                            />
+                            <div className="flex gap-2">
+                              <div className="flex-1">
+                                <Input
+                                  type="number"
+                                  min={1}
+                                  value={ex.duration}
+                                  onChange={(e) =>
+                                    updateExercise(i, "duration", parseInt(e.target.value) || 15)
+                                  }
+                                  placeholder="Durée (min)"
+                                />
+                              </div>
+                              <div className="flex-1">
+                                <Select
+                                  value={ex.drill_type}
+                                  onValueChange={(v) =>
+                                    updateExercise(i, "drill_type", v ?? "technique")
+                                  }
+                                >
+                                  <SelectTrigger className="w-full">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {DRILL_TYPES.map((dt) => (
+                                      <SelectItem key={dt} value={dt}>
+                                        {dt}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </div>
+                            <Textarea
+                              value={ex.description}
+                              onChange={(e) => updateExercise(i, "description", e.target.value)}
+                              placeholder="Description (optionnel)"
+                              rows={2}
                             />
                           </div>
-                          <div className="flex-1">
-                            <Select
-                              value={ex.drill_type}
-                              onValueChange={(v) =>
-                                updateExercise(i, "drill_type", v ?? "technique")
-                              }
-                            >
-                              <SelectTrigger className="w-full">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {DRILL_TYPES.map((dt) => (
-                                  <SelectItem key={dt} value={dt}>
-                                    {dt}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-                        <Textarea
-                          value={ex.description}
-                          onChange={(e) => updateExercise(i, "description", e.target.value)}
-                          placeholder="Description (optionnel)"
-                          rows={2}
-                        />
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                </div>
+                    </div>
+                  </>
+                )}
 
                 <div className="flex justify-end gap-2">
                   <Button
@@ -607,7 +764,7 @@ function SéanceTab() {
                     Annuler
                   </Button>
                   <Button type="submit" disabled={submitting} className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold">
-                    {submitting ? "Création..." : "Créer"}
+                    {submitting ? "Création..." : "Créer la séance"}
                   </Button>
                 </div>
               </form>
@@ -628,6 +785,7 @@ function SéanceTab() {
         <div className="space-y-3">
           {sessions.map((session) => {
             const event = eventMap.get(session.event_id);
+            const isAi = isAiSessionExercises(session.exercises);
             return (
               <Card
                 key={session.id}
@@ -637,7 +795,7 @@ function SéanceTab() {
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between">
                     <div className="space-y-1">
-                      <h3 className="font-medium">{session.title ? `Phase : ${session.title}` : "(Sans phase)"}</h3>
+                      <h3 className="font-medium">{isAi ? session.title : (session.title ? `Phase : ${session.title}` : "(Sans phase)")}</h3>
                       {event && (
                         <p className="text-sm text-muted-foreground">
                           {event.title} — {formatDate(event.event_date)}
@@ -661,12 +819,16 @@ function SéanceTab() {
                     </div>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-1.5">
-                    {session.exercises && session.exercises.length > 0 && (
+                    {isAi ? (
+                      <Badge className="bg-[var(--color-gold)] text-[var(--color-navy)] border-transparent text-xs">
+                        Fiche IA
+                      </Badge>
+                    ) : session.exercises && session.exercises.length > 0 ? (
                       <Badge variant="secondary" className="text-xs">
                         {session.exercises.length} exercice
                         {session.exercises.length !== 1 ? "s" : ""}
                       </Badge>
-                    )}
+                    ) : null}
                     {session.objectives &&
                       session.objectives.slice(0, 2).map((obj, i) => (
                         <Badge key={i} variant="outline" className="text-xs">
