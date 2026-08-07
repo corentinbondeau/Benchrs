@@ -23,6 +23,7 @@ import {
   Check,
   Bell,
   Radio,
+  Lock,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ConvocationsDialog } from "@/components/ConvocationsDialog";
@@ -345,6 +346,7 @@ export default function MatchDetailPage() {
         score_us: us,
         score_them: them,
         match_result: result || null,
+        ...(us !== null && them !== null ? { status: "completed" } : {}),
       })
       .eq("id", matchId);
 
@@ -353,7 +355,13 @@ export default function MatchDetailPage() {
       return;
     }
 
-    setMatch((prev) => prev ? { ...prev, score_us: us, score_them: them, match_result: result as "win" | "loss" | "draw" | null } : prev);
+    setMatch((prev) => prev ? {
+      ...prev,
+      score_us: us,
+      score_them: them,
+      match_result: result as "win" | "loss" | "draw" | null,
+      ...(us !== null && them !== null ? { status: "completed" } : {}),
+    } : prev);
     setEditingScore(false);
     toast.success("Score mis à jour");
   }
@@ -429,6 +437,7 @@ export default function MatchDetailPage() {
   }
 
   const matchDate = new Date(match.event_date);
+  const matchIsOver = match.status === "completed";
   const starters = lineups.filter((l) => l.is_starter);
   const subs = lineups.filter((l) => !l.is_starter);
   const fd = formation?.formation_data as FormationData | null;
@@ -620,35 +629,48 @@ export default function MatchDetailPage() {
         hasData={match.score_us !== null && match.score_them !== null}
       />
 
-      {/* Notes entre joueurs et parents */}
-      <PlayerRatings
-        eventId={matchId}
-        teamId={currentTeam.id}
-        userId={user?.id ?? ""}
-        childPlayerId={childId ?? undefined}
-        presentPlayers={matchPlayers
-          .filter((p) => p.status === "present" || p.status === "late")
-          .map((p) => ({
-            id: p.profile.id,
-            first_name: p.profile.first_name,
-            last_name: p.profile.last_name,
-          }))}
-      />
+      {/* Notes entre joueurs et parents / Joueur du match — après le match uniquement */}
+      {matchIsOver ? (
+        <>
+          <PlayerRatings
+            eventId={matchId}
+            teamId={currentTeam.id}
+            userId={user?.id ?? ""}
+            childPlayerId={childId ?? undefined}
+            presentPlayers={matchPlayers
+              .filter((p) => p.status === "present" || p.status === "late")
+              .map((p) => ({
+                id: p.profile.id,
+                first_name: p.profile.first_name,
+                last_name: p.profile.last_name,
+              }))}
+          />
 
-      {/* Joueur du match (MVP) */}
-      <MatchMvpCard
-        eventId={matchId}
-        teamId={currentTeam.id}
-        userId={user?.id ?? ""}
-        childPlayerId={childId ?? undefined}
-        presentPlayers={matchPlayers
-          .filter((p) => p.status === "present" || p.status === "late")
-          .map((p) => ({
-            id: p.profile.id,
-            first_name: p.profile.first_name,
-            last_name: p.profile.last_name,
-          }))}
-      />
+          {/* Joueur du match (MVP) */}
+          <MatchMvpCard
+            eventId={matchId}
+            teamId={currentTeam.id}
+            userId={user?.id ?? ""}
+            childPlayerId={childId ?? undefined}
+            presentPlayers={matchPlayers
+              .filter((p) => p.status === "present" || p.status === "late")
+              .map((p) => ({
+                id: p.profile.id,
+                first_name: p.profile.first_name,
+                last_name: p.profile.last_name,
+              }))}
+          />
+        </>
+      ) : (
+        <Card>
+          <CardContent className="py-6 text-center">
+            <Lock className="h-6 w-6 mx-auto mb-2 text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">
+              Les notes et le vote du joueur du match seront disponibles une fois le match terminé.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {positions.length > 0 && (
         <Card>
@@ -874,14 +896,16 @@ export default function MatchDetailPage() {
         </CardContent>
       </Card>
 
-      {/* Retour du coach */}
-      <MatchFeedback
-        matchId={matchId}
-        teamId={currentTeam.id}
-        isCoach={isCoach}
-        userId={user?.id}
-        players={allPlayers}
-      />
+      {/* Retour du coach — après le match uniquement */}
+      {matchIsOver ? (
+        <MatchFeedback
+          matchId={matchId}
+          teamId={currentTeam.id}
+          isCoach={isCoach}
+          userId={user?.id}
+          players={allPlayers}
+        />
+      ) : null}
 
       {/* Lineups */}
       {lineups.length > 0 && (

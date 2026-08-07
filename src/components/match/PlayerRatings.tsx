@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Loader2, Star, Users } from "lucide-react";
 import { toast } from "sonner";
+import { RatingSelect, RatingStars } from "@/components/match/RatingStars";
 
 interface Props {
   eventId: string;
@@ -169,34 +170,6 @@ export function PlayerRatings({ eventId, teamId, userId, presentPlayers, childPl
     }
   }
 
-  function renderStars(playerId: string, value: number, onChange?: (v: number) => void) {
-    return (
-      <div className="flex items-center gap-0.5">
-        {Array.from({ length: 10 }, (_, i) => {
-          const filled = i < value;
-          return onChange ? (
-            <button
-              key={i}
-              type="button"
-              onClick={() => onChange(i + 1)}
-              className={`text-sm leading-none transition-transform hover:scale-110 ${
-                filled ? "text-[var(--color-gold)]" : "text-muted"
-              }`}
-              aria-label={`${i + 1}/10`}
-            >
-              <Star className={`h-4 w-4 ${filled ? "fill-[var(--color-gold)]" : ""}`} />
-            </button>
-          ) : (
-            <Star
-              key={i}
-              className={`h-3.5 w-3.5 ${filled ? "fill-[var(--color-gold)] text-[var(--color-gold)]" : "text-muted"}`}
-            />
-          );
-        })}
-      </div>
-    );
-  }
-
   if (loading) {
     return (
       <Card>
@@ -275,9 +248,12 @@ export function PlayerRatings({ eventId, teamId, userId, presentPlayers, childPl
                         {p.first_name} {p.last_name}
                       </span>
                     </div>
-                    {renderStars(p.id, ratings[p.id] || 0, (v) =>
-                      setRatings((r) => ({ ...r, [p.id]: r[p.id] === v ? 0 : v }))
-                    )}
+                    <RatingSelect
+                      value={ratings[p.id] || 0}
+                      onChange={(v) =>
+                        setRatings((r) => ({ ...r, [p.id]: r[p.id] === v ? 0 : v }))
+                      }
+                    />
                   </div>
                 ))}
               </div>
@@ -309,7 +285,7 @@ export function PlayerRatings({ eventId, teamId, userId, presentPlayers, childPl
                     <div className="flex items-center gap-2 shrink-0">
                       {count > 0 ? (
                         <>
-                          {renderStars(p.id, avg)}
+                          <RatingStars value={avg} />
                           <span className="text-xs text-muted-foreground tabular-nums">
                             {avg}/10 · {count} note{count > 1 ? "s" : ""}
                           </span>

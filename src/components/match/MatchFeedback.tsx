@@ -5,9 +5,10 @@ import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Star, MessageSquarePlus, Check, Pencil, Loader2 } from "lucide-react";
+import { MessageSquarePlus, Check, Pencil, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { authFetch } from "@/lib/api-client";
+import { RatingSelect, RatingStars } from "@/components/match/RatingStars";
 import type { Profile } from "@/types";
 
 interface Props {
@@ -201,28 +202,15 @@ export function MatchFeedback({ matchId, teamId, isCoach, userId, players }: Pro
                       {p.first_name} {p.last_name}
                     </span>
                     <div className="flex items-center gap-1">
-                      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
-                        <button
-                          key={n}
-                          type="button"
-                          onClick={() =>
-                            setForm((prev) => ({
-                              ...prev,
-                              [p.id]: { ...prev[p.id], rating: prev[p.id]?.rating === n ? 0 : n },
-                            }))
-                          }
-                          className="p-0.5"
-                          aria-label={`Note ${n}`}
-                        >
-                          <Star
-                            className={`h-4 w-4 transition-colors ${
-                              (form[p.id]?.rating || 0) >= n
-                                ? "fill-[var(--color-gold)] text-[var(--color-gold)]"
-                                : "text-muted-foreground/30"
-                            }`}
-                          />
-                        </button>
-                      ))}
+                      <RatingSelect
+                        value={form[p.id]?.rating || 0}
+                        onChange={(v) =>
+                          setForm((prev) => ({
+                            ...prev,
+                            [p.id]: { ...prev[p.id], rating: v },
+                          }))
+                        }
+                      />
                     </div>
                   </div>
                   <Textarea
@@ -250,18 +238,7 @@ export function MatchFeedback({ matchId, teamId, isCoach, userId, players }: Pro
           <div className="space-y-2">
             {sorted.map((r) => (
               <div key={r.id} className="flex items-start gap-3 rounded-lg border p-3">
-                <div className="flex items-center gap-1 shrink-0">
-                  {Array.from({ length: 10 }).map((_, i) => (
-                    <Star
-                      key={i}
-                      className={`h-3.5 w-3.5 ${
-                        i < r.rating
-                          ? "fill-[var(--color-gold)] text-[var(--color-gold)]"
-                          : "text-muted-foreground/30"
-                      }`}
-                    />
-                  ))}
-                </div>
+                <RatingStars value={r.rating} size="h-3.5 w-3.5" />
                 <div className="min-w-0">
                   <p className="text-sm font-medium">{nameById.get(r.player_id) || "Joueur"}</p>
                   {r.notes && (

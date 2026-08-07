@@ -169,6 +169,8 @@ export interface TrainingSession {
   exercises: Exercise[] | null;
   notes: string | null;
   team_id: string;
+  source?: "ai" | "manual";
+  visibility?: "coach" | "team";
   created_at: string;
   updated_at: string;
 }
