@@ -24,9 +24,11 @@ import {
   Bell,
   Radio,
   Lock,
+  PenLine,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ConvocationsDialog } from "@/components/ConvocationsDialog";
+import { AnnouncementDialog } from "@/components/announcements/AnnouncementDialog";
 import { EventCoachActions } from "@/components/EventCoachActions";
 import {
   AttendanceLists,
@@ -144,6 +146,7 @@ export default function MatchDetailPage() {
   const [matchPlayers, setMatchPlayers] = useState<PlayerAttendanceRow[]>([]);
   const { children: myChildren, selectedChildId: childId, setChild: setChildId } = useSelectedChild(currentTeam?.id);
   const [convDialogOpen, setConvDialogOpen] = useState(false);
+  const [announcementOpen, setAnnouncementOpen] = useState(false);
   const [liveNow, setLiveNow] = useState(() => Date.now());
 
   const liveOpenAt = match?.event_date
@@ -505,6 +508,15 @@ export default function MatchDetailPage() {
                   >
                     <Bell className="h-3.5 w-3.5 mr-1" />
                     Convoquer
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="border-white/40 text-white hover:bg-white/10 hover:text-white"
+                    onClick={() => setAnnouncementOpen(true)}
+                  >
+                    <PenLine className="h-3.5 w-3.5 mr-1" />
+                    Annonce IA
                   </Button>
                   <EventCoachActions
                     event={match}
@@ -1004,6 +1016,22 @@ export default function MatchDetailPage() {
           event={match}
           open={convDialogOpen}
           onOpenChange={setConvDialogOpen}
+        />
+      )}
+
+      {match && (
+        <AnnouncementDialog
+          open={announcementOpen}
+          onOpenChange={setAnnouncementOpen}
+          teamId={currentTeam.id}
+          event={{
+            id: match.id,
+            eventType: match.type,
+            title: match.title,
+            meeting_time: match.meeting_time,
+            location: match.location,
+            opponent: match.opponent,
+          }}
         />
       )}
     </div>

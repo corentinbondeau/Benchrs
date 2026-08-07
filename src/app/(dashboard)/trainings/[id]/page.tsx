@@ -8,9 +8,10 @@ import { useTeam } from "@/lib/team";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Bell } from "lucide-react";
+import { ArrowLeft, Bell, PenLine } from "lucide-react";
 import { toast } from "sonner";
 import { ConvocationsDialog } from "@/components/ConvocationsDialog";
+import { AnnouncementDialog } from "@/components/announcements/AnnouncementDialog";
 import { EventCoachActions } from "@/components/EventCoachActions";
 import { SessionFiche } from "@/components/training/SessionFiche";
 import { SessionRpe } from "@/components/training/SessionRpe";
@@ -43,6 +44,7 @@ export default function TrainingDetailPage() {
   const { children: myChildren, selectedChildId: childId, setChild: setChildId } = useSelectedChild(currentTeam?.id);
   const [loading, setLoading] = useState(true);
   const [convDialogOpen, setConvDialogOpen] = useState(false);
+  const [announcementOpen, setAnnouncementOpen] = useState(false);
   const [now] = useState(() => Date.now());
 
   useEffect(() => {
@@ -219,6 +221,15 @@ export default function TrainingDetailPage() {
                 <Bell className="h-3.5 w-3.5 mr-1" />
                 Convoquer
               </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="border-white/40 text-white hover:bg-white/10 hover:text-white"
+                onClick={() => setAnnouncementOpen(true)}
+              >
+                <PenLine className="h-3.5 w-3.5 mr-1" />
+                Annonce IA
+              </Button>
               <EventCoachActions
                 event={event}
                 isMatch={false}
@@ -276,6 +287,22 @@ export default function TrainingDetailPage() {
         open={convDialogOpen}
         onOpenChange={setConvDialogOpen}
       />
+
+      {event && (
+        <AnnouncementDialog
+          open={announcementOpen}
+          onOpenChange={setAnnouncementOpen}
+          teamId={currentTeam.id}
+          event={{
+            id: event.id,
+            eventType: event.type,
+            title: event.title,
+            meeting_time: event.meeting_time,
+            location: event.location,
+            opponent: event.opponent ?? null,
+          }}
+        />
+      )}
     </div>
   );
 }
