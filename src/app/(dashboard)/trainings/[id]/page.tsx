@@ -12,6 +12,7 @@ import { ArrowLeft, Bell } from "lucide-react";
 import { toast } from "sonner";
 import { ConvocationsDialog } from "@/components/ConvocationsDialog";
 import { EventCoachActions } from "@/components/EventCoachActions";
+import { SessionFiche } from "@/components/training/SessionFiche";
 import {
   AttendanceLists,
   EventInfoCard,
@@ -230,6 +231,9 @@ export default function TrainingDetailPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Fiche de séance */}
+      <SessionFiche eventId={trainingId} isCoach={isCoach} />
 
       {/* Partie 1 — Informations globales */}
       <EventInfoCard
