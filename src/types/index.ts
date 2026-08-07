@@ -54,6 +54,7 @@ export interface Profile {
   is_active: boolean;
   email_notifications?: boolean;
   vma: number | null;
+  vmi: number | null;
   team_id: string | null;
   created_at: string;
   updated_at: string;
