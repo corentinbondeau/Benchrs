@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -16,12 +16,18 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
-export default function LoginPage() {
+function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const rawNext = searchParams.get("next");
+  const next =
+    rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//")
+      ? rawNext
+      : "/";
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -38,7 +44,7 @@ export default function LoginPage() {
       setError("Email ou mot de passe incorrect");
       setLoading(false);
     } else {
-      router.push("/");
+      router.push(next);
       router.refresh();
     }
   }
@@ -95,12 +101,27 @@ export default function LoginPage() {
           </Button>
           <p className="text-sm text-muted-foreground text-center">
             Pas encore de compte ?{" "}
-            <Link href="/register" className="text-[var(--color-royal)] hover:underline font-medium">
+            <Link
+              href={next !== "/" ? `/register?next=${encodeURIComponent(next)}` : "/register"}
+              className="text-[var(--color-royal)] hover:underline font-medium"
+            >
               Créer un compte
             </Link>
           </p>
         </CardFooter>
       </form>
     </Card>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center h-64">
+        <p className="text-white/60">Chargement...</p>
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
   );
 }
