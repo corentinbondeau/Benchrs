@@ -432,16 +432,35 @@ export interface User {
 export interface ExerciseLibrary {
   id: string;
   team_id: string;
+  created_by: string | null;
   name: string;
-  description: string | null;
   duration: number;
-  category: string;
-  phase: string | null;
-  objectives: string[];
-  min_players: number;
-  max_players: number;
-  equipment: string[];
-  intensity: string;
+  description: string | null;
+  drill_type: string;
+  created_at: string;
+}
+
+export interface WeeklyChallengeRow {
+  id: string;
+  team_id: string;
+  week_start: string;
+  title: string;
+  description: string;
+  difficulty: "facile" | "moyen" | "difficile";
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface ChallengeSubmission {
+  id: string;
+  challenge_id: string;
+  player_id: string;
+  team_id: string;
+  media_url: string;
+  storage_path: string;
+  comment: string | null;
+  status: "pending" | "validated" | "rejected";
+  validated_by: string | null;
   created_at: string;
 }
 

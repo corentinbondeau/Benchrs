@@ -27,28 +27,32 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  Plus,
-  Calendar,
-  Clock,
-  Target,
-  FileText,
   ArrowLeft,
-  Trash2,
-  Shirt,
-  Users,
-  Crown,
-  Swords,
+  Bookmark,
+  Calendar,
   ClipboardList,
+  Clock,
+  Crown,
   FileDown,
+  FileText,
+  LibraryBig,
   Loader2,
-  Sparkles,
   PenLine,
+  Plus,
+  Shirt,
+  Sparkles,
+  Swords,
+  Target,
+  Trash2,
+  Users,
 } from "lucide-react";
 import { toast } from "sonner";
 import { TACTICAL_PHASES as PHASE_OBJECTIVES, TACTICAL_PHASE_NAMES } from "@/lib/training/phases";
 import { FOOTBALL_SYSTEMS, EXPERTISE_LEVELS, type AISession, type ExpertiseLevel } from "@/lib/training/ai-generator";
 import { AIFicheView, isAiSessionExercises } from "@/components/training/AIFicheView";
 import { VisibilityPicker, type FicheVisibility } from "@/components/training/FicheVisibilityPicker";
+import { ExerciseLibraryDialog } from "@/components/training/ExerciseLibraryDialog";
+import { DRILL_TYPES } from "@/lib/training/exercises";
 import type {
   TrainingSession,
   Exercise,
@@ -56,14 +60,6 @@ import type {
   Event,
   Formation,
 } from "@/types";
-
-const DRILL_TYPES = [
-  "échauffement",
-  "technique",
-  "tactique",
-  "physique",
-  "jeu",
-];
 
 function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString("fr-FR", {
@@ -92,6 +88,7 @@ function SéanceTab() {
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
+  const [libraryOpen, setLibraryOpen] = useState(false);
   const [selectedSession, setSelectedSession] = useState<TrainingSession | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -170,6 +167,29 @@ function SéanceTab() {
     const updated = [...exercises];
     updated[index] = { ...updated[index], [field]: value };
     setExercises(updated);
+  }
+
+  function addFromLibrary(ex: Exercise) {
+    setExercises([...exercises, ex]);
+  }
+
+  async function saveExerciseToLibrary(ex: Exercise) {
+    if (!ex.name.trim()) {
+      toast.error("Donne un nom à l'exercice avant de l'enregistrer");
+      return;
+    }
+    const { error } = await supabaseRef.current.from("exercise_library").insert({
+      team_id: currentTeam!.id,
+      name: ex.name.trim(),
+      duration: ex.duration,
+      description: ex.description.trim() || null,
+      drill_type: ex.drill_type,
+    });
+    if (error) {
+      toast.error("Erreur lors de l'enregistrement dans la bibliothèque");
+      return;
+    }
+    toast.success("Exercice ajouté à la bibliothèque");
   }
 
   async function handleDeleteSession() {
@@ -698,10 +718,16 @@ function SéanceTab() {
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
                         <Label>Exercices</Label>
-                        <Button type="button" variant="outline" size="sm" onClick={addExercise} className="border-[var(--color-gold)] text-[var(--color-gold)] hover:bg-[var(--color-gold)]/10">
-                          <Plus className="mr-1 h-3 w-3" />
-                          Ajouter
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          <Button type="button" variant="outline" size="sm" onClick={() => setLibraryOpen(true)}>
+                            <LibraryBig className="mr-1 h-3 w-3" />
+                            Bibliothèque
+                          </Button>
+                          <Button type="button" variant="outline" size="sm" onClick={addExercise} className="border-[var(--color-gold)] text-[var(--color-gold)] hover:bg-[var(--color-gold)]/10">
+                            <Plus className="mr-1 h-3 w-3" />
+                            Ajouter
+                          </Button>
+                        </div>
                       </div>
                       <div className="space-y-3">
                         {exercises.map((ex, i) => (
@@ -710,23 +736,38 @@ function SéanceTab() {
                               <span className="text-xs font-medium text-muted-foreground">
                                 Exercice {i + 1}
                               </span>
-                              {exercises.length > 1 && (
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => removeExercise(i)}
-                                  className="h-6 px-2 text-destructive"
-                                >
-                                  <Trash2 className="h-3 w-3" />
-                                </Button>
-                              )}
+                              <div className="flex items-center gap-1">
+                                {exercises.length > 1 && (
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => removeExercise(i)}
+                                    className="h-6 px-2 text-destructive"
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
+                                )}
+                              </div>
                             </div>
-                            <Input
-                              value={ex.name}
-                              onChange={(e) => updateExercise(i, "name", e.target.value)}
-                              placeholder="Nom de l'exercice"
-                            />
+                            <div className="flex items-center gap-2">
+                              <Input
+                                value={ex.name}
+                                onChange={(e) => updateExercise(i, "name", e.target.value)}
+                                placeholder="Nom de l'exercice"
+                              />
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 shrink-0 text-muted-foreground"
+                                onClick={() => saveExerciseToLibrary(ex)}
+                                title="Enregistrer dans la bibliothèque"
+                                aria-label="Enregistrer dans la bibliothèque"
+                              >
+                                <Bookmark className="h-4 w-4" />
+                              </Button>
+                            </div>
                             <div className="flex gap-2">
                               <div className="flex-1">
                                 <Input
@@ -802,6 +843,15 @@ function SéanceTab() {
             </DialogContent>
           </Dialog>
         )}
+
+        {/* Bibliothèque d'exercices */}
+        <ExerciseLibraryDialog
+          teamId={currentTeam.id}
+          open={libraryOpen}
+          onOpenChange={setLibraryOpen}
+          onAdd={addFromLibrary}
+          isCoach={userRole === "coach" || userRole === "owner"}
+        />
       </div>
 
       {loading ? (
