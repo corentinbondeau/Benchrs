@@ -46,6 +46,7 @@ export default function TeamSettingsPage() {
   const [colorSecondary, setColorSecondary] = useState("#1E40AF");
   const [savingColors, setSavingColors] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [leaving, setLeaving] = useState(false);
   const supabase = createClient();
 
   const isOwner = members.some(
@@ -223,6 +224,35 @@ export default function TeamSettingsPage() {
     } else {
       setMembers((prev) => prev.filter((m) => m.id !== memberId));
       toast.success(`${memberName} a été retiré de l'équipe`);
+    }
+  }
+
+  async function leaveTeam() {
+    if (!currentTeam) return;
+    setLeaving(true);
+
+    const res = await authFetch("/api/team/leave", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ teamId: currentTeam.id }),
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      toast.error(data.error || "Erreur lors de la sortie de l'équipe");
+      setLeaving(false);
+      return;
+    }
+
+    toast.success("Vous avez quitté l'équipe");
+    await refreshTeams();
+
+    if (teams.length > 1) {
+      const remaining = teams.filter((t) => t.id !== currentTeam.id);
+      switchTeam(remaining[0].id);
+      window.location.href = "/";
+    } else {
+      window.location.href = "/create-team";
     }
   }
 
@@ -542,6 +572,41 @@ export default function TeamSettingsPage() {
               </Button>
             ) : (
               <p className="text-sm text-muted-foreground">Suppression...</p>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Quitter l'équipe (non-owner) */}
+      {!isOwner && (
+        <Card className="border-destructive/50">
+          <CardHeader>
+            <CardTitle className="text-destructive flex items-center gap-2">
+              <LogOut className="h-5 w-5" />
+              Quitter l&apos;équipe
+            </CardTitle>
+            <CardDescription>
+              Vous perdrez l&apos;accès aux données de cette équipe
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {!leaving ? (
+              <Button
+                variant="destructive"
+                onClick={() => {
+                  if (
+                    window.confirm(
+                      "Êtes-vous sûr de vouloir quitter cette équipe ? Vous pourrez la rejoindre à nouveau avec le code d'invitation."
+                    )
+                  ) {
+                    leaveTeam();
+                  }
+                }}
+              >
+                Quitter l&apos;équipe
+              </Button>
+            ) : (
+              <p className="text-sm text-muted-foreground">Départ...</p>
             )}
           </CardContent>
         </Card>

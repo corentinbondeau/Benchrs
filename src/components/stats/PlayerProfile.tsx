@@ -47,6 +47,7 @@ import {
   TrendingUp,
   TrendingDown,
   Activity,
+  Star,
   ClipboardList,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -198,6 +199,30 @@ function PhysicalEvolutionChart({
   );
 }
 
+interface NotesChartPoint {
+  label: string;
+  Joueurs: number | null;
+  Coach: number | null;
+}
+
+function NotesEvolutionChart({ points }: { points: NotesChartPoint[] }) {
+  if (points.length === 0) {
+    return <p className="text-xs text-muted-foreground text-center py-6">Aucune note pour l&apos;instant</p>;
+  }
+  return (
+    <ResponsiveContainer width="100%" height={150}>
+      <LineChart data={points} margin={{ top: 5, right: 5, left: -22, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+        <XAxis dataKey="label" tick={{ fontSize: 9 }} tickLine={false} axisLine={false} />
+        <YAxis domain={[0, 10]} tick={{ fontSize: 9 }} tickLine={false} axisLine={false} width={32} />
+        <Tooltip />
+        <Line type="monotone" dataKey="Coach" stroke="#0ea5e9" strokeWidth={2} dot={{ r: 2 }} connectNulls />
+        <Line type="monotone" dataKey="Joueurs" stroke="#22c55e" strokeWidth={2} dot={{ r: 2 }} connectNulls />
+      </LineChart>
+    </ResponsiveContainer>
+  );
+}
+
 export function PlayerProfile({ playerId }: { playerId: string }) {
   const { currentTeam, userRole } = useTeam();
   const { user } = useAuth();
@@ -217,6 +242,8 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
   const [currentSeason, setCurrentSeason] = useState("");
   const [seasonTotals, setSeasonTotals] = useState<Record<string, SeasonTotals>>({});
   const [radarData, setRadarData] = useState<RadarDatum[]>([]);
+  const [mvpCount, setMvpCount] = useState(0);
+  const [notesData, setNotesData] = useState<NotesChartPoint[]>([]);
 
   useEffect(() => {
     if (!currentTeam) return;
@@ -359,6 +386,43 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
       setSeasonTotals(bySeason);
       setCurrentSeason(seasonKey(new Date().toISOString()) || "");
 
+      // --- Progression des notes (retour coach + notes joueurs) ---
+      if (eventIds.length > 0) {
+        const [prRes, crRes] = await Promise.all([
+          supabase
+            .from("match_player_ratings")
+            .select("event_id, rating")
+            .eq("player_id", playerId)
+            .eq("team_id", team.id),
+          supabase
+            .from("match_ratings")
+            .select("event_id, rating")
+            .eq("player_id", playerId)
+            .eq("team_id", team.id),
+        ]);
+        const byEvent = (data: { event_id: string; rating: number }[] | null) => {
+          const m = new Map<string, number[]>();
+          for (const x of data || []) {
+            const eid = x.event_id as string;
+            if (!m.has(eid)) m.set(eid, []);
+            m.get(eid)!.push(Number(x.rating));
+          }
+          return m;
+        };
+        const playersMap = byEvent(prRes.data as { event_id: string; rating: number }[] | null);
+        const coachMap = byEvent(crRes.data as { event_id: string; rating: number }[] | null);
+        const avg = (arr: number[]) => +(arr.reduce((a, b) => a + b, 0) / arr.length).toFixed(1);
+        setNotesData(
+          rows.map((r) => ({
+            label: r.event_date ? formatDateShort(r.event_date) : "—",
+            Joueurs: playersMap.has(r.event_id) ? avg(playersMap.get(r.event_id)!) : null,
+            Coach: coachMap.has(r.event_id) ? avg(coachMap.get(r.event_id)!) : null,
+          }))
+        );
+      } else {
+        setNotesData([]);
+      }
+
       // --- Comparaison joueur vs moyenne de l'équipe (radar) ---
       const { data: teamStats } = await supabase
         .from("match_stats")
@@ -430,6 +494,26 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
           };
         })
       );
+
+      // --- MVP cumulés (joueur du match par match) ---
+      const { data: mvpVotes } = await supabase
+        .from("motm_votes")
+        .select("event_id, candidate_id")
+        .eq("team_id", team.id);
+      const votesByEvent = new Map<string, Map<string, number>>();
+      for (const v of mvpVotes || []) {
+        const eid = v.event_id as string;
+        if (!votesByEvent.has(eid)) votesByEvent.set(eid, new Map());
+        const perEvent = votesByEvent.get(eid)!;
+        const cid = v.candidate_id as string;
+        perEvent.set(cid, (perEvent.get(cid) || 0) + 1);
+      }
+      let wins = 0;
+      for (const perEvent of votesByEvent.values()) {
+        const max = Math.max(0, ...perEvent.values());
+        if (max > 0 && perEvent.get(playerId) === max) wins++;
+      }
+      setMvpCount(wins);
 
       setLoading(false);
     }
@@ -721,6 +805,18 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
             )}
           </CardContent>
         </Card>
+        {/* MVP Card */}
+        <Card>
+          <CardContent className="p-4 text-center">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-100 text-[var(--color-gold)] mx-auto mb-2">
+              <Trophy className="h-5 w-5" />
+            </div>
+            <p className="text-2xl font-bold">{mvpCount}</p>
+            <p className="text-xs text-muted-foreground">
+              Fois joueur du match
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Performance par saison */}
@@ -772,6 +868,27 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <PhysicalEvolutionChart title="VMA" color="#ec4899" tests={vmaTests} />
             <PhysicalEvolutionChart title="VMI" color="#06b6d4" tests={vmiTests} />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Progression des notes */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Star className="h-4 w-4 text-[var(--color-royal)]" />
+            Progression des notes
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <NotesEvolutionChart points={notesData} />
+          <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+            <span className="flex items-center gap-1">
+              <span className="h-2.5 w-2.5 rounded-full bg-sky-500" /> Retour du coach
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="h-2.5 w-2.5 rounded-full bg-green-500" /> Notes des joueurs
+            </span>
           </div>
         </CardContent>
       </Card>
