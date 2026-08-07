@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Trophy, Target, Clock, CalendarCheck, Zap, Gauge, Check, X, Phone, User, CalendarDays } from "lucide-react";
+import { Trophy, Target, Clock, CalendarCheck, Zap, Gauge, Wind, Check, X, Phone, User, CalendarDays } from "lucide-react";
 import { toast } from "sonner";
 
 interface PlayerStats {
@@ -35,6 +35,7 @@ interface ProfileData {
   phone: string | null;
   date_of_birth: string | null;
   vma: number | null;
+  vmi: number | null;
 }
 
 const roleLabels: Record<ProfileData["role"], string> = {
@@ -53,6 +54,9 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
   const [vma, setVma] = useState<number | null>(null);
   const [editingVma, setEditingVma] = useState(false);
   const [vmaInput, setVmaInput] = useState("");
+  const [vmi, setVmi] = useState<number | null>(null);
+  const [editingVmi, setEditingVmi] = useState(false);
+  const [vmiInput, setVmiInput] = useState("");
 
   useEffect(() => {
     if (!currentTeam) return;
@@ -61,7 +65,7 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
     async function fetchProfile() {
       const { data: profile } = await supabase
         .from("profiles")
-        .select("id, role, first_name, last_name, position, shirt_number, phone, date_of_birth, vma")
+        .select("id, role, first_name, last_name, position, shirt_number, phone, date_of_birth, vma, vmi")
         .eq("id", playerId)
         .single();
 
@@ -83,6 +87,8 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
       setProfile({ ...(profile as unknown as ProfileData), role });
       setVma(profile.vma);
       setVmaInput(profile.vma?.toString() ?? "");
+      setVmi(profile.vmi);
+      setVmiInput(profile.vmi?.toString() ?? "");
 
       if (role !== "player") {
         setLoading(false);
@@ -166,6 +172,26 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
     setVma(val);
     setEditingVma(false);
     toast.success("VMA mise à jour");
+  }
+
+  async function handleSaveVmi() {
+    const val = parseFloat(vmiInput);
+    if (isNaN(val) || val <= 0 || val > 30) {
+      toast.error("VMI invalide (doit être entre 1 et 30)");
+      return;
+    }
+    const supabase = createClient();
+    const { error } = await supabase.rpc("update_player_vmi", {
+      player_id: playerId,
+      new_vmi: val,
+    });
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    setVmi(val);
+    setEditingVmi(false);
+    toast.success("VMI mise à jour");
   }
 
   if (!currentTeam) return null;
@@ -307,6 +333,45 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
                   {isCoach && (
                     <Button size="icon" variant="ghost" className="h-5 w-5" onClick={() => setEditingVma(true)}>
                       <Gauge className="h-3 w-3" />
+                    </Button>
+                  )}
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+        {/* VMI Card */}
+        <Card>
+          <CardContent className="p-4 text-center">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-cyan-100 text-cyan-700 mx-auto mb-2">
+              <Wind className="h-5 w-5" />
+            </div>
+            {editingVmi ? (
+              <div className="flex items-center gap-1 justify-center">
+                <Input
+                  type="number"
+                  step="0.1"
+                  min="1"
+                  max="30"
+                  value={vmiInput}
+                  onChange={(e) => setVmiInput(e.target.value)}
+                  className="h-8 w-20 text-center text-sm"
+                />
+                <Button size="icon" variant="ghost" className="h-7 w-7 text-green-600" onClick={handleSaveVmi}>
+                  <Check className="h-4 w-4" />
+                </Button>
+                <Button size="icon" variant="ghost" className="h-7 w-7 text-red-600" onClick={() => { setEditingVmi(false); setVmiInput(vmi?.toString() ?? ""); }}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            ) : (
+              <>
+                <p className="text-2xl font-bold">{vmi ? `${vmi.toFixed(1)}` : "—"}</p>
+                <div className="flex items-center justify-center gap-1">
+                  <p className="text-xs text-muted-foreground">VMI</p>
+                  {isCoach && (
+                    <Button size="icon" variant="ghost" className="h-5 w-5" onClick={() => setEditingVmi(true)}>
+                      <Wind className="h-3 w-3" />
                     </Button>
                   )}
                 </div>
