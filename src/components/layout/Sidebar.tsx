@@ -3,6 +3,7 @@
 import { useAuth } from "@/lib/auth";
 import { useTeam } from "@/lib/team";
 import { authFetch } from "@/lib/api-client";
+import { normalizeFffNumber } from "@/lib/clubs";
 import { useChatUnread } from "@/lib/useChatUnread";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -83,18 +84,24 @@ export function Sidebar() {
   const [joinMode, setJoinMode] = useState(false);
   const [clubName, setClubName] = useState("");
   const [teamName, setTeamName] = useState("");
+  const [fffNumber, setFffNumber] = useState("");
   const [inviteCode, setInviteCode] = useState("");
   const [joinRole, setJoinRole] = useState<"player" | "coach" | "parent">("player");
   const [creating, setCreating] = useState(false);
 
   async function handleCreateTeam() {
     if (!clubName.trim() || !teamName.trim()) return;
+    const fff = normalizeFffNumber(fffNumber);
+    if (!fff) {
+      toast.error("Numéro d'affiliation FFF invalide (6 chiffres requis)");
+      return;
+    }
     setCreating(true);
     try {
       const res = await authFetch("/api/auth/create-team", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: user!.id, clubName: clubName.trim(), teamName: teamName.trim() }),
+        body: JSON.stringify({ userId: user!.id, clubName: clubName.trim(), teamName: teamName.trim(), fffNumber: fff }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -106,6 +113,7 @@ export function Sidebar() {
       setCreateOpen(false);
       setClubName("");
       setTeamName("");
+      setFffNumber("");
       setInviteCode("");
       setJoinMode(false);
       localStorage.setItem("selectedTeamId", data.team.id);
@@ -203,7 +211,7 @@ export function Sidebar() {
               {joinMode ? (
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label>Code d'invitation</Label>
+                    <Label>Code d&apos;invitation</Label>
                     <Input value={inviteCode} onChange={(e) => setInviteCode(e.target.value)} placeholder="Entrez le code" />
                   </div>
                   <div className="space-y-2">
@@ -230,7 +238,11 @@ export function Sidebar() {
                     <Input value={clubName} onChange={(e) => setClubName(e.target.value)} placeholder="AS Monaco" />
                   </div>
                   <div className="space-y-2">
-                    <Label>Nom de l'équipe</Label>
+                    <Label>Numéro d&apos;affiliation FFF *</Label>
+                    <Input inputMode="numeric" value={fffNumber} onChange={(e) => setFffNumber(e.target.value)} placeholder="501234" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Nom de l&apos;équipe</Label>
                     <Input value={teamName} onChange={(e) => setTeamName(e.target.value)} placeholder="U17 Senior" />
                   </div>
                   <Button className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold" onClick={handleCreateTeam} disabled={!clubName.trim() || !teamName.trim() || creating}>

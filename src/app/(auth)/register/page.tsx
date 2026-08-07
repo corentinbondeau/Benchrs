@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { authFetch } from "@/lib/api-client";
+import { normalizeFffNumber } from "@/lib/clubs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -61,6 +62,7 @@ function RegisterForm() {
     joinRole: "player",
     clubName: "",
     teamName: "",
+    fffNumber: "",
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -214,6 +216,12 @@ function RegisterForm() {
           window.location.href = "/";
         }
       } else if (teamMode === "create" && formData.clubName && formData.teamName) {
+        const fff = normalizeFffNumber(formData.fffNumber);
+        if (!fff) {
+          setError("Numéro d'affiliation FFF invalide (6 chiffres requis)");
+          setLoading(false);
+          return;
+        }
         const teamRes = await authFetch("/api/auth/create-team", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -221,6 +229,7 @@ function RegisterForm() {
             userId: user.id,
             clubName: formData.clubName,
             teamName: formData.teamName,
+            fffNumber: fff,
           }),
         });
 
@@ -321,6 +330,24 @@ function RegisterForm() {
                     onChange={(e) => setFormData({ ...formData, clubName: e.target.value })}
                     required
                   />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="fffNumber">
+                    Numéro d&apos;affiliation FFF <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="fffNumber"
+                    inputMode="numeric"
+                    placeholder="501234"
+                    value={formData.fffNumber}
+                    onChange={(e) =>
+                      setFormData({ ...formData, fffNumber: e.target.value })
+                    }
+                    required
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    6 chiffres, sur votre licence FFF ou la fiche du club.
+                  </p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="teamName">Nom de l&apos;équipe</Label>

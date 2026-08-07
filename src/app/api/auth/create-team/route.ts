@@ -2,13 +2,14 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { defaultNotificationPrefs } from "@/lib/notificationTypes";
 import { getAuthUser, unauthorized } from "@/lib/api-auth";
+import { normalizeClubName, normalizeFffNumber } from "@/lib/clubs";
 
 export async function POST(req: Request) {
   try {
     const user = await getAuthUser(req);
     if (!user) return unauthorized();
 
-    const { clubName, teamName } = await req.json();
+    const { clubName, teamName, fffNumber } = await req.json();
 
     if (!clubName || !teamName) {
       return NextResponse.json(
@@ -23,33 +24,64 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Nom invalide" }, { status: 400 });
     }
 
+    // Numéro d'affiliation FFF : obligatoire, 6 chiffres, identité canonique du club.
+    const fff = normalizeFffNumber(String(fffNumber ?? ""));
+    if (!fff) {
+      return NextResponse.json(
+        { error: "Numéro d'affiliation FFF invalide (6 chiffres requis)" },
+        { status: 400 }
+      );
+    }
+
     const userId = user.id;
     const supabase = createAdminClient();
 
-    // Find existing club or create new one
+    // Un club = un numéro FFF : s'il existe déjà, on le réutilise (pas de doublon).
     let clubId: string;
+    let clubDisplayName = clubNameStr;
 
     const { data: existingClub } = await supabase
       .from("clubs")
-      .select("id")
-      .eq("name", clubNameStr)
-      .limit(1)
-      .single();
+      .select("id, name")
+      .eq("fff_number", fff)
+      .maybeSingle();
 
     if (existingClub) {
       clubId = existingClub.id;
+      clubDisplayName = existingClub.name;
     } else {
       const { data: newClub, error: clubError } = await supabase
         .from("clubs")
-        .insert({ name: clubNameStr, created_by: userId })
+        .insert({
+          name: clubNameStr,
+          fff_number: fff,
+          name_normalized: normalizeClubName(clubNameStr),
+          created_by: userId,
+        })
         .select()
         .single();
 
       if (clubError) {
         console.error("[create-team] club error:", clubError);
-        return NextResponse.json({ error: clubError.message }, { status: 400 });
+        // Course : un autre club a été créé avec le même numéro entre-temps
+        if (clubError.code === "23505") {
+          const { data: raceClub } = await supabase
+            .from("clubs")
+            .select("id, name")
+            .eq("fff_number", fff)
+            .maybeSingle();
+          if (raceClub) {
+            clubId = raceClub.id;
+            clubDisplayName = raceClub.name;
+          } else {
+            return NextResponse.json({ error: clubError.message }, { status: 400 });
+          }
+        } else {
+          return NextResponse.json({ error: clubError.message }, { status: 400 });
+        }
+      } else {
+        clubId = newClub.id;
       }
-      clubId = newClub.id;
     }
 
     // Create team
@@ -110,6 +142,7 @@ export async function POST(req: Request) {
     return NextResponse.json({
       team,
       club: { id: clubId },
+      clubName: clubDisplayName,
       inviteCode: team.invite_code,
       message: "Équipe créée avec succès",
     });
