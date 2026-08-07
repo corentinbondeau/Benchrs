@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { fetchTeamActivePlayers } from "@/lib/players";
 import { useAuth } from "@/lib/auth";
 import { useTeam } from "@/lib/team";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -92,12 +93,7 @@ export default function PhysicalPreparationPage() {
   const fetchData = useCallback(async () => {
     if (!currentTeam) return;
     const [playersRes, docsRes, sessionsRes] = await Promise.all([
-      supabaseRef.current
-        .from("profiles")
-        .select("*")
-        .eq("role", "player")
-        .eq("is_active", true)
-        .order("last_name", { ascending: true }),
+      fetchTeamActivePlayers(currentTeam.id),
       supabaseRef.current
         .from("physical_prep_documents")
         .select("*")
@@ -110,7 +106,7 @@ export default function PhysicalPreparationPage() {
         .order("session_date", { ascending: false }),
     ]);
 
-    setPlayers((playersRes.data as Profile[]) || []);
+    setPlayers(playersRes.sort((a, b) => (a.last_name || "").localeCompare(b.last_name || "")));
     setDocuments((docsRes.data as PhysicalPrepDocument[]) || []);
     setSessions((sessionsRes.data as PhysicalPrepSession[]) || []);
 
