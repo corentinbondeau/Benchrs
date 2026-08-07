@@ -31,6 +31,7 @@ import {
 import { toast } from "sonner";
 import { TACTICAL_PHASES, TACTICAL_PHASE_NAMES } from "@/lib/training/phases";
 import { FOOTBALL_SYSTEMS, type AISession } from "@/lib/training/ai-generator";
+import { AIFicheView } from "@/components/training/AIFicheView";
 import type { Exercise } from "@/types";
 
 type FicheSource = "ai" | "manual";
@@ -371,44 +372,7 @@ export function SessionFiche({
                     </Button>
                   </div>
 
-                  {aiSession.material && (
-                    <div className="rounded-lg border bg-muted/30 p-3">
-                      <p className="text-xs font-semibold mb-1">Matériel nécessaire</p>
-                      <p className="text-sm text-muted-foreground">{aiSession.material}</p>
-                    </div>
-                  )}
-
-                  {aiSession.sections.map((section, i) => (
-                    <div key={i} className="rounded-lg border p-3">
-                      <div className="flex items-center justify-between gap-2 mb-2">
-                        <p className="font-semibold text-sm">{section.name}</p>
-                        {section.duration > 0 && (
-                          <span className="text-xs text-muted-foreground shrink-0">{section.duration} min</span>
-                        )}
-                      </div>
-                      <div className="space-y-2">
-                        {section.items.map((item, j) => (
-                          <div key={j}>
-                            {item.label && <p className="text-xs font-semibold text-[var(--color-royal)] mb-0.5">{item.label}</p>}
-                            <p className="text-sm text-muted-foreground whitespace-pre-wrap">{item.text}</p>
-                          </div>
-                        ))}
-                      </div>
-                      {section.variants.length > 0 && (
-                        <div className="mt-2 border-t pt-2">
-                          <p className="text-xs font-semibold mb-1">Variantes / Progression</p>
-                          <ul className="space-y-0.5">
-                            {section.variants.map((v, k) => (
-                              <li key={k} className="flex items-start gap-2 text-sm text-muted-foreground">
-                                <span className="text-[var(--color-gold)]">•</span>
-                                {v}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                  <AIFicheView session={aiSession} />
 
                   {isCoach && (
                     <Button
