@@ -48,6 +48,7 @@ import { toast } from "sonner";
 import { TACTICAL_PHASES as PHASE_OBJECTIVES, TACTICAL_PHASE_NAMES } from "@/lib/training/phases";
 import { FOOTBALL_SYSTEMS, EXPERTISE_LEVELS, type AISession, type ExpertiseLevel } from "@/lib/training/ai-generator";
 import { AIFicheView, isAiSessionExercises } from "@/components/training/AIFicheView";
+import { VisibilityPicker, type FicheVisibility } from "@/components/training/FicheVisibilityPicker";
 import type {
   TrainingSession,
   Exercise,
@@ -112,6 +113,7 @@ function SéanceTab() {
   const [systeme, setSysteme] = useState("");
   const [expertise, setExpertise] = useState<ExpertiseLevel>("UEFA B");
   const [generatedAi, setGeneratedAi] = useState<AISession | null>(null);
+  const [visibility, setVisibility] = useState<FicheVisibility>("coach");
 
   if (!currentTeam) {
     return <div className="flex items-center justify-center h-64"><p className="text-muted-foreground">Chargement de l'équipe...</p></div>;
@@ -242,6 +244,7 @@ function SéanceTab() {
         notes: null,
         created_by: user?.id || null,
         team_id: currentTeam!.id,
+        visibility,
       }).select().single();
       if (error) {
         toast.error("Erreur lors de la création");
@@ -264,6 +267,7 @@ function SéanceTab() {
       notes: form.notes || null,
       created_by: user?.id || null,
       team_id: currentTeam!.id,
+      visibility,
     }).select().single();
 
     if (error) {
@@ -286,6 +290,7 @@ function SéanceTab() {
     setSysteme("");
     setGeneratedAi(null);
     setMode("ai");
+    setVisibility("coach");
   }
 
   async function handleGenerateAiFiche() {
@@ -766,6 +771,16 @@ function SéanceTab() {
                     </div>
                   </>
                 )}
+
+                <div className="space-y-2">
+                  <Label>Visibilité de la fiche</Label>
+                  <VisibilityPicker value={visibility} onChange={setVisibility} />
+                  <p className="text-xs text-muted-foreground">
+                    {visibility === "coach"
+                      ? "Visible uniquement par les coachs."
+                      : "Visible par toute l'équipe."}
+                  </p>
+                </div>
 
                 <div className="flex justify-end gap-2">
                   <Button

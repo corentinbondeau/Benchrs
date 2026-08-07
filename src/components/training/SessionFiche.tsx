@@ -23,6 +23,7 @@ import {
   FileDown,
   FileText,
   Loader2,
+  Lock,
   Plus,
   Sparkles,
   Trash2,
@@ -37,6 +38,7 @@ import {
   type ExpertiseLevel,
 } from "@/lib/training/ai-generator";
 import { AIFicheView } from "@/components/training/AIFicheView";
+import { VisibilityPicker, type FicheVisibility } from "@/components/training/FicheVisibilityPicker";
 import type { Exercise } from "@/types";
 
 type FicheSource = "ai" | "manual";
@@ -51,6 +53,7 @@ interface SessionFicheRow {
   exercises: AISession | Exercise[] | null;
   notes: string | null;
   source: FicheSource;
+  visibility: FicheVisibility;
   created_at: string;
   updated_at: string;
 }
@@ -100,6 +103,7 @@ export function SessionFiche({
   ]);
   const [manualObjectives, setManualObjectives] = useState<string[]>([]);
   const [savingManual, setSavingManual] = useState(false);
+  const [visibility, setVisibility] = useState<FicheVisibility>("coach");
 
   useEffect(() => {
     if (!currentTeam) return;
@@ -225,6 +229,7 @@ export function SessionFiche({
         exercises: session,
         notes: null,
         source: "ai",
+        visibility,
       });
       const url = toPdfDataUrl(data.pdf as string);
       setPdfUrl((prev) => {
@@ -258,6 +263,7 @@ export function SessionFiche({
         exercises: valid,
         notes: manualNotes.trim() || null,
         source: "manual",
+        visibility,
       });
       setManualOpen(false);
       toast.success("Fiche de séance enregistrée");
@@ -284,6 +290,25 @@ export function SessionFiche({
       return null;
     });
     toast.success("Fiche supprimée");
+  }
+
+  async function updateVisibility(v: FicheVisibility) {
+    if (!fiche) return;
+    const { error } = await createClient()
+      .from("training_sessions")
+      .update({ visibility: v })
+      .eq("id", fiche.id);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    setFiche((prev) => (prev ? { ...prev, visibility: v } : prev));
+    setVisibility(v);
+    toast.success(
+      v === "team"
+        ? "Fiche visible par toute l'équipe"
+        : "Fiche visible par les coachs uniquement"
+    );
   }
 
   function addManualExercise() {
@@ -319,15 +344,18 @@ export function SessionFiche({
               Fiche de séance
             </h3>
             {fiche && isCoach && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-destructive"
-                onClick={handleDelete}
-              >
-                <Trash2 className="h-3.5 w-3.5 mr-1" />
-                Supprimer
-              </Button>
+              <div className="flex items-center gap-2">
+                <VisibilityPicker value={fiche.visibility || "coach"} onChange={updateVisibility} />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-destructive"
+                  onClick={handleDelete}
+                >
+                  <Trash2 className="h-3.5 w-3.5 mr-1" />
+                  Supprimer
+                </Button>
+              </div>
             )}
           </div>
 
@@ -341,13 +369,13 @@ export function SessionFiche({
               {isCoach ? (
                 <div className="flex flex-col sm:flex-row gap-2 justify-center">
                   <Button
-                    onClick={() => setAiOpen(true)}
+                    onClick={() => { setVisibility("coach"); setAiOpen(true); }}
                     className="bg-[var(--color-gold)] text-[var(--color-navy)] font-semibold"
                   >
                     <Sparkles className="h-4 w-4 mr-1" />
                     Générer avec l&apos;IA
                   </Button>
-                  <Button variant="outline" onClick={() => setManualOpen(true)}>
+                  <Button variant="outline" onClick={() => { setVisibility("coach"); setManualOpen(true); }}>
                     <Dumbbell className="h-4 w-4 mr-1" />
                     Rédiger la séance
                   </Button>
@@ -355,6 +383,13 @@ export function SessionFiche({
               ) : (
                 <p className="text-sm text-muted-foreground">Le coach n&apos;a pas encore créé de fiche.</p>
               )}
+            </div>
+          ) : !isCoach && fiche && fiche.visibility === "coach" ? (
+            <div className="rounded-lg border border-dashed p-6 text-center">
+              <Lock className="h-6 w-6 mx-auto mb-2 text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">
+                Cette fiche de séance est réservée aux coachs.
+              </p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -435,6 +470,7 @@ export function SessionFiche({
                         setManualTitle(fiche.title === "Séance" ? "" : fiche.title);
                         setManualNotes(fiche.notes || "");
                         setManualObjectives(fiche.objectives || []);
+                        setVisibility(fiche.visibility || "coach");
                         setManualExercises(manualExercisesSaved.length > 0 ? manualExercisesSaved : [{ name: "", duration: 15, description: "", drill_type: "échauffement" }]);
                         setManualOpen(true);
                       }}
@@ -535,6 +571,10 @@ export function SessionFiche({
                   <option key={e} value={e}>{e}</option>
                 ))}
               </select>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold">Visibilité</Label>
+              <VisibilityPicker value={visibility} onChange={setVisibility} />
             </div>
           </div>
           <DialogFooter>
@@ -638,6 +678,10 @@ export function SessionFiche({
                 placeholder="Remarques, adaptations..."
                 rows={2}
               />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold">Visibilité</Label>
+              <VisibilityPicker value={visibility} onChange={setVisibility} />
             </div>
           </div>
           <DialogFooter>
