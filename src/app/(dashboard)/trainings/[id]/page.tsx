@@ -17,10 +17,11 @@ import { SessionRpe } from "@/components/training/SessionRpe";
 import {
   AttendanceLists,
   EventInfoCard,
-  getParentChildId,
   type MyPresenceInfo,
   type PlayerAttendanceRow,
 } from "@/components/EventDetail";
+import { ChildSwitcher } from "@/components/ChildSwitcher";
+import { useSelectedChild } from "@/lib/useSelectedChild";
 import { fetchTeamActivePlayers } from "@/lib/players";
 import type { AttendanceStatus, Event } from "@/types";
 
@@ -39,7 +40,7 @@ export default function TrainingDetailPage() {
 
   const [event, setEvent] = useState<TrainingEvent | null>(null);
   const [players, setPlayers] = useState<PlayerAttendanceRow[]>([]);
-  const [childId, setChildId] = useState<string | null>(null);
+  const { children: myChildren, selectedChildId: childId, setChild: setChildId } = useSelectedChild(currentTeam?.id);
   const [loading, setLoading] = useState(true);
   const [convDialogOpen, setConvDialogOpen] = useState(false);
   const [now] = useState(() => Date.now());
@@ -84,12 +85,6 @@ export default function TrainingDetailPage() {
     }
 
     fetchData();
-
-    if (!isCoach && user?.id) {
-      if (userRole === "parent") {
-        getParentChildId(user.id, team.id).then(setChildId);
-      }
-    }
   }, [trainingId, currentTeam, isCoach, user?.id, userRole]);
 
   async function updateAttendance(userId: string, status: AttendanceStatus, reason?: string) {
@@ -236,6 +231,15 @@ export default function TrainingDetailPage() {
 
       {/* Fiche de séance */}
       <SessionFiche eventId={trainingId} isCoach={isCoach} />
+
+      {/* Commutateur d'enfant (parents multi-enfants) */}
+      {userRole === "parent" && (
+        <ChildSwitcher
+          kids={myChildren}
+          selectedChildId={childId}
+          onSelect={setChildId}
+        />
+      )}
 
       {/* Partie 1 — Informations globales */}
       <EventInfoCard

@@ -52,6 +52,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import type { PlayerPhysicalTest } from "@/types";
+import { PersonalGoalsCard } from "@/components/stats/PersonalGoalsCard";
 
 interface PlayerStats {
   player_id: string;
@@ -855,6 +856,9 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
           )}
         </CardContent>
       </Card>
+
+      {/* Objectifs personnels */}
+      <PersonalGoalsCard playerId={playerId} />
 
       {/* Historique VMA / VMI */}
       <Card>

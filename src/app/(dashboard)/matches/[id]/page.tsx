@@ -31,10 +31,11 @@ import { EventCoachActions } from "@/components/EventCoachActions";
 import {
   AttendanceLists,
   EventInfoCard,
-  getParentChildId,
   type MyPresenceInfo,
   type PlayerAttendanceRow,
 } from "@/components/EventDetail";
+import { ChildSwitcher } from "@/components/ChildSwitcher";
+import { useSelectedChild } from "@/lib/useSelectedChild";
 import { fetchTeamActivePlayers } from "@/lib/players";
 import { LiveMatchTracker } from "@/components/LiveMatchTracker";
 import { MatchReportCard } from "@/components/match/MatchReportCard";
@@ -141,7 +142,7 @@ export default function MatchDetailPage() {
   const [scoreThem, setScoreThem] = useState<string>("");
   const [matchResult, setMatchResult] = useState<string>("");
   const [matchPlayers, setMatchPlayers] = useState<PlayerAttendanceRow[]>([]);
-  const [childId, setChildId] = useState<string | null>(null);
+  const { children: myChildren, selectedChildId: childId, setChild: setChildId } = useSelectedChild(currentTeam?.id);
   const [convDialogOpen, setConvDialogOpen] = useState(false);
   const [liveNow, setLiveNow] = useState(() => Date.now());
 
@@ -219,12 +220,6 @@ export default function MatchDetailPage() {
     }
 
     fetchMatchData();
-
-    if (!isCoach && user?.id) {
-      if (userRole === "parent") {
-        getParentChildId(user.id, team.id).then(setChildId);
-      }
-    }
   }, [matchId, currentTeam, isCoach, user?.id, userRole]);
 
   if (!currentTeam) {
@@ -531,6 +526,15 @@ export default function MatchDetailPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Commutateur d'enfant (parents multi-enfants) */}
+      {userRole === "parent" && (
+        <ChildSwitcher
+          kids={myChildren}
+          selectedChildId={childId}
+          onSelect={setChildId}
+        />
+      )}
 
       {/* Partie 1 — Informations globales */}
       <EventInfoCard

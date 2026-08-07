@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useTeam } from "@/lib/team";
 import { useAuth } from "@/lib/auth";
@@ -31,6 +31,7 @@ import {
   Check,
   X,
   LogOut,
+  Crown,
 } from "lucide-react";
 import { CHALLENGE_DIFFICULTIES, type ChallengeDifficulty } from "@/lib/challenges/ai-generator";
 import type { TeamMember, Profile } from "@/types";
@@ -62,50 +63,46 @@ export default function TeamSettingsPage() {
   );
   const isCoach = userRole === "coach" || userRole === "owner";
 
+  const fetchMembers = useCallback(async (teamId: string) => {
+    const supabase = createClient();
+    const { data: rows } = await supabase
+      .from("team_members")
+      .select("*")
+      .eq("team_id", teamId);
+
+    if (!rows || rows.length === 0) return [];
+
+    const userIds = rows.map((r) => r.user_id);
+    const { data: profiles } = await supabase
+      .from("profiles")
+      .select("*")
+      .in("id", userIds);
+
+    const profileMap = new Map((profiles || []).map((p) => [p.id, p]));
+    return rows.map((r) => ({
+      ...r,
+      profile: profileMap.get(r.user_id),
+    }));
+  }, []);
+
   useEffect(() => {
     if (!currentTeam) return;
 
-    setNewName(currentTeam.name);
-    setColorPrimary(currentTeam.color_primary || "#EAB308");
-    setColorSecondary(currentTeam.color_secondary || "#1E40AF");
+    const team = currentTeam;
+    const supabase = createClient();
 
-    async function loadMembers() {
-      const { data: rows } = await supabase
-        .from("team_members")
-        .select("*")
-        .eq("team_id", currentTeam!.id);
-
-      if (!rows || rows.length === 0) {
-        setMembers([]);
-        setLoading(false);
-        return;
-      }
-
-      const userIds = rows.map((r) => r.user_id);
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("*")
-        .in("id", userIds);
-
-      const profileMap = new Map(
-        (profiles || []).map((p) => [p.id, p])
-      );
-
-      setMembers(
-        rows.map((r) => ({
-          ...r,
-          profile: profileMap.get(r.user_id),
-        }))
-      );
+    fetchMembers(team.id).then((rows) => {
+      setMembers(rows);
       setLoading(false);
-    }
-
-    loadMembers();
+      setNewName(team.name);
+      setColorPrimary(team.color_primary || "#EAB308");
+      setColorSecondary(team.color_secondary || "#1E40AF");
+    });
 
     supabase
       .from("weekly_challenge_settings")
       .select("difficulty")
-      .eq("team_id", currentTeam.id)
+      .eq("team_id", team.id)
       .maybeSingle()
       .then(({ data }) => {
         if (data?.difficulty) {
@@ -116,12 +113,12 @@ export default function TeamSettingsPage() {
     supabase
       .from("team_settings")
       .select("enable_rpe")
-      .eq("team_id", currentTeam.id)
+      .eq("team_id", team.id)
       .maybeSingle()
       .then(({ data }) => {
         setEnableRpe(data?.enable_rpe === true);
       });
-  }, [currentTeam, supabase]);
+  }, [currentTeam, fetchMembers]);
 
   async function regenerateCode() {
     if (!currentTeam) return;
@@ -253,6 +250,34 @@ export default function TeamSettingsPage() {
     } else {
       setMembers((prev) => prev.filter((m) => m.id !== memberId));
       toast.success(`${memberName} a été retiré de l'équipe`);
+    }
+  }
+
+  async function transferOwnership(memberId: string, memberName: string) {
+    if (!currentTeam) return;
+    const ok = window.confirm(
+      `Transférer la propriété de l'équipe à ${memberName} ? Vous deviendrez coach.`
+    );
+    if (!ok) return;
+
+    const res = await authFetch("/api/teams/transfer-ownership", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ teamId: currentTeam.id, newOwnerId: memberId }),
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      toast.error(data.error || "Erreur lors du transfert");
+      return;
+    }
+
+    toast.success(`Propriété transférée à ${memberName}`);
+    await refreshTeams();
+    if (currentTeam) {
+      const rows = await fetchMembers(currentTeam.id);
+      setMembers(rows);
+      setLoading(false);
     }
   }
 
@@ -663,19 +688,36 @@ export default function TeamSettingsPage() {
                     {isOwner &&
                       member.user_id !== user?.id &&
                       member.role !== "owner" && (
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-8 w-8 text-destructive hover:text-destructive"
-                          onClick={() =>
-                            removeMember(
-                              member.id,
-                              `${member.profile?.first_name} ${member.profile?.last_name}`
-                            )
-                          }
-                        >
-                          <LogOut className="h-4 w-4" />
-                        </Button>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-8 w-8 text-[var(--color-gold)] hover:text-[var(--color-gold)]"
+                            title="Transférer la propriété"
+                            onClick={() =>
+                              transferOwnership(
+                                member.user_id,
+                                `${member.profile?.first_name} ${member.profile?.last_name}`
+                              )
+                            }
+                          >
+                            <Crown className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-8 w-8 text-destructive hover:text-destructive"
+                            title="Retirer de l'équipe"
+                            onClick={() =>
+                              removeMember(
+                                member.id,
+                                `${member.profile?.first_name} ${member.profile?.last_name}`
+                              )
+                            }
+                          >
+                            <LogOut className="h-4 w-4" />
+                          </Button>
+                        </div>
                       )}
                   </div>
                 </div>
