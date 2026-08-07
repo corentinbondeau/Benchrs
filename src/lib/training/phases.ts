@@ -21,7 +21,13 @@ export const TACTICAL_PHASES: Record<string, string[]> = {
     "Densifier dans le couloir de jeu",
     "Couvrir le partenaire dans l'action défensive",
   ],
-  ATHLETISATION: [],
+  ATHLETISATION: [
+    "Entretenir la condition physique acquise lors de la préparation physique (2-3 semaines)",
+    "Développer l'endurance de base (filière aérobie)",
+    "Renforcer la musculature globale (prévention des blessures)",
+    "Améliorer la mobilité, la souplesse et la coordination",
+    "Maintenir un niveau physique régulier sans risque de surentraînement",
+  ],
 };
 
 export const TACTICAL_PHASE_NAMES = Object.keys(TACTICAL_PHASES);
