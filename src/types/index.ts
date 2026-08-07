@@ -66,6 +66,27 @@ export interface ParentStudent {
   team_id: string;
 }
 
+export type GoalCategory =
+  | "goals"
+  | "assists"
+  | "matches"
+  | "minutes"
+  | "assiduite"
+  | "other";
+
+export interface PersonalGoal {
+  id: string;
+  player_id: string;
+  team_id: string;
+  season: string;
+  category: GoalCategory;
+  label: string;
+  target: number;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Event {
   id: string;
   type: EventType;
