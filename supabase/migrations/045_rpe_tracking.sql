@@ -2,6 +2,22 @@
 -- Suivi de charge (RPE) : après chaque séance, les joueurs notent l'intensité perçue (1-10).
 -- Charge = RPE × durée (min). Table team_settings.enable_rpe activable par les coachs (params équipe).
 
+-- NOTE: une table orpheline `team_settings` (clé/valeur `key`/`value`, jamais utilisée par le code)
+-- existait déjà en base. On ne la supprime QUE si elle n'a pas la colonne team_id (vieux schéma),
+-- afin de libérer le nom pour le vrai réglage d'équipe sans jamais toucher une table RPE existante.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'public' AND table_name = 'team_settings'
+  ) AND NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'team_settings' AND column_name = 'team_id'
+  ) THEN
+    DROP TABLE public.team_settings;
+  END IF;
+END $$;
+
 CREATE TABLE IF NOT EXISTS public.team_settings (
   team_id UUID PRIMARY KEY REFERENCES public.teams(id) ON DELETE CASCADE,
   enable_rpe BOOLEAN NOT NULL DEFAULT false,
