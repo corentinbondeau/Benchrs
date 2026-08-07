@@ -425,3 +425,154 @@ export async function renderSessionPdf(session: AISession): Promise<Buffer> {
   ) as React.ReactElement<React.ComponentProps<typeof Document>>;
   return renderToBuffer(node);
 }
+
+export interface ManualSession {
+  title: string;
+  objectives?: string[] | null;
+  notes?: string | null;
+  exercises: {
+    name: string;
+    duration: number;
+    description: string;
+    drill_type: string;
+  }[];
+}
+
+const manualStyles = StyleSheet.create({
+  page: {
+    padding: 28,
+    fontSize: 10,
+    fontFamily: "Helvetica",
+    color: "#1A202C",
+  },
+  header: {
+    backgroundColor: NAVY,
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 14,
+  },
+  headerTitle: {
+    color: "#FFFFFF",
+    fontSize: 17,
+    fontWeight: "bold",
+  },
+  headerObjective: {
+    color: "#D9E2EC",
+    fontSize: 10,
+    marginTop: 4,
+  },
+  headerMeta: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginTop: 8,
+    gap: 6,
+  },
+  headerBadge: {
+    backgroundColor: GOLD,
+    color: NAVY,
+    fontSize: 9,
+    fontWeight: "bold",
+    borderRadius: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  exercise: {
+    borderWidth: 1,
+    borderColor: "#D9E2EC",
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 10,
+  },
+  exerciseHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 6,
+  },
+  exerciseName: {
+    fontSize: 11,
+    fontWeight: "bold",
+    color: NAVY,
+    flex: 1,
+  },
+  exerciseDuration: {
+    fontSize: 10,
+    fontWeight: "bold",
+    color: ROYAL,
+    marginLeft: 8,
+  },
+  exerciseType: {
+    alignSelf: "flex-start",
+    backgroundColor: "#EBF0F5",
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    fontSize: 8,
+    color: "#486581",
+    marginBottom: 6,
+  },
+  description: {
+    fontSize: 9,
+    color: "#486581",
+  },
+  footer: {
+    textAlign: "center",
+    color: "#9FB3C8",
+    fontSize: 8,
+    marginTop: 12,
+  },
+});
+
+function ManualSessionFiche({ session }: { session: ManualSession }) {
+  const total = session.exercises.reduce((sum, e) => sum + (e.duration || 0), 0);
+  return (
+    <Document>
+      <Page size="A4" style={manualStyles.page}>
+        <View style={manualStyles.header}>
+          <Text style={manualStyles.headerTitle}>{session.title || "Séance"}</Text>
+          {session.objectives && session.objectives.length > 0 && (
+            <Text style={manualStyles.headerObjective}>{session.objectives.join(" · ")}</Text>
+          )}
+          <View style={manualStyles.headerMeta}>
+            <Text style={manualStyles.headerBadge}>Exercices : {session.exercises.length}</Text>
+            <Text style={manualStyles.headerBadge}>Durée totale : {total} min</Text>
+          </View>
+        </View>
+
+        {session.exercises.map((ex, i) => (
+          <View key={i} style={manualStyles.exercise}>
+            <View style={manualStyles.exerciseHeader}>
+              <Text style={manualStyles.exerciseName}>
+                {i + 1}. {ex.name || "Exercice"}
+              </Text>
+              {ex.duration > 0 && (
+                <Text style={manualStyles.exerciseDuration}>{ex.duration} min</Text>
+              )}
+            </View>
+            {ex.drill_type ? (
+              <Text style={manualStyles.exerciseType}>{ex.drill_type}</Text>
+            ) : null}
+            {ex.description ? (
+              <Text style={manualStyles.description}>{ex.description}</Text>
+            ) : null}
+          </View>
+        ))}
+
+        {session.notes ? (
+          <Text style={manualStyles.description}>{session.notes}</Text>
+        ) : null}
+
+        <Text style={manualStyles.footer}>Généré par Benchrs — Fiche de séance</Text>
+      </Page>
+    </Document>
+  );
+}
+
+export async function renderManualSessionPdf(session: ManualSession): Promise<Buffer> {
+  const { renderToBuffer } = await import("@react-pdf/renderer");
+  const node = React.createElement(
+    ManualSessionFiche,
+    { session }
+  ) as React.ReactElement<React.ComponentProps<typeof Document>>;
+  return renderToBuffer(node);
+}
