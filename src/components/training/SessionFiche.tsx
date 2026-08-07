@@ -30,7 +30,12 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { TACTICAL_PHASES, TACTICAL_PHASE_NAMES } from "@/lib/training/phases";
-import { FOOTBALL_SYSTEMS, type AISession } from "@/lib/training/ai-generator";
+import {
+  EXPERTISE_LEVELS,
+  FOOTBALL_SYSTEMS,
+  type AISession,
+  type ExpertiseLevel,
+} from "@/lib/training/ai-generator";
 import { AIFicheView } from "@/components/training/AIFicheView";
 import type { Exercise } from "@/types";
 
@@ -85,6 +90,7 @@ export function SessionFiche({
   const [freeObjective, setFreeObjective] = useState("");
   const [playerCount, setPlayerCount] = useState(12);
   const [systeme, setSysteme] = useState<string>("");
+  const [expertise, setExpertise] = useState<ExpertiseLevel>("UEFA B");
   const [generating, setGenerating] = useState(false);
 
   const [manualTitle, setManualTitle] = useState("");
@@ -203,7 +209,7 @@ export function SessionFiche({
       const res = await fetch("/api/trainings/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phase, objectives: allObjectives, playerCount, systeme: systeme || undefined }),
+        body: JSON.stringify({ phase, objectives: allObjectives, playerCount, systeme: systeme || undefined, expertise }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => null);
@@ -517,6 +523,18 @@ export function SessionFiche({
                   ))}
                 </select>
               </div>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold">Niveau d&apos;expertise du coach IA</Label>
+              <select
+                className="flex h-9 w-full rounded-lg border border-input bg-transparent px-3 py-1 text-sm"
+                value={expertise}
+                onChange={(e) => setExpertise(e.target.value as ExpertiseLevel)}
+              >
+                {EXPERTISE_LEVELS.map((e) => (
+                  <option key={e} value={e}>{e}</option>
+                ))}
+              </select>
             </div>
           </div>
           <DialogFooter>

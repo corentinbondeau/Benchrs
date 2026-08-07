@@ -47,6 +47,12 @@ export function AIFicheView({ session }: { session: AISession }) {
                 </ul>
               </div>
             )}
+            {section.animation && (
+              <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3">
+                <p className="text-xs font-semibold text-emerald-700 mb-1.5">Animation simple (déroulé)</p>
+                <p className="text-sm text-emerald-900 whitespace-pre-wrap">{section.animation}</p>
+              </div>
+            )}
           </CardContent>
         </Card>
       ))}

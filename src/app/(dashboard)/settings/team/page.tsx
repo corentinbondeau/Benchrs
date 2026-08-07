@@ -19,6 +19,8 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import {
   Copy,
+  Link2,
+  Share2,
   RefreshCw,
   Users,
   Pencil,
@@ -117,6 +119,33 @@ export default function TeamSettingsPage() {
     setCopied(true);
     toast.success("Code copié !");
     setTimeout(() => setCopied(false), 2000);
+  }
+
+  function inviteLink() {
+    if (!currentTeam) return "";
+    return `${window.location.origin}/join?code=${currentTeam.invite_code}`;
+  }
+
+  function copyInviteLink() {
+    if (!currentTeam) return;
+    navigator.clipboard.writeText(inviteLink());
+    setCopied(true);
+    toast.success("Lien d'invitation copié !");
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  async function shareInviteLink() {
+    if (!currentTeam) return;
+    const text = `Rejoins mon équipe ${currentTeam.name} sur Benchrs : ${inviteLink()}`;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: "Invitation Benchrs", text });
+        return;
+      } catch {
+        // fallback sur copie si partage annulé/indisponible
+      }
+    }
+    copyInviteLink();
   }
 
   async function saveTeamName() {
@@ -278,6 +307,36 @@ export default function TeamSettingsPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
+            <Label>Lien d&apos;invitation</Label>
+            <div className="flex gap-2">
+              <Input
+                value={inviteLink()}
+                readOnly
+                className="font-mono text-sm"
+              />
+              <Button variant="outline" size="icon" onClick={copyInviteLink}>
+                <Copy
+                  className={`h-4 w-4 ${copied ? "text-green-500" : ""}`}
+                />
+              </Button>
+              <Button variant="outline" size="icon" onClick={shareInviteLink}>
+                <Share2 className="h-4 w-4" />
+              </Button>
+            </div>
+            <Button
+              className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] font-semibold"
+              onClick={copyInviteLink}
+            >
+              <Link2 className="h-4 w-4 mr-1" />
+              {copied ? "Lien copié !" : "Copier le lien d'invitation"}
+            </Button>
+            <p className="text-xs text-muted-foreground">
+              Partagez ce lien pour que les joueurs rejoignent l&apos;équipe en
+              un clic, plus besoin de saisir le code à la main.
+            </p>
+          </div>
+
+          <div className="space-y-2">
             <Label>Code d&apos;invitation</Label>
             <div className="flex gap-2">
               <Input
@@ -286,9 +345,7 @@ export default function TeamSettingsPage() {
                 className="font-mono text-lg"
               />
               <Button variant="outline" size="icon" onClick={copyCode}>
-                <Copy
-                  className={`h-4 w-4 ${copied ? "text-green-500" : ""}`}
-                />
+                <Copy className="h-4 w-4" />
               </Button>
               {isOwner && (
                 <Button variant="outline" size="icon" onClick={regenerateCode}>
@@ -297,7 +354,7 @@ export default function TeamSettingsPage() {
               )}
             </div>
             <p className="text-xs text-muted-foreground">
-              Partagez ce code pour que les joueurs rejoignent votre équipe
+              Code alternatif à saisir manuellement sur la page de rejointe
             </p>
           </div>
         </CardContent>

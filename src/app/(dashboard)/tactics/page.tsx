@@ -46,7 +46,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { TACTICAL_PHASES as PHASE_OBJECTIVES, TACTICAL_PHASE_NAMES } from "@/lib/training/phases";
-import { FOOTBALL_SYSTEMS, type AISession } from "@/lib/training/ai-generator";
+import { FOOTBALL_SYSTEMS, EXPERTISE_LEVELS, type AISession, type ExpertiseLevel } from "@/lib/training/ai-generator";
 import { AIFicheView, isAiSessionExercises } from "@/components/training/AIFicheView";
 import type {
   TrainingSession,
@@ -110,6 +110,7 @@ function SéanceTab() {
   const [freeObjective, setFreeObjective] = useState("");
   const [playerCount, setPlayerCount] = useState(12);
   const [systeme, setSysteme] = useState("");
+  const [expertise, setExpertise] = useState<ExpertiseLevel>("UEFA B");
   const [generatedAi, setGeneratedAi] = useState<AISession | null>(null);
 
   if (!currentTeam) {
@@ -310,6 +311,7 @@ function SéanceTab() {
           objectives,
           playerCount,
           systeme: systeme || undefined,
+          expertise,
         }),
       });
       if (!res.ok) {
@@ -623,6 +625,20 @@ function SéanceTab() {
                           </SelectContent>
                         </Select>
                       </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Niveau d'expertise du coach IA</Label>
+                      <Select value={expertise} onValueChange={(v) => setExpertise((v as ExpertiseLevel) ?? "UEFA B")}>
+                        <SelectTrigger className="w-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {EXPERTISE_LEVELS.map((e) => (
+                            <SelectItem key={e} value={e}>{e}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
 
                     <Button

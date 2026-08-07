@@ -145,6 +145,25 @@ const styles = StyleSheet.create({
     flex: 1,
     lineHeight: 1.4,
   },
+  animationBox: {
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: "#9AE6B4",
+    borderRadius: 6,
+    backgroundColor: "#F0FFF4",
+    padding: 8,
+  },
+  animationTitle: {
+    fontWeight: "bold",
+    color: "#276749",
+    fontSize: 9.5,
+    marginBottom: 2,
+  },
+  animationText: {
+    fontSize: 9,
+    color: "#22543D",
+    lineHeight: 1.4,
+  },
   schematicBox: {
     flexDirection: "row",
     marginTop: 8,
@@ -369,6 +388,12 @@ function SectionBlock({ section }: { section: FicheSection }) {
             </View>
           </View>
         )}
+        {section.animation ? (
+          <View style={styles.animationBox}>
+            <Text style={styles.animationTitle}>Animation simple (déroulé étape par étape)</Text>
+            <Text style={styles.animationText}>{section.animation}</Text>
+          </View>
+        ) : null}
       </View>
     </View>
   );
