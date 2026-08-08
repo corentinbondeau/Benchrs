@@ -71,6 +71,8 @@ const navItems = [
   { href: "/notifications", label: "Notifications", icon: Bell },
 ];
 
+const comiteOnlyHrefs = new Set(["/club", "/calendar", "/stats", "/notifications"]);
+
 const coachItems = [
   { href: "/admin/players", label: "Gestion joueurs", icon: UserCog },
   { href: "/admin/cotisations", label: "Cotisations", icon: Wallet },
@@ -82,6 +84,7 @@ export function Sidebar() {
   const { currentTeam, teams, switchTeam, userRole, clubMemberships } = useTeam();
   const isCoach = userRole === "coach" || userRole === "owner";
   const hasClubRole = clubMemberships.length > 0;
+  const isComiteOnly = hasClubRole && userRole === null;
   const { total: unreadChat } = useChatUnread(currentTeam?.id, user?.id, userRole ?? undefined);
   const [createOpen, setCreateOpen] = useState(false);
   const [joinMode, setJoinMode] = useState(false);
@@ -181,9 +184,11 @@ export function Sidebar() {
                   </option>
                 ))}
               </select>
-              <Link href="/settings/team" className="text-white/40 hover:text-white shrink-0">
-                <Settings2 className="h-5 w-5" />
-              </Link>
+              {!isComiteOnly && (
+                <Link href="/settings/team" className="text-white/40 hover:text-white shrink-0">
+                  <Settings2 className="h-5 w-5" />
+                </Link>
+              )}
             </div>
           ) : (
             <div className="flex items-center gap-2 px-3 py-2">
@@ -193,68 +198,72 @@ export function Sidebar() {
                   <p className="text-xs text-white/50 truncate">{currentTeam.name}</p>
                 )}
               </div>
-              <Link href="/settings/team" className="text-white/40 hover:text-white shrink-0">
-                <Settings2 className="h-5 w-5" />
-              </Link>
+              {!isComiteOnly && (
+                <Link href="/settings/team" className="text-white/40 hover:text-white shrink-0">
+                  <Settings2 className="h-5 w-5" />
+                </Link>
+              )}
               <ChevronsUpDown className="h-4 w-4 text-white/40 shrink-0" />
             </div>
           )}
-          <Dialog open={createOpen} onOpenChange={(open) => { setCreateOpen(open); if (!open) setJoinMode(false); }}>
-            <DialogTrigger render={<button className="block w-full mt-0.5 text-xs text-white/40 hover:text-white/60 text-center" />}>
-              + Créer une équipe
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-sm">
-              <DialogHeader>
-                <DialogTitle>{joinMode ? "Rejoindre une équipe" : "Créer une équipe"}</DialogTitle>
-              </DialogHeader>
-              <div className="flex gap-1 rounded-lg border p-0.5 bg-muted/30 mb-4">
-                <button className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${!joinMode ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"}`} onClick={() => { setJoinMode(false); setInviteCode(""); }}>Créer</button>
-                <button className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${joinMode ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"}`} onClick={() => { setJoinMode(true); setClubName(""); setTeamName(""); }}>Rejoindre</button>
-              </div>
-              {joinMode ? (
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>Code d&apos;invitation</Label>
-                    <Input value={inviteCode} onChange={(e) => setInviteCode(e.target.value)} placeholder="Entrez le code" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Votre rôle dans cette équipe</Label>
-                    <Select value={joinRole} onValueChange={(v) => v && setJoinRole(v as "player" | "coach" | "parent")}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="player">Joueur</SelectItem>
-                        <SelectItem value="coach">Coach</SelectItem>
-                        <SelectItem value="parent">Parent</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <Button className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold" onClick={handleJoinTeam} disabled={!inviteCode.trim() || creating}>
-                    {creating ? "Connexion..." : "Rejoindre l'équipe"}
-                  </Button>
+          {!isComiteOnly && (
+            <Dialog open={createOpen} onOpenChange={(open) => { setCreateOpen(open); if (!open) setJoinMode(false); }}>
+              <DialogTrigger render={<button className="block w-full mt-0.5 text-xs text-white/40 hover:text-white/60 text-center" />}>
+                + Créer une équipe
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-sm">
+                <DialogHeader>
+                  <DialogTitle>{joinMode ? "Rejoindre une équipe" : "Créer une équipe"}</DialogTitle>
+                </DialogHeader>
+                <div className="flex gap-1 rounded-lg border p-0.5 bg-muted/30 mb-4">
+                  <button className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${!joinMode ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"}`} onClick={() => { setJoinMode(false); setInviteCode(""); }}>Créer</button>
+                  <button className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${joinMode ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"}`} onClick={() => { setJoinMode(true); setClubName(""); setTeamName(""); }}>Rejoindre</button>
                 </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>Nom du club</Label>
-                    <Input value={clubName} onChange={(e) => setClubName(e.target.value)} placeholder="AS Monaco" />
+                {joinMode ? (
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label>Code d&apos;invitation</Label>
+                      <Input value={inviteCode} onChange={(e) => setInviteCode(e.target.value)} placeholder="Entrez le code" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Votre rôle dans cette équipe</Label>
+                      <Select value={joinRole} onValueChange={(v) => v && setJoinRole(v as "player" | "coach" | "parent")}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="player">Joueur</SelectItem>
+                          <SelectItem value="coach">Coach</SelectItem>
+                          <SelectItem value="parent">Parent</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Button className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold" onClick={handleJoinTeam} disabled={!inviteCode.trim() || creating}>
+                      {creating ? "Connexion..." : "Rejoindre l'équipe"}
+                    </Button>
                   </div>
-                  <div className="space-y-2">
-                    <Label>Numéro d&apos;affiliation FFF *</Label>
-                    <Input inputMode="numeric" value={fffNumber} onChange={(e) => setFffNumber(e.target.value)} placeholder="501234" />
+                ) : (
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label>Nom du club</Label>
+                      <Input value={clubName} onChange={(e) => setClubName(e.target.value)} placeholder="AS Monaco" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Numéro d&apos;affiliation FFF *</Label>
+                      <Input inputMode="numeric" value={fffNumber} onChange={(e) => setFffNumber(e.target.value)} placeholder="501234" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Nom de l&apos;équipe</Label>
+                      <Input value={teamName} onChange={(e) => setTeamName(e.target.value)} placeholder="U17 Senior" />
+                    </div>
+                    <Button className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold" onClick={handleCreateTeam} disabled={!clubName.trim() || !teamName.trim() || creating}>
+                      {creating ? "Création..." : "Créer l'équipe"}
+                    </Button>
                   </div>
-                  <div className="space-y-2">
-                    <Label>Nom de l&apos;équipe</Label>
-                    <Input value={teamName} onChange={(e) => setTeamName(e.target.value)} placeholder="U17 Senior" />
-                  </div>
-                  <Button className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold" onClick={handleCreateTeam} disabled={!clubName.trim() || !teamName.trim() || creating}>
-                    {creating ? "Création..." : "Créer l'équipe"}
-                  </Button>
-                </div>
-              )}
-            </DialogContent>
-          </Dialog>
+                )}
+              </DialogContent>
+            </Dialog>
+          )}
         </div>
       )}
 
@@ -263,6 +272,7 @@ export function Sidebar() {
           .filter((item) => {
             if (item.coachOnly && !isCoach) return false;
             if ((item as { clubOnly?: boolean }).clubOnly && !hasClubRole) return false;
+            if (isComiteOnly && !comiteOnlyHrefs.has(item.href)) return false;
             return true;
           })
           .map((item) => {

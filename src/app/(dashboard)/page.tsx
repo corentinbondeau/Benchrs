@@ -1,6 +1,8 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { useTeam } from "@/lib/team";
 import { LazyMount } from "@/components/LazyMount";
@@ -38,7 +40,19 @@ const SeasonSummary = dynamic(
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  const { userRole } = useTeam();
+  const { userRole, clubMemberships } = useTeam();
+  const router = useRouter();
+  const isComiteOnly = clubMemberships.length > 0 && userRole === null;
+
+  useEffect(() => {
+    if (isComiteOnly) {
+      router.replace("/club");
+    }
+  }, [isComiteOnly, router]);
+
+  if (isComiteOnly) {
+    return null;
+  }
 
   if (userRole === "player") {
     return <PlayerDashboard />;

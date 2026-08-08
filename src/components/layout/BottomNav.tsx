@@ -59,6 +59,8 @@ const navItems = [
   { href: "/notifications", label: "Notifications", icon: Bell },
 ];
 
+const comiteOnlyHrefs = new Set(["/club", "/calendar", "/stats", "/notifications"]);
+
 const coachItems = [
   { href: "/admin/players", label: "Gestion joueurs", icon: UserCog },
   { href: "/admin/cotisations", label: "Cotisations", icon: Wallet },
@@ -70,6 +72,7 @@ function SheetContentInner({ close }: { close: () => void }) {
   const { currentTeam, teams, switchTeam, userRole, clubMemberships } = useTeam();
   const isCoach = userRole === "coach" || userRole === "owner";
   const hasClubRole = clubMemberships.length > 0;
+  const isComiteOnly = hasClubRole && userRole === null;
   const [showTeamForm, setShowTeamForm] = useState(false);
   const [joinMode, setJoinMode] = useState(false);
   const [clubName, setClubName] = useState("");
@@ -158,9 +161,11 @@ function SheetContentInner({ close }: { close: () => void }) {
                   </option>
                 ))}
               </select>
-              <Link href="/settings/team" onClick={close} className="text-white/40 hover:text-white shrink-0">
-                <Settings2 className="h-5 w-5" />
-              </Link>
+              {!isComiteOnly && (
+                <Link href="/settings/team" onClick={close} className="text-white/40 hover:text-white shrink-0">
+                  <Settings2 className="h-5 w-5" />
+                </Link>
+              )}
             </>
           ) : (
             <>
@@ -170,15 +175,19 @@ function SheetContentInner({ close }: { close: () => void }) {
                   <p className="text-xs text-white/50 truncate">{currentTeam.name}</p>
                 )}
               </div>
-              <Link href="/settings/team" onClick={close} className="text-white/40 hover:text-white shrink-0">
-                <Settings2 className="h-5 w-5" />
-              </Link>
+              {!isComiteOnly && (
+                <Link href="/settings/team" onClick={close} className="text-white/40 hover:text-white shrink-0">
+                  <Settings2 className="h-5 w-5" />
+                </Link>
+              )}
             </>
           )}
         </div>
       )}
 
       {/* Mobile: Team management actions */}
+      {!isComiteOnly && (
+      <>
       <div className="px-2 py-2 border-b border-white/10">
         <p className="px-1 pb-1 text-[10px] font-semibold text-white/40 uppercase tracking-wider">
           Équipe
@@ -250,12 +259,15 @@ function SheetContentInner({ close }: { close: () => void }) {
           )}
         </div>
       )}
+      </>
+      )}
 
       <nav className="py-3 px-2 space-y-0.5">
         {navItems
           .filter((item) => {
             if (item.coachOnly && !isCoach) return false;
             if ((item as { clubOnly?: boolean }).clubOnly && !hasClubRole) return false;
+            if (isComiteOnly && !comiteOnlyHrefs.has(item.href)) return false;
             return true;
           })
           .map((item) => {
@@ -324,19 +336,28 @@ function SheetContentInner({ close }: { close: () => void }) {
 export function BottomNav() {
   const pathname = usePathname();
   const { user } = useAuth();
-  const { currentTeam, userRole } = useTeam();
+  const { currentTeam, userRole, clubMemberships } = useTeam();
   const { total: unreadChat } = useChatUnread(currentTeam?.id, user?.id, userRole ?? undefined);
   const close = useCallback(() => {
     const closeBtn = document.querySelector<HTMLButtonElement>('[data-bottom-sheet-close]');
     closeBtn?.click();
   }, []);
 
-  const items = [
-    { href: "/", label: "Accueil", icon: LayoutDashboard },
-    { href: "/calendar", label: "Calendrier", icon: Calendar },
-    { href: "/roster", label: "Effectif", icon: Users },
-    { href: "/chat", label: "Messagerie", icon: MessageSquare },
-  ];
+  const isComiteOnly = clubMemberships.length > 0 && userRole === null;
+
+  const items = isComiteOnly
+    ? [
+        { href: "/club", label: "Espace club", icon: Building2 },
+        { href: "/calendar", label: "Calendrier", icon: Calendar },
+        { href: "/stats", label: "Stats", icon: BarChart3 },
+        { href: "/notifications", label: "Notifications", icon: Bell },
+      ]
+    : [
+        { href: "/", label: "Accueil", icon: LayoutDashboard },
+        { href: "/calendar", label: "Calendrier", icon: Calendar },
+        { href: "/roster", label: "Effectif", icon: Users },
+        { href: "/chat", label: "Messagerie", icon: MessageSquare },
+      ];
 
   return (
     <Sheet>
