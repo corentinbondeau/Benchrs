@@ -169,7 +169,7 @@ export function Sidebar() {
       </div>
 
       {/* Team selector */}
-      {currentTeam && (
+      {currentTeam && !isComiteOnly && (
         <div className="px-3 py-2 border-b border-white/10">
           {teams.length > 1 ? (
             <div className="flex items-center gap-2">
