@@ -99,7 +99,7 @@ export function TeamProvider({ children }: { children: ReactNode }) {
           color_primary: raw.color_primary || "#EAB308",
           color_secondary: raw.color_secondary || "#1E40AF",
           created_at: raw.created_at,
-          club: raw.club?.[0] ?? undefined,
+          club: Array.isArray(raw.club) ? raw.club[0] ?? undefined : (raw.club ?? undefined),
         };
         return team;
       })

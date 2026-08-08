@@ -25,11 +25,25 @@ import {
 interface ClubRow {
   club_id: string;
   role: "president" | "comite";
-  club: {
-    id: string;
-    name: string;
-    logo_url: string | null;
-  }[];
+  club:
+    | {
+        id: string;
+        name: string;
+        logo_url: string | null;
+      }
+    | {
+        id: string;
+        name: string;
+        logo_url: string | null;
+      }[]
+    | null;
+}
+
+function firstClub(
+  row: { id: string; name: string; logo_url: string | null } | { id: string; name: string; logo_url: string | null }[] | null | undefined
+): { id: string; name: string; logo_url: string | null } | undefined {
+  if (Array.isArray(row)) return row[0];
+  return row ?? undefined;
 }
 
 interface CommitteeMember {
@@ -212,7 +226,7 @@ export default function ClubPage() {
     const rows = rowsRes.data as unknown as ClubRow[] | null;
     const created = (createdRes.data || []) as { id: string; name: string; logo_url: string | null }[];
     const seen = new Set<string>();
-    const joined: { club_id: string; role: "president" | "comite"; club: { id: string; name: string; logo_url: string | null }[] }[] = [];
+    const joined: ClubRow[] = [];
     for (const row of rows || []) {
       if (!seen.has(row.club_id)) {
         seen.add(row.club_id);
@@ -234,7 +248,7 @@ export default function ClubPage() {
 
     const result: ClubData[] = [];
     for (const row of joined as unknown as ClubRow[]) {
-      const club = row.club?.[0];
+      const club = firstClub(row.club);
       if (!club) continue;
 
       const [teamsRes, membersRes] = await Promise.all([
