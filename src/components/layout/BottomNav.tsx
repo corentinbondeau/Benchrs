@@ -40,6 +40,7 @@ import {
   Wallet,
   CalendarRange,
   Flame,
+  Building2,
 } from "lucide-react";
 
 const navItems = [
@@ -51,6 +52,7 @@ const navItems = [
   { href: "/tactics", label: "Tactique", icon: Swords, coachOnly: true },
   { href: "/season", label: "Plan de saison", icon: CalendarRange },
   { href: "/challenge", label: "Défi de la semaine", icon: Flame },
+  { href: "/club", label: "Espace club", icon: Building2, clubOnly: true },
   { href: "/gallery", label: "Galerie", icon: Image },
   { href: "/trophies", label: "Trophées", icon: Trophy },
   { href: "/championship", label: "Championnat", icon: Medal },
@@ -65,8 +67,9 @@ const coachItems = [
 function SheetContentInner({ close }: { close: () => void }) {
   const pathname = usePathname();
   const { user } = useAuth();
-  const { currentTeam, teams, switchTeam, userRole } = useTeam();
+  const { currentTeam, teams, switchTeam, userRole, clubMemberships } = useTeam();
   const isCoach = userRole === "coach" || userRole === "owner";
+  const hasClubRole = clubMemberships.length > 0;
   const [showTeamForm, setShowTeamForm] = useState(false);
   const [joinMode, setJoinMode] = useState(false);
   const [clubName, setClubName] = useState("");
@@ -250,7 +253,11 @@ function SheetContentInner({ close }: { close: () => void }) {
 
       <nav className="py-3 px-2 space-y-0.5">
         {navItems
-          .filter((item) => !item.coachOnly || isCoach)
+          .filter((item) => {
+            if (item.coachOnly && !isCoach) return false;
+            if ((item as { clubOnly?: boolean }).clubOnly && !hasClubRole) return false;
+            return true;
+          })
           .map((item) => {
           const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
           return (

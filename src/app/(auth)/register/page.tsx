@@ -50,7 +50,7 @@ function RegisterForm() {
       ? rawNext
       : null;
   const [step, setStep] = useState<"info" | "team">("info");
-  const [teamMode, setTeamMode] = useState<"join" | "create">("join");
+  const [teamMode, setTeamMode] = useState<"join" | "create" | "comite">("join");
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -64,6 +64,7 @@ function RegisterForm() {
     teamName: "",
     fffNumber: "",
   });
+  const [comiteClub, setComiteClub] = useState<{ id: string; name: string } | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(true);
@@ -103,6 +104,18 @@ function RegisterForm() {
     }
 
     setStep("team");
+  }
+
+  async function handleLookupComiteFff(value: string) {
+    const fff = normalizeFffNumber(value);
+    if (!fff) {
+      setComiteClub(null);
+      return;
+    }
+    const res = await fetch(`/api/clubs/lookup-public?fffNumber=${fff}`);
+    if (!res.ok) return;
+    const { club } = await res.json();
+    setComiteClub(club ?? null);
   }
 
   async function handleSubmitTeam(e: React.FormEvent) {
@@ -192,6 +205,28 @@ function RegisterForm() {
         return;
       }
 
+      if (teamMode === "comite") {
+        if (!comiteClub) {
+          setError("Veuillez renseigner le numéro d'affiliation FFF de votre club");
+          setLoading(false);
+          return;
+        }
+        const clubRes = await authFetch("/api/auth/join-club", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ clubId: comiteClub.id }),
+        });
+        const clubData = await clubRes.json();
+        if (!clubRes.ok) {
+          setError(clubData.error || "Erreur lors de la rejoint du club");
+          setLoading(false);
+          return;
+        }
+        localStorage.removeItem("selectedTeamId");
+        window.location.href = "/club";
+        return;
+      }
+
       if (teamMode === "join" && formData.inviteCode) {
         const joinRes = await authFetch("/api/auth/join-team", {
           method: "POST",
@@ -270,11 +305,15 @@ function RegisterForm() {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <img src="/favicon.png" alt="Benchrs" className="h-12 w-12 mx-auto mb-2" />
-          <CardTitle className="text-2xl">Votre équipe</CardTitle>
+          <CardTitle className="text-2xl">
+            {teamMode === "comite" ? "Comité du club" : "Votre équipe"}
+          </CardTitle>
           <CardDescription>
             {teamMode === "join"
               ? "Entrez un code d&apos;invitation ou créez votre propre équipe"
-              : "Créez un club et une équipe pour commencer"}
+              : teamMode === "create"
+                ? "Créez un club et une équipe pour commencer"
+                : "Suivez l&apos;actualité de toutes les équipes de votre club"}
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmitTeam}>
@@ -284,6 +323,42 @@ function RegisterForm() {
                 {error}
               </div>
             )}
+
+            <div className="flex gap-1 rounded-lg border p-0.5">
+              <button
+                type="button"
+                onClick={() => setTeamMode("join")}
+                className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                  teamMode === "join"
+                    ? "bg-[var(--color-navy)] text-white"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Joueur
+              </button>
+              <button
+                type="button"
+                onClick={() => setTeamMode("create")}
+                className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                  teamMode === "create"
+                    ? "bg-[var(--color-navy)] text-white"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Coach / Créer
+              </button>
+              <button
+                type="button"
+                onClick={() => setTeamMode("comite")}
+                className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                  teamMode === "comite"
+                    ? "bg-[var(--color-navy)] text-white"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Comité du club
+              </button>
+            </div>
 
             {teamMode === "join" ? (
               <>
@@ -319,7 +394,7 @@ function RegisterForm() {
                   </Select>
                 </div>
               </>
-            ) : (
+            ) : teamMode === "create" ? (
               <>
                 <div className="space-y-2">
                   <Label htmlFor="clubName">Nom du club</Label>
@@ -360,6 +435,49 @@ function RegisterForm() {
                   />
                 </div>
               </>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="comiteFff">
+                    Numéro d&apos;affiliation FFF du club{" "}
+                    <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="comiteFff"
+                    inputMode="numeric"
+                    placeholder="501234"
+                    value={formData.fffNumber}
+                    onChange={(e) => {
+                      setFormData({ ...formData, fffNumber: e.target.value });
+                      setComiteClub(null);
+                    }}
+                    onBlur={() => handleLookupComiteFff(formData.fffNumber)}
+                    required
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Le numéro de votre club (sur la licence FFF ou la fiche du club).
+                  </p>
+                  {comiteClub ? (
+                    <p className="text-xs text-[var(--color-royal)] font-medium">
+                      Club trouvé : {comiteClub.name} — vous rejoindrez son comité.
+                    </p>
+                  ) : (
+                    formData.fffNumber.length === 6 && (
+                      <p className="text-xs text-destructive">
+                        Aucun club trouvé avec ce numéro.
+                      </p>
+                    )
+                  )}
+                </div>
+                <div className="rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground space-y-1">
+                  <p className="font-medium text-foreground">Membre du comité</p>
+                  <p>
+                    Vous suivrez les équipes de votre club en lecture seule
+                    (calendrier, résultats, statistiques). La gestion du comité se
+                    fait par le président.
+                  </p>
+                </div>
+              </>
             )}
           </CardContent>
           <CardFooter className="flex flex-col gap-4">
@@ -374,7 +492,9 @@ function RegisterForm() {
                   ? formData.inviteCode
                     ? "Rejoindre l'équipe"
                     : "Continuer sans équipe"
-                  : "Créer et continuer"}
+                  : teamMode === "create"
+                    ? "Créer et continuer"
+                    : "Rejoindre le comité"}
             </Button>
             {teamMode === "join" ? (
               <Button

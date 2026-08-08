@@ -1,0 +1,260 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/lib/auth";
+import { useTeam } from "@/lib/team";
+import { createClient } from "@/lib/supabase/client";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Crown, Building2, Users, ChevronRight } from "lucide-react";
+
+interface ClubRow {
+  club_id: string;
+  role: "president" | "comite";
+  club: {
+    id: string;
+    name: string;
+    logo_url: string | null;
+  }[];
+}
+
+interface CommitteeMember {
+  user_id: string;
+  role: "president" | "comite";
+  profile?: {
+    first_name: string | null;
+    last_name: string | null;
+  };
+}
+
+interface ClubData {
+  id: string;
+  name: string;
+  logo_url: string | null;
+  myRole: "president" | "comite";
+  teams: { id: string; name: string; color_primary: string | null; color_secondary: string | null }[];
+  members: CommitteeMember[];
+}
+
+export default function ClubPage() {
+  const { user } = useAuth();
+  const { switchTeam } = useTeam();
+  const router = useRouter();
+  const [clubs, setClubs] = useState<ClubData[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const loadClubs = useCallback(async (userId: string) => {
+    const supabase = createClient();
+    const { data: rows } = await supabase
+      .from("club_members")
+      .select("club_id, role, club:clubs(id, name, logo_url)")
+      .eq("user_id", userId);
+
+    if (!rows || rows.length === 0) return [];
+
+    const result: ClubData[] = [];
+    for (const row of rows as unknown as ClubRow[]) {
+      const club = row.club?.[0];
+      if (!club) continue;
+
+      const [teamsRes, membersRes] = await Promise.all([
+        supabase
+          .from("teams")
+          .select("id, name, color_primary, color_secondary")
+          .eq("club_id", club.id)
+          .order("name"),
+        supabase
+          .from("club_members")
+          .select("user_id, role")
+          .eq("club_id", club.id),
+      ]);
+
+      const memberRows = (membersRes.data || []) as {
+        user_id: string;
+        role: "president" | "comite";
+      }[];
+      const userIds = memberRows.map((m) => m.user_id);
+      const { data: profiles } = userIds.length
+        ? await supabase
+            .from("profiles")
+            .select("id, first_name, last_name")
+            .in("id", userIds)
+        : { data: [] as { id: string; first_name: string | null; last_name: string | null }[] };
+      const profileMap = new Map((profiles || []).map((p) => [p.id, p]));
+
+      result.push({
+        id: club.id,
+        name: club.name,
+        logo_url: club.logo_url,
+        myRole: row.role,
+        teams: (teamsRes.data || []) as ClubData["teams"],
+        members: memberRows.map((m) => ({
+          ...m,
+          profile: profileMap.get(m.user_id) as CommitteeMember["profile"],
+        })),
+      });
+    }
+    return result;
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    loadClubs(user.id).then((data) => {
+      setClubs(data);
+      setLoading(false);
+    });
+  }, [user, loadClubs]);
+
+  function openTeam(teamId: string) {
+    switchTeam(teamId);
+    router.push("/");
+  }
+
+  return (
+    <div className="max-w-3xl mx-auto space-y-4 md:space-y-6 pb-20 md:pb-0">
+      <div>
+        <h1 className="text-xl md:text-2xl font-bold flex items-center gap-2">
+          <Building2 className="h-6 w-6" />
+          Espace club
+        </h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          Vue d&apos;ensemble des équipes de votre club (lecture seule)
+        </p>
+      </div>
+
+      {loading ? (
+        <Card>
+          <CardContent className="py-12 text-center text-muted-foreground">
+            Chargement...
+          </CardContent>
+        </Card>
+      ) : clubs.length === 0 ? (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <p className="text-muted-foreground">
+              Vous n&apos;êtes membre du comité d&apos;aucun club pour le moment.
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        clubs.map((club) => (
+          <Card key={club.id}>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                {club.logo_url ? (
+                  <img
+                    src={club.logo_url}
+                    alt={club.name}
+                    className="h-8 w-8 rounded-lg object-cover"
+                  />
+                ) : (
+                  <Building2 className="h-6 w-6 text-muted-foreground" />
+                )}
+                {club.name}
+                {club.myRole === "president" ? (
+                  <span className="flex items-center gap-1 text-xs text-[var(--color-gold)] font-medium">
+                    <Crown className="h-3.5 w-3.5" />
+                    Président
+                  </span>
+                ) : (
+                  <Badge variant="secondary" className="text-[10px]">
+                    Comité
+                  </Badge>
+                )}
+              </CardTitle>
+              <CardDescription>
+                {club.teams.length} équipe(s) dans le club
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Équipes du club
+                </p>
+                {club.teams.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    Aucune équipe dans ce club.
+                  </p>
+                ) : (
+                  <div className="divide-y rounded-lg border">
+                    {club.teams.map((team) => (
+                      <button
+                        key={team.id}
+                        type="button"
+                        onClick={() => openTeam(team.id)}
+                        className="flex w-full items-center justify-between px-3 py-2.5 text-left hover:bg-muted/50 transition-colors"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <span
+                            className="h-3 w-3 rounded-full shrink-0"
+                            style={{ backgroundColor: team.color_primary || "#EAB308" }}
+                          />
+                          <span className="text-sm font-medium truncate">
+                            {team.name}
+                          </span>
+                        </div>
+                        <span className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
+                          Ouvrir
+                          <ChevronRight className="h-3.5 w-3.5" />
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                  <Users className="h-3.5 w-3.5" />
+                  Comité ({club.members.length})
+                </p>
+                {club.members.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    Aucun membre du comité.
+                  </p>
+                ) : (
+                  <div className="divide-y rounded-lg border">
+                    {club.members.map((m) => (
+                      <div
+                        key={m.user_id}
+                        className="flex items-center justify-between px-3 py-2"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-sm font-medium truncate">
+                            {m.profile?.first_name} {m.profile?.last_name}
+                          </span>
+                          {m.user_id === user?.id && (
+                            <span className="text-xs text-muted-foreground">
+                              (vous)
+                            </span>
+                          )}
+                        </div>
+                        {m.role === "president" ? (
+                          <span className="flex items-center gap-1 text-xs text-[var(--color-gold)] font-medium">
+                            <Crown className="h-3.5 w-3.5" />
+                            Président
+                          </span>
+                        ) : (
+                          <Badge variant="secondary" className="text-[10px]">
+                            Comité
+                          </Badge>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        ))
+      )}
+    </div>
+  );
+}
