@@ -31,13 +31,17 @@ import {
   Trash2,
   CalendarDays,
   Clock,
-  Sprout,
-  Trophy,
+  Target,
+  Play,
+  Shield,
+  Layers,
   Zap,
+  type LucideIcon,
 } from "lucide-react";
 import { toast } from "sonner";
+import { TACTICAL_PHASE_NAMES } from "@/lib/training/phases";
 
-type CycleType = "preparation" | "competition" | "athletisation";
+type CycleType = (typeof TACTICAL_PHASE_NAMES)[number];
 
 interface SeasonCycle {
   id: string;
@@ -50,10 +54,12 @@ interface SeasonCycle {
   season: string | null;
 }
 
-const CYCLE_TYPES: { value: CycleType; label: string; icon: typeof Sprout; color: string }[] = [
-  { value: "preparation", label: "Préparation", icon: Sprout, color: "text-emerald-600 bg-emerald-50" },
-  { value: "competition", label: "Compétition", icon: Trophy, color: "text-amber-600 bg-amber-50" },
-  { value: "athletisation", label: "Athlétisation", icon: Zap, color: "text-sky-600 bg-sky-50" },
+const CYCLE_TYPES: { value: CycleType; label: string; icon: LucideIcon; color: string }[] = [
+  { value: "DÉSEQUILIBRER / FINIR", label: "Déséquilibrer / Finir", icon: Target, color: "text-amber-600 bg-amber-50" },
+  { value: "CONSERVER / PROGRESSER", label: "Conserver / Progresser", icon: Play, color: "text-emerald-600 bg-emerald-50" },
+  { value: "S'OPPOSER À LA PROGRESSION", label: "S'opposer à la progression", icon: Shield, color: "text-red-600 bg-red-50" },
+  { value: "S'ORGANISER POUR RECUPERER", label: "S'organiser pour récupérer", icon: Layers, color: "text-sky-600 bg-sky-50" },
+  { value: "ATHLETISATION", label: "Athlétisation", icon: Zap, color: "text-purple-600 bg-purple-50" },
 ];
 
 function typeMeta(t: CycleType) {
@@ -81,7 +87,7 @@ export default function SeasonPage() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<SeasonCycle | null>(null);
   const [name, setName] = useState("");
-  const [cycleType, setCycleType] = useState<CycleType>("preparation");
+  const [cycleType, setCycleType] = useState<CycleType>(TACTICAL_PHASE_NAMES[0]);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [notes, setNotes] = useState("");
@@ -126,7 +132,7 @@ export default function SeasonPage() {
   function openCreate() {
     setEditing(null);
     setName("");
-    setCycleType("preparation");
+    setCycleType(TACTICAL_PHASE_NAMES[0]);
     setStartDate("");
     setEndDate("");
     setNotes("");
@@ -205,7 +211,7 @@ export default function SeasonPage() {
             Plan de saison
           </h1>
           <p className="text-sm text-muted-foreground">
-            Découpe la saison en cycles : préparation, compétition, athlétisation.
+            Découpe la saison en cycles : mêmes phases que la création de séances (conserver/progresser, déséquilibrer/finir, s&apos;opposer, récupérer, athlétisation).
           </p>
         </div>
         {isCoach && (
