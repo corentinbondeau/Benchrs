@@ -9,8 +9,9 @@ import { useTeam } from "@/lib/team";
 
 export default function StatsPage() {
   const { user } = useAuth();
-  const { userRole } = useTeam();
+  const { userRole, clubMemberships } = useTeam();
   const isCoach = userRole === "coach" || userRole === "owner";
+  const isComiteOnly = clubMemberships.length > 0 && userRole === null;
 
   return (
     <div className="space-y-4 md:space-y-6 pb-20 md:pb-0">
@@ -25,7 +26,7 @@ export default function StatsPage() {
         <TabsList className="overflow-x-auto">
           <TabsTrigger value="general" className="shrink-0">Générales</TabsTrigger>
           {isCoach && <TabsTrigger value="coach" className="shrink-0">Coach</TabsTrigger>}
-          {!isCoach && <TabsTrigger value="me" className="shrink-0">Mon profil</TabsTrigger>}
+          {!isCoach && !isComiteOnly && <TabsTrigger value="me" className="shrink-0">Mon profil</TabsTrigger>}
         </TabsList>
         <TabsContent value="general">
           <Leaderboard />
@@ -35,7 +36,7 @@ export default function StatsPage() {
             <CoachStats />
           </TabsContent>
         )}
-        {!isCoach && (
+        {!isCoach && !isComiteOnly && (
           <TabsContent value="me">
             {user?.id && <PlayerProfile playerId={user.id} />}
           </TabsContent>
