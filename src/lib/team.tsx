@@ -13,10 +13,16 @@ import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth";
 import type { Team, TeamMemberRole } from "@/types";
 
+export interface ClubMembership {
+  club_id: string;
+  role: "president" | "comite";
+}
+
 interface TeamContextType {
   currentTeam: Team | null;
   teams: Team[];
   userRole: TeamMemberRole | null;
+  clubMemberships: ClubMembership[];
   switchTeam: (teamId: string) => void;
   loading: boolean;
   refreshTeams: () => Promise<void>;
@@ -26,6 +32,7 @@ const TeamContext = createContext<TeamContextType>({
   currentTeam: null,
   teams: [],
   userRole: null,
+  clubMemberships: [],
   switchTeam: () => {},
   loading: true,
   refreshTeams: async () => {},
@@ -54,6 +61,7 @@ export function TeamProvider({ children }: { children: ReactNode }) {
   const [teams, setTeams] = useState<Team[]>([]);
   const [currentTeam, setCurrentTeam] = useState<Team | null>(null);
   const [userRole, setUserRole] = useState<TeamMemberRole | null>(null);
+  const [clubMemberships, setClubMemberships] = useState<ClubMembership[]>([]);
   const [loading, setLoading] = useState(true);
   const supabaseRef = useRef(createClient());
 
@@ -69,6 +77,7 @@ export function TeamProvider({ children }: { children: ReactNode }) {
       console.error("[TeamProvider] failed to load teams:", error);
       setTeams([]);
       setCurrentTeam(null);
+      setClubMemberships([]);
       setLoading(false);
       return;
     }
@@ -100,8 +109,11 @@ export function TeamProvider({ children }: { children: ReactNode }) {
     let clubTeams: Team[] = [];
     const { data: clubMemberships } = await supabase
       .from("club_members")
-      .select("club_id")
+      .select("club_id, role")
       .eq("user_id", userId);
+    setClubMemberships(
+      (clubMemberships || []) as { club_id: string; role: "president" | "comite" }[]
+    );
     if (clubMemberships?.length) {
       const clubIds = clubMemberships.map((c) => c.club_id as string);
       const { data: cteams } = await supabase
@@ -160,6 +172,7 @@ export function TeamProvider({ children }: { children: ReactNode }) {
     if (!authUser) {
       setTeams([]);
       setCurrentTeam(null);
+      setClubMemberships([]);
       setLoading(false);
       return;
     }
@@ -183,12 +196,13 @@ export function TeamProvider({ children }: { children: ReactNode }) {
     if (authUser) await loadTeams(authUser.id);
   }, [authUser, loadTeams]);
 
-  return (
+    return (
     <TeamContext.Provider
       value={{
         currentTeam,
         teams,
         userRole,
+        clubMemberships,
         switchTeam,
         loading,
         refreshTeams,

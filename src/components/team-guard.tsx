@@ -5,14 +5,14 @@ import { useRouter } from "next/navigation";
 import { useTeam } from "@/lib/team";
 
 export function TeamGuard({ children }: { children: React.ReactNode }) {
-  const { teams, loading } = useTeam();
+  const { teams, clubMemberships, loading } = useTeam();
   const router = useRouter();
 
   useEffect(() => {
-    if (!loading && teams.length === 0) {
+    if (!loading && teams.length === 0 && clubMemberships.length === 0) {
       router.replace("/create-team");
     }
-  }, [loading, teams, router]);
+  }, [loading, teams, clubMemberships, router]);
 
   if (loading) {
     return (
@@ -22,7 +22,7 @@ export function TeamGuard({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (teams.length === 0) {
+  if (teams.length === 0 && clubMemberships.length === 0) {
     return null;
   }
 
