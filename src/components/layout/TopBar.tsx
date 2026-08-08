@@ -15,8 +15,10 @@ import { LogOut, Settings, User } from "lucide-react";
 
 export function TopBar() {
   const { user, signOut } = useAuth();
-  const { currentTeam, userRole } = useTeam();
+  const { currentTeam, userRole, clubMemberships } = useTeam();
   const router = useRouter();
+
+  const isComiteOnly = clubMemberships.length > 0 && userRole === null;
 
   const initials = user?.profile
     ? `${user.profile.first_name[0]}${user.profile.last_name[0]}`
@@ -50,7 +52,7 @@ export function TopBar() {
                 {user?.profile?.first_name} {user?.profile?.last_name}
               </p>
               <p className="text-xs text-muted-foreground capitalize">
-                {userRole === "owner" ? "owner" : (userRole || "player")}
+                {isComiteOnly ? "Comité" : (userRole === "owner" ? "owner" : (userRole || "player"))}
               </p>
             </div>
             <DropdownMenuItem onClick={() => router.push("/settings")}>
