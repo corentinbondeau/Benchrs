@@ -28,6 +28,23 @@ function cleanJson(text: string): string {
   return trimmed.slice(start, end + 1);
 }
 
+const MAX_TITLE_LENGTH = 60;
+const MAX_DESCRIPTION_LENGTH = 280;
+
+function truncateToSentence(text: string, max: number): string {
+  if (text.length <= max) return text;
+  const cut = text.slice(0, max);
+  let end = -1;
+  for (let i = cut.length - 1; i >= 0; i--) {
+    if (cut[i] === "." || cut[i] === "!" || cut[i] === "?" || cut[i] === "\n") {
+      end = i + 1;
+      break;
+    }
+  }
+  const cutAt = end >= max * 0.5 ? end : max;
+  return cut.slice(0, cutAt).replace(/[.,;:\s]+$/, "");
+}
+
 function parseChallenge(content: string): WeeklyChallenge {
   const data = JSON.parse(cleanJson(content)) as Record<string, unknown>;
   const title = typeof data.title === "string" ? data.title.trim() : "";
@@ -38,7 +55,11 @@ function parseChallenge(content: string): WeeklyChallenge {
       ? (data.difficulty as ChallengeDifficulty)
       : "moyen";
   if (!title || !description) throw new Error("Réponse IA incomplète");
-  return { title, description, difficulty };
+  return {
+    title: title.slice(0, MAX_TITLE_LENGTH),
+    description: truncateToSentence(description, MAX_DESCRIPTION_LENGTH),
+    difficulty,
+  };
 }
 
 export async function generateWeeklyChallenge(
@@ -54,6 +75,10 @@ Tu proposes chaque semaine un « défi de la semaine » amusant et motivant pour
 - être réalisable à la maison ou au terrain, seul ou à deux, sans matériel coûteux ;
 - pouvoir être validé par une photo ou une courte vidéo ;
 - être à la fois ludique et progressif, avec un objectif chiffré clair (ex. nombre de répétitions) quand c'est pertinent.
+
+IMPORTANT — le défi doit être COURT et rapide à lire, car les jeunes joueurs le consultent sur mobile :
+- "title" : maximum 5 mots, accrocheur (ex. « Le jongleur fou », « Tire de précision »).
+- "description" : maximum 3 phrases courtes et directes (environ 250 caractères). Objectif chiffré + critère de validation en quelques mots. Interdiction de phrases longues, de paragraphes, de listes ou de jargon.
 
 Niveau de difficulté demandé : ${DIFFICULTY_LABELS[difficulty]}.
 

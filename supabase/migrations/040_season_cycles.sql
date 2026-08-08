@@ -1,13 +1,19 @@
 -- ============================================================
 -- 040_season_cycles.sql
--- Plan de saison : cycles (préparation / compétition / athlétisation)
+-- Plan de saison : cycles (phases identiques à la création de séance)
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS public.season_cycles (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   team_id UUID NOT NULL REFERENCES public.teams(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
-  cycle_type TEXT NOT NULL CHECK (cycle_type IN ('preparation', 'competition', 'athletisation')),
+  cycle_type TEXT NOT NULL CHECK (cycle_type IN (
+    'DÉSEQUILIBRER / FINIR',
+    'CONSERVER / PROGRESSER',
+    'S''OPPOSER À LA PROGRESSION',
+    'S''ORGANISER POUR RECUPERER',
+    'ATHLETISATION'
+  )),
   start_date DATE NOT NULL,
   end_date DATE NOT NULL,
   notes TEXT,
