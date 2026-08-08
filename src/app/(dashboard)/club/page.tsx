@@ -52,15 +52,39 @@ export default function ClubPage() {
 
   const loadClubs = useCallback(async (userId: string) => {
     const supabase = createClient();
-    const { data: rows } = await supabase
-      .from("club_members")
-      .select("club_id, role, club:clubs(id, name, logo_url)")
-      .eq("user_id", userId);
+    const [rowsRes, createdRes] = await Promise.all([
+      supabase
+        .from("club_members")
+        .select("club_id, role, club:clubs(id, name, logo_url)")
+        .eq("user_id", userId),
+      supabase.from("clubs").select("id, name, logo_url").eq("created_by", userId),
+    ]);
 
-    if (!rows || rows.length === 0) return [];
+    const rows = rowsRes.data as unknown as ClubRow[] | null;
+    const created = (createdRes.data || []) as { id: string; name: string; logo_url: string | null }[];
+    const seen = new Set<string>();
+    const joined: { club_id: string; role: "president" | "comite"; club: { id: string; name: string; logo_url: string | null }[] }[] = [];
+    for (const row of rows || []) {
+      if (!seen.has(row.club_id)) {
+        seen.add(row.club_id);
+        joined.push(row);
+      }
+    }
+    for (const club of created) {
+      if (!seen.has(club.id)) {
+        seen.add(club.id);
+        joined.push({
+          club_id: club.id,
+          role: "president",
+          club: [club],
+        });
+      }
+    }
+
+    if (joined.length === 0) return [];
 
     const result: ClubData[] = [];
-    for (const row of rows as unknown as ClubRow[]) {
+    for (const row of joined as unknown as ClubRow[]) {
       const club = row.club?.[0];
       if (!club) continue;
 
