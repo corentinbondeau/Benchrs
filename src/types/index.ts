@@ -526,3 +526,17 @@ export interface TeamJoinRequest {
   created_at: string;
   user?: Profile;
 }
+
+export interface TrainingTemplate {
+  id: string;
+  team_id: string;
+  name: string;
+  source: "manual" | "ai";
+  exercises: unknown;
+  objectives: string[] | null;
+  notes: string | null;
+  visibility: "coach" | "team";
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}

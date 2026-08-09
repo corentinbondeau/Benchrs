@@ -27,6 +27,7 @@ import {
   Loader2,
   Lock,
   Plus,
+  Repeat,
   Sparkles,
   Trash2,
   X,
@@ -42,8 +43,13 @@ import {
 import { AIFicheView } from "@/components/training/AIFicheView";
 import { VisibilityPicker, type FicheVisibility } from "@/components/training/FicheVisibilityPicker";
 import { ExerciseLibraryDialog } from "@/components/training/ExerciseLibraryDialog";
+import {
+  TrainingTemplatesDialog,
+  type TemplateFichePayload,
+} from "@/components/training/TrainingTemplatesDialog";
+import { TrainingSeriesDialog } from "@/components/training/TrainingSeriesDialog";
 import { DRILL_TYPES } from "@/lib/training/exercises";
-import type { Exercise } from "@/types";
+import type { Exercise, TrainingTemplate } from "@/types";
 
 type FicheSource = "ai" | "manual";
 
@@ -77,9 +83,13 @@ function toPdfDataUrl(dataUrl: string): string {
 export function SessionFiche({
   eventId,
   isCoach,
+  eventDate,
+  eventTitle,
 }: {
   eventId: string;
   isCoach: boolean;
+  eventDate: string;
+  eventTitle: string;
 }) {
   const { currentTeam } = useTeam();
 
@@ -88,6 +98,8 @@ export function SessionFiche({
   const [aiOpen, setAiOpen] = useState(false);
   const [manualOpen, setManualOpen] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
+  const [templatesOpen, setTemplatesOpen] = useState(false);
+  const [seriesOpen, setSeriesOpen] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
 
@@ -295,6 +307,47 @@ export function SessionFiche({
     toast.success("Fiche supprimée");
   }
 
+  async function applyTemplate(t: TrainingTemplate) {
+    if (!currentTeam) return;
+    if (t.source === "ai") {
+      const session = t.exercises as AISession;
+      try {
+        await saveFiche({
+          event_id: eventId,
+          team_id: currentTeam.id,
+          title: session?.title || t.name,
+          objectives: t.objectives?.length
+            ? t.objectives
+            : session?.objective
+              ? [session.objective]
+              : [],
+          exercises: session,
+          notes: t.notes,
+          source: "ai",
+          visibility: t.visibility,
+        });
+        setTemplatesOpen(false);
+        toast.success(`Modèle « ${t.name} » appliqué`);
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Erreur lors de l'application du modèle");
+      }
+    } else {
+      const exercises = (t.exercises as Exercise[]) || [];
+      setManualTitle(t.name);
+      setManualNotes(t.notes || "");
+      setManualObjectives(t.objectives || []);
+      setManualExercises(
+        exercises.length > 0
+          ? exercises
+          : [{ name: "", duration: 15, description: "", drill_type: "échauffement" }]
+      );
+      setVisibility(t.visibility);
+      setTemplatesOpen(false);
+      setManualOpen(true);
+      toast.success("Modèle chargé dans l'éditeur");
+    }
+  }
+
   async function updateVisibility(v: FicheVisibility) {
     if (!fiche) return;
     const { error } = await createClient()
@@ -361,6 +414,17 @@ export function SessionFiche({
   const aiSession = fiche && ficheIsAi && isAISession(fiche.exercises) ? fiche.exercises : null;
   const manualExercisesSaved = fiche && !ficheIsAi && Array.isArray(fiche.exercises) ? (fiche.exercises as Exercise[]) : null;
 
+  const ficheForSave: TemplateFichePayload | null = fiche
+    ? {
+        name: fiche.title === "Séance" ? "" : fiche.title,
+        source: fiche.source,
+        exercises: fiche.exercises,
+        objectives: fiche.objectives,
+        notes: fiche.notes,
+        visibility: fiche.visibility,
+      }
+    : null;
+
   return (
     <>
       <Card>
@@ -372,6 +436,14 @@ export function SessionFiche({
             </h3>
             {fiche && isCoach && (
               <div className="flex items-center gap-2">
+                <Button variant="ghost" size="sm" onClick={() => setTemplatesOpen(true)}>
+                  <Bookmark className="h-3.5 w-3.5 mr-1" />
+                  Modèles
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => setSeriesOpen(true)}>
+                  <Repeat className="h-3.5 w-3.5 mr-1" />
+                  Série hebdo
+                </Button>
                 <VisibilityPicker value={fiche.visibility || "coach"} onChange={updateVisibility} />
                 <Button
                   variant="ghost"
@@ -738,6 +810,40 @@ export function SessionFiche({
         onAdd={addFromLibrary}
         isCoach={isCoach}
       />
+
+      {/* Modèles de séance */}
+      {isCoach && (
+        <TrainingTemplatesDialog
+          teamId={currentTeam.id}
+          open={templatesOpen}
+          onOpenChange={setTemplatesOpen}
+          ficheForSave={ficheForSave}
+          onApply={applyTemplate}
+        />
+      )}
+
+      {/* Série hebdomadaire */}
+      {isCoach && (
+        <TrainingSeriesDialog
+          teamId={currentTeam.id}
+          eventDate={eventDate}
+          eventTitle={eventTitle}
+          fiche={
+            fiche
+              ? {
+                  title: fiche.title,
+                  source: fiche.source,
+                  exercises: fiche.exercises,
+                  objectives: fiche.objectives,
+                  notes: fiche.notes,
+                  visibility: fiche.visibility,
+                }
+              : null
+          }
+          open={seriesOpen}
+          onOpenChange={setSeriesOpen}
+        />
+      )}
     </>
   );
 }

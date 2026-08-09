@@ -241,7 +241,7 @@ export default function TrainingDetailPage() {
       </Card>
 
       {/* Fiche de séance */}
-      <SessionFiche eventId={trainingId} isCoach={isCoach} />
+      <SessionFiche eventId={trainingId} isCoach={isCoach} eventDate={event.event_date} eventTitle={event.title} />
 
       {/* Commutateur d'enfant (parents multi-enfants) */}
       {userRole === "parent" && (

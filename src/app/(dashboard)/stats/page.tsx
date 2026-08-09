@@ -4,12 +4,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Leaderboard } from "@/components/stats/Leaderboard";
 import { PlayerProfile } from "@/components/stats/PlayerProfile";
 import { CoachStats } from "@/components/stats/CoachStats";
+import { SeasonReportCard } from "@/components/stats/SeasonReportCard";
 import { useAuth } from "@/lib/auth";
 import { useTeam } from "@/lib/team";
 
 export default function StatsPage() {
   const { user } = useAuth();
-  const { userRole, clubMemberships } = useTeam();
+  const { userRole, clubMemberships, currentTeam } = useTeam();
   const isCoach = userRole === "coach" || userRole === "owner";
   const isComiteOnly = clubMemberships.length > 0 && userRole === null;
 
@@ -32,7 +33,10 @@ export default function StatsPage() {
           <Leaderboard />
         </TabsContent>
         {isCoach && (
-          <TabsContent value="coach">
+          <TabsContent value="coach" className="space-y-4">
+            {currentTeam?.id && (
+              <SeasonReportCard teamId={currentTeam.id} isCoach={isCoach} />
+            )}
             <CoachStats />
           </TabsContent>
         )}
