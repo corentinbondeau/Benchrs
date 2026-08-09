@@ -25,6 +25,7 @@ import {
   Radio,
   Lock,
   PenLine,
+  Share2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ConvocationsDialog } from "@/components/ConvocationsDialog";
@@ -42,6 +43,7 @@ import { fetchTeamActivePlayers } from "@/lib/players";
 import { LiveMatchTracker } from "@/components/LiveMatchTracker";
 import { MatchReportCard } from "@/components/match/MatchReportCard";
 import { MatchAvailabilityCard } from "@/components/match/MatchAvailabilityCard";
+import { MatchPoster } from "@/components/match/MatchPoster";
 import { MatchFeedback } from "@/components/match/MatchFeedback";
 import { PlayerRatings } from "@/components/match/PlayerRatings";
 import { MatchMvpCard } from "@/components/match/MatchMvpCard";
@@ -137,6 +139,7 @@ export default function MatchDetailPage() {
   const [lineups, setLineups] = useState<LineupEntry[]>([]);
   const [allPlayers, setAllPlayers] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [posterOpen, setPosterOpen] = useState(false);
   const [editingStats, setEditingStats] = useState(false);
   const [statsForm, setStatsForm] = useState<Record<string, StatsFormEntry>>({});
   const [savingStats, setSavingStats] = useState(false);
@@ -534,6 +537,13 @@ export default function MatchDetailPage() {
                   <Minus className="h-6 w-6 text-white/60" />
                   <span className="text-4xl font-bold">{match.score_them}</span>
                 </div>
+                <button
+                  onClick={() => setPosterOpen(true)}
+                  className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-[var(--color-gold)] px-3 py-1.5 text-xs font-bold text-[var(--color-navy)] transition-opacity hover:opacity-90"
+                >
+                  <Share2 className="h-3.5 w-3.5" />
+                  Partager l&apos;affiche
+                </button>
               </div>
             )}
           </div>
@@ -1043,6 +1053,15 @@ export default function MatchDetailPage() {
             location: match.location,
             opponent: match.opponent,
           }}
+        />
+      )}
+
+      {currentTeam && (
+        <MatchPoster
+          eventId={matchId}
+          teamId={currentTeam.id}
+          open={posterOpen}
+          onOpenChange={setPosterOpen}
         />
       )}
     </div>

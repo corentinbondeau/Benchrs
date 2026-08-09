@@ -10,6 +10,7 @@ import { NextEventCard } from "@/components/dashboard/NextEventCard";
 import { PendingConvocations } from "@/components/dashboard/PendingConvocations";
 import { QuickStats } from "@/components/dashboard/QuickStats";
 import { RecentResults } from "@/components/dashboard/RecentResults";
+import { CoachWeekOverview } from "@/components/dashboard/CoachWeekOverview";
 import { PlayerDashboard } from "@/components/dashboard/PlayerDashboard";
 import { ParentDashboard } from "@/components/dashboard/ParentDashboard";
 import { Card, CardContent } from "@/components/ui/card";
@@ -76,6 +77,9 @@ export default function DashboardPage() {
 
       <div className="px-4 space-y-4">
         <NextEventCard />
+        <LazyMount fallback={<WidgetSkeleton className="h-40" />}>
+          <CoachWeekOverview />
+        </LazyMount>
         <QuickStats />
         <RecentResults />
         <PendingConvocations />

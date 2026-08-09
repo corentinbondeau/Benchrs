@@ -49,11 +49,14 @@ import {
   Activity,
   Star,
   ClipboardList,
+  IdCard,
   Pencil,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { PlayerPhysicalTest } from "@/types";
 import { PersonalGoalsCard } from "@/components/stats/PersonalGoalsCard";
+import { PlayerPaniniCard } from "@/components/stats/PlayerPaniniCard";
+import { CareerHistoryCard } from "@/components/stats/CareerHistoryCard";
 
 interface PlayerStats {
   player_id: string;
@@ -244,6 +247,7 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
   const [physicalTests, setPhysicalTests] = useState<PlayerPhysicalTest[]>([]);
   const [matchRows, setMatchRows] = useState<MatchRow[]>([]);
   const [currentSeason, setCurrentSeason] = useState("");
+  const [paniniOpen, setPaniniOpen] = useState(false);
   const [seasonTotals, setSeasonTotals] = useState<Record<string, SeasonTotals>>({});
   const [radarData, setRadarData] = useState<RadarDatum[]>([]);
   const [mvpCount, setMvpCount] = useState(0);
@@ -774,6 +778,13 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
                 {stats.yellow_cards > 0 && <Badge className="bg-yellow-400 text-yellow-900">{stats.yellow_cards} jaunes</Badge>}
                 {stats.red_cards > 0 && <Badge className="bg-red-500 text-white">{stats.red_cards} rouges</Badge>}
               </div>
+              <button
+                onClick={() => setPaniniOpen(true)}
+                className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-[var(--color-gold)] px-3 py-1.5 text-xs font-bold text-[var(--color-navy)] transition-opacity hover:opacity-90"
+              >
+                <IdCard className="h-3.5 w-3.5" />
+                Carte joueur
+              </button>
             </div>
           </div>
         </CardContent>
@@ -923,6 +934,9 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
       {/* Objectifs personnels */}
       <PersonalGoalsCard playerId={playerId} />
 
+      {/* Historique de carrière */}
+      <CareerHistoryCard playerId={playerId} />
+
       {/* Historique VMA / VMI */}
       <Card>
         <CardHeader className="pb-3">
@@ -1033,6 +1047,15 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
           )}
         </CardContent>
       </Card>
+
+      {currentTeam && (
+        <PlayerPaniniCard
+          playerId={playerId}
+          teamId={currentTeam.id}
+          open={paniniOpen}
+          onOpenChange={setPaniniOpen}
+        />
+      )}
     </div>
   );
 }

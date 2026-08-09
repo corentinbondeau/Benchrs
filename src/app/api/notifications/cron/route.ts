@@ -91,6 +91,11 @@ export async function GET(req: Request) {
     }
   }
 
+  // --- Digest hebdomadaire : envoyé chaque lundi (résumé résultats + prochain match + séances) ---
+  if (new Date().getDay() === 1) {
+    await sendWeeklyDigest(supabase, now);
+  }
+
   const { data: pending } = await supabase
     .from("notifications")
     .select("id, user_id, title, body, type, reference_id, team_id, url")
@@ -221,4 +226,173 @@ export async function GET(req: Request) {
   }
 
   return NextResponse.json({ ok: true, sent, processed: deliveredIds.length });
+}
+
+function mondayStart(): Date {
+  const now = new Date();
+  const day = (now.getDay() + 6) % 7; // lundi = 0
+  const start = new Date(now);
+  start.setHours(0, 0, 0, 0);
+  start.setDate(now.getDate() - day);
+  return start;
+}
+
+function dateLabel(iso: string | null | undefined): string {
+  if (!iso) return "";
+  return new Date(iso).toLocaleDateString("fr-FR", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  });
+}
+
+async function sendWeeklyDigest(
+  supabase: ReturnType<typeof createAdminClient>,
+  now: string
+): Promise<void> {
+  const weekStart = mondayStart();
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekEnd.getDate() + 7);
+  const weekKey = weekStart.toISOString().slice(0, 10);
+
+  // Énumération des équipes via les événements (l'admin client lit toutes les tables)
+  const { data: allEvents } = await supabase
+    .from("events")
+    .select("team_id");
+  const teamIds = [
+    ...new Set((allEvents || []).map((e) => (e as { team_id: string | null }).team_id).filter(Boolean) as string[]),
+  ];
+
+  for (const teamId of teamIds) {
+    const { data: team } = await supabase
+      .from("teams")
+      .select("name")
+      .eq("id", teamId)
+      .maybeSingle();
+    const teamName = (team as { name?: string } | null)?.name || "Équipe";
+
+    const digestRef = `digest:${teamId}:${weekKey}`;
+    const { data: existing } = await supabase
+      .from("notifications")
+      .select("id")
+      .eq("type", "digest_hebdo")
+      .eq("reference_id", digestRef)
+      .limit(1)
+      .maybeSingle();
+    if (existing) continue;
+
+    // Résultats de la semaine passée
+    const lastMonday = new Date(weekStart);
+    lastMonday.setDate(lastMonday.getDate() - 7);
+    const { data: results } = await supabase
+      .from("events")
+      .select("event_date, opponent, score_us, score_them, match_result")
+      .eq("team_id", teamId)
+      .eq("type", "match")
+      .eq("status", "completed")
+      .gte("event_date", lastMonday.toISOString())
+      .lt("event_date", weekStart.toISOString())
+      .order("event_date", { ascending: true });
+
+    const resultLines = ((results || []) as {
+      event_date: string;
+      opponent: string | null;
+      score_us: number | null;
+      score_them: number | null;
+      match_result: "win" | "loss" | "draw" | null;
+    }[]).map((m) => {
+      const resultLabel =
+        m.match_result === "win" ? "Victoire" : m.match_result === "draw" ? "Nul" : m.match_result === "loss" ? "Défaite" : "Match";
+      const score =
+        m.score_us != null && m.score_them != null ? `${m.score_us}-${m.score_them}` : "";
+      const opp = m.opponent ? ` vs ${m.opponent}` : "";
+      return `${resultLabel}${score ? ` ${score}` : ""}${opp} (${dateLabel(m.event_date)})`;
+    });
+
+    // Prochain événement + prochaines séances
+    const { data: nextEvent } = await supabase
+      .from("events")
+      .select("id, type, title, opponent, event_date")
+      .eq("team_id", teamId)
+      .in("status", ["upcoming", "ongoing"])
+      .gte("event_date", now)
+      .order("event_date", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    const { data: nextTrainings } = await supabase
+      .from("events")
+      .select("id, title, event_date")
+      .eq("team_id", teamId)
+      .eq("type", "training")
+      .in("status", ["upcoming", "ongoing"])
+      .gte("event_date", now)
+      .order("event_date", { ascending: true })
+      .limit(2);
+
+    const nextEv = nextEvent as {
+      id: string;
+      type: string;
+      title: string;
+      opponent: string | null;
+      event_date: string;
+    } | null;
+    const trainings = (nextTrainings || []) as { title: string; event_date: string }[];
+
+    const parts: string[] = [];
+    if (resultLines.length > 0) {
+      parts.push(`Résultats : ${resultLines.join(" · ")}`);
+    }
+    if (nextEv) {
+      const isMatch = nextEv.type === "match";
+      parts.push(
+        `Prochain ${isMatch ? "match" : "événement"} : ${dateLabel(nextEv.event_date)}${isMatch && nextEv.opponent ? ` vs ${nextEv.opponent}` : ""}`
+      );
+    }
+    if (trainings.length > 0) {
+      parts.push(
+        `Séances : ${trainings.map((t) => `${dateLabel(t.event_date)} (${t.title})`).join(" · ")}`
+      );
+    }
+    if (parts.length === 0) continue;
+
+    // Destinataires : joueurs actifs + parents
+    const { data: members } = await supabase
+      .from("team_members")
+      .select("user_id")
+      .eq("team_id", teamId)
+      .in("role", ["player"]);
+    const playerIds = (members || []).map((m) => m.user_id);
+    if (playerIds.length === 0) continue;
+    const { data: profiles } = await supabase
+      .from("profiles")
+      .select("id")
+      .in("id", playerIds)
+      .eq("is_active", true);
+    const activeIds = (profiles || []).map((p) => p.id);
+    if (activeIds.length === 0) continue;
+    const { data: links } = await supabase
+      .from("parent_student")
+      .select("parent_id")
+      .eq("team_id", teamId)
+      .in("student_id", activeIds);
+    const parentIds = [...new Set((links || []).map((l) => (l as { parent_id: string }).parent_id))];
+    const userIds = [...new Set([...activeIds, ...parentIds])];
+
+    const rows = userIds.map((uid: string) => ({
+      user_id: uid,
+      team_id: teamId,
+      type: "digest_hebdo",
+      title: `Semaine en bref — ${teamName}`,
+      body: parts.join(". ").slice(0, 2000),
+      reference_id: digestRef,
+      url: nextEv ? (nextEv.type === "match" ? `/matches/${nextEv.id}` : `/trainings/${nextEv.id}`) : "/",
+      scheduled_for: now,
+    }));
+
+    const { error } = await supabase.from("notifications").insert(rows);
+    if (error) {
+      console.error("[notifications/cron] digest insert error:", error);
+    }
+  }
 }
