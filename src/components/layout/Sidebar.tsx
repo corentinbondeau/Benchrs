@@ -30,6 +30,7 @@ import {
   CalendarRange,
   Flame,
   Building2,
+  Vote,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -60,6 +61,7 @@ const navItems = [
   { href: "/medical", label: "Infirmerie", icon: Heart },
   { href: "/carpooling", label: "Covoiturage", icon: Car },
   { href: "/tasks", label: "Tâches", icon: ListTodo },
+  { href: "/polls", label: "Sondages", icon: Vote },
   { href: "/physical", label: "Prépa physique", icon: Dumbbell, coachOnly: true },
   { href: "/tactics", label: "Tactique", icon: Swords, coachOnly: true },
   { href: "/season", label: "Plan de saison", icon: CalendarRange },

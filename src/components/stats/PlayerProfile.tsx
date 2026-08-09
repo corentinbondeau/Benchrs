@@ -49,6 +49,7 @@ import {
   Activity,
   Star,
   ClipboardList,
+  Pencil,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { PlayerPhysicalTest } from "@/types";
@@ -238,6 +239,8 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
   const [vmi, setVmi] = useState<number | null>(null);
   const [editingVmi, setEditingVmi] = useState(false);
   const [vmiInput, setVmiInput] = useState("");
+  const [editingShirt, setEditingShirt] = useState(false);
+  const [shirtInput, setShirtInput] = useState("");
   const [physicalTests, setPhysicalTests] = useState<PlayerPhysicalTest[]>([]);
   const [matchRows, setMatchRows] = useState<MatchRow[]>([]);
   const [currentSeason, setCurrentSeason] = useState("");
@@ -565,6 +568,27 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
     }
   }
 
+  async function handleSaveShirt() {
+    const val = parseInt(shirtInput, 10);
+    if (isNaN(val) || val < 0 || val > 99) {
+      toast.error("Numéro invalide (0 à 99)");
+      return;
+    }
+    const supabase = createClient();
+    const { error } = await supabase.rpc("update_player_jersey", {
+      player_id: playerId,
+      new_shirt_number: val,
+    });
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    setStats((prev) => (prev ? { ...prev, shirt_number: val } : prev));
+    setProfile((prev) => (prev ? { ...prev, shirt_number: val } : prev));
+    setEditingShirt(false);
+    toast.success("Numéro de maillot mis à jour");
+  }
+
   async function handleSaveVmi() {
     const val = parseFloat(vmiInput);
     if (isNaN(val) || val <= 0 || val > 30) {
@@ -701,8 +725,47 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
       <Card className="bg-gradient-to-r from-blue-900 to-blue-800 text-white">
         <CardContent className="p-6">
           <div className="flex items-center gap-6">
-            <div className="flex h-20 w-20 items-center justify-center rounded-full bg-white/20 text-2xl font-bold">
-              {stats.shirt_number || "?"}
+            <div className="relative flex h-20 w-20 items-center justify-center rounded-full bg-white/20 text-2xl font-bold">
+              {editingShirt ? (
+                <Input
+                  autoFocus
+                  type="number"
+                  min={0}
+                  max={99}
+                  value={shirtInput}
+                  onChange={(e) => setShirtInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleSaveShirt();
+                    if (e.key === "Escape") { setEditingShirt(false); }
+                  }}
+                  className="h-10 w-14 text-center text-lg font-bold text-white bg-white/20 border-white/40"
+                />
+              ) : (
+                <>{stats.shirt_number || "?"}</>
+              )}
+              {isCoach && !editingShirt && (
+                <button
+                  className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-white text-[var(--color-navy)] shadow"
+                  onClick={() => {
+                    setShirtInput(stats.shirt_number?.toString() ?? "");
+                    setEditingShirt(true);
+                  }}
+                  title="Modifier le numéro de maillot"
+                  aria-label="Modifier le numéro de maillot"
+                >
+                  <Pencil className="h-3 w-3" />
+                </button>
+              )}
+              {editingShirt && (
+                <div className="absolute -bottom-8 right-0 flex gap-1">
+                  <button className="flex h-6 w-6 items-center justify-center rounded-full bg-green-500 text-white" onClick={handleSaveShirt} aria-label="Valider">
+                    <Check className="h-3.5 w-3.5" />
+                  </button>
+                  <button className="flex h-6 w-6 items-center justify-center rounded-full bg-red-500 text-white" onClick={() => setEditingShirt(false)} aria-label="Annuler">
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              )}
             </div>
             <div>
               <h2 className="text-2xl font-bold">{stats.first_name} {stats.last_name}</h2>

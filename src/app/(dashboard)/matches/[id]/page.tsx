@@ -41,6 +41,7 @@ import { useSelectedChild } from "@/lib/useSelectedChild";
 import { fetchTeamActivePlayers } from "@/lib/players";
 import { LiveMatchTracker } from "@/components/LiveMatchTracker";
 import { MatchReportCard } from "@/components/match/MatchReportCard";
+import { MatchAvailabilityCard } from "@/components/match/MatchAvailabilityCard";
 import { MatchFeedback } from "@/components/match/MatchFeedback";
 import { PlayerRatings } from "@/components/match/PlayerRatings";
 import { MatchMvpCard } from "@/components/match/MatchMvpCard";
@@ -557,6 +558,16 @@ export default function MatchDetailPage() {
         convocationsSent={!!match?.convocations_sent_at}
         onRespond={myPresence ? (status, reason) => updateMatchAttendance(myPresence.playerId, status, reason) : undefined}
       />
+
+      {/* Sondage de disponibilité avant match */}
+      {!matchIsOver && (
+        <MatchAvailabilityCard
+          eventId={matchId}
+          teamId={currentTeam.id}
+          isCoach={isCoach}
+          childPlayerId={childId ?? undefined}
+        />
+      )}
 
       {/* Score Section */}
       <Card>

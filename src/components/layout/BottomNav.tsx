@@ -41,6 +41,7 @@ import {
   CalendarRange,
   Flame,
   Building2,
+  Vote,
 } from "lucide-react";
 
 const navItems = [
@@ -49,6 +50,7 @@ const navItems = [
   { href: "/medical", label: "Infirmerie", icon: Heart },
   { href: "/carpooling", label: "Covoiturage", icon: Car },
   { href: "/tasks", label: "Tâches", icon: ListTodo },
+  { href: "/polls", label: "Sondages", icon: Vote },
   { href: "/tactics", label: "Tactique", icon: Swords, coachOnly: true },
   { href: "/season", label: "Plan de saison", icon: CalendarRange },
   { href: "/challenge", label: "Défi de la semaine", icon: Flame },
