@@ -31,6 +31,11 @@ import {
   Flame,
   Building2,
   Vote,
+  Package,
+  Flag,
+  GitCompareArrows,
+  PiggyBank,
+  CalendarClock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -70,6 +75,9 @@ const navItems = [
   { href: "/gallery", label: "Galerie", icon: Image },
   { href: "/trophies", label: "Trophées", icon: Trophy },
   { href: "/championship", label: "Championnat", icon: Medal },
+  { href: "/material", label: "Matériel", icon: Package },
+  { href: "/adversaires", label: "Adversaires", icon: Flag },
+  { href: "/stats/compare", label: "Comparer", icon: GitCompareArrows },
   { href: "/notifications", label: "Notifications", icon: Bell },
 ];
 
@@ -78,6 +86,8 @@ const comiteOnlyHrefs = new Set(["/club", "/calendar", "/stats", "/notifications
 const coachItems = [
   { href: "/admin/players", label: "Gestion joueurs", icon: UserCog },
   { href: "/admin/cotisations", label: "Cotisations", icon: Wallet },
+  { href: "/admin/treasury", label: "Trésorerie", icon: PiggyBank },
+  { href: "/admin/deadlines", label: "Échéances", icon: CalendarClock },
 ];
 
 export function Sidebar() {

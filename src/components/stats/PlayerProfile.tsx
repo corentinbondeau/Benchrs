@@ -57,6 +57,7 @@ import type { PlayerPhysicalTest } from "@/types";
 import { PersonalGoalsCard } from "@/components/stats/PersonalGoalsCard";
 import { PlayerPaniniCard } from "@/components/stats/PlayerPaniniCard";
 import { CareerHistoryCard } from "@/components/stats/CareerHistoryCard";
+import { QuarterlyReportsCard } from "@/components/stats/QuarterlyReportsCard";
 
 interface PlayerStats {
   player_id: string;
@@ -1047,6 +1048,10 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
           )}
         </CardContent>
       </Card>
+
+      {currentTeam && (
+        <QuarterlyReportsCard playerId={playerId} teamId={currentTeam.id} isCoach={isCoach} />
+      )}
 
       {currentTeam && (
         <PlayerPaniniCard

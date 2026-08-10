@@ -43,3 +43,45 @@ export function seasonDateRange(season: string): { start: Date; end: Date } | nu
     end: new Date(y2, 6, 31, 23, 59, 59, 999),
   };
 }
+
+const QUARTER_MONTHS = [
+  [7, 8, 9], // T1 : août, septembre, octobre
+  [10, 11, 0], // T2 : novembre, décembre, janvier
+  [1, 2, 3], // T3 : février, mars, avril
+  [4, 5, 6], // T4 : mai, juin, juillet
+];
+
+export function quarterKeyForDate(date: Date): string {
+  const season = currentSeasonLabel(date);
+  const q = QUARTER_MONTHS.findIndex((months) => months.includes(date.getMonth())) + 1;
+  return `${season}-T${q}`;
+}
+
+export function currentQuarterKey(now: Date = new Date()): string {
+  return quarterKeyForDate(now);
+}
+
+export function quarterDateRange(key: string): { start: Date; end: Date } | null {
+  const m = key.match(/^(\d{4})-(\d{4})-T([1-4])$/);
+  if (!m) return null;
+  const y1 = parseInt(m[1], 10);
+  const y2 = parseInt(m[2], 10);
+  if (y2 !== y1 + 1) return null;
+  const q = parseInt(m[3], 10);
+  const months = QUARTER_MONTHS[q - 1];
+  const start = new Date(y1, months[0], 1);
+  const endMonth = months[2] === 0 ? 12 : months[2];
+  const endYear = months[2] === 0 ? y2 : y2;
+  const end = new Date(endYear, endMonth, 1);
+  end.setDate(0); // dernier jour du mois précédent
+  end.setHours(23, 59, 59, 999);
+  return { start, end };
+}
+
+export function quarterLabel(key: string): string {
+  const range = quarterDateRange(key);
+  if (!range) return key;
+  const start = range.start.toLocaleDateString("fr-FR", { month: "short", year: "numeric" });
+  const end = range.end.toLocaleDateString("fr-FR", { month: "short", year: "numeric" });
+  return `${start} – ${end}`;
+}

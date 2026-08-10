@@ -40,6 +40,21 @@ export const NOTIFICATION_TYPES: NotificationTypeConfig[] = [
     label: "Compte-rendu de match",
     description: "Compte-rendu IA du match publié par le coach",
   },
+  {
+    type: "relance",
+    label: "Relances cotisation",
+    description: "Relance de paiement de cotisation envoyée par le coach",
+  },
+  {
+    type: "echeance",
+    label: "Échéances (licence, certificat)",
+    description: "Alerte quand une licence ou un certificat médical arrive à expiration",
+  },
+  {
+    type: "bilan_trimestriel",
+    label: "Bilan trimestriel",
+    description: "Bilan IA de progression envoyé par le coach",
+  },
 ];
 
 export function defaultNotificationPrefs(userId: string, teamId: string) {

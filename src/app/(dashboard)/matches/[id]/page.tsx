@@ -492,16 +492,16 @@ export default function MatchDetailPage() {
       {/* Match Header */}
       <Card className="bg-gradient-to-r from-[var(--color-navy)] to-[var(--color-royal)] text-white">
         <CardContent className="p-6">
-          <div className="flex items-center justify-between">
-            <div className="space-y-2">
+          <div className="flex items-start justify-between gap-3">
+            <div className="space-y-2 min-w-0">
               <div className="flex items-center gap-2">
                 <Badge className={getResultColor(match.match_result)}>
                   {getResultLabel(match.match_result)}
                 </Badge>
               </div>
-              <h2 className="text-2xl font-bold">{match.title}</h2>
+              <h2 className="text-2xl font-bold break-words">{match.title}</h2>
               {match.opponent && (
-                <p className="text-white/80 text-lg">vs {match.opponent}</p>
+                <p className="text-white/80 text-lg break-words">vs {match.opponent}</p>
               )}
               {isCoach && (
                 <div className="flex flex-wrap gap-2 pt-2">
@@ -531,11 +531,11 @@ export default function MatchDetailPage() {
               )}
             </div>
             {match.score_us !== null && match.score_them !== null && (
-              <div className="text-center">
-                <div className="inline-flex items-center gap-3 rounded-xl bg-white/20 px-6 py-3">
-                  <span className="text-4xl font-bold">{match.score_us}</span>
+              <div className="text-center shrink-0">
+                <div className="inline-flex items-center gap-2 sm:gap-3 rounded-xl bg-white/20 px-3 sm:px-6 py-3">
+                  <span className="text-3xl sm:text-4xl font-bold tabular-nums">{match.score_us}</span>
                   <Minus className="h-6 w-6 text-white/60" />
-                  <span className="text-4xl font-bold">{match.score_them}</span>
+                  <span className="text-3xl sm:text-4xl font-bold tabular-nums">{match.score_them}</span>
                 </div>
                 <button
                   onClick={() => setPosterOpen(true)}
@@ -814,11 +814,11 @@ export default function MatchDetailPage() {
                     <span className="text-center">Minutes</span>
                   </div>
                   {formEntries.map(({ playerId, stats, profile }) => (
-                    <div key={playerId} className="flex items-center gap-3 rounded-lg border p-3">
-                      <div className="flex items-center gap-2 min-w-[140px] shrink-0">
-                        <span className="truncate text-sm">{profile?.first_name} {profile?.last_name}</span>
+                    <div key={playerId} className="rounded-lg border p-3 space-y-2">
+                      <div className="flex items-center gap-2 w-full md:w-[140px] md:shrink-0">
+                        <span className="truncate text-sm font-medium min-w-0">{profile?.first_name} {profile?.last_name}</span>
                       </div>
-                      <div className="grid grid-cols-5 gap-2 flex-1">
+                      <div className="grid grid-cols-5 gap-2 w-full">
                         <div className="flex flex-col items-center gap-0.5">
                           <Label className="text-[10px] text-muted-foreground">Buts</Label>
                           <Input

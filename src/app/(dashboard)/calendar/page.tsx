@@ -724,16 +724,16 @@ export default function CalendarPage() {
                         return (
                           <div
                             key={event.id}
-                            className="flex items-center gap-2 text-sm group relative cursor-pointer hover:bg-muted/50 rounded-lg px-2 py-1 -mx-2 transition-colors"
+                            className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm group relative cursor-pointer hover:bg-muted/50 rounded-lg px-2 py-1 -mx-2 transition-colors"
                             onClick={() => selectEvent(event)}
                           >
                             <Badge variant="outline" className={getEventBadgeColor(event)}>
                               {event.type === "match" ? "Match" : "Entraînement"}
                             </Badge>
-                            <span className="font-medium">{event.title}</span>
+                            <span className="font-medium min-w-0 break-words">{event.title}</span>
                             <EventTimeDisplay event={event} />
                             {event.location && (
-                              <span className="text-xs text-muted-foreground">- {event.location}</span>
+                              <span className="text-xs text-muted-foreground min-w-0 break-words">- {event.location}</span>
                             )}
                             {event.score_us !== null && event.score_them !== null && (
                               <span className="text-xs font-bold">{event.score_us}-{event.score_them}</span>

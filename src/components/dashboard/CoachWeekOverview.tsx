@@ -302,16 +302,18 @@ export function CoachWeekOverview() {
                 {sectionTitle(<ShieldAlert className="h-3.5 w-3.5 text-red-500" />, "Blessés")}
                 <div className="space-y-1.5">
                   {data.injuries.map((i) => (
-                    <div key={i.id} className="flex items-center gap-2 text-sm">
-                      <HeartPulse className="h-3.5 w-3.5 shrink-0 text-red-500" />
-                      <span className="min-w-0 flex-1 truncate font-medium">{i.playerName}</span>
-                      {i.injury_type && (
-                        <Badge className="bg-red-100 text-red-700 border-red-200 shrink-0">
-                          {i.injury_type}
-                        </Badge>
-                      )}
+                    <div key={i.id} className="text-sm">
+                      <div className="flex items-center gap-2">
+                        <HeartPulse className="h-3.5 w-3.5 shrink-0 text-red-500" />
+                        <span className="min-w-0 flex-1 truncate font-medium">{i.playerName}</span>
+                        {i.injury_type && (
+                          <Badge className="bg-red-100 text-red-700 border-red-200 shrink-0">
+                            {i.injury_type}
+                          </Badge>
+                        )}
+                      </div>
                       {i.expected_return && (
-                        <span className="text-xs text-muted-foreground shrink-0">
+                        <span className="text-xs text-muted-foreground block mt-0.5 ml-5">
                           retour {i.expected_return}
                         </span>
                       )}

@@ -96,6 +96,9 @@ export async function GET(req: Request) {
     await sendWeeklyDigest(supabase, now);
   }
 
+  // --- Alertes d'échéances : licences, certificats médicaux, cotisations (fenêtre 30 jours) ---
+  await sendExpiryAlerts(supabase, now);
+
   const { data: pending } = await supabase
     .from("notifications")
     .select("id, user_id, title, body, type, reference_id, team_id, url")
@@ -393,6 +396,83 @@ async function sendWeeklyDigest(
     const { error } = await supabase.from("notifications").insert(rows);
     if (error) {
       console.error("[notifications/cron] digest insert error:", error);
+    }
+  }
+}
+
+interface ExpiryCandidate {
+  id: string;
+  first_name: string;
+  last_name: string;
+  team_id: string;
+  licence_expires_at: string | null;
+  medical_cert_expires_at: string | null;
+}
+
+async function sendExpiryAlerts(supabase: ReturnType<typeof createAdminClient>, now: string) {
+  const windowStart = new Date(now);
+  windowStart.setDate(windowStart.getDate() - 1); // déjà expiré depuis 24h
+  const windowEnd = new Date(now);
+  windowEnd.setDate(windowEnd.getDate() + 30); // échéance dans les 30 jours
+
+  const { data: profiles } = await supabase
+    .from("profiles")
+    .select("id, first_name, last_name, team_id, licence_expires_at, medical_cert_expires_at")
+    .eq("is_active", true);
+
+  const candidates = (profiles || []) as ExpiryCandidate[];
+  for (const p of candidates) {
+    if (!p.team_id) continue;
+    const alerts: { kind: "licence" | "medical"; date: string }[] = [];
+    if (p.licence_expires_at) {
+      const d = new Date(p.licence_expires_at + "T00:00:00");
+      if (d >= windowStart && d <= windowEnd) alerts.push({ kind: "licence", date: p.licence_expires_at });
+    }
+    if (p.medical_cert_expires_at) {
+      const d = new Date(p.medical_cert_expires_at + "T00:00:00");
+      if (d >= windowStart && d <= windowEnd) alerts.push({ kind: "medical", date: p.medical_cert_expires_at });
+    }
+    for (const a of alerts) {
+      const dedupRef = `echeance:${a.kind}:${p.id}:${a.date}`;
+      const { data: existing } = await supabase
+        .from("notifications")
+        .select("id")
+        .eq("type", "echeance")
+        .eq("reference_id", dedupRef)
+        .limit(1)
+        .maybeSingle();
+      if (existing) continue;
+
+      const { data: links } = await supabase
+        .from("parent_student")
+        .select("parent_id")
+        .eq("team_id", p.team_id)
+        .eq("student_id", p.id);
+      const parentIds = [...new Set((links || []).map((l) => (l as { parent_id: string }).parent_id))];
+      const userIds = [...new Set([p.id, ...parentIds])];
+
+      const expired = new Date(a.date + "T00:00:00") < new Date(now);
+      const daysLeft = Math.ceil(
+        (new Date(a.date + "T00:00:00").getTime() - Date.now()) / 86400000
+      );
+      const label = a.kind === "licence" ? "la licence" : "le certificat médical";
+      const title = expired ? "Échéance dépassée" : `Échéance dans ${daysLeft} j`;
+      const body = `${p.first_name} ${p.last_name} : ${label} expire le ${new Date(a.date + "T00:00:00").toLocaleDateString("fr-FR")}.`;
+
+      const rows = userIds.map((uid: string) => ({
+        user_id: uid,
+        team_id: p.team_id,
+        type: "echeance",
+        title,
+        body,
+        reference_id: dedupRef,
+        url: "/settings/team",
+        scheduled_for: now,
+      }));
+      const { error } = await supabase.from("notifications").insert(rows);
+      if (error) {
+        console.error("[notifications/cron] echeance insert error:", error);
+      }
     }
   }
 }

@@ -261,29 +261,29 @@ export function ParentDashboard() {
           onClick={() => router.push(nextEvent.type === "match" ? `/matches/${nextEvent.id}` : `/trainings/${nextEvent.id}`)}
         >
           <CardContent className="p-6">
-            <div className="flex items-start justify-between">
-              <div className="space-y-2">
+            <div className="flex items-start justify-between gap-3">
+              <div className="space-y-2 min-w-0">
                 <p className="text-[var(--color-navy)]/60 text-sm font-medium uppercase tracking-wide">
                   {nextEvent.type === "match"
                     ? "Prochain match"
                     : "Prochain entraînement"}
                 </p>
-                <h3 className="text-xl font-bold">{nextEvent.title}</h3>
+                <h3 className="text-xl font-bold truncate">{nextEvent.title}</h3>
                 {nextEvent.opponent && (
-                  <p className="text-[var(--color-navy)]/80">
+                  <p className="text-[var(--color-navy)]/80 truncate">
                     vs {nextEvent.opponent}
                   </p>
                 )}
-                <div className="flex items-center gap-4 text-sm text-[var(--color-navy)]/70">
-                  <span className="flex items-center gap-1">
-                    <Calendar className="h-3.5 w-3.5" />
-                    {eventDate.toLocaleDateString("fr-FR", {
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-[var(--color-navy)]/70">
+                  <span className="flex items-center gap-1 min-w-0">
+                    <Calendar className="h-3.5 w-3.5 shrink-0" />
+                    <span className="truncate">{eventDate.toLocaleDateString("fr-FR", {
                       weekday: "long",
                       day: "numeric",
                       month: "long",
-                    })}
+                    })}</span>
                   </span>
-                  <span className="flex items-center gap-1">
+                  <span className="flex items-center gap-1 shrink-0">
                     <Clock className="h-3.5 w-3.5" />
                     {eventDate.toLocaleTimeString("fr-FR", {
                       hour: "2-digit",
@@ -291,14 +291,14 @@ export function ParentDashboard() {
                     })}
                   </span>
                   {nextEvent.location && (
-                    <span className="flex items-center gap-1">
-                      <MapPin className="h-3.5 w-3.5" />
-                      {nextEvent.location}
+                    <span className="flex items-center gap-1 min-w-0 w-full sm:w-auto">
+                      <MapPin className="h-3.5 w-3.5 shrink-0" />
+                      <span className="truncate">{nextEvent.location}</span>
                     </span>
                   )}
                 </div>
               </div>
-              <div className="text-right">
+              <div className="text-right shrink-0">
                 <div className="inline-flex items-center rounded-lg bg-[var(--color-navy)] px-3 py-1.5 text-sm font-bold text-white">
                   {countdown}
                 </div>

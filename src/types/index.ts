@@ -55,6 +55,8 @@ export interface Profile {
   email_notifications?: boolean;
   vma: number | null;
   vmi: number | null;
+  licence_expires_at: string | null;
+  medical_cert_expires_at: string | null;
   team_id: string | null;
   created_at: string;
   updated_at: string;
@@ -417,10 +419,48 @@ export interface Cotisation {
   status: "paid" | "pending" | "partial";
   payment_method: string | null;
   payment_date: string | null;
+  due_date: string | null;
   notes: string | null;
   team_id: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface TreasuryTransaction {
+  id: string;
+  team_id: string;
+  type: "income" | "expense";
+  label: string;
+  amount: number;
+  category: string;
+  txn_date: string;
+  recorded_by: string | null;
+  notes: string | null;
+  created_at: string;
+}
+
+export interface InventoryItem {
+  id: string;
+  team_id: string;
+  name: string;
+  category: "maillots" | "ballons" | "trousses" | "medical" | "autre";
+  quantity: number;
+  notes: string | null;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface ItemLoan {
+  id: string;
+  team_id: string;
+  item_id: string;
+  player_id: string;
+  quantity: number;
+  loaned_at: string;
+  returned_at: string | null;
+  condition_note: string | null;
+  created_by: string | null;
+  created_at: string;
 }
 
 export interface PaymentHistory {

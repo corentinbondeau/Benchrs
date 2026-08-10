@@ -269,9 +269,9 @@ export function PlayerRatings({ eventId, teamId, userId, presentPlayers, childPl
                 const count = agg?.count ?? 0;
                 const isMe = p.id === userId;
                 return (
-                  <div key={p.id} className="flex items-center justify-between gap-3 py-1.5">
+                  <div key={p.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-1.5">
                     <div className="flex items-center gap-2 min-w-0">
-                      <Avatar className="h-7 w-7">
+                      <Avatar className="h-7 w-7 shrink-0">
                         <AvatarImage src={undefined} />
                         <AvatarFallback className="text-[10px] bg-[var(--color-navy)] text-white">
                           {initials(p.first_name, p.last_name)}

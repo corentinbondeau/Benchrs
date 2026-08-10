@@ -40,6 +40,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { TACTICAL_PHASE_NAMES } from "@/lib/training/phases";
+import { SeasonPlanCard } from "@/components/season/SeasonPlanCard";
 
 type CycleType = (typeof TACTICAL_PHASE_NAMES)[number];
 
@@ -223,7 +224,12 @@ export default function SeasonPage() {
 
       {loading ? (
         <p className="text-sm text-muted-foreground text-center py-10">Chargement…</p>
-      ) : cycles.length === 0 ? (
+      ) : (
+        <>
+          {currentTeam && (
+            <SeasonPlanCard teamId={currentTeam.id} isCoach={isCoach} onApplied={refresh} />
+          )}
+          {cycles.length === 0 ? (
         <Card>
           <CardContent className="py-10 text-center">
             <CalendarDays className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
@@ -315,6 +321,8 @@ export default function SeasonPage() {
               );
             })}
           </div>
+        </>
+      )}
         </>
       )}
 

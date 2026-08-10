@@ -490,19 +490,19 @@ export default function ChampionshipPage() {
                     Aucune équipe dans le classement
                   </p>
                 ) : (
-                  <div className="rounded-lg border overflow-hidden">
+                  <div className="rounded-lg border overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead className="bg-muted/50">
                         <tr>
-                          <th className="p-2 text-left">#</th>
-                          <th className="p-2 text-left">Équipe</th>
-                          <th className="p-2 text-center">J</th>
-                          <th className="p-2 text-center">V</th>
-                          <th className="p-2 text-center">N</th>
-                          <th className="p-2 text-center">D</th>
-                          <th className="p-2 text-center">BP</th>
-                          <th className="p-2 text-center">BC</th>
-                          <th className="p-2 text-center font-bold">Pts</th>
+                          <th className="p-2 text-left whitespace-nowrap">#</th>
+                          <th className="p-2 text-left min-w-[120px]">Équipe</th>
+                          <th className="p-2 text-center whitespace-nowrap">J</th>
+                          <th className="p-2 text-center whitespace-nowrap">V</th>
+                          <th className="p-2 text-center whitespace-nowrap">N</th>
+                          <th className="p-2 text-center whitespace-nowrap">D</th>
+                          <th className="p-2 text-center whitespace-nowrap">BP</th>
+                          <th className="p-2 text-center whitespace-nowrap">BC</th>
+                          <th className="p-2 text-center font-bold whitespace-nowrap">Pts</th>
                         </tr>
                       </thead>
                       <tbody>

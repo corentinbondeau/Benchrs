@@ -429,13 +429,13 @@ export function SessionFiche({
     <>
       <Card>
         <CardContent className="p-4 md:p-6">
-          <div className="flex items-center justify-between gap-2 mb-4">
-            <h3 className="font-semibold flex items-center gap-2">
-              <ClipboardList className="h-4 w-4 text-[var(--color-royal)]" />
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+            <h3 className="font-semibold flex items-center gap-2 min-w-0">
+              <ClipboardList className="h-4 w-4 text-[var(--color-royal)] shrink-0" />
               Fiche de séance
             </h3>
             {fiche && isCoach && (
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <Button variant="ghost" size="sm" onClick={() => setTemplatesOpen(true)}>
                   <Bookmark className="h-3.5 w-3.5 mr-1" />
                   Modèles

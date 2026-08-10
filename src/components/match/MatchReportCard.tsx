@@ -286,13 +286,13 @@ export function MatchReportCard({ matchId, teamId, isCoach, hasData }: Props) {
             <label className="text-xs font-medium text-muted-foreground">
               Note de l&apos;équipe ({draft.note_equipe}/10)
             </label>
-            <div className="flex items-center gap-1.5">
+            <div className="grid grid-cols-6 sm:grid-cols-11 gap-1.5">
               {Array.from({ length: 11 }, (_, i) => (
                 <button
                   key={i}
                   type="button"
                   onClick={() => setDraft((d) => ({ ...d, note_equipe: i }))}
-                  className={`h-8 w-8 rounded-md text-xs font-bold transition-colors ${
+                  className={`h-8 w-full rounded-md text-xs font-bold transition-colors ${
                     i <= draft.note_equipe
                       ? "bg-[var(--color-gold)] text-[var(--color-navy)]"
                       : "bg-muted text-muted-foreground hover:bg-muted/70"
@@ -427,13 +427,13 @@ export function MatchReportCard({ matchId, teamId, isCoach, hasData }: Props) {
   return (
     <Card>
       <CardHeader className="pb-3">
-        <div className="flex items-center justify-between gap-2">
-          <CardTitle className="text-base flex items-center gap-2">
-            <FileText className="h-4 w-4 text-[var(--color-gold)]" />
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <CardTitle className="text-base flex items-center gap-2 min-w-0">
+            <FileText className="h-4 w-4 text-[var(--color-gold)] shrink-0" />
             Compte-rendu du match
           </CardTitle>
           {isCoach && (
-            <div className="flex items-center gap-1.5">
+            <div className="flex flex-wrap items-center gap-1.5">
               {report && (
                 <Button size="sm" variant="outline" onClick={startEditing}>
                   <PenLine className="h-3.5 w-3.5 mr-1" />
