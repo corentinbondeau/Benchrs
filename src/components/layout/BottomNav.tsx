@@ -66,13 +66,13 @@ const navItems = [
   { key: "gallery", href: "/gallery", label: "Galerie", icon: Image },
   { key: "trophies", href: "/trophies", label: "Trophées", icon: Trophy },
   { key: "championship", href: "/championship", label: "Championnat", icon: Medal },
-  { key: "material", href: "/material", label: "Matériel", icon: Package },
+  { key: "material", href: "/material", label: "Matériel", icon: Package, coachAndClub: true },
   { key: "adversaires", href: "/adversaires", label: "Adversaires", icon: Flag },
-  { key: "compare", href: "/stats/compare", label: "Comparer", icon: GitCompareArrows },
+  { key: "compare", href: "/stats/compare", label: "Comparer", icon: GitCompareArrows, coachOnly: true },
   { key: "notifications", href: "/notifications", label: "Notifications", icon: Bell },
 ];
 
-const comiteOnlyHrefs = new Set(["/club", "/club/feed", "/calendar", "/roster", "/stats", "/notifications"]);
+const comiteOnlyHrefs = new Set(["/club", "/club/feed", "/calendar", "/roster", "/stats", "/notifications", "/material"]);
 
 const coachItems = [
   { href: "/admin/players", label: "Gestion joueurs", icon: UserCog },
@@ -284,6 +284,7 @@ function SheetContentInner({ close }: { close: () => void }) {
           .filter((item) => {
             if (item.coachOnly && !isCoach) return false;
             if ((item as { clubOnly?: boolean }).clubOnly && !hasClubRole) return false;
+            if ((item as { coachAndClub?: boolean }).coachAndClub && !isCoach && !hasClubRole) return false;
             if ((item as { clubTeamOnly?: boolean }).clubTeamOnly && !currentTeam?.club_id && !hasClubRole) return false;
             if (isComiteOnly && !comiteOnlyHrefs.has(item.href)) return false;
             if (hiddenTabs.has(item.key)) return false;

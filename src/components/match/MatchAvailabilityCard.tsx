@@ -261,6 +261,37 @@ export function MatchAvailabilityCard({
                 </div>
               </div>
             )}
+
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground mb-2">
+                Réponses par joueur
+              </p>
+              <div className="space-y-1">
+                {players.map((p) => {
+                  const v = responses[p.id];
+                  return (
+                    <div
+                      key={p.id}
+                      className="flex items-center justify-between gap-2 rounded-lg border px-3 py-1.5"
+                    >
+                      <span className="text-sm font-medium truncate">
+                        {p.first_name} {p.last_name}
+                      </span>
+                      {v ? (
+                        <Badge className={STYLES[v]}>
+                          <Check className="h-3 w-3 mr-1" />
+                          {LABELS[v]}
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-muted-foreground">
+                          Pas de réponse
+                        </Badge>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </>
         ) : targetPlayerId ? (
           <>

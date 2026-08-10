@@ -17,6 +17,8 @@ import { CalendarClock, Pencil, RotateCcw, Trash2, XCircle } from "lucide-react"
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { clearQueryCache } from "@/lib/queryCache";
+import { computeTravelTime } from "@/lib/locations";
+import { LocationPicker } from "@/components/calendar/LocationPicker";
 import type { Event } from "@/types";
 
 export type EventWithMeeting = Event & { meeting_time: string | null };
@@ -204,6 +206,11 @@ export function EventCoachActions({
       location: editLocation.trim() || null,
       opponent: isMatch && editOpponent.trim() ? editOpponent.trim() : null,
     };
+
+    if (editLocation.trim() && editLocation.trim() !== (event.location || "")) {
+      const travel = await computeTravelTime(event.team_id, editLocation.trim());
+      if (travel != null) patch.travel_time_min = travel;
+    }
 
     if (scope === "all" && event.recurrence_group_id) {
       const deltaMs = new Date(editDate).getTime() - new Date(event.event_date).getTime();
@@ -471,8 +478,12 @@ export function EventCoachActions({
               <Input type="time" value={editMeeting} onChange={(e) => setEditMeeting(e.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label>Lieu</Label>
-              <Input value={editLocation} onChange={(e) => setEditLocation(e.target.value)} placeholder="Stade, terrain..." />
+              <LocationPicker
+                teamId={event.team_id}
+                value={editLocation}
+                onChange={setEditLocation}
+                isCoach
+              />
             </div>
             {isMatch && (
               <div className="space-y-2">

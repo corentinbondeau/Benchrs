@@ -51,7 +51,13 @@ export default function RootLayout({
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           {children}
-          <Toaster position="top-right" richColors />
+          <Toaster
+            position="top-center"
+            richColors
+            offset={72}
+            mobileOffset={72}
+            toastOptions={{ style: { marginTop: "0px" } }}
+          />
           <InstallPrompt />
         </ThemeProvider>
       </body>
