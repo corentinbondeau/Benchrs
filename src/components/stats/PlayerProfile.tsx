@@ -5,6 +5,15 @@ import { createClient } from "@/lib/supabase/client";
 import { useTeam } from "@/lib/team";
 import { useAuth } from "@/lib/auth";
 import { notifyPhysicalTest } from "@/lib/playerAlerts";
+import {
+  fffCategoryFromBirthDate,
+  normRangeFor,
+  normStatusFor,
+  NORM_LABELS,
+  NORM_COLORS,
+  FFF_VMA_NORMS,
+  FFF_VMI_NORMS,
+} from "@/lib/vmaNorms";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -253,6 +262,12 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
   const [radarData, setRadarData] = useState<RadarDatum[]>([]);
   const [mvpCount, setMvpCount] = useState(0);
   const [notesData, setNotesData] = useState<NotesChartPoint[]>([]);
+
+  const fffCategory = fffCategoryFromBirthDate(profile?.date_of_birth);
+  const vmaNorm = normRangeFor(fffCategory, FFF_VMA_NORMS);
+  const vmiNorm = normRangeFor(fffCategory, FFF_VMI_NORMS);
+  const vmaStatus = normStatusFor(vma, vmaNorm);
+  const vmiStatus = normStatusFor(vmi, vmiNorm);
 
   useEffect(() => {
     if (!currentTeam) return;
@@ -838,6 +853,11 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
                     </Button>
                   )}
                 </div>
+                {fffCategory && vmaStatus && (
+                  <Badge className={`mt-1 text-[10px] border ${NORM_COLORS[vmaStatus]}`}>
+                    {NORM_LABELS[vmaStatus]} · {fffCategory}
+                  </Badge>
+                )}
               </>
             )}
           </CardContent>
@@ -877,6 +897,11 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
                     </Button>
                   )}
                 </div>
+                {fffCategory && vmiStatus && (
+                  <Badge className={`mt-1 text-[10px] border ${NORM_COLORS[vmiStatus]}`}>
+                    {NORM_LABELS[vmiStatus]} · {fffCategory}
+                  </Badge>
+                )}
               </>
             )}
           </CardContent>

@@ -124,3 +124,9 @@
     @apply bg-background text-foreground;
   }
 }
+
+@media (max-width: 768px) {
+  .sonner-toaster {
+    top: calc(env(safe-area-inset-top, 0px) + 3rem) !important;
+  }
+}

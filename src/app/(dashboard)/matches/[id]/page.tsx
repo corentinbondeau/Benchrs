@@ -40,6 +40,7 @@ import {
 import { ChildSwitcher } from "@/components/ChildSwitcher";
 import { useSelectedChild } from "@/lib/useSelectedChild";
 import { fetchTeamActivePlayers } from "@/lib/players";
+import { authFetch } from "@/lib/api-client";
 import { LiveMatchTracker } from "@/components/LiveMatchTracker";
 import { MatchReportCard } from "@/components/match/MatchReportCard";
 import { MatchAvailabilityCard } from "@/components/match/MatchAvailabilityCard";
@@ -47,6 +48,7 @@ import { MatchPoster } from "@/components/match/MatchPoster";
 import { MatchFeedback } from "@/components/match/MatchFeedback";
 import { PlayerRatings } from "@/components/match/PlayerRatings";
 import { MatchMvpCard } from "@/components/match/MatchMvpCard";
+import { MatchChecklist } from "@/components/match/MatchChecklist";
 import type {
   AttendanceStatus,
   Event,
@@ -152,10 +154,36 @@ export default function MatchDetailPage() {
   const [convDialogOpen, setConvDialogOpen] = useState(false);
   const [announcementOpen, setAnnouncementOpen] = useState(false);
   const [liveNow, setLiveNow] = useState(() => Date.now());
+  const [liveToken, setLiveToken] = useState<string | null>(null);
 
   const liveOpenAt = match?.event_date
     ? new Date(match.event_date).getTime() - 30 * 60 * 1000
     : null;
+
+  async function shareLiveScore() {
+    const res = await authFetch("/api/matches/live-token", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ eventId: matchId }),
+    });
+    if (!res.ok) {
+      toast.error("Impossible de générer le lien de score live");
+      return;
+    }
+    const { liveToken: token } = (await res.json()) as { liveToken: string };
+    setLiveToken(token);
+    const liveUrl = `${window.location.origin}/live/${matchId}?token=${token}`;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: "Score live", text: "Suis le match en direct", url: liveUrl });
+        return;
+      } catch {
+        // partage annulé → fallback copie
+      }
+    }
+    await navigator.clipboard.writeText(liveUrl);
+    toast.success("Lien de score live copié");
+  }
 
   useEffect(() => {
     if (liveOpenAt === null || liveOpenAt <= liveNow) return;
@@ -564,6 +592,13 @@ export default function MatchDetailPage() {
         date={matchDate}
         meetingTime={match.meeting_time}
         location={match.location}
+        travelTimeMin={match.travel_time_min}
+        isCoach={isCoach}
+        onTravelTimeChange={async (min) => {
+          const supabase = createClient();
+          await supabase.from("events").update({ travel_time_min: min }).eq("id", matchId);
+          setMatch((prev) => (prev ? { ...prev, travel_time_min: min } : prev));
+        }}
         myPresence={myPresence}
         convocationsSent={!!match?.convocations_sent_at}
         onRespond={myPresence ? (status, reason) => updateMatchAttendance(myPresence.playerId, status, reason) : undefined}
@@ -579,6 +614,16 @@ export default function MatchDetailPage() {
         />
       )}
 
+      {/* Checklist avant-match */}
+      {!matchIsOver && (
+        <MatchChecklist
+          eventId={matchId}
+          teamId={currentTeam.id}
+          isCoach={isCoach}
+          myPlayerId={userRole === "player" ? (user?.id ?? null) : childId}
+        />
+      )}
+
       {/* Score Section */}
       <Card>
         <CardHeader className="pb-3">
@@ -588,26 +633,32 @@ export default function MatchDetailPage() {
               Score
             </CardTitle>
             {isCoach && (
-              editingScore ? (
-                <div className="flex gap-2">
-                  <Button size="sm" variant="ghost" onClick={() => setEditingScore(false)}>
-                    Annuler
-                  </Button>
-                  <Button
-                    size="sm"
-                    className="bg-[var(--color-gold)] text-[var(--color-navy)]"
-                    onClick={saveScore}
-                  >
-                    <Check className="h-3.5 w-3.5 mr-1" />
-                    Enregistrer
-                  </Button>
-                </div>
-              ) : (
-                <Button size="sm" variant="outline" onClick={initScoreForm}>
-                  <Pencil className="h-3.5 w-3.5 mr-1" />
-                  Modifier
+              <div className="flex items-center gap-2">
+                <Button size="sm" variant="outline" onClick={shareLiveScore}>
+                  <Radio className="h-3.5 w-3.5 mr-1" />
+                  {liveToken ? "Lien généré ✓" : "Score live"}
                 </Button>
-              )
+                {editingScore ? (
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="ghost" onClick={() => setEditingScore(false)}>
+                      Annuler
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="bg-[var(--color-gold)] text-[var(--color-navy)]"
+                      onClick={saveScore}
+                    >
+                      <Check className="h-3.5 w-3.5 mr-1" />
+                      Enregistrer
+                    </Button>
+                  </div>
+                ) : (
+                  <Button size="sm" variant="outline" onClick={initScoreForm}>
+                    <Pencil className="h-3.5 w-3.5 mr-1" />
+                    Modifier
+                  </Button>
+                )}
+              </div>
             )}
           </div>
         </CardHeader>

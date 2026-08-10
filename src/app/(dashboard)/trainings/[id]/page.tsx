@@ -257,6 +257,13 @@ export default function TrainingDetailPage() {
         date={eventDate}
         meetingTime={event.meeting_time}
         location={event.location}
+        travelTimeMin={event.travel_time_min}
+        isCoach={isCoach}
+        onTravelTimeChange={async (min) => {
+          const supabase = createClient();
+          await supabase.from("events").update({ travel_time_min: min }).eq("id", trainingId);
+          setEvent((prev) => (prev ? { ...prev, travel_time_min: min } : prev));
+        }}
         myPresence={myPresence}
         convocationsSent={!!event.convocations_sent_at}
         onRespond={myPresence ? (status, reason) => updateAttendance(myPresence.playerId, status, reason) : undefined}

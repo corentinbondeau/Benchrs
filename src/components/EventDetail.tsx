@@ -12,6 +12,8 @@ import {
   Clock,
   Info,
   MapPin,
+  Pencil,
+  Timer,
   User,
   Users,
   X,
@@ -113,6 +115,9 @@ export function EventInfoCard({
   date,
   meetingTime,
   location,
+  travelTimeMin,
+  isCoach,
+  onTravelTimeChange,
   myPresence,
   convocationsSent,
   onRespond,
@@ -120,12 +125,21 @@ export function EventInfoCard({
   date: Date;
   meetingTime: string | null;
   location: string | null;
+  travelTimeMin?: number | null;
+  isCoach?: boolean;
+  onTravelTimeChange?: (min: number | null) => void;
   myPresence?: MyPresenceInfo;
   convocationsSent: boolean;
   onRespond?: (status: "present" | "late" | "absent", reason?: string) => void;
 }) {
   const [showRetardReason, setShowRetardReason] = useState(false);
   const [retardReason, setRetardReason] = useState("");
+  const [editingTravel, setEditingTravel] = useState(false);
+  const [travelInput, setTravelInput] = useState<string>(travelTimeMin?.toString() ?? "");
+
+  const mapsUrl = location
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`
+    : null;
 
   const dateStr = date.toLocaleDateString("fr-FR", {
     weekday: "long",
@@ -168,7 +182,77 @@ export function EventInfoCard({
           <InfoRow icon={Clock} label="Rendez-vous" value={formatMeetingTime(meetingTime)} />
         )}
         <InfoRow icon={Clock} label="Début" value={startStr} />
-        {location && <InfoRow icon={MapPin} label="Lieu" value={location} />}
+        {location && (
+          <div className="flex items-center justify-between gap-2">
+            <InfoRow icon={MapPin} label="Lieu" value={location} />
+            {mapsUrl && (
+              <a
+                href={mapsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-[var(--color-royal)]/30 bg-[var(--color-royal)]/5 px-2 py-1 text-xs font-medium text-[var(--color-royal)] hover:bg-[var(--color-royal)]/10"
+              >
+                <MapPin className="h-3 w-3" />
+                Itinéraire
+              </a>
+            )}
+          </div>
+        )}
+        {(travelTimeMin != null || isCoach) && (
+          <div className="flex items-center justify-between gap-2">
+            <InfoRow icon={Timer} label="Temps de trajet" value={travelTimeMin != null ? `${travelTimeMin} min` : "Non renseigné"} />
+            {isCoach && onTravelTimeChange && (
+              editingTravel ? (
+                <div className="flex shrink-0 items-center gap-1">
+                  <Input
+                    type="number"
+                    min={0}
+                    max={600}
+                    value={travelInput}
+                    onChange={(e) => setTravelInput(e.target.value)}
+                    className="h-7 w-16 text-xs"
+                  />
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-7 w-7 text-green-600"
+                    onClick={() => {
+                      const v = parseInt(travelInput);
+                      onTravelTimeChange(Number.isNaN(v) ? null : v);
+                      setEditingTravel(false);
+                    }}
+                  >
+                    <Check className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-7 w-7 text-red-600"
+                    onClick={() => {
+                      setEditingTravel(false);
+                      setTravelInput(travelTimeMin?.toString() ?? "");
+                    }}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 px-2 text-xs text-muted-foreground shrink-0"
+                  onClick={() => {
+                    setTravelInput(travelTimeMin?.toString() ?? "");
+                    setEditingTravel(true);
+                  }}
+                >
+                  <Pencil className="h-3 w-3 mr-1" />
+                  Modifier
+                </Button>
+              )
+            )}
+          </div>
+        )}
 
         {myPresence && onRespond && convocationsSent && (
           <div className="rounded-lg bg-muted/50 p-3 mt-1 space-y-2">

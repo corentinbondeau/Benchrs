@@ -14,6 +14,14 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   User,
   Palette,
   Shield,
@@ -21,7 +29,10 @@ import {
   Save,
   Loader2,
   Users,
+  Download,
+  Trash2,
 } from "lucide-react";
+import { authFetch } from "@/lib/api-client";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { toast } from "sonner";
 import { NOTIFICATION_TYPES } from "@/lib/notificationTypes";
@@ -37,11 +48,15 @@ import type { Profile } from "@/types";
 const roleLabels = { coach: "Coach", player: "Joueur", parent: "Parent" };
 
 export default function SettingsPage() {
-  const { user, signOut } = useAuth();
+  const { user, signOut, refreshUser } = useAuth();
   const { currentTeam, userRole } = useTeam();
   const isPlayer = userRole === "player";
   const [saving, setSaving] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [deleting, setDeleting] = useState(false);
 
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -158,6 +173,7 @@ export default function SettingsPage() {
         .eq("id", user!.id);
       if (error) throw error;
       toast.success("Profil mis à jour");
+      await refreshUser();
     } catch (e) {
       toast.error(String(e));
     } finally {
@@ -196,6 +212,44 @@ export default function SettingsPage() {
       toast.error(String(e));
     } finally {
       setChangingPassword(false);
+    }
+  }
+
+  async function handleExport() {
+    setExporting(true);
+    try {
+      const res = await authFetch("/api/account/export");
+      if (!res.ok) throw new Error("Export impossible");
+      const json = await res.json();
+      const blob = new Blob([JSON.stringify(json, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `benchrs-export-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("Export téléchargé");
+    } catch (e) {
+      toast.error("Impossible d'exporter vos données");
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  async function handleDeleteAccount() {
+    if (deleteConfirm !== "SUPPRIMER") return;
+    setDeleting(true);
+    try {
+      const res = await authFetch("/api/account/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirm: deleteConfirm }),
+      });
+      if (!res.ok) throw new Error("Suppression impossible");
+      await signOut();
+    } catch (e) {
+      toast.error("Impossible de supprimer le compte");
+      setDeleting(false);
     }
   }
 
@@ -457,6 +511,60 @@ export default function SettingsPage() {
           </Button>
         </CardContent>
       </Card>
+
+      {/* Données personnelles (RGPD) */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Download className="h-4 w-4" />
+            Mes données
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Téléchargez une copie de toutes vos données personnelles (RGPD) ou supprimez définitivement votre compte.
+          </p>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Button variant="outline" onClick={handleExport} disabled={exporting} className="flex-1">
+              {exporting ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Download className="mr-1 h-4 w-4" />}
+              Exporter mes données
+            </Button>
+            <Button variant="destructive" onClick={() => setDeleteOpen(true)} className="flex-1">
+              <Trash2 className="mr-1 h-4 w-4" />
+              Supprimer mon compte
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Supprimer mon compte</DialogTitle>
+            <DialogDescription>
+              Cette action est définitive. Toutes vos données (membres, notifications, statistiques…) seront supprimées.
+              Tapez <span className="font-semibold">SUPPRIMER</span> pour confirmer.
+            </DialogDescription>
+          </DialogHeader>
+          <Input
+            value={deleteConfirm}
+            onChange={(e) => setDeleteConfirm(e.target.value)}
+            placeholder="SUPPRIMER"
+            className="text-center font-semibold"
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteOpen(false)}>Annuler</Button>
+            <Button
+              variant="destructive"
+              disabled={deleteConfirm !== "SUPPRIMER" || deleting}
+              onClick={handleDeleteAccount}
+            >
+              {deleting ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Trash2 className="mr-1 h-4 w-4" />}
+              Supprimer définitivement
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Sign out */}
       <Card>

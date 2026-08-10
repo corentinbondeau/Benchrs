@@ -26,16 +26,19 @@ export function proxy(request: NextRequest) {
     pathname === "/forgot-password";
   const isPublicPage =
     pathname === "/create-team" ||
-    pathname === "/join";
+    pathname === "/join" ||
+    pathname === "/offline" ||
+    pathname.startsWith("/live/");
   const isApiAuth = pathname.startsWith("/api/auth");
   const isApiDiag = pathname === "/api/diag";
+  const isPublicApi = pathname.startsWith("/api/live/") || pathname.startsWith("/api/calendar/ics");
 
   const sessionToken =
     request.cookies.get("sb-gxksycbwylhkhihcvddw-auth-token")?.value;
 
   const isLoggedIn = !!sessionToken;
 
-  if (isApiAuth || isApiDiag) {
+  if (isApiAuth || isApiDiag || isPublicApi) {
     return NextResponse.next();
   }
 

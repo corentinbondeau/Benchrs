@@ -14,12 +14,12 @@ import {
   Crown,
   Building2,
   Users,
-  ChevronRight,
   CalendarDays,
   Trophy,
   TrendingUp,
   TrendingDown,
   Minus,
+  BarChart3,
 } from "lucide-react";
 
 interface ClubRow {
@@ -122,7 +122,7 @@ function TeamCard({
   onOpen,
 }: {
   team: ClubTeam;
-  onOpen: () => void;
+  onOpen: (href: string) => void;
 }) {
   const color = team.color_primary || "#EAB308";
   const result = team.results[team.results.length - 1];
@@ -141,12 +141,14 @@ function TeamCard({
         : "text-muted-foreground"
     : "";
 
+  const actions: { href: string; label: string; icon: typeof CalendarDays }[] = [
+    { href: "/calendar", label: "Calendrier", icon: CalendarDays },
+    { href: "/roster", label: "Effectif", icon: Users },
+    { href: "/stats", label: "Stats", icon: BarChart3 },
+  ];
+
   return (
-    <button
-      type="button"
-      onClick={onOpen}
-      className="group relative flex flex-col gap-2.5 rounded-xl border p-3.5 text-left hover:border-foreground/20 hover:shadow-sm transition-all"
-    >
+    <div className="group relative flex flex-col gap-2.5 rounded-xl border p-3.5 text-left hover:border-foreground/20 hover:shadow-sm transition-all">
       <span
         className="absolute inset-x-0 top-0 h-1 rounded-t-xl"
         style={{ backgroundColor: color }}
@@ -198,17 +200,26 @@ function TeamCard({
         </div>
       </div>
 
-      <span className="flex items-center gap-0.5 text-xs text-muted-foreground group-hover:text-foreground transition-colors">
-        Voir le calendrier
-        <ChevronRight className="h-3.5 w-3.5" />
-      </span>
-    </button>
+      <div className="grid grid-cols-3 gap-1.5 pt-0.5">
+        {actions.map((action) => (
+          <button
+            key={action.href}
+            type="button"
+            onClick={() => onOpen(action.href)}
+            className="flex items-center justify-center gap-1 rounded-lg border bg-background px-2 py-1.5 text-[11px] font-medium text-muted-foreground hover:text-foreground hover:border-foreground/25 transition-colors"
+          >
+            <action.icon className="h-3.5 w-3.5 shrink-0" />
+            {action.label}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
 
 export default function ClubPage() {
   const { user } = useAuth();
-  const { switchTeam, userRole } = useTeam();
+  const { switchTeam } = useTeam();
   const router = useRouter();
   const [clubs, setClubs] = useState<ClubData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -362,9 +373,9 @@ export default function ClubPage() {
     });
   }, [user, loadClubs]);
 
-  function openTeam(teamId: string) {
+  function openTeam(teamId: string, href: string) {
     switchTeam(teamId);
-    router.push(userRole ? "/" : "/calendar");
+    router.push(href);
   }
 
   return (
@@ -434,7 +445,7 @@ export default function ClubPage() {
                   <TeamCard
                     key={team.id}
                     team={team}
-                    onOpen={() => openTeam(team.id)}
+                    onOpen={(href) => openTeam(team.id, href)}
                   />
                 ))}
               </div>

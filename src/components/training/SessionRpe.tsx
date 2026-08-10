@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Lock, Activity, Loader2, Check } from "lucide-react";
+import { Activity, Loader2, Check, Smile } from "lucide-react";
 import { toast } from "sonner";
 import {
   ResponsiveContainer,
@@ -19,14 +19,25 @@ import {
 import type { Profile } from "@/types";
 
 const RPE_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+const FORM_OPTIONS = [1, 2, 3, 4, 5];
+
+const FORM_LABELS: Record<number, string> = {
+  1: "Épuisé",
+  2: "Fatigué",
+  3: "Correct",
+  4: "En forme",
+  5: "Excellent",
+};
 
 interface RpeRow {
   id: string;
   event_id: string;
   player_id: string;
   team_id: string;
-  rpe: number;
+  rpe: number | null;
   session_duration: number | null;
+  form_level: number | null;
+  checked_in_at: string | null;
   created_at: string;
 }
 
@@ -64,6 +75,8 @@ export function SessionRpe({
 
   const [selectedRpe, setSelectedRpe] = useState(0);
   const [duration, setDuration] = useState<number>(durationHint ?? 90);
+  const [selectedForm, setSelectedForm] = useState(0);
+  const [savingForm, setSavingForm] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const myPlayerId = userRole === "player" ? userId : childId;
@@ -85,7 +98,7 @@ export function SessionRpe({
       supabase.from("session_rpe").select("*").eq("event_id", eventId),
       supabase
         .from("session_rpe")
-        .select("id, event_id, player_id, team_id, rpe, session_duration, created_at, events(event_date, title, type)")
+        .select("id, event_id, player_id, team_id, rpe, session_duration, form_level, checked_in_at, created_at, events(event_date, title, type)")
         .eq("team_id", teamId)
         .order("created_at", { ascending: false })
         .limit(300),
@@ -122,6 +135,7 @@ export function SessionRpe({
       setPlayers(res.players);
       setHistory(res.history);
       setSelectedRpe(res.myRpe?.rpe ?? 0);
+      setSelectedForm(res.myRpe?.form_level ?? 0);
       setDuration(res.myRpe?.session_duration ?? durationHint ?? 90);
       setLoading(false);
     });
@@ -129,6 +143,32 @@ export function SessionRpe({
       cancelled = true;
     };
   }, [loadData, durationHint]);
+
+  async function handleSaveForm() {
+    if (!myPlayerId || !selectedForm) return;
+    setSavingForm(true);
+    const supabase = createClient();
+    const { error } = await supabase.from("session_rpe").upsert(
+      {
+        event_id: eventId,
+        player_id: myPlayerId,
+        team_id: teamId,
+        form_level: selectedForm,
+        checked_in_at: new Date().toISOString(),
+      },
+      { onConflict: "event_id,player_id" }
+    );
+    setSavingForm(false);
+    if (error) {
+      toast.error("Erreur lors de l'enregistrement");
+      return;
+    }
+    toast.success("Forme enregistrée");
+    loadData().then((res) => {
+      setMyRpe(res.myRpe);
+      setAllRpe(res.allRpe);
+    });
+  }
 
   async function handleSave() {
     if (!myPlayerId || !selectedRpe) return;
@@ -165,10 +205,10 @@ export function SessionRpe({
   }
 
   const chartData = history
-    .filter((h) => h.events?.type === "training" && h.events.event_date)
+    .filter((h) => h.events?.type === "training" && h.events.event_date && h.rpe != null)
     .reduce<Record<string, { label: string; charge: number }>>((acc, h) => {
       const evId = h.event_id;
-      const load = h.rpe * (h.session_duration ?? 90);
+      const load = h.rpe! * (h.session_duration ?? 90);
       const current = acc[evId];
       if (current) {
         current.charge += load;
@@ -186,7 +226,10 @@ export function SessionRpe({
     .slice(-10);
   const teamTotalLoad = chartData[eventId]
     ? Math.round(chartData[eventId].charge)
-    : allRpe.reduce((sum, r) => sum + r.rpe * (r.session_duration ?? 90), 0);
+    : allRpe.reduce((sum, r) => sum + (r.rpe != null ? r.rpe * (r.session_duration ?? 90) : 0), 0);
+
+  const formRows = allRpe.filter((r) => r.form_level != null);
+  const avgForm = formRows.length > 0 ? formRows.reduce((s, r) => s + r.form_level!, 0) / formRows.length : null;
 
   return (
     <Card>
@@ -198,12 +241,82 @@ export function SessionRpe({
       </CardHeader>
       <CardContent className="space-y-4">
         {!trainingOver ? (
-          <div className="py-4 text-center">
-            <Lock className="mx-auto mb-2 h-6 w-6 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">
-              Les joueurs pourront noter l&apos;intensité perçue une fois la séance terminée.
-            </p>
-          </div>
+          <>
+            {myPlayerId && !isCoach && (
+              <div className="space-y-3 rounded-lg border border-dashed p-3">
+                <p className="flex items-center gap-2 text-sm font-medium">
+                  <Smile className="h-4 w-4 text-green-600" />
+                  Comment te sens-tu aujourd&apos;hui ?
+                </p>
+                <div className="flex justify-between gap-1">
+                  {FORM_OPTIONS.map((n) => (
+                    <button
+                      key={n}
+                      type="button"
+                      onClick={() => setSelectedForm(n)}
+                      className={`h-10 flex-1 rounded-lg border text-base font-semibold transition-colors ${
+                        selectedForm === n
+                          ? "border-green-500 bg-green-500/10 text-green-700"
+                          : "text-muted-foreground hover:bg-muted"
+                      }`}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {selectedForm ? FORM_LABELS[selectedForm] : "Choisis ton état de forme avant la séance"}
+                </p>
+                <Button
+                  onClick={handleSaveForm}
+                  disabled={savingForm || selectedForm === 0}
+                  className="bg-green-600 text-white hover:bg-green-700 font-semibold"
+                >
+                  {savingForm ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Check className="mr-1 h-4 w-4" />}
+                  Enregistrer ma forme
+                </Button>
+              </div>
+            )}
+
+            {isCoach && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                    État de forme des joueurs
+                  </p>
+                  {avgForm != null && (
+                    <span className="flex items-center gap-1 text-xs font-medium text-green-700">
+                      <Smile className="h-3 w-3" /> Moyenne {avgForm.toFixed(1)}/5
+                    </span>
+                  )}
+                </div>
+                {formRows.length === 0 ? (
+                  <p className="py-3 text-center text-xs text-muted-foreground">
+                    Aucun joueur n&apos;a encore renseigné son état de forme.
+                  </p>
+                ) : (
+                  <div className="space-y-1">
+                    {formRows.map((r) => {
+                      const profile = players[r.player_id];
+                      return (
+                        <div key={r.id} className="flex items-center justify-between rounded-lg border px-3 py-2 text-sm">
+                          <span className="font-medium">
+                            {profile ? `${profile.first_name} ${profile.last_name}` : "Joueur"}
+                          </span>
+                          <span className="flex items-center gap-1.5">
+                            <span className={`font-semibold ${r.form_level! >= 4 ? "text-green-700" : r.form_level! <= 2 ? "text-red-600" : "text-amber-600"}`}>
+                              {r.form_level}/5
+                            </span>
+                            <span className="text-xs text-muted-foreground">{FORM_LABELS[r.form_level!]}</span>
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+          </>
         ) : (
           <>
             {myPlayerId && !isCoach && (
@@ -244,7 +357,7 @@ export function SessionRpe({
                   {saving ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Check className="mr-1 h-4 w-4" />}
                   Enregistrer
                 </Button>
-                {myRpe && (
+                {myRpe && myRpe.rpe != null && (
                   <p className="text-xs text-muted-foreground">
                     Charge enregistrée : {myRpe.rpe} × {myRpe.session_duration ?? durationHint ?? 90} min ={" "}
                     <span className="font-semibold text-foreground">
@@ -269,7 +382,7 @@ export function SessionRpe({
                           {profile ? `${profile.first_name} ${profile.last_name}` : "Joueur"}
                         </span>
                         <span className="text-muted-foreground">
-                          RPE {r.rpe} · charge {r.rpe * (r.session_duration ?? 90)}
+                          {r.rpe != null ? `RPE ${r.rpe} · charge ${r.rpe * (r.session_duration ?? 90)}` : "Sans intensité"}
                         </span>
                       </div>
                     );

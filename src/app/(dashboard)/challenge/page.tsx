@@ -451,6 +451,63 @@ export default function ChallengePage() {
                 })}
               </div>
             )}
+
+            {isCoach && data.submissions.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  Toutes les preuves ({data.submissions.length})
+                </p>
+                {[...data.submissions]
+                  .sort(
+                    (a, b) =>
+                      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+                  )
+                  .map((s) => {
+                    const profile = data.players[s.player_id];
+                    const statusBadge =
+                      s.status === "validated"
+                        ? "bg-green-100 text-green-700 border-green-200"
+                        : s.status === "rejected"
+                          ? "bg-red-100 text-red-700 border-red-200"
+                          : "bg-amber-100 text-amber-700 border-amber-200";
+                    const statusLabel =
+                      s.status === "validated"
+                        ? "Validé"
+                        : s.status === "rejected"
+                          ? "Refusé"
+                          : "En attente";
+                    return (
+                      <div key={s.id} className="rounded-lg border p-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-sm font-medium">
+                            {profile ? `${profile.first_name} ${profile.last_name}` : "Joueur"}
+                          </p>
+                          <Badge className={statusBadge}>{statusLabel}</Badge>
+                        </div>
+                        {s.comment && (
+                          <p className="mt-1 text-xs text-muted-foreground">{s.comment}</p>
+                        )}
+                        {isVideo(s.media_url) ? (
+                          <video
+                            src={s.media_url}
+                            controls
+                            muted
+                            playsInline
+                            className="mt-2 max-h-56 rounded-lg bg-black"
+                          />
+                        ) : (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={s.media_url}
+                            alt="Preuve du défi"
+                            className="mt-2 max-h-56 rounded-lg object-cover"
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
+              </div>
+            )}
           </CardContent>
         </Card>
       ) : (

@@ -27,6 +27,8 @@ export interface Team {
   invite_code: string;
   color_primary: string;
   color_secondary: string;
+  logo_url?: string | null;
+  banner_url?: string | null;
   created_at: string;
   club?: Club;
 }
@@ -111,6 +113,8 @@ export interface Event {
   match_ended_at?: string | null;
   match_halftime_at?: string | null;
   match_resumed_at?: string | null;
+  live_token?: string | null;
+  travel_time_min?: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -461,6 +465,37 @@ export interface ItemLoan {
   condition_note: string | null;
   created_by: string | null;
   created_at: string;
+}
+
+export interface SessionRpe {
+  id: string;
+  event_id: string;
+  player_id: string;
+  team_id: string;
+  rpe: number | null;
+  session_duration: number | null;
+  form_level: number | null;
+  checked_in_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MatchChecklistItem {
+  id: string;
+  event_id: string;
+  team_id: string;
+  label: string;
+  sort_order: number;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface MatchChecklistAck {
+  id: string;
+  event_id: string;
+  player_id: string;
+  team_id: string;
+  acknowledged_at: string;
 }
 
 export interface PaymentHistory {

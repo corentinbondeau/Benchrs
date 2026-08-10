@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/select";
 import { X, Menu as MenuIcon, Plus, Medal, Dumbbell } from "lucide-react";
 import { toast } from "sonner";
+import { useHiddenTabs } from "@/lib/tabs";
 import {
   LayoutDashboard,
   Calendar,
@@ -50,26 +51,26 @@ import {
 } from "lucide-react";
 
 const navItems = [
-  { href: "/stats", label: "Statistiques", icon: BarChart3 },
-  { href: "/physical", label: "Prépa physique", icon: Dumbbell },
-  { href: "/medical", label: "Infirmerie", icon: Heart },
-  { href: "/carpooling", label: "Covoiturage", icon: Car },
-  { href: "/tasks", label: "Tâches", icon: ListTodo },
-  { href: "/polls", label: "Sondages", icon: Vote },
-  { href: "/tactics", label: "Tactique", icon: Swords, coachOnly: true },
-  { href: "/season", label: "Plan de saison", icon: CalendarRange },
-  { href: "/challenge", label: "Défi de la semaine", icon: Flame },
-  { href: "/club", label: "Espace club", icon: Building2, clubOnly: true },
-  { href: "/gallery", label: "Galerie", icon: Image },
-  { href: "/trophies", label: "Trophées", icon: Trophy },
-  { href: "/championship", label: "Championnat", icon: Medal },
-  { href: "/material", label: "Matériel", icon: Package },
-  { href: "/adversaires", label: "Adversaires", icon: Flag },
-  { href: "/stats/compare", label: "Comparer", icon: GitCompareArrows },
-  { href: "/notifications", label: "Notifications", icon: Bell },
+  { key: "stats", href: "/stats", label: "Statistiques", icon: BarChart3 },
+  { key: "physical", href: "/physical", label: "Prépa physique", icon: Dumbbell },
+  { key: "medical", href: "/medical", label: "Infirmerie", icon: Heart },
+  { key: "carpooling", href: "/carpooling", label: "Covoiturage", icon: Car },
+  { key: "tasks", href: "/tasks", label: "Tâches", icon: ListTodo },
+  { key: "polls", href: "/polls", label: "Sondages", icon: Vote },
+  { key: "tactics", href: "/tactics", label: "Tactique", icon: Swords, coachOnly: true },
+  { key: "season", href: "/season", label: "Plan de saison", icon: CalendarRange },
+  { key: "challenge", href: "/challenge", label: "Défi de la semaine", icon: Flame },
+  { key: "club", href: "/club", label: "Espace club", icon: Building2, clubOnly: true },
+  { key: "gallery", href: "/gallery", label: "Galerie", icon: Image },
+  { key: "trophies", href: "/trophies", label: "Trophées", icon: Trophy },
+  { key: "championship", href: "/championship", label: "Championnat", icon: Medal },
+  { key: "material", href: "/material", label: "Matériel", icon: Package },
+  { key: "adversaires", href: "/adversaires", label: "Adversaires", icon: Flag },
+  { key: "compare", href: "/stats/compare", label: "Comparer", icon: GitCompareArrows },
+  { key: "notifications", href: "/notifications", label: "Notifications", icon: Bell },
 ];
 
-const comiteOnlyHrefs = new Set(["/club", "/calendar", "/stats", "/notifications"]);
+const comiteOnlyHrefs = new Set(["/club", "/calendar", "/roster", "/stats", "/notifications"]);
 
 const coachItems = [
   { href: "/admin/players", label: "Gestion joueurs", icon: UserCog },
@@ -85,6 +86,7 @@ function SheetContentInner({ close }: { close: () => void }) {
   const isCoach = userRole === "coach" || userRole === "owner";
   const hasClubRole = clubMemberships.length > 0;
   const isComiteOnly = hasClubRole && userRole === null;
+  const hiddenTabs = useHiddenTabs(currentTeam?.id);
   const [showTeamForm, setShowTeamForm] = useState(false);
   const [joinMode, setJoinMode] = useState(false);
   const [clubName, setClubName] = useState("");
@@ -145,7 +147,7 @@ function SheetContentInner({ close }: { close: () => void }) {
 
   return (
     <SheetContent side="left" className="w-64 p-0 bg-[var(--color-navy)]" showCloseButton={false}>
-      <div className="flex h-12 items-center justify-between px-4 border-b border-white/10" style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
+      <div className="flex h-12 shrink-0 items-center justify-between px-4 border-b border-white/10" style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
         <div className="flex items-center gap-2">
           <img src="/logo.svg" alt="Benchrs" className="h-8 w-8" />
           <span className="text-xl font-bold text-white">Benchrs</span>
@@ -155,6 +157,7 @@ function SheetContentInner({ close }: { close: () => void }) {
         </SheetClose>
       </div>
 
+      <div className="flex-1 overflow-y-auto overscroll-contain">
       {currentTeam && !isComiteOnly && (
         <div className="flex items-center gap-2 px-3 py-2 border-b border-white/10">
           {teams.length > 1 ? (
@@ -280,6 +283,7 @@ function SheetContentInner({ close }: { close: () => void }) {
             if (item.coachOnly && !isCoach) return false;
             if ((item as { clubOnly?: boolean }).clubOnly && !hasClubRole) return false;
             if (isComiteOnly && !comiteOnlyHrefs.has(item.href)) return false;
+            if (hiddenTabs.has(item.key)) return false;
             return true;
           })
           .map((item) => {
@@ -341,6 +345,7 @@ function SheetContentInner({ close }: { close: () => void }) {
           Mon profil
         </Link>
       </div>
+      </div>
     </SheetContent>
   );
 }
@@ -361,8 +366,8 @@ export function BottomNav() {
     ? [
         { href: "/club", label: "Espace club", icon: Building2 },
         { href: "/calendar", label: "Calendrier", icon: Calendar },
+        { href: "/roster", label: "Effectif", icon: Users },
         { href: "/stats", label: "Stats", icon: BarChart3 },
-        { href: "/notifications", label: "Notifications", icon: Bell },
       ]
     : [
         { href: "/", label: "Accueil", icon: LayoutDashboard },

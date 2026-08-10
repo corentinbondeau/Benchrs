@@ -30,11 +30,25 @@ export function TopBar() {
       style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
     >
       <div className="flex h-12 items-center gap-2.5 px-4 lg:h-12 lg:px-6">
-        <img src="/logo.svg" alt="Benchrs" className="h-7 w-7 shrink-0 lg:hidden" />
-        <span className="text-lg font-bold text-white leading-none shrink-0 lg:hidden">Benchrs</span>
+        {currentTeam?.logo_url ? (
+          <>
+            <img src={currentTeam.logo_url} alt="Logo" className="h-7 w-7 shrink-0 rounded object-cover lg:hidden" />
+            <span className="text-sm font-bold text-white leading-none shrink-0 lg:hidden truncate max-w-[50vw]">
+              {currentTeam.name}
+            </span>
+          </>
+        ) : (
+          <>
+            <img src="/logo.svg" alt="Benchrs" className="h-7 w-7 shrink-0 lg:hidden" />
+            <span className="text-lg font-bold text-white leading-none shrink-0 lg:hidden">Benchrs</span>
+          </>
+        )}
         <div className="flex-1" />
         {currentTeam && (
-          <span className="hidden lg:block text-sm text-muted-foreground truncate">
+          <span className="hidden lg:flex items-center gap-2 text-sm text-muted-foreground truncate min-w-0">
+            {currentTeam.logo_url && (
+              <img src={currentTeam.logo_url} alt="Logo" className="h-6 w-6 shrink-0 rounded object-cover" />
+            )}
             {currentTeam.club?.name ? `${currentTeam.club.name} — ` : ""}{currentTeam.name}
           </span>
         )}
