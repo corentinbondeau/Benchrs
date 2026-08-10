@@ -38,6 +38,7 @@ import {
   LogOut,
   Crown,
   LayoutDashboard,
+  Clock,
 } from "lucide-react";
 import { CHALLENGE_DIFFICULTIES, type ChallengeDifficulty } from "@/lib/challenges/ai-generator";
 import { normalizeFffNumber } from "@/lib/clubs";
@@ -65,6 +66,8 @@ export default function TeamSettingsPage() {
   const [savingDifficulty, setSavingDifficulty] = useState(false);
   const [enableRpe, setEnableRpe] = useState(false);
   const [savingRpe, setSavingRpe] = useState(false);
+  const [minPlayingMinutes, setMinPlayingMinutes] = useState(0);
+  const [savingMinutes, setSavingMinutes] = useState(false);
   const [tabVisibility, setTabVisibility] = useState<Record<string, boolean>>({});
   const [savingTab, setSavingTab] = useState<string | null>(null);
   const [icsInfo, setIcsInfo] = useState<{
@@ -195,11 +198,12 @@ export default function TeamSettingsPage() {
 
     supabase
       .from("team_settings")
-      .select("enable_rpe")
+      .select("enable_rpe, min_playing_minutes")
       .eq("team_id", team.id)
       .maybeSingle()
       .then(({ data }) => {
         setEnableRpe(data?.enable_rpe === true);
+        setMinPlayingMinutes(data?.min_playing_minutes ?? 0);
       });
 
     supabase
@@ -1050,6 +1054,64 @@ export default function TeamSettingsPage() {
                     { onConflict: "team_id" }
                   );
                 setSavingRpe(false);
+                if (error) {
+                  toast.error("Erreur lors de l'enregistrement");
+                } else {
+                  toast.success("Paramètre enregistré");
+                }
+              }}
+              className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
+            >
+              Enregistrer
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Temps de jeu minimum (équité) */}
+      {isCoach && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Clock className="h-5 w-5" />
+              Équité du temps de jeu
+            </CardTitle>
+            <CardDescription>
+              Définissez un objectif de minutes minimum sur la saison. Les joueurs en dessous
+              sont mis en évidence dans les statistiques et une alerte hebdomadaire est envoyée
+              aux coachs.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex items-center gap-3">
+              <Input
+                type="number"
+                min={0}
+                max={6000}
+                step={30}
+                value={minPlayingMinutes}
+                onChange={(e) => setMinPlayingMinutes(Math.max(0, parseInt(e.target.value) || 0))}
+                placeholder="0 = désactivé"
+              />
+              <span className="text-sm text-muted-foreground shrink-0">minutes / saison</span>
+            </div>
+            <Button
+              size="sm"
+              disabled={savingMinutes}
+              onClick={async () => {
+                if (!currentTeam) return;
+                setSavingMinutes(true);
+                const { error } = await supabase
+                  .from("team_settings")
+                  .upsert(
+                    {
+                      team_id: currentTeam.id,
+                      min_playing_minutes: minPlayingMinutes,
+                      updated_by: user?.id ?? null,
+                    },
+                    { onConflict: "team_id" }
+                  );
+                setSavingMinutes(false);
                 if (error) {
                   toast.error("Erreur lors de l'enregistrement");
                 } else {

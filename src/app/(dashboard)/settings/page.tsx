@@ -64,6 +64,10 @@ export default function SettingsPage() {
   const [position, setPosition] = useState("");
   const [shirtNumber, setShirtNumber] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
+  const [preferredFoot, setPreferredFoot] = useState("");
+  const [heightCm, setHeightCm] = useState("");
+  const [weightKg, setWeightKg] = useState("");
+  const [secondaryPositions, setSecondaryPositions] = useState<string[]>([]);
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [pushPrefs, setPushPrefs] = useState<Record<string, boolean>>({});
   const [prefsLoading, setPrefsLoading] = useState(true);
@@ -82,6 +86,10 @@ export default function SettingsPage() {
       setPosition(p.position || "");
       setShirtNumber(p.shirt_number?.toString() || "");
       setDateOfBirth(p.date_of_birth || "");
+      setPreferredFoot(p.preferred_foot || "");
+      setHeightCm(p.height_cm?.toString() || "");
+      setWeightKg(p.weight_kg?.toString() || "");
+      setSecondaryPositions(p.secondary_positions || []);
       setEmailNotifications(p.email_notifications ?? true);
     }
   }, [user]);
@@ -149,6 +157,10 @@ export default function SettingsPage() {
       position !== ((user.profile as Profile).position || "") ||
       shirtNumber !== ((user.profile as Profile).shirt_number?.toString() || "") ||
       dateOfBirth !== ((user.profile as Profile).date_of_birth || "") ||
+      preferredFoot !== ((user.profile as Profile).preferred_foot || "") ||
+      heightCm !== ((user.profile as Profile).height_cm?.toString() || "") ||
+      weightKg !== ((user.profile as Profile).weight_kg?.toString() || "") ||
+      JSON.stringify(secondaryPositions) !== JSON.stringify((user.profile as Profile).secondary_positions || []) ||
       emailNotifications !== ((user.profile as Profile).email_notifications ?? true));
 
   async function handleSaveProfile() {
@@ -168,6 +180,10 @@ export default function SettingsPage() {
           position: position || null,
           shirt_number: shirtNumber ? parseInt(shirtNumber) : null,
           date_of_birth: dateOfBirth || null,
+          preferred_foot: preferredFoot || null,
+          height_cm: heightCm ? parseInt(heightCm) : null,
+          weight_kg: weightKg ? parseFloat(weightKg) : null,
+          secondary_positions: secondaryPositions,
           email_notifications: emailNotifications,
         })
         .eq("id", user!.id);
@@ -352,6 +368,77 @@ export default function SettingsPage() {
                 placeholder="10"
               />
             </div>
+            {isPlayer && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="preferredFoot">Pied fort</Label>
+                  <select
+                    id="preferredFoot"
+                    value={preferredFoot}
+                    onChange={(e) => setPreferredFoot(e.target.value)}
+                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  >
+                    <option value="">Non renseigné</option>
+                    <option value="Droit">Droit</option>
+                    <option value="Gauche">Gauche</option>
+                    <option value="Ambidextre">Ambidextre</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="heightCm">Taille (cm)</Label>
+                  <Input
+                    id="heightCm"
+                    type="number"
+                    min={100}
+                    max={230}
+                    value={heightCm}
+                    onChange={(e) => setHeightCm(e.target.value)}
+                    placeholder="175"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="weightKg">Poids (kg)</Label>
+                  <Input
+                    id="weightKg"
+                    type="number"
+                    min={30}
+                    max={150}
+                    step={0.5}
+                    value={weightKg}
+                    onChange={(e) => setWeightKg(e.target.value)}
+                    placeholder="65.5"
+                  />
+                </div>
+                <div className="space-y-2 sm:col-span-2">
+                  <Label>Postes secondaires</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {POSITIONS.map((pos) => {
+                      const active = secondaryPositions.includes(pos);
+                      return (
+                        <button
+                          key={pos}
+                          type="button"
+                          onClick={() =>
+                            setSecondaryPositions((prev) =>
+                              active
+                                ? prev.filter((p) => p !== pos)
+                                : [...prev, pos]
+                            )
+                          }
+                          className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                            active
+                              ? "border-[var(--color-royal)] bg-[var(--color-royal)]/10 text-[var(--color-royal)]"
+                              : "border-input text-muted-foreground hover:text-foreground"
+                          }`}
+                        >
+                          {pos}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
+            )}
           </div>
 
           {hasProfileChanges && (

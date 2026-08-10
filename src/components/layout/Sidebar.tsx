@@ -30,6 +30,7 @@ import {
   CalendarRange,
   Flame,
   Building2,
+  Newspaper,
   Vote,
   Package,
   Flag,
@@ -73,6 +74,7 @@ const navItems = [
   { key: "season", href: "/season", label: "Plan de saison", icon: CalendarRange },
   { key: "challenge", href: "/challenge", label: "Défi de la semaine", icon: Flame },
   { key: "club", href: "/club", label: "Espace club", icon: Building2, clubOnly: true },
+  { key: "clubfeed", href: "/club/feed", label: "Fil du club", icon: Newspaper, clubTeamOnly: true },
   { key: "gallery", href: "/gallery", label: "Galerie", icon: Image },
   { key: "trophies", href: "/trophies", label: "Trophées", icon: Trophy },
   { key: "championship", href: "/championship", label: "Championnat", icon: Medal },
@@ -82,7 +84,7 @@ const navItems = [
   { key: "notifications", href: "/notifications", label: "Notifications", icon: Bell },
 ];
 
-const comiteOnlyHrefs = new Set(["/club", "/calendar", "/roster", "/stats", "/notifications"]);
+const comiteOnlyHrefs = new Set(["/club", "/club/feed", "/calendar", "/roster", "/stats", "/notifications"]);
 
 const coachItems = [
   { href: "/admin/players", label: "Gestion joueurs", icon: UserCog },
@@ -286,6 +288,7 @@ export function Sidebar() {
           .filter((item) => {
             if (item.coachOnly && !isCoach) return false;
             if ((item as { clubOnly?: boolean }).clubOnly && !hasClubRole) return false;
+            if ((item as { clubTeamOnly?: boolean }).clubTeamOnly && !currentTeam?.club_id && !hasClubRole) return false;
             if (isComiteOnly && !comiteOnlyHrefs.has(item.href)) return false;
             if (hiddenTabs.has(item.key)) return false;
             return true;

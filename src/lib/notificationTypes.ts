@@ -55,6 +55,21 @@ export const NOTIFICATION_TYPES: NotificationTypeConfig[] = [
     label: "Bilan trimestriel",
     description: "Bilan IA de progression envoyé par le coach",
   },
+  {
+    type: "felicitation",
+    label: "Félicitations",
+    description: "Anniversaires, premiers buts et capes marquantes",
+  },
+  {
+    type: "relance_convocation",
+    label: "Relance de convocation",
+    description: "Rappel quand tu n'as pas répondu à une convocation",
+  },
+  {
+    type: "equite_temps_jeu",
+    label: "Équité du temps de jeu",
+    description: "Alerte aux coachs sur les joueurs sous leur objectif de minutes",
+  },
 ];
 
 export function defaultNotificationPrefs(userId: string, teamId: string) {

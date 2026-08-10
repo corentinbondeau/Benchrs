@@ -40,9 +40,11 @@ import {
 import { ChildSwitcher } from "@/components/ChildSwitcher";
 import { useSelectedChild } from "@/lib/useSelectedChild";
 import { fetchTeamActivePlayers } from "@/lib/players";
+import { logActivity } from "@/lib/activity";
 import { authFetch } from "@/lib/api-client";
 import { LiveMatchTracker } from "@/components/LiveMatchTracker";
 import { MatchReportCard } from "@/components/match/MatchReportCard";
+import { EducatorPlans } from "@/components/training/EducatorPlans";
 import { MatchAvailabilityCard } from "@/components/match/MatchAvailabilityCard";
 import { MatchPoster } from "@/components/match/MatchPoster";
 import { MatchFeedback } from "@/components/match/MatchFeedback";
@@ -394,6 +396,19 @@ export default function MatchDetailPage() {
     } : prev);
     setEditingScore(false);
     toast.success("Score mis à jour");
+
+    if (us !== null && them !== null && currentTeam) {
+      const resultLabel =
+        result === "win" ? "victoire" : result === "loss" ? "défaite" : "nul";
+      await logActivity({
+        teamId: currentTeam.id,
+        clubId: currentTeam.club_id,
+        userId: user?.id,
+        actionType: "match.score",
+        description: `Score enregistré : ${us}-${them} (${resultLabel})${match?.opponent ? ` vs ${match.opponent}` : ""}`,
+        metadata: { eventId: matchId, scoreUs: us, scoreThem: them, result },
+      });
+    }
   }
 
   function getPlayerProfile(playerId: string): Profile | undefined {
@@ -441,6 +456,18 @@ export default function MatchDetailPage() {
             ? "Excuse enregistrée"
             : "Absence enregistrée"
     );
+
+    const playerName = getPlayerProfile(userId)?.first_name || "Un joueur";
+    const statusLabel =
+      status === "present" ? "présent" : status === "late" ? "en retard" : status === "excused" ? "excusé" : "absent";
+    await logActivity({
+      teamId: currentTeam!.id,
+      clubId: currentTeam!.club_id,
+      userId: user?.id,
+      actionType: "attendance.update",
+      description: `${playerName} marqué ${statusLabel}${match?.opponent ? ` vs ${match.opponent}` : ""}`,
+      metadata: { eventId: matchId, userId, status },
+    });
   }
 
   if (loading) {
@@ -1082,6 +1109,10 @@ export default function MatchDetailPage() {
         convocationsSent={!!match?.convocations_sent_at}
         onUpdate={updateMatchAttendance}
       />
+
+      {isCoach && (
+        <EducatorPlans eventId={matchId} teamId={currentTeam.id} isCoach={isCoach} />
+      )}
 
       {match && (
         <ConvocationsDialog

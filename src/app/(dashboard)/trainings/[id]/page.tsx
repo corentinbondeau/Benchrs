@@ -15,6 +15,7 @@ import { AnnouncementDialog } from "@/components/announcements/AnnouncementDialo
 import { EventCoachActions } from "@/components/EventCoachActions";
 import { SessionFiche } from "@/components/training/SessionFiche";
 import { SessionRpe } from "@/components/training/SessionRpe";
+import { EducatorPlans } from "@/components/training/EducatorPlans";
 import {
   AttendanceLists,
   EventInfoCard,
@@ -24,6 +25,7 @@ import {
 import { ChildSwitcher } from "@/components/ChildSwitcher";
 import { useSelectedChild } from "@/lib/useSelectedChild";
 import { fetchTeamActivePlayers } from "@/lib/players";
+import { logActivity } from "@/lib/activity";
 import type { AttendanceStatus, Event } from "@/types";
 
 type TrainingEvent = Event & {
@@ -130,6 +132,18 @@ export default function TrainingDetailPage() {
             ? "Excuse enregistrée"
             : "Absence enregistrée"
     );
+
+    const playerName = players.find((p) => p.profile.id === userId)?.profile.first_name || "Un joueur";
+    const statusLabel =
+      status === "present" ? "présent" : status === "late" ? "en retard" : status === "excused" ? "excusé" : "absent";
+    await logActivity({
+      teamId: currentTeam!.id,
+      clubId: currentTeam!.club_id,
+      userId: user?.id,
+      actionType: "attendance.update",
+      description: `${playerName} marqué ${statusLabel} à l'entraînement`,
+      metadata: { eventId: trainingId, userId, status },
+    });
   }
 
   if (!currentTeam) {
@@ -288,6 +302,9 @@ export default function TrainingDetailPage() {
         trainingOver={event.status === "completed" || eventDate.getTime() < now}
         durationHint={90}
       />
+
+      {/* Éducateurs de la séance */}
+      <EducatorPlans eventId={trainingId} teamId={currentTeam.id} isCoach={isCoach} />
 
       <ConvocationsDialog
         event={event}

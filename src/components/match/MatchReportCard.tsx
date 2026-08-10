@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { authFetch } from "@/lib/api-client";
+import { logActivity } from "@/lib/activity";
 import type { MatchReportContent } from "@/app/api/matches/report/route";
 
 interface Props {
@@ -164,6 +165,26 @@ export function MatchReportCard({ matchId, teamId, isCoach, hasData }: Props) {
     }
   }
 
+  async function logPublished(mode: "ai" | "manual", title: string) {
+    try {
+      const supabase = createClient();
+      const { data: team } = await supabase
+        .from("teams")
+        .select("club_id")
+        .eq("id", teamId)
+        .maybeSingle();
+      await logActivity({
+        teamId,
+        clubId: (team as { club_id: string | null } | null)?.club_id ?? null,
+        actionType: "match.report",
+        description: `Compte-rendu ${mode === "ai" ? "généré par IA" : "rédigé"} : ${title}`,
+        metadata: { eventId: matchId, mode },
+      });
+    } catch (err) {
+      console.error("[match-report] log error:", err);
+    }
+  }
+
   async function generate() {
     if (!hasData) {
       toast.error("Renseigne d'abord le score du match");
@@ -186,6 +207,7 @@ export function MatchReportCard({ matchId, teamId, isCoach, hasData }: Props) {
       setEditing(false);
       toast.success("Compte-rendu généré !");
       notifyPublished();
+      logPublished("ai", data.report?.title || "Compte-rendu IA");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Erreur lors de la génération");
     } finally {
@@ -225,6 +247,7 @@ export function MatchReportCard({ matchId, teamId, isCoach, hasData }: Props) {
       setEditing(false);
       toast.success("Compte-rendu enregistré !");
       notifyPublished();
+      logPublished("manual", content.title);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Erreur lors de l'enregistrement");
     } finally {

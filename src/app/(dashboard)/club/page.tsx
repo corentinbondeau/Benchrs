@@ -21,6 +21,7 @@ import {
   Minus,
   BarChart3,
 } from "lucide-react";
+import { ActivityLogCard } from "@/components/club/ActivityLogCard";
 
 interface ClubRow {
   club_id: string;
@@ -488,6 +489,8 @@ export default function ClubPage() {
                 </div>
               )}
             </div>
+
+            <ActivityLogCard clubId={club.id} />
           </div>
         ))
       )}

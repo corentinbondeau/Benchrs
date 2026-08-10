@@ -67,6 +67,8 @@ import { PersonalGoalsCard } from "@/components/stats/PersonalGoalsCard";
 import { PlayerPaniniCard } from "@/components/stats/PlayerPaniniCard";
 import { CareerHistoryCard } from "@/components/stats/CareerHistoryCard";
 import { QuarterlyReportsCard } from "@/components/stats/QuarterlyReportsCard";
+import { PlayerBadgesCard } from "@/components/stats/PlayerBadgesCard";
+import { PlayerNotebookCard } from "@/components/stats/PlayerNotebookCard";
 
 interface PlayerStats {
   player_id: string;
@@ -94,6 +96,10 @@ interface ProfileData {
   date_of_birth: string | null;
   vma: number | null;
   vmi: number | null;
+  preferred_foot?: string | null;
+  height_cm?: number | null;
+  weight_kg?: number | null;
+  secondary_positions?: string[] | null;
 }
 
 interface MatchRow {
@@ -277,7 +283,7 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
     async function fetchProfile() {
       const { data: profile } = await supabase
         .from("profiles")
-        .select("id, role, first_name, last_name, position, shirt_number, phone, date_of_birth, vma, vmi")
+        .select("id, role, first_name, last_name, position, shirt_number, phone, date_of_birth, vma, vmi, preferred_foot, height_cm, weight_kg, secondary_positions")
         .eq("id", playerId)
         .single();
 
@@ -790,6 +796,31 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
             <div>
               <h2 className="text-2xl font-bold">{stats.first_name} {stats.last_name}</h2>
               <p className="text-blue-200 mt-1">{stats.position || "Joueur"}</p>
+              {(profile.preferred_foot || profile.height_cm || profile.weight_kg || (profile.secondary_positions?.length ?? 0) > 0) && (
+                <p className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-blue-100/90">
+                  {profile.preferred_foot && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2 py-0.5">
+                      <span className="h-2 w-2 rounded-full bg-white/70" />
+                      Pied {profile.preferred_foot.toLowerCase()}
+                    </span>
+                  )}
+                  {profile.height_cm && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2 py-0.5">
+                      {profile.height_cm} cm
+                    </span>
+                  )}
+                  {profile.weight_kg && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2 py-0.5">
+                      {profile.weight_kg} kg
+                    </span>
+                  )}
+                </p>
+              )}
+              {(profile.secondary_positions?.length ?? 0) > 0 && (
+                <p className="mt-1 text-[11px] text-blue-200/80">
+                  Aussi : {profile.secondary_positions!.join(" · ")}
+                </p>
+              )}
               <div className="flex gap-2 mt-2">
                 {stats.yellow_cards > 0 && <Badge className="bg-yellow-400 text-yellow-900">{stats.yellow_cards} jaunes</Badge>}
                 {stats.red_cards > 0 && <Badge className="bg-red-500 text-white">{stats.red_cards} rouges</Badge>}
@@ -960,6 +991,9 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
       {/* Objectifs personnels */}
       <PersonalGoalsCard playerId={playerId} />
 
+      {/* Badges & séries */}
+      <PlayerBadgesCard playerId={playerId} teamId={currentTeam.id} />
+
       {/* Historique de carrière */}
       <CareerHistoryCard playerId={playerId} />
 
@@ -1077,6 +1111,13 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
       {currentTeam && (
         <QuarterlyReportsCard playerId={playerId} teamId={currentTeam.id} isCoach={isCoach} />
       )}
+
+      {/* Carnet de match du joueur */}
+      <PlayerNotebookCard
+        playerId={playerId}
+        teamId={currentTeam.id}
+        canEdit={playerId === user?.id}
+      />
 
       {currentTeam && (
         <PlayerPaniniCard

@@ -26,6 +26,9 @@ import {
   CalendarCheck,
   Users,
   Activity,
+  AlertTriangle,
+  Medal,
+  RefreshCw,
 } from "lucide-react";
 
 interface MatchRow {
@@ -47,6 +50,7 @@ interface PlayerMinRow {
   minutes: number;
   matches: number;
   goals: number;
+  assists: number;
 }
 
 interface EventAttendanceRow {
@@ -82,6 +86,7 @@ export function CoachStats() {
   const [matches, setMatches] = useState<MatchRow[]>([]);
   const [playerMinutes, setPlayerMinutes] = useState<PlayerMinRow[]>([]);
   const [attendance, setAttendance] = useState<EventAttendanceRow[]>([]);
+  const [minPlayingMinutes, setMinPlayingMinutes] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -90,7 +95,7 @@ export function CoachStats() {
     const team = currentTeam;
 
     async function fetchData() {
-      const [matchesRes, statsRes, eventsRes, attRes] = await Promise.all([
+      const [matchesRes, statsRes, eventsRes, attRes, settingsRes] = await Promise.all([
         supabase
           .from("events")
           .select("id, title, opponent, event_date, score_us, score_them, match_result, status")
@@ -100,7 +105,7 @@ export function CoachStats() {
         supabase
           .from("match_stats")
           .select(
-            "player_id, minutes_played, goals, player:profiles!match_stats_player_id_fkey(id, first_name, last_name, shirt_number)"
+            "player_id, minutes_played, goals, assists, player:profiles!match_stats_player_id_fkey(id, first_name, last_name, shirt_number)"
           )
           .eq("team_id", team.id),
         supabase
@@ -112,6 +117,11 @@ export function CoachStats() {
           .from("attendances")
           .select("event_id, status")
           .eq("team_id", team.id),
+        supabase
+          .from("team_settings")
+          .select("min_playing_minutes")
+          .eq("team_id", team.id)
+          .maybeSingle(),
       ]);
 
       setMatches((matchesRes.data as MatchRow[]) || []);
@@ -119,7 +129,7 @@ export function CoachStats() {
       // Temps de jeu par joueur
       const minMap = new Map<
         string,
-        { first_name: string; last_name: string; shirt_number: number | null; minutes: number; matches: number; goals: number }
+        { first_name: string; last_name: string; shirt_number: number | null; minutes: number; matches: number; goals: number; assists: number }
       >();
       for (const s of statsRes.data || []) {
         const pid = s.player_id as string;
@@ -132,14 +142,19 @@ export function CoachStats() {
           minutes: 0,
           matches: 0,
           goals: 0,
+          assists: 0,
         };
         cur.minutes += (s.minutes_played as number) || 0;
         cur.matches += 1;
         cur.goals += (s.goals as number) || 0;
+        cur.assists += (s.assists as number) || 0;
         minMap.set(pid, cur);
       }
       setPlayerMinutes(
         Array.from(minMap.entries()).map(([player_id, v]) => ({ player_id, ...v }))
+      );
+      setMinPlayingMinutes(
+        (settingsRes.data as { min_playing_minutes?: number } | null)?.min_playing_minutes ?? 0
       );
 
       // Assiduité par événement
@@ -314,9 +329,27 @@ export function CoachStats() {
           <CardTitle className="text-sm flex items-center gap-2">
             <Clock className="h-4 w-4 text-[var(--color-royal)]" />
             Temps de jeu par joueur
+            {minPlayingMinutes > 0 && (
+              <Badge variant="secondary" className="text-[10px]">
+                Objectif : {minPlayingMinutes}&apos;
+              </Badge>
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent>
+          {minPlayingMinutes > 0 && sortedMinutes.some((p) => p.minutes < minPlayingMinutes) && (
+            <div className="mb-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+              <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" />
+              <p>
+                <span className="font-semibold">Attention équité :</span>{" "}
+                {sortedMinutes
+                  .filter((p) => p.minutes < minPlayingMinutes)
+                  .map((p) => `${p.first_name} ${p.last_name} (${p.minutes}')`)
+                  .join(", ")}{" "}
+                sont en dessous de l&apos;objectif de {minPlayingMinutes} minutes.
+              </p>
+            </div>
+          )}
           {sortedMinutes.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-4">
               Aucune minute enregistrée. Saisis les stats des matchs.
@@ -325,8 +358,12 @@ export function CoachStats() {
             <div className="space-y-2">
               {sortedMinutes.map((p) => {
                 const pct = Math.round((p.minutes / maxMinutes) * 100);
+                const underThreshold = minPlayingMinutes > 0 && p.minutes < minPlayingMinutes;
                 return (
-                  <div key={p.player_id} className="flex items-center gap-3">
+                  <div
+                    key={p.player_id}
+                    className={`flex items-center gap-3 rounded-lg px-1 ${underThreshold ? "bg-amber-50" : ""}`}
+                  >
                     <span className="w-32 truncate text-sm font-medium shrink-0">
                       {p.first_name} {p.last_name}
                     </span>
@@ -339,6 +376,9 @@ export function CoachStats() {
                     <span className="w-20 text-right text-xs text-muted-foreground shrink-0">
                       {p.minutes}&apos; · {p.matches} m
                     </span>
+                    {underThreshold && (
+                      <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-600" />
+                    )}
                   </div>
                 );
               })}
@@ -346,6 +386,136 @@ export function CoachStats() {
           )}
         </CardContent>
       </Card>
+
+      {/* Table de marque */}
+      {playerMinutes.some((p) => p.goals > 0) && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Medal className="h-4 w-4 text-[var(--color-gold)]" />
+              Table de marque
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wide">
+                  Meilleurs buteurs
+                </p>
+                <div className="space-y-1.5">
+                  {[...playerMinutes]
+                    .filter((p) => p.goals > 0)
+                    .sort((a, b) => b.goals - a.goals)
+                    .slice(0, 5)
+                    .map((p, i) => (
+                      <div key={p.player_id} className="flex items-center gap-2 text-sm">
+                        <span
+                          className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold ${
+                            i === 0
+                              ? "bg-[var(--color-gold)] text-white"
+                              : i === 1
+                                ? "bg-slate-300 text-slate-800"
+                                : i === 2
+                                  ? "bg-amber-600 text-white"
+                                  : "bg-muted text-muted-foreground"
+                          }`}
+                        >
+                          {i + 1}
+                        </span>
+                        <span className="flex-1 truncate font-medium">
+                          {p.first_name} {p.last_name}
+                        </span>
+                        <span className="font-bold">{p.goals}</span>
+                      </div>
+                    ))}
+                </div>
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wide">
+                  Passeurs décisifs
+                </p>
+                <div className="space-y-1.5">
+                  {[...playerMinutes]
+                    .filter((p) => p.assists > 0)
+                    .sort((a, b) => b.assists - a.assists)
+                    .slice(0, 5)
+                    .map((p, i) => (
+                      <div key={p.player_id} className="flex items-center gap-2 text-sm">
+                        <span
+                          className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold ${
+                            i === 0
+                              ? "bg-[var(--color-gold)] text-white"
+                              : i === 1
+                                ? "bg-slate-300 text-slate-800"
+                                : i === 2
+                                  ? "bg-amber-600 text-white"
+                                  : "bg-muted text-muted-foreground"
+                          }`}
+                        >
+                          {i + 1}
+                        </span>
+                        <span className="flex-1 truncate font-medium">
+                          {p.first_name} {p.last_name}
+                        </span>
+                        <span className="font-bold">{p.assists}</span>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Rotations suggérées */}
+      {playerMinutes.some((p) => p.matches > 0) && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <RefreshCw className="h-4 w-4 text-[var(--color-royal)]" />
+              Rotations suggérées
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {(() => {
+              const played = playerMinutes.filter((p) => p.matches > 0);
+              const avg = played.reduce((a, p) => a + p.minutes, 0) / played.length;
+              const candidates = played
+                .filter((p) => p.minutes < avg)
+                .sort((a, b) => a.minutes - b.minutes)
+                .slice(0, 5);
+              if (candidates.length === 0) {
+                return (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    Répartition des minutes équilibrée — rien à suggérer.
+                  </p>
+                );
+              }
+              return (
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground">
+                    Temps de jeu moyen : {Math.round(avg)}&apos;. Joueurs en dessous de la moyenne, à privilégier lors des prochains matchs :
+                  </p>
+                  {candidates.map((p) => (
+                    <div
+                      key={p.player_id}
+                      className="flex items-center gap-2 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-sm"
+                    >
+                      <RefreshCw className="h-3.5 w-3.5 shrink-0 text-blue-600" />
+                      <span className="flex-1 truncate font-medium">
+                        {p.first_name} {p.last_name}
+                      </span>
+                      <span className="text-xs text-muted-foreground shrink-0">
+                        {p.minutes}&apos; · {p.matches} m
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Assiduité par événement */}
       <Card>

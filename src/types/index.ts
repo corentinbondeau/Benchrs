@@ -53,6 +53,10 @@ export interface Profile {
   date_of_birth: string | null;
   position: string | null;
   shirt_number: number | null;
+  preferred_foot?: string | null;
+  height_cm?: number | null;
+  weight_kg?: number | null;
+  secondary_positions?: string[] | null;
   is_active: boolean;
   email_notifications?: boolean;
   vma: number | null;
@@ -614,4 +618,51 @@ export interface TrainingTemplate {
   created_by: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface ActivityLog {
+  id: string;
+  club_id: string | null;
+  team_id: string;
+  user_id: string | null;
+  action_type: string;
+  description: string;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+}
+
+export interface ClubPost {
+  id: string;
+  club_id: string;
+  team_id: string;
+  author_id: string | null;
+  content: string;
+  media_url: string | null;
+  storage_path: string | null;
+  media_type: string | null;
+  created_at: string;
+  author?: Profile;
+  team?: Pick<Team, "id" | "name" | "color_primary">;
+}
+
+export interface PlayerNotebookEntry {
+  id: string;
+  player_id: string;
+  team_id: string;
+  event_id: string;
+  performance: number;
+  notable_events: string | null;
+  improvements: string | null;
+  notes: string | null;
+  created_at: string;
+}
+
+export interface EducatorPlan {
+  id: string;
+  team_id: string;
+  user_id: string;
+  event_id: string | null;
+  role: string | null;
+  notes: string | null;
+  created_at: string;
 }

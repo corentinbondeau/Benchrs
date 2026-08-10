@@ -41,6 +41,8 @@ import {
 import { toast } from "sonner";
 import { TACTICAL_PHASE_NAMES } from "@/lib/training/phases";
 import { SeasonPlanCard } from "@/components/season/SeasonPlanCard";
+import { currentSeasonLabel, previousSeasonLabel } from "@/lib/goals";
+import { authFetch } from "@/lib/api-client";
 
 type CycleType = (typeof TACTICAL_PHASE_NAMES)[number];
 
@@ -198,6 +200,35 @@ export default function SeasonPage() {
     refresh();
   }
 
+  const [copying, setCopying] = useState(false);
+
+  async function handleCopySeason() {
+    if (!currentTeam) return;
+    const target = currentSeasonLabel();
+    const source = previousSeasonLabel(target);
+    if (!confirm(`Copier les événements (matchs/entraînements) de la saison ${source} vers ${target} ? Les scores et convocations seront réinitialisés.`)) {
+      return;
+    }
+    setCopying(true);
+    try {
+      const res = await authFetch("/api/season/copy", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ teamId: currentTeam.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "Copie impossible");
+        return;
+      }
+      toast.success(`${data.copied} événement${data.copied > 1 ? "s" : ""} copié${data.copied > 1 ? "s" : ""} de ${data.sourceSeason} vers ${data.targetSeason}`);
+    } catch {
+      toast.error("Erreur réseau lors de la copie");
+    } finally {
+      setCopying(false);
+    }
+  }
+
   const currentCycle = cycles.find((c) => {
     const p = cycleProgress(c.start_date, c.end_date);
     return p > 0 && p < 100;
@@ -228,6 +259,26 @@ export default function SeasonPage() {
         <>
           {currentTeam && (
             <SeasonPlanCard teamId={currentTeam.id} isCoach={isCoach} onApplied={refresh} />
+          )}
+          {isCoach && (
+            <Card>
+              <CardContent className="py-4 flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-medium flex items-center gap-2">
+                    <CalendarDays className="h-4 w-4 text-[var(--color-royal)]" />
+                    Copie de saison
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Reproduis les événements de la saison{" "}
+                    {currentTeam && previousSeasonLabel(currentSeasonLabel())} vers{" "}
+                    {currentTeam && currentSeasonLabel()} (scores et convocations réinitialisés).
+                  </p>
+                </div>
+                <Button variant="outline" size="sm" onClick={handleCopySeason} disabled={copying}>
+                  {copying ? "Copie…" : "Copier"}
+                </Button>
+              </CardContent>
+            </Card>
           )}
           {cycles.length === 0 ? (
         <Card>
