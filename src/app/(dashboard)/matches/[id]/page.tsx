@@ -44,7 +44,6 @@ import { logActivity } from "@/lib/activity";
 import { authFetch } from "@/lib/api-client";
 import { LiveMatchTracker } from "@/components/LiveMatchTracker";
 import { MatchReportCard } from "@/components/match/MatchReportCard";
-import { EducatorPlans } from "@/components/training/EducatorPlans";
 import { MatchAvailabilityCard } from "@/components/match/MatchAvailabilityCard";
 import { MatchPoster } from "@/components/match/MatchPoster";
 import { MatchFeedback } from "@/components/match/MatchFeedback";
@@ -619,13 +618,7 @@ export default function MatchDetailPage() {
         date={matchDate}
         meetingTime={match.meeting_time}
         location={match.location}
-        travelTimeMin={match.travel_time_min}
         isCoach={isCoach}
-        onTravelTimeChange={async (min) => {
-          const supabase = createClient();
-          await supabase.from("events").update({ travel_time_min: min }).eq("id", matchId);
-          setMatch((prev) => (prev ? { ...prev, travel_time_min: min } : prev));
-        }}
         myPresence={myPresence}
         convocationsSent={!!match?.convocations_sent_at}
         onRespond={myPresence ? (status, reason) => updateMatchAttendance(myPresence.playerId, status, reason) : undefined}
@@ -1109,10 +1102,6 @@ export default function MatchDetailPage() {
         convocationsSent={!!match?.convocations_sent_at}
         onUpdate={updateMatchAttendance}
       />
-
-      {isCoach && (
-        <EducatorPlans eventId={matchId} teamId={currentTeam.id} isCoach={isCoach} />
-      )}
 
       {match && (
         <ConvocationsDialog

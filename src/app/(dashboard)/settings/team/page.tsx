@@ -39,7 +39,6 @@ import {
   Crown,
   LayoutDashboard,
   Clock,
-  Home,
   MapPin,
 } from "lucide-react";
 import { CHALLENGE_DIFFICULTIES, type ChallengeDifficulty } from "@/lib/challenges/ai-generator";
@@ -96,8 +95,6 @@ export default function TeamSettingsPage() {
   const [aliasInput, setAliasInput] = useState("");
   const [savingFff, setSavingFff] = useState(false);
   const [addingAlias, setAddingAlias] = useState(false);
-  const [homeLocation, setHomeLocation] = useState("");
-  const [savingHomeLocation, setSavingHomeLocation] = useState(false);
   const [savedLocations, setSavedLocations] = useState<TeamLocation[]>([]);
   const supabase = createClient();
 
@@ -225,17 +222,14 @@ export default function TeamSettingsPage() {
         setTabVisibility(map);
       });
 
-    Promise.all([
-      supabase
-        .from("team_locations")
-        .select("id, team_id, name, address, created_by, created_at")
-        .eq("team_id", team.id)
-        .order("name", { ascending: true }),
-      Promise.resolve(team.home_location || ""),
-    ]).then(([locRes, home]) => {
-      setSavedLocations((locRes.data || []) as TeamLocation[]);
-      setHomeLocation(home);
-    });
+    supabase
+      .from("team_locations")
+      .select("id, team_id, name, address, created_by, created_at")
+      .eq("team_id", team.id)
+      .order("name", { ascending: true })
+      .then(({ data }) => {
+        setSavedLocations((data || []) as TeamLocation[]);
+      });
 
     if (userRole === "coach" || userRole === "owner") {
       authFetch(`/api/calendar/url?teamId=${team.id}`)
@@ -1264,57 +1258,20 @@ export default function TeamSettingsPage() {
         </Card>
       )}
 
-      {/* Lieu d'attache & lieux enregistrés */}
+      {/* Lieux enregistrés */}
       {isCoach && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <MapPin className="h-5 w-5" />
-              Lieux & temps de trajet
+              Lieux enregistrés
             </CardTitle>
             <CardDescription>
-              Le lieu d&apos;attache sert de point de départ pour calculer automatiquement le
-              temps de trajet des événements. Les lieux enregistrés sont réutilisables dans le
-              calendrier.
+              Les lieux enregistrés sont réutilisables dans le calendrier lors de la
+              création d&apos;événements.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label>Lieu d&apos;attache (stade / salle d&apos;entraînement)</Label>
-              <div className="flex gap-2">
-                <Input
-                  value={homeLocation}
-                  onChange={(e) => setHomeLocation(e.target.value)}
-                  placeholder="Ex: Stade municipal, 1 rue du Sport, 59000 Lille"
-                />
-                <Button
-                  variant="outline"
-                  disabled={savingHomeLocation}
-                  onClick={async () => {
-                    if (!currentTeam || !homeLocation.trim()) return;
-                    setSavingHomeLocation(true);
-                    const supabase = createClient();
-                    const { error } = await supabase
-                      .from("teams")
-                      .update({ home_location: homeLocation.trim() })
-                      .eq("id", currentTeam.id);
-                    setSavingHomeLocation(false);
-                    if (error) {
-                      toast.error("Impossible d'enregistrer le lieu d'attache");
-                      return;
-                    }
-                    toast.success("Lieu d'attache mis à jour");
-                  }}
-                >
-                  <Home className="h-3.5 w-3.5 mr-1" />
-                  Enregistrer
-                </Button>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Ce lieu sert d&apos;origine au calcul automatique du temps de trajet.
-              </p>
-            </div>
-
             <div className="space-y-2">
               <Label>Lieux enregistrés ({savedLocations.length})</Label>
               {savedLocations.length === 0 ? (

@@ -69,15 +69,15 @@ const navItems = [
   { key: "material", href: "/material", label: "Matériel", icon: Package, coachAndClub: true },
   { key: "adversaires", href: "/adversaires", label: "Adversaires", icon: Flag },
   { key: "compare", href: "/stats/compare", label: "Comparer", icon: GitCompareArrows, coachOnly: true },
+  { key: "cotisations", href: "/admin/cotisations", label: "Cotisations", icon: Wallet, clubOnly: true },
+  { key: "treasury", href: "/admin/treasury", label: "Trésorerie", icon: PiggyBank, clubOnly: true },
   { key: "notifications", href: "/notifications", label: "Notifications", icon: Bell },
 ];
 
-const comiteOnlyHrefs = new Set(["/club", "/club/feed", "/calendar", "/roster", "/stats", "/notifications", "/material"]);
+const comiteOnlyHrefs = new Set(["/club", "/club/feed", "/calendar", "/roster", "/stats", "/notifications", "/material", "/admin/cotisations", "/admin/treasury"]);
 
 const coachItems = [
   { href: "/admin/players", label: "Gestion joueurs", icon: UserCog },
-  { href: "/admin/cotisations", label: "Cotisations", icon: Wallet },
-  { href: "/admin/treasury", label: "Trésorerie", icon: PiggyBank },
   { href: "/admin/deadlines", label: "Échéances", icon: CalendarClock },
 ];
 

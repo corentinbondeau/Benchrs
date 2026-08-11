@@ -1,8 +1,4 @@
--- 064 : Lieux enregistrés + lieu d'attache de l'équipe
---        (réutilisation du lieu d'un événement + base pour le calcul auto du temps de trajet)
-
--- Lieux d'attache de l'équipe (origine du calcul de temps de trajet)
-ALTER TABLE teams ADD COLUMN IF NOT EXISTS home_location TEXT;
+-- 064 : Lieux enregistrés par équipe (réutilisables lors de la création d'événements)
 
 -- Lieux enregistrés par équipe (réutilisables sur les événements)
 CREATE TABLE IF NOT EXISTS team_locations (

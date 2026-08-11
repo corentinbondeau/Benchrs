@@ -18,6 +18,7 @@ export interface QuarterlyReport {
   assiduite: string;
   comportement: string;
   axes: string[];
+  source?: "ai" | "manual";
 }
 
 function cleanJson(text: string): string {

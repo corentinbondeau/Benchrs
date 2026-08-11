@@ -48,6 +48,7 @@ import {
   type TemplateFichePayload,
 } from "@/components/training/TrainingTemplatesDialog";
 import { TrainingSeriesDialog } from "@/components/training/TrainingSeriesDialog";
+import { ExerciseEducators, type ExerciseSlot } from "@/components/training/ExerciseEducators";
 import { DRILL_TYPES } from "@/lib/training/exercises";
 import type { Exercise, TrainingTemplate } from "@/types";
 
@@ -414,6 +415,10 @@ export function SessionFiche({
   const aiSession = fiche && ficheIsAi && isAISession(fiche.exercises) ? fiche.exercises : null;
   const manualExercisesSaved = fiche && !ficheIsAi && Array.isArray(fiche.exercises) ? (fiche.exercises as Exercise[]) : null;
 
+  const exerciseSlots: ExerciseSlot[] = aiSession
+    ? aiSession.sections.map((s, i) => ({ index: i, label: s.name }))
+    : (manualExercisesSaved || []).map((e, i) => ({ index: i, label: e.name }));
+
   const ficheForSave: TemplateFichePayload | null = fiche
     ? {
         name: fiche.title === "Séance" ? "" : fiche.title,
@@ -580,6 +585,15 @@ export function SessionFiche({
                   )}
                 </div>
               ) : null}
+
+              {exerciseSlots.length > 0 && (
+                <ExerciseEducators
+                  eventId={eventId}
+                  teamId={currentTeam.id}
+                  isCoach={isCoach}
+                  exercises={exerciseSlots}
+                />
+              )}
             </div>
           )}
         </CardContent>

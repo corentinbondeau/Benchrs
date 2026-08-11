@@ -4,20 +4,67 @@ import { useCallback, useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Sparkles, RefreshCw, ChevronLeft, ChevronRight, FileText } from "lucide-react";
+import {
+  Sparkles,
+  RefreshCw,
+  ChevronLeft,
+  ChevronRight,
+  FileText,
+  PenLine,
+  Save,
+  X,
+} from "lucide-react";
 import { authFetch } from "@/lib/api-client";
 import { quarterKeyForDate, quarterLabel } from "@/lib/goals";
 
+interface ReportContent {
+  playerId: string;
+  title: string;
+  progression: string;
+  assiduite: string;
+  comportement: string;
+  axes: string[];
+  source?: "ai" | "manual";
+}
+
 interface Report {
   player_id: string;
-  content: {
-    playerId: string;
-    title: string;
-    progression: string;
-    assiduite: string;
-    comportement: string;
-    axes: string[];
+  content: ReportContent;
+}
+
+function contentToDraft(r: ReportContent): ReportContent {
+  return {
+    playerId: r.playerId,
+    title: r.title,
+    progression: r.progression,
+    assiduite: r.assiduite,
+    comportement: r.comportement,
+    axes: r.axes.length > 0 ? r.axes : [""],
+  };
+}
+
+function emptyDraft(playerId: string): ReportContent {
+  return {
+    playerId,
+    title: "",
+    progression: "",
+    assiduite: "",
+    comportement: "",
+    axes: [""],
+  };
+}
+
+function draftToContent(d: ReportContent): ReportContent {
+  return {
+    playerId: d.playerId,
+    title: d.title.trim(),
+    progression: d.progression.trim(),
+    assiduite: d.assiduite.trim(),
+    comportement: d.comportement.trim(),
+    axes: d.axes.map((a) => a.trim()).filter(Boolean),
   };
 }
 
@@ -46,6 +93,9 @@ export function QuarterlyReportsCard({
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [draft, setDraft] = useState<ReportContent | null>(null);
 
   const loadData = useCallback(
     async (q: string) => {
@@ -98,6 +148,37 @@ export function QuarterlyReportsCard({
     }
   };
 
+  const saveManual = async () => {
+    if (!draft) return;
+    if (!draft.title.trim()) {
+      toast.error("Le titre du bilan est requis");
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await authFetch("/api/reports/quarterly", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ teamId, quarter, mode: "manual", playerId, report: draftToContent(draft) }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Erreur");
+      const data = await loadData(quarter);
+      setReports(data);
+      setEditing(false);
+      toast.success("Bilan trimestriel enregistré");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erreur");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const startEditing = () => {
+    setDraft(myReport ? contentToDraft(myReport) : emptyDraft(playerId));
+    setEditing(true);
+  };
+
   return (
     <Card>
       <CardHeader className="flex flex-wrap items-center justify-between gap-2 space-y-0">
@@ -128,25 +209,94 @@ export function QuarterlyReportsCard({
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
-        {isCoach && (
-          <Button
-            onClick={generate}
-            disabled={generating}
-            className="w-full bg-[var(--color-gold)] text-black hover:opacity-90"
-          >
-            {generating ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-            {generating ? "Génération en cours…" : "Générer les bilans du trimestre"}
-          </Button>
+        {isCoach && !editing && (
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button
+              onClick={generate}
+              disabled={generating}
+              className="flex-1 bg-[var(--color-gold)] text-black hover:opacity-90"
+            >
+              {generating ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              {generating ? "Génération en cours…" : "Générer par IA"}
+            </Button>
+            <Button variant="outline" onClick={startEditing}>
+              <PenLine className="h-4 w-4 mr-1" />
+              {myReport ? "Modifier" : "Rédiger à la main"}
+            </Button>
+          </div>
         )}
 
-        {loading ? (
+        {editing && draft && isCoach ? (
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Titre *</label>
+              <Input
+                value={draft.title}
+                onChange={(e) => setDraft((d) => (d ? { ...d, title: e.target.value } : d))}
+                placeholder="Bilan du 1er trimestre"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Progression</label>
+              <Textarea
+                value={draft.progression}
+                onChange={(e) => setDraft((d) => (d ? { ...d, progression: e.target.value } : d))}
+                rows={3}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Assiduité</label>
+              <Textarea
+                value={draft.assiduite}
+                onChange={(e) => setDraft((d) => (d ? { ...d, assiduite: e.target.value } : d))}
+                rows={2}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Comportement</label>
+              <Textarea
+                value={draft.comportement}
+                onChange={(e) => setDraft((d) => (d ? { ...d, comportement: e.target.value } : d))}
+                rows={2}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">
+                Axes de progression <span className="text-muted-foreground/60">(une par ligne)</span>
+              </label>
+              <Textarea
+                value={draft.axes.join("\n")}
+                onChange={(e) => setDraft((d) => (d ? { ...d, axes: e.target.value.split("\n") } : d))}
+                rows={3}
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                className="bg-[var(--color-gold)] text-black hover:opacity-90"
+                onClick={saveManual}
+                disabled={saving}
+              >
+                {saving ? <RefreshCw className="h-4 w-4 animate-spin mr-1" /> : <Save className="h-4 w-4 mr-1" />}
+                Enregistrer
+              </Button>
+              <Button variant="ghost" onClick={() => setEditing(false)} disabled={saving}>
+                <X className="h-4 w-4 mr-1" />
+                Annuler
+              </Button>
+            </div>
+          </div>
+        ) : loading ? (
           <p className="text-sm text-muted-foreground text-center py-4">Chargement…</p>
         ) : myReport ? (
           <div className="space-y-3">
             <div>
               <h4 className="font-semibold flex items-center gap-2">
                 {myReport.title}
-                {isCoach && <Badge variant="outline" className="text-[10px]">IA</Badge>}
+                {isCoach && (
+                  <Badge variant="outline" className="text-[10px]">
+                    {myReport.source === "manual" ? "Manuel" : "IA"}
+                  </Badge>
+                )}
               </h4>
               {myReport.progression && <p className="text-sm mt-1">{myReport.progression}</p>}
             </div>

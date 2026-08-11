@@ -29,7 +29,6 @@ export interface Team {
   color_secondary: string;
   logo_url?: string | null;
   banner_url?: string | null;
-  home_location?: string | null;
   created_at: string;
   club?: Club;
 }

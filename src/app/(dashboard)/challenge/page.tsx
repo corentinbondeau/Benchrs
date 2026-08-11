@@ -15,11 +15,21 @@ import {
   Flame,
   Loader2,
   Medal,
+  PenLine,
   Sparkles,
   Upload,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { getParentChildId } from "@/components/EventDetail";
 import { CHALLENGE_DIFFICULTIES, type ChallengeDifficulty } from "@/lib/challenges/ai-generator";
 import type { ChallengeSubmission, Profile, WeeklyChallengeRow } from "@/types";
@@ -68,6 +78,10 @@ export default function ChallengePage() {
   const [data, setData] = useState<PageData | null>(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [manualOpen, setManualOpen] = useState(false);
+  const [manualTitle, setManualTitle] = useState("");
+  const [manualDescription, setManualDescription] = useState("");
+  const [savingManual, setSavingManual] = useState(false);
   const [childId, setChildId] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [comment, setComment] = useState("");
@@ -195,6 +209,43 @@ export default function ChallengePage() {
     }
     setData((prev) => (prev ? { ...prev, difficulty } : prev));
     toast.success("Difficulté mise à jour");
+  }
+
+  async function handleSaveManual() {
+    if (!currentTeam || !data) return;
+    if (!manualTitle.trim()) {
+      toast.error("Donne un titre au défi");
+      return;
+    }
+    if (!manualDescription.trim()) {
+      toast.error("Décris le défi");
+      return;
+    }
+    setSavingManual(true);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.from("weekly_challenges").upsert(
+        {
+          team_id: currentTeam.id,
+          week_start: weekStart,
+          title: manualTitle.trim(),
+          description: manualDescription.trim(),
+          difficulty: data.difficulty,
+          created_by: user?.id ?? null,
+        },
+        { onConflict: "team_id,week_start" }
+      );
+      if (error) throw error;
+      setManualOpen(false);
+      setManualTitle("");
+      setManualDescription("");
+      toast.success("Défi de la semaine créé !");
+      await refresh();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erreur lors de l'enregistrement");
+    } finally {
+      setSavingManual(false);
+    }
   }
 
   async function handleSubmit() {
@@ -325,16 +376,29 @@ export default function ChallengePage() {
                 ))}
               </div>
             </div>
-            <Button
-              onClick={handleGenerate}
-              disabled={generating}
-              className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
-            >
-              {generating ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Sparkles className="mr-1 h-4 w-4" />}
-              {generating ? "Génération en cours..." : data.challenge ? "Régénérer le défi" : "Générer le défi"}
-            </Button>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Button
+                onClick={handleGenerate}
+                disabled={generating}
+                className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
+              >
+                {generating ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Sparkles className="mr-1 h-4 w-4" />}
+                {generating ? "Génération en cours..." : data.challenge ? "Régénérer par IA" : "Générer par IA"}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setManualTitle(data.challenge?.title || "");
+                  setManualDescription(data.challenge?.description || "");
+                  setManualOpen(true);
+                }}
+              >
+                <PenLine className="mr-1 h-4 w-4" />
+                {data.challenge ? "Modifier à la main" : "Créer à la main"}
+              </Button>
+            </div>
             <p className="text-xs text-muted-foreground">
-              Le défi est généré par IA selon la difficulté choisie. Les joueurs le valident ensuite par photo ou vidéo.
+              Génère le défi par IA selon la difficulté choisie, ou rédige-le toi-même. Les joueurs le valident ensuite par photo ou vidéo.
             </p>
           </CardContent>
         </Card>
@@ -575,6 +639,44 @@ export default function ChallengePage() {
           </CardContent>
         </Card>
       )}
+
+      <Dialog open={manualOpen} onOpenChange={setManualOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Rédiger le défi de la semaine</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold">Titre</Label>
+              <Input
+                value={manualTitle}
+                onChange={(e) => setManualTitle(e.target.value)}
+                placeholder="Ex : 50 jonglages en une minute"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold">Description</Label>
+              <Textarea
+                value={manualDescription}
+                onChange={(e) => setManualDescription(e.target.value)}
+                placeholder="Décris le défi, les règles, le matériel éventuel..."
+                rows={4}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setManualOpen(false)}>Annuler</Button>
+            <Button
+              className="bg-[var(--color-gold)] text-[var(--color-navy)] font-semibold"
+              onClick={handleSaveManual}
+              disabled={savingManual}
+            >
+              {savingManual ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <PenLine className="mr-1 h-4 w-4" />}
+              Enregistrer le défi
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

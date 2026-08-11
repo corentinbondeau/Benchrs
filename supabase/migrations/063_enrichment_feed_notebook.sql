@@ -134,16 +134,22 @@ ALTER TABLE team_settings ADD COLUMN IF NOT EXISTS min_playing_minutes INTEGER N
 ALTER TABLE team_settings ADD COLUMN IF NOT EXISTS attendance_reminders_enabled BOOLEAN NOT NULL DEFAULT true;
 
 -- ---------- 6. Planning éducateurs ----------
+-- Répartition par exercice : chaque exercice de la fiche (exercise_index = position
+-- dans la séance, 0-based) a UN responsable. exercise_index NULL = anciennes
+-- affectations au niveau de l'événement (conservées en lecture).
 CREATE TABLE IF NOT EXISTS educator_plans (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   team_id UUID NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
   user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   event_id UUID REFERENCES events(id) ON DELETE CASCADE,
+  exercise_index INTEGER,
   role TEXT,
   notes TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  UNIQUE (team_id, event_id, user_id)
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+-- UNIQUE partiel : une seule affectation par exercice (NULLs libres = événement)
+CREATE UNIQUE INDEX IF NOT EXISTS educator_plans_exercise_uq
+  ON educator_plans(team_id, event_id, exercise_index) WHERE exercise_index IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_educator_plans_team ON educator_plans(team_id, created_at DESC);
 ALTER TABLE educator_plans ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Members view educator plans" ON educator_plans

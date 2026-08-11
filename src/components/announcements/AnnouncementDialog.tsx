@@ -11,7 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Copy, Loader2, MessageSquareText, Share2, Sparkles } from "lucide-react";
+import { Copy, Loader2, MessageSquareText, PenLine, Share2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { authFetch } from "@/lib/api-client";
 import { ANNOUNCEMENT_TONES } from "@/lib/announcements/ai-generator";
@@ -53,10 +53,12 @@ export function AnnouncementDialog({
   event,
 }: AnnouncementDialogProps) {
   const [mode, setMode] = useState<"convocation" | "info">("convocation");
+  const [generation, setGeneration] = useState<"ai" | "manual">("ai");
   const [audience, setAudience] = useState<"joueurs" | "parents">("joueurs");
   const [tone, setTone] = useState<string>("motivant");
   const [topic, setTopic] = useState("");
   const [points, setPoints] = useState<string[]>([]);
+  const [manualText, setManualText] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState("");
   const [copied, setCopied] = useState(false);
@@ -68,6 +70,14 @@ export function AnnouncementDialog({
   }
 
   async function generate() {
+    if (generation === "manual") {
+      if (!manualText.trim()) {
+        toast.error("Écris le texte de l'annonce");
+        return;
+      }
+      setResult(manualText.trim());
+      return;
+    }
     if (mode === "convocation" && !event) return;
     if (mode === "info" && !topic.trim()) {
       toast.error("Décris le sujet de l'information");
@@ -130,11 +140,45 @@ export function AnnouncementDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <MessageSquareText className="h-5 w-5 text-[var(--color-gold)]" />
-            Rédiger une annonce IA
+            Rédiger une annonce
           </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant={generation === "ai" ? "default" : "outline"}
+              className={
+                generation === "ai"
+                  ? "flex-1 bg-[var(--color-navy)] text-white hover:bg-[var(--color-navy)]/90"
+                  : "flex-1"
+              }
+              onClick={() => {
+                setGeneration("ai");
+                setResult("");
+              }}
+            >
+              <Sparkles className="h-3.5 w-3.5 mr-1" />
+              Générer par IA
+            </Button>
+            <Button
+              size="sm"
+              variant={generation === "manual" ? "default" : "outline"}
+              className={
+                generation === "manual"
+                  ? "flex-1 bg-[var(--color-navy)] text-white hover:bg-[var(--color-navy)]/90"
+                  : "flex-1"
+              }
+              onClick={() => {
+                setGeneration("manual");
+                setResult("");
+              }}
+            >
+              <PenLine className="h-3.5 w-3.5 mr-1" />
+              Écrire à la main
+            </Button>
+          </div>
           {event && (
             <div className="flex rounded-lg bg-muted/50 px-3 py-2">
               <div className="flex gap-3 rounded-lg bg-[var(--color-navy)]/5 flex-1 px-3 py-2">
@@ -220,44 +264,65 @@ export function AnnouncementDialog({
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label className="text-xs">Ton</Label>
-            <div className="flex gap-2">
-              {ANNOUNCEMENT_TONES.map((t) => (
-                <Button
-                  key={t}
-                  size="sm"
-                  variant="outline"
-                  className={
-                    tone === t
-                      ? "flex-1 border-[var(--color-navy)] bg-[var(--color-navy)]/5 font-medium"
-                      : "flex-1"
-                  }
-                  onClick={() => setTone(t)}
-                >
-                  {TONES_LABELS[t]}
-                </Button>
-              ))}
+          {generation === "ai" && (
+            <div className="space-y-2">
+              <Label className="text-xs">Ton</Label>
+              <div className="flex gap-2">
+                {ANNOUNCEMENT_TONES.map((t) => (
+                  <Button
+                    key={t}
+                    size="sm"
+                    variant="outline"
+                    className={
+                      tone === t
+                        ? "flex-1 border-[var(--color-navy)] bg-[var(--color-navy)]/5 font-medium"
+                        : "flex-1"
+                    }
+                    onClick={() => setTone(t)}
+                  >
+                    {TONES_LABELS[t]}
+                  </Button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
-          <div className="space-y-2">
-            <Label className="text-xs">Points à inclure</Label>
-            <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
-              {POINTS_OPTIONS.map((p) => (
-                <label
-                  key={p.id}
-                  className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer"
-                >
-                  <Checkbox
-                    checked={points.includes(p.id)}
-                    onCheckedChange={() => togglePoint(p.id)}
-                  />
-                  {p.label}
-                </label>
-              ))}
+          {generation === "ai" && (
+            <div className="space-y-2">
+              <Label className="text-xs">Points à inclure</Label>
+              <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
+                {POINTS_OPTIONS.map((p) => (
+                  <label
+                    key={p.id}
+                    className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer"
+                  >
+                    <Checkbox
+                      checked={points.includes(p.id)}
+                      onCheckedChange={() => togglePoint(p.id)}
+                    />
+                    {p.label}
+                  </label>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
+
+          {generation === "manual" && (
+            <div className="space-y-2">
+              <Label className="text-xs">Texte de l&apos;annonce</Label>
+              <Textarea
+                value={manualText}
+                onChange={(e) => setManualText(e.target.value)}
+                placeholder={
+                  mode === "convocation" && event
+                    ? `Rendez-vous ${event.meeting_time?.slice(0, 5) || "…"} — ${event.location || "lieu à préciser"}…`
+                    : "Rédige ici le texte de l'annonce (RDV, lieu, équipement, réponse attendue...)."
+                }
+                className="text-sm"
+                rows={6}
+              />
+            </div>
+          )}
 
           <Button
             className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
@@ -266,16 +331,24 @@ export function AnnouncementDialog({
           >
             {loading ? (
               <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+            ) : generation === "manual" ? (
+              <PenLine className="h-4 w-4 mr-1" />
             ) : (
               <Sparkles className="h-4 w-4 mr-1" />
             )}
-            {loading ? "Génération..." : "Générer l'annonce"}
+            {loading
+              ? "Génération..."
+              : generation === "manual"
+                ? "Valider l'annonce"
+                : "Générer l'annonce"}
           </Button>
 
           {result && (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label className="text-xs text-green-600">Annonce générée</Label>
+                <Label className="text-xs text-green-600">
+                  {generation === "manual" ? "Annonce rédigée" : "Annonce générée"}
+                </Label>
                 <div className="flex gap-1">
                   <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={copyResult}>
                     <Copy className="h-3.5 w-3.5 mr-1" />

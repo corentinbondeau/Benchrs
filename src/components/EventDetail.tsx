@@ -12,8 +12,6 @@ import {
   Clock,
   Info,
   MapPin,
-  Pencil,
-  Timer,
   User,
   Users,
   X,
@@ -115,9 +113,7 @@ export function EventInfoCard({
   date,
   meetingTime,
   location,
-  travelTimeMin,
   isCoach,
-  onTravelTimeChange,
   myPresence,
   convocationsSent,
   onRespond,
@@ -125,17 +121,13 @@ export function EventInfoCard({
   date: Date;
   meetingTime: string | null;
   location: string | null;
-  travelTimeMin?: number | null;
   isCoach?: boolean;
-  onTravelTimeChange?: (min: number | null) => void;
   myPresence?: MyPresenceInfo;
   convocationsSent: boolean;
   onRespond?: (status: "present" | "late" | "absent", reason?: string) => void;
 }) {
   const [showRetardReason, setShowRetardReason] = useState(false);
   const [retardReason, setRetardReason] = useState("");
-  const [editingTravel, setEditingTravel] = useState(false);
-  const [travelInput, setTravelInput] = useState<string>(travelTimeMin?.toString() ?? "");
 
   const mapsUrl = location
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`
@@ -195,61 +187,6 @@ export function EventInfoCard({
                 <MapPin className="h-3 w-3" />
                 Itinéraire
               </a>
-            )}
-          </div>
-        )}
-        {(travelTimeMin != null || isCoach) && (
-          <div className="flex items-center justify-between gap-2">
-            <InfoRow icon={Timer} label="Temps de trajet" value={travelTimeMin != null ? `${travelTimeMin} min` : "Non renseigné"} />
-            {isCoach && onTravelTimeChange && (
-              editingTravel ? (
-                <div className="flex shrink-0 items-center gap-1">
-                  <Input
-                    type="number"
-                    min={0}
-                    max={600}
-                    value={travelInput}
-                    onChange={(e) => setTravelInput(e.target.value)}
-                    className="h-7 w-16 text-xs"
-                  />
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-7 w-7 text-green-600"
-                    onClick={() => {
-                      const v = parseInt(travelInput);
-                      onTravelTimeChange(Number.isNaN(v) ? null : v);
-                      setEditingTravel(false);
-                    }}
-                  >
-                    <Check className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-7 w-7 text-red-600"
-                    onClick={() => {
-                      setEditingTravel(false);
-                      setTravelInput(travelTimeMin?.toString() ?? "");
-                    }}
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              ) : (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-7 px-2 text-xs text-muted-foreground shrink-0"
-                  onClick={() => {
-                    setTravelInput(travelTimeMin?.toString() ?? "");
-                    setEditingTravel(true);
-                  }}
-                >
-                  <Pencil className="h-3 w-3 mr-1" />
-                  Modifier
-                </Button>
-              )
             )}
           </div>
         )}

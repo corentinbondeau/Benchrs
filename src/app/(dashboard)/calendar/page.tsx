@@ -30,7 +30,6 @@ import {
   ChevronRight,
   Plus,
   CalendarDays,
-  Clock,
   MapPin,
   Users,
   Bell,
@@ -40,7 +39,6 @@ import { ConvocationsDialog } from "@/components/ConvocationsDialog";
 import { LocationPicker } from "@/components/calendar/LocationPicker";
 import { fetchTeamActivePlayers } from "@/lib/players";
 import { clearQueryCache } from "@/lib/queryCache";
-import { computeTravelTime } from "@/lib/locations";
 import type { Event, Profile } from "@/types";
 
 type Recurrence = "Aucun" | "weekly" | "biweekly" | "monthly";
@@ -88,7 +86,6 @@ export default function CalendarPage() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [events, setEvents] = useState<EventWithMeeting[]>([]);
   const [loading, setLoading] = useState(true);
-  const [creating, setCreating] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [players, setPlayers] = useState<Profile[]>([]);
   const [attendanceCounts, setAttendanceCounts] = useState<Record<string, { present: number; total: number }>>({});
@@ -243,19 +240,12 @@ export default function CalendarPage() {
 
     const recurrenceGroupId = dates.length > 1 ? crypto.randomUUID() : null;
 
-    let travelTimeMin: number | null = null;
-    if (form.location.trim()) {
-      setCreating(true);
-      travelTimeMin = await computeTravelTime(currentTeam!.id, form.location.trim());
-    }
-
     const rows = dates.map((d) => ({
       title: form.title,
       type: form.type,
       event_date: toUTCISOString(d),
       meeting_time: form.meeting_time || null,
       location: form.location || null,
-      travel_time_min: travelTimeMin,
       opponent: form.type === "match" ? form.opponent || null : null,
       status: "upcoming" as const,
       created_by: user?.id,
@@ -266,7 +256,6 @@ export default function CalendarPage() {
     }));
 
     const { data: inserted, error } = await supabase.from("events").insert(rows).select("id, event_date");
-    setCreating(false);
 
     if (error) {
       toast.error(`Erreur lors de la création : ${error.message}`);
@@ -439,12 +428,6 @@ export default function CalendarPage() {
                     onChange={(v) => setForm({ ...form, location: v })}
                     isCoach={isCoach}
                   />
-                  {isCoach && form.location.trim() && (
-                    <p className="text-xs text-muted-foreground flex items-center gap-1">
-                      <Clock className="h-3 w-3" />
-                      Temps de trajet calculé automatiquement à la création.
-                    </p>
-                  )}
                 </div>
                 {form.type === "match" && (
                   <div className="space-y-2">
@@ -549,8 +532,8 @@ export default function CalendarPage() {
                     </p>
                   </div>
                 )}
-                <Button type="submit" disabled={creating} className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] font-semibold">
-                  {creating ? "Création…" : "Créer"}
+                <Button type="submit" className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] font-semibold">
+                  Créer
                 </Button>
               </form>
             </DialogContent>

@@ -17,7 +17,7 @@ export async function POST(req: Request) {
   const user = auth.user;
   if (!user) return unauthorized(auth.reason);
 
-  let body: { teamId?: string; quarter?: string };
+  let body: { teamId?: string; quarter?: string; mode?: string };
   try {
     body = await req.json();
   } catch {
@@ -37,6 +37,82 @@ export async function POST(req: Request) {
   if (!(await isTeamMember(user.id, teamId))) return forbidden();
   if (!(await isTeamCoach(user.id, teamId))) {
     return NextResponse.json({ error: "Seuls les coachs peuvent générer les bilans" }, { status: 403 });
+  }
+
+  // Mode manuel : le coach rédige le bilan d'un joueur à la main
+  if (body.mode === "manual") {
+    const { playerId, report } = body as {
+      playerId?: string;
+      report?: { title?: string; progression?: string; assiduite?: string; comportement?: string; axes?: unknown };
+    };
+    if (!playerId || typeof playerId !== "string") {
+      return NextResponse.json({ error: "playerId requis" }, { status: 400 });
+    }
+    if (!report || typeof report !== "object") {
+      return NextResponse.json({ error: "report manquant" }, { status: 400 });
+    }
+    const str = (v: unknown) => (typeof v === "string" ? v.trim().slice(0, 1200) : "");
+    const strArr = (v: unknown) =>
+      Array.isArray(v) ? v.map((x) => str(x)).filter(Boolean).slice(0, 8) : [];
+    const content = {
+      playerId,
+      title: str(report.title) || "Bilan du trimestre",
+      progression: str(report.progression),
+      assiduite: str(report.assiduite),
+      comportement: str(report.comportement),
+      axes: strArr(report.axes),
+      source: "manual",
+    } as const;
+
+    const { data: links } = await supabase
+      .from("parent_student")
+      .select("parent_id")
+      .eq("team_id", teamId)
+      .eq("student_id", playerId);
+    const parentIds = [...new Set((links || []).map((l) => (l as { parent_id: string }).parent_id))];
+    const userIds = [...new Set([playerId, ...parentIds])];
+
+    const { data: player } = await supabase
+      .from("profiles")
+      .select("first_name, last_name")
+      .eq("id", playerId)
+      .maybeSingle();
+    const playerName = player ? `${player.first_name ?? ""} ${player.last_name ?? ""}`.trim() : "Joueur";
+
+    const { error: upsertErr } = await supabase
+      .from("quarterly_reports")
+      .upsert(
+        {
+          team_id: teamId,
+          player_id: playerId,
+          quarter,
+          content: content as unknown as Record<string, unknown>,
+          created_by: user.id,
+        },
+        { onConflict: "team_id,player_id,quarter" }
+      );
+    if (upsertErr) {
+      console.error("[reports/quarterly] manual upsert error:", upsertErr);
+      return NextResponse.json({ error: "Erreur lors de la sauvegarde" }, { status: 500 });
+    }
+
+    const { error: notifyErr } = await supabase.from("notifications").insert(
+      userIds.map((uid) => ({
+        user_id: uid,
+        team_id: teamId,
+        type: "bilan_trimestriel",
+        title: `Bilan du trimestre — ${playerName}`,
+        body: `${content.title}. ${content.progression}`.slice(0, 2000),
+        reference_id: `quarterly:${playerId}:${quarter}`,
+        url: `/stats/${playerId}`,
+        delivered_at: new Date().toISOString(),
+      }))
+    );
+    if (notifyErr) {
+      console.error("[reports/quarterly] manual notify error:", notifyErr);
+    }
+
+    return NextResponse.json({ ok: true, reports: [{ player_id: playerId, content }], mode: "manual" });
   }
 
   const startISO = range.start.toISOString();
@@ -165,7 +241,7 @@ export async function POST(req: Request) {
     team_id: teamId,
     player_id: r.playerId,
     quarter,
-    content: r,
+    content: { ...r, source: "ai" },
     created_by: user.id,
   }));
   const { error: upsertErr } = await supabase

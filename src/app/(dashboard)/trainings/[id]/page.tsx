@@ -15,7 +15,6 @@ import { AnnouncementDialog } from "@/components/announcements/AnnouncementDialo
 import { EventCoachActions } from "@/components/EventCoachActions";
 import { SessionFiche } from "@/components/training/SessionFiche";
 import { SessionRpe } from "@/components/training/SessionRpe";
-import { EducatorPlans } from "@/components/training/EducatorPlans";
 import {
   AttendanceLists,
   EventInfoCard,
@@ -271,13 +270,7 @@ export default function TrainingDetailPage() {
         date={eventDate}
         meetingTime={event.meeting_time}
         location={event.location}
-        travelTimeMin={event.travel_time_min}
         isCoach={isCoach}
-        onTravelTimeChange={async (min) => {
-          const supabase = createClient();
-          await supabase.from("events").update({ travel_time_min: min }).eq("id", trainingId);
-          setEvent((prev) => (prev ? { ...prev, travel_time_min: min } : prev));
-        }}
         myPresence={myPresence}
         convocationsSent={!!event.convocations_sent_at}
         onRespond={myPresence ? (status, reason) => updateAttendance(myPresence.playerId, status, reason) : undefined}
@@ -302,9 +295,6 @@ export default function TrainingDetailPage() {
         trainingOver={event.status === "completed" || eventDate.getTime() < now}
         durationHint={90}
       />
-
-      {/* Éducateurs de la séance */}
-      <EducatorPlans eventId={trainingId} teamId={currentTeam.id} isCoach={isCoach} />
 
       <ConvocationsDialog
         event={event}

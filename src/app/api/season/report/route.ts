@@ -83,6 +83,27 @@ export async function POST(req: Request) {
     }
 
     const supabase = createAdminClient();
+
+    // Mode manuel : le coach rédige lui-même le bilan
+    if (body.mode === "manual") {
+      const raw = body.report as Record<string, unknown>;
+      if (!raw || typeof raw !== "object") {
+        return NextResponse.json({ error: "report manquant" }, { status: 400 });
+      }
+      const report = sanitizeReport(raw);
+      const { error } = await supabase.from("season_reports").upsert(
+        {
+          team_id: teamId,
+          season,
+          content: report as unknown as Record<string, unknown>,
+          created_by: user.id,
+        },
+        { onConflict: "team_id,season" }
+      );
+      if (error) throw error;
+      return NextResponse.json({ ok: true, report, season, mode: "manual" });
+    }
+
     const data = await fetchSeasonData(supabase, teamId, season);
 
     const apiKey = process.env.MISTRAL_API_KEY;

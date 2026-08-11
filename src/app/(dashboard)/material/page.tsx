@@ -52,9 +52,10 @@ interface Data {
 }
 
 export default function MaterialPage() {
-  const { currentTeam, userRole } = useTeam();
+  const { currentTeam, clubMemberships } = useTeam();
   const { user } = useAuth();
-  const isCoach = userRole === "coach" || userRole === "owner";
+  const hasClubRole = clubMemberships.length > 0;
+  const canManage = hasClubRole;
   const [data, setData] = useState<Data | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -223,10 +224,10 @@ export default function MaterialPage() {
             Matériel
           </h2>
           <p className="text-sm text-muted-foreground mt-1">
-            Inventaire et prêt de matériel : qui a quoi, dans quel état.
+            Inventaire du club : liste du matériel saisi par le comité.
           </p>
         </div>
-        {isCoach && (
+        {canManage && (
           <Button
             className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
             onClick={() => setItemOpen(true)}
@@ -275,7 +276,7 @@ export default function MaterialPage() {
             <CardContent className="p-0 divide-y">
               {data.items.length === 0 && (
                 <p className="text-sm text-muted-foreground text-center py-8">
-                  Aucun matériel enregistré{isCoach ? " — ajoute le premier !" : "."}
+                  Aucun matériel enregistré{canManage ? " — le comité peut ajouter le premier." : "."}
                 </p>
               )}
               {data.items.map((item) => {
@@ -300,7 +301,7 @@ export default function MaterialPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
-                      {isCoach && available > 0 && (
+                      {canManage && available > 0 && (
                         <Button
                           size="sm"
                           variant="outline"
@@ -315,7 +316,7 @@ export default function MaterialPage() {
                           <Handshake className="h-3 w-3 mr-1" /> Prêter
                         </Button>
                       )}
-                      {isCoach && (
+                      {canManage && (
                         <Button
                           size="icon"
                           variant="ghost"
@@ -356,7 +357,7 @@ export default function MaterialPage() {
                         </p>
                       </div>
                       <Badge variant="secondary">En cours</Badge>
-                      {isCoach && (
+                      {canManage && (
                         <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => handleReturn(loan)}>
                           <Undo2 className="h-3 w-3 mr-1" /> Retour
                         </Button>
