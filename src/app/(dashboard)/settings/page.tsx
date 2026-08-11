@@ -171,21 +171,23 @@ export default function SettingsPage() {
     setSaving(true);
     try {
       const supabase = createClient();
+      const profileRow = (user?.profile as Profile | undefined) || {};
+      const payload: Record<string, unknown> = {
+        first_name: firstName.trim(),
+        last_name: lastName.trim(),
+        phone: phone.trim() || null,
+        position: position || null,
+        shirt_number: shirtNumber ? parseInt(shirtNumber) : null,
+        date_of_birth: dateOfBirth || null,
+        email_notifications: emailNotifications,
+      };
+      if ("preferred_foot" in profileRow) payload.preferred_foot = preferredFoot || null;
+      if ("height_cm" in profileRow) payload.height_cm = heightCm ? parseInt(heightCm) : null;
+      if ("weight_kg" in profileRow) payload.weight_kg = weightKg ? parseFloat(weightKg) : null;
+      if ("secondary_positions" in profileRow) payload.secondary_positions = secondaryPositions;
       const { error } = await supabase
         .from("profiles")
-        .update({
-          first_name: firstName.trim(),
-          last_name: lastName.trim(),
-          phone: phone.trim() || null,
-          position: position || null,
-          shirt_number: shirtNumber ? parseInt(shirtNumber) : null,
-          date_of_birth: dateOfBirth || null,
-          preferred_foot: preferredFoot || null,
-          height_cm: heightCm ? parseInt(heightCm) : null,
-          weight_kg: weightKg ? parseFloat(weightKg) : null,
-          secondary_positions: secondaryPositions,
-          email_notifications: emailNotifications,
-        })
+        .update(payload)
         .eq("id", user!.id);
       if (error) throw error;
       toast.success("Profil mis à jour");
