@@ -233,6 +233,17 @@ export default function PhysicalPreparationPage() {
           <Gauge className="h-4 w-4 mr-1" />
           Tests VMA/VMI
         </Button>
+        {isCoach && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="shrink-0"
+            onClick={() => router.push("/stats/drop")}
+          >
+            <AlertCircle className="h-4 w-4 mr-1" />
+            Baisse de forme
+          </Button>
+        )}
       </div>
 
       {/* Tabs */}

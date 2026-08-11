@@ -51,12 +51,20 @@ interface Data {
   players: Profile[];
 }
 
+interface ClubTeamRow {
+  id: string;
+  name: string;
+}
+
 export default function MaterialPage() {
   const { currentTeam, clubMemberships } = useTeam();
   const { user } = useAuth();
   const hasClubRole = clubMemberships.length > 0;
   const canManage = hasClubRole;
+  const clubId = currentTeam?.club_id ?? clubMemberships[0]?.club_id ?? null;
   const [data, setData] = useState<Data | null>(null);
+  const [clubTeams, setClubTeams] = useState<ClubTeamRow[]>([]);
+  const [viewTeamId, setViewTeamId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const [itemOpen, setItemOpen] = useState(false);
@@ -64,6 +72,7 @@ export default function MaterialPage() {
   const [itemCategory, setItemCategory] = useState<InventoryItem["category"]>("maillots");
   const [itemQty, setItemQty] = useState("1");
   const [itemNotes, setItemNotes] = useState("");
+  const [itemTeam, setItemTeam] = useState("");
   const [saving, setSaving] = useState(false);
 
   const [loanOpen, setLoanOpen] = useState(false);
@@ -71,13 +80,18 @@ export default function MaterialPage() {
   const [loanPlayer, setLoanPlayer] = useState("");
   const [loanQty, setLoanQty] = useState("1");
 
-  const loadData = useCallback(async (): Promise<Data | null> => {
-    if (!currentTeam) return null;
+  const effectiveTeamId = viewTeamId || currentTeam?.id || clubTeams[0]?.id || null;
+
+  const loadData = useCallback(async (): Promise<{ data: Data; teams: ClubTeamRow[] } | null> => {
+    if (!effectiveTeamId) return null;
     const supabase = createClient();
-    const [itemsRes, loansRes, membersRes] = await Promise.all([
-      supabase.from("inventory_items").select("*").eq("team_id", currentTeam.id).order("name", { ascending: true }),
-      supabase.from("item_loans").select("*").eq("team_id", currentTeam.id).order("loaned_at", { ascending: false }),
-      supabase.from("team_members").select("user_id").eq("team_id", currentTeam.id).in("role", ["player"]),
+    const [itemsRes, loansRes, membersRes, teamsRes] = await Promise.all([
+      supabase.from("inventory_items").select("*").eq("team_id", effectiveTeamId).order("name", { ascending: true }),
+      supabase.from("item_loans").select("*").eq("team_id", effectiveTeamId).order("loaned_at", { ascending: false }),
+      supabase.from("team_members").select("user_id").eq("team_id", effectiveTeamId).in("role", ["player"]),
+      clubId
+        ? supabase.from("teams").select("id, name").eq("club_id", clubId).order("name", { ascending: true })
+        : Promise.resolve({ data: [] }),
     ]);
     let players: Profile[] = [];
     const memberIds = (membersRes.data || []).map((m) => m.user_id);
@@ -86,32 +100,40 @@ export default function MaterialPage() {
       players = (p as Profile[]) || [];
     }
     return {
-      items: (itemsRes.data as InventoryItem[]) || [],
-      loans: (loansRes.data as ItemLoan[]) || [],
-      players,
+      data: {
+        items: (itemsRes.data as InventoryItem[]) || [],
+        loans: (loansRes.data as ItemLoan[]) || [],
+        players,
+      },
+      teams: (teamsRes.data || []) as ClubTeamRow[],
     };
-  }, [currentTeam?.id]);
+  }, [effectiveTeamId, clubId]);
 
   useEffect(() => {
     let cancelled = false;
     loadData().then((res) => {
-      if (!cancelled && res) {
-        setData(res);
-        setLoading(false);
-      }
+      if (cancelled || !res) return;
+      setData(res.data);
+      setClubTeams(res.teams);
+      if (!viewTeamId && effectiveTeamId) setViewTeamId(effectiveTeamId);
+      setLoading(false);
     });
     return () => {
       cancelled = true;
     };
-  }, [loadData]);
+  }, [loadData, effectiveTeamId, viewTeamId]);
 
   async function refresh() {
     const res = await loadData();
-    if (res) setData(res);
+    if (res) {
+      setData(res.data);
+      setClubTeams(res.teams);
+    }
   }
 
   async function handleAddItem() {
-    if (!currentTeam || !user) return;
+    if (!effectiveTeamId || !user) return;
+    const targetTeam = itemTeam || effectiveTeamId;
     const qty = parseInt(itemQty, 10);
     if (!itemName.trim() || isNaN(qty) || qty <= 0) {
       toast.error("Nom et quantité invalides");
@@ -120,7 +142,7 @@ export default function MaterialPage() {
     setSaving(true);
     const supabase = createClient();
     const { error } = await supabase.from("inventory_items").insert({
-      team_id: currentTeam.id,
+      team_id: targetTeam,
       name: itemName.trim(),
       category: itemCategory,
       quantity: qty,
@@ -137,6 +159,7 @@ export default function MaterialPage() {
     setItemName("");
     setItemNotes("");
     setItemQty("1");
+    setItemTeam("");
     refresh();
   }
 
@@ -153,7 +176,7 @@ export default function MaterialPage() {
   }
 
   async function handleCreateLoan() {
-    if (!loanItem || !loanPlayer || !currentTeam) return;
+    if (!loanItem || !loanPlayer || !effectiveTeamId) return;
     const qty = parseInt(loanQty, 10);
     if (isNaN(qty) || qty <= 0) {
       toast.error("Quantité invalide");
@@ -169,7 +192,7 @@ export default function MaterialPage() {
     setSaving(true);
     const supabase = createClient();
     const { error } = await supabase.from("item_loans").insert({
-      team_id: currentTeam.id,
+      team_id: effectiveTeamId,
       item_id: loanItem.id,
       player_id: loanPlayer,
       quantity: qty,
@@ -207,7 +230,7 @@ export default function MaterialPage() {
     return p ? `${p.first_name} ${p.last_name}` : "Joueur";
   };
 
-  if (!currentTeam) {
+  if (!effectiveTeamId) {
     return (
       <div className="flex items-center justify-center h-64">
         <p className="text-muted-foreground">Chargement de l&apos;équipe...</p>
@@ -227,10 +250,33 @@ export default function MaterialPage() {
             Inventaire du club : liste du matériel saisi par le comité.
           </p>
         </div>
+        {hasClubRole && clubTeams.length > 1 && (
+          <div className="flex items-center gap-2">
+            <Label className="text-xs text-muted-foreground shrink-0">Équipe :</Label>
+            <Select
+              value={effectiveTeamId ?? ""}
+              onValueChange={(v) => v && setViewTeamId(v)}
+            >
+              <SelectTrigger className="w-52">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {clubTeams.map((t) => (
+                  <SelectItem key={t.id} value={t.id}>
+                    {t.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
         {canManage && (
           <Button
             className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
-            onClick={() => setItemOpen(true)}
+            onClick={() => {
+              setItemTeam(effectiveTeamId ?? "");
+              setItemOpen(true);
+            }}
           >
             <Plus className="h-4 w-4 mr-1" /> Ajouter du matériel
           </Button>
@@ -376,12 +422,27 @@ export default function MaterialPage() {
             <DialogTitle>Ajouter du matériel</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
+          <div className="space-y-2">
+            <Label>Nom *</Label>
+            <Input value={itemName} onChange={(e) => setItemName(e.target.value)} placeholder="Ex. Jeu de maillots jaunes" />
+          </div>
+          {hasClubRole && clubTeams.length > 0 && (
             <div className="space-y-2">
-              <Label>Nom *</Label>
-              <Input value={itemName} onChange={(e) => setItemName(e.target.value)} placeholder="Ex. Jeu de maillots jaunes" />
+              <Label>Équipe de destination *</Label>
+              <Select value={itemTeam || effectiveTeamId || ""} onValueChange={(v) => v && setItemTeam(v)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {clubTeams.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-            <div className="space-y-2">
-              <Label>Catégorie</Label>
+          )}
+          <div className="space-y-2">
+            <Label>Catégorie</Label>
               <Select value={itemCategory} onValueChange={(v) => setItemCategory(v as InventoryItem["category"])}>
                 <SelectTrigger>
                   <SelectValue />

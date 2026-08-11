@@ -12,6 +12,7 @@ import { ArrowLeft, Bell, PenLine } from "lucide-react";
 import { toast } from "sonner";
 import { ConvocationsDialog } from "@/components/ConvocationsDialog";
 import { AnnouncementDialog } from "@/components/announcements/AnnouncementDialog";
+import { DepartureNotifier } from "@/components/event/DepartureNotifier";
 import { EventCoachActions } from "@/components/EventCoachActions";
 import { SessionFiche } from "@/components/training/SessionFiche";
 import { SessionRpe } from "@/components/training/SessionRpe";
@@ -252,6 +253,25 @@ export default function TrainingDetailPage() {
           )}
         </CardContent>
       </Card>
+
+      <DepartureNotifier
+        eventId={trainingId}
+        teamId={currentTeam.id}
+        isCoach={isCoach}
+        location={event.location}
+        url={`/trainings/${trainingId}`}
+        departureAt={event.departure_notified_at ?? null}
+        arrivalAt={event.arrival_notified_at ?? null}
+        onSent={(kind, at) =>
+          setEvent((prev) =>
+            prev
+              ? kind === "depart"
+                ? { ...prev, departure_notified_at: at }
+                : { ...prev, arrival_notified_at: at }
+              : prev
+          )
+        }
+      />
 
       {/* Fiche de séance */}
       <SessionFiche eventId={trainingId} isCoach={isCoach} eventDate={event.event_date} eventTitle={event.title} />

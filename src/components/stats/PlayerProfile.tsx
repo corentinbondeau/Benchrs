@@ -62,13 +62,14 @@ import {
   Pencil,
 } from "lucide-react";
 import { toast } from "sonner";
-import type { PlayerPhysicalTest } from "@/types";
+import type { EmergencyContact, PlayerPhysicalTest } from "@/types";
 import { PersonalGoalsCard } from "@/components/stats/PersonalGoalsCard";
 import { PlayerPaniniCard } from "@/components/stats/PlayerPaniniCard";
 import { CareerHistoryCard } from "@/components/stats/CareerHistoryCard";
 import { QuarterlyReportsCard } from "@/components/stats/QuarterlyReportsCard";
 import { PlayerBadgesCard } from "@/components/stats/PlayerBadgesCard";
 import { PlayerNotebookCard } from "@/components/stats/PlayerNotebookCard";
+import { EmergencyInfoCard } from "@/components/stats/EmergencyInfoCard";
 
 interface PlayerStats {
   player_id: string;
@@ -100,6 +101,9 @@ interface ProfileData {
   height_cm?: number | null;
   weight_kg?: number | null;
   secondary_positions?: string[] | null;
+  allergies?: string | null;
+  licence_number?: string | null;
+  emergency_contacts?: EmergencyContact[] | null;
 }
 
 interface MatchRow {
@@ -268,6 +272,7 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
   const [radarData, setRadarData] = useState<RadarDatum[]>([]);
   const [mvpCount, setMvpCount] = useState(0);
   const [notesData, setNotesData] = useState<NotesChartPoint[]>([]);
+  const [isParentOfPlayer, setIsParentOfPlayer] = useState(false);
 
   const fffCategory = fffCategoryFromBirthDate(profile?.date_of_birth);
   const vmaNorm = normRangeFor(fffCategory, FFF_VMA_NORMS);
@@ -283,7 +288,7 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
     async function fetchProfile() {
       const { data: profile } = await supabase
         .from("profiles")
-        .select("id, role, first_name, last_name, position, shirt_number, phone, date_of_birth, vma, vmi, preferred_foot, height_cm, weight_kg, secondary_positions")
+        .select("id, role, first_name, last_name, position, shirt_number, phone, date_of_birth, vma, vmi, preferred_foot, height_cm, weight_kg, secondary_positions, allergies, licence_number, emergency_contacts")
         .eq("id", playerId)
         .single();
 
@@ -301,6 +306,16 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
 
       const teamRole = membership?.role === "owner" ? "coach" : membership?.role;
       const role = (teamRole as ProfileData["role"] | null) || (profile.role as ProfileData["role"]);
+
+      if (user?.id && user.id !== playerId) {
+        const { data: parentLink } = await supabase
+          .from("parent_student")
+          .select("student_id")
+          .eq("parent_id", user.id)
+          .eq("student_id", playerId)
+          .maybeSingle();
+        setIsParentOfPlayer(!!parentLink);
+      }
 
       setProfile({ ...(profile as unknown as ProfileData), role });
       setVma(profile.vma);
@@ -836,6 +851,19 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
           </div>
         </CardContent>
       </Card>
+
+      <EmergencyInfoCard
+        playerId={playerId}
+        allergies={profile.allergies ?? null}
+        licenceNumber={profile.licence_number ?? null}
+        contacts={profile.emergency_contacts ?? []}
+        canEdit={isCoach || playerId === user?.id || isParentOfPlayer}
+        onSaved={(allergies, licenceNumber, contacts) =>
+          setProfile((prev) =>
+            prev ? { ...prev, allergies, licence_number: licenceNumber, emergency_contacts: contacts } : prev
+          )
+        }
+      />
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
         {statCards.map((stat) => (

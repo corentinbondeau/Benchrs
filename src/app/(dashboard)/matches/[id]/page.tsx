@@ -44,6 +44,8 @@ import { logActivity } from "@/lib/activity";
 import { authFetch } from "@/lib/api-client";
 import { LiveMatchTracker } from "@/components/LiveMatchTracker";
 import { MatchReportCard } from "@/components/match/MatchReportCard";
+import { MatchAgenda } from "@/components/match/MatchAgenda";
+import { DepartureNotifier } from "@/components/event/DepartureNotifier";
 import { MatchAvailabilityCard } from "@/components/match/MatchAvailabilityCard";
 import { MatchPoster } from "@/components/match/MatchPoster";
 import { MatchFeedback } from "@/components/match/MatchFeedback";
@@ -604,6 +606,25 @@ export default function MatchDetailPage() {
         </CardContent>
       </Card>
 
+      <DepartureNotifier
+        eventId={matchId}
+        teamId={currentTeam.id}
+        isCoach={isCoach}
+        location={match.location}
+        url={`/matches/${matchId}`}
+        departureAt={match.departure_notified_at ?? null}
+        arrivalAt={match.arrival_notified_at ?? null}
+        onSent={(kind, at) =>
+          setMatch((prev) =>
+            prev
+              ? kind === "depart"
+                ? { ...prev, departure_notified_at: at }
+                : { ...prev, arrival_notified_at: at }
+              : prev
+          )
+        }
+      />
+
       {/* Commutateur d'enfant (parents multi-enfants) */}
       {userRole === "parent" && (
         <ChildSwitcher
@@ -736,6 +757,9 @@ export default function MatchDetailPage() {
         isCoach={isCoach}
         hasData={match.score_us !== null && match.score_them !== null}
       />
+
+      {/* Ordre du jour du match */}
+      <MatchAgenda eventId={matchId} teamId={currentTeam.id} isCoach={isCoach} />
 
       {/* Notes entre joueurs et parents / Joueur du match — après le match uniquement */}
       {matchIsOver ? (

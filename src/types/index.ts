@@ -11,6 +11,13 @@ export type AttendanceStatus =
 export type MatchResult = "win" | "loss" | "draw";
 export type InjuryStatus = "active" | "recovered";
 export type CarpoolingRole = "driver" | "passenger";
+export type TransferStatus = "pending" | "approved" | "rejected";
+
+export interface EmergencyContact {
+  name: string;
+  phone: string;
+  relation: string;
+}
 
 export interface Club {
   id: string;
@@ -63,6 +70,9 @@ export interface Profile {
   vmi: number | null;
   licence_expires_at: string | null;
   medical_cert_expires_at: string | null;
+  allergies?: string | null;
+  licence_number?: string | null;
+  emergency_contacts?: EmergencyContact[] | null;
   team_id: string | null;
   created_at: string;
   updated_at: string;
@@ -119,6 +129,8 @@ export interface Event {
   match_resumed_at?: string | null;
   live_token?: string | null;
   travel_time_min?: number | null;
+  departure_notified_at?: string | null;
+  arrival_notified_at?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -664,5 +676,82 @@ export interface EducatorPlan {
   event_id: string | null;
   role: string | null;
   notes: string | null;
+  created_at: string;
+}
+
+export interface Pitch {
+  id: string;
+  club_id: string;
+  name: string;
+  location: string | null;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface PitchBooking {
+  id: string;
+  pitch_id: string;
+  club_id: string;
+  team_id: string | null;
+  weekday: number;
+  start_time: string;
+  end_time: string;
+  label: string | null;
+  active: boolean;
+  created_by: string | null;
+  created_at: string;
+  team?: Pick<Team, "id" | "name" | "color_primary">;
+}
+
+export interface PlayerTransfer {
+  id: string;
+  club_id: string;
+  player_id: string;
+  from_team_id: string;
+  to_team_id: string;
+  status: TransferStatus;
+  notes: string | null;
+  requested_by: string | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+  player?: Profile;
+  from_team?: Pick<Team, "id" | "name">;
+  to_team?: Pick<Team, "id" | "name">;
+  requester?: Profile;
+}
+
+export interface MatchAgendaItem {
+  id: string;
+  event_id: string;
+  team_id: string;
+  label: string;
+  agenda_time: string | null;
+  sort_order: number;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface Tournament {
+  id: string;
+  team_id: string;
+  name: string;
+  start_date: string;
+  end_date: string;
+  location: string | null;
+  notes: string | null;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface TournamentMatch {
+  id: string;
+  tournament_id: string;
+  team_id: string;
+  opponent: string;
+  match_datetime: string;
+  venue: string | null;
+  notes: string | null;
+  sort_order: number;
   created_at: string;
 }

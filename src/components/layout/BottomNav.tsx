@@ -49,6 +49,9 @@ import {
   GitCompareArrows,
   PiggyBank,
   CalendarClock,
+  MapPin,
+  RefreshCw,
+  TrendingDown,
 } from "lucide-react";
 
 const navItems = [
@@ -62,6 +65,8 @@ const navItems = [
   { key: "season", href: "/season", label: "Plan de saison", icon: CalendarRange },
   { key: "challenge", href: "/challenge", label: "Défi de la semaine", icon: Flame },
   { key: "club", href: "/club", label: "Espace club", icon: Building2, clubOnly: true },
+  { key: "terrains", href: "/club/terrains", label: "Terrains", icon: MapPin, clubOnly: true },
+  { key: "mutations", href: "/club/mutations", label: "Mutations", icon: RefreshCw, clubOnly: true },
   { key: "clubfeed", href: "/club/feed", label: "Fil du club", icon: Newspaper, clubTeamOnly: true },
   { key: "gallery", href: "/gallery", label: "Galerie", icon: Image },
   { key: "trophies", href: "/trophies", label: "Trophées", icon: Trophy },
@@ -69,12 +74,14 @@ const navItems = [
   { key: "material", href: "/material", label: "Matériel", icon: Package, coachAndClub: true },
   { key: "adversaires", href: "/adversaires", label: "Adversaires", icon: Flag },
   { key: "compare", href: "/stats/compare", label: "Comparer", icon: GitCompareArrows, coachOnly: true },
+  { key: "drop", href: "/stats/drop", label: "Baisse de forme", icon: TrendingDown, coachOnly: true },
+  { key: "tournament", href: "/tournament", label: "Tournois", icon: Trophy },
   { key: "cotisations", href: "/admin/cotisations", label: "Cotisations", icon: Wallet, clubOnly: true },
   { key: "treasury", href: "/admin/treasury", label: "Trésorerie", icon: PiggyBank, clubOnly: true },
   { key: "notifications", href: "/notifications", label: "Notifications", icon: Bell },
 ];
 
-const comiteOnlyHrefs = new Set(["/club", "/club/feed", "/calendar", "/roster", "/stats", "/notifications", "/material", "/admin/cotisations", "/admin/treasury"]);
+const comiteOnlyHrefs = new Set(["/club", "/club/feed", "/club/terrains", "/calendar", "/roster", "/stats", "/notifications", "/material", "/admin/cotisations", "/admin/treasury"]);
 
 const coachItems = [
   { href: "/admin/players", label: "Gestion joueurs", icon: UserCog },
