@@ -28,7 +28,8 @@ export function proxy(request: NextRequest) {
     pathname === "/create-team" ||
     pathname === "/join" ||
     pathname === "/offline" ||
-    pathname.startsWith("/live/");
+    pathname.startsWith("/live/") ||
+    pathname.startsWith("/c/");
   const isApiAuth = pathname.startsWith("/api/auth");
   const isApiDiag = pathname === "/api/diag";
   const isPublicApi = pathname.startsWith("/api/live/") || pathname.startsWith("/api/calendar/ics");

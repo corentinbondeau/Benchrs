@@ -70,7 +70,7 @@ import { QuarterlyReportsCard } from "@/components/stats/QuarterlyReportsCard";
 import { PlayerBadgesCard } from "@/components/stats/PlayerBadgesCard";
 import { PlayerNotebookCard } from "@/components/stats/PlayerNotebookCard";
 import { EmergencyInfoCard } from "@/components/stats/EmergencyInfoCard";
-
+import { DisciplineCard } from "@/components/stats/DisciplineCard";
 interface PlayerStats {
   player_id: string;
   first_name: string;
@@ -863,6 +863,13 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
             prev ? { ...prev, allergies, licence_number: licenceNumber, emergency_contacts: contacts } : prev
           )
         }
+      />
+
+      <DisciplineCard
+        playerId={playerId}
+        playerName={`${profile.first_name} ${profile.last_name}`}
+        teamId={currentTeam.id}
+        isCoach={isCoach}
       />
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">

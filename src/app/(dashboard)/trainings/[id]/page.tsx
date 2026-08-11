@@ -16,6 +16,10 @@ import { DepartureNotifier } from "@/components/event/DepartureNotifier";
 import { EventCoachActions } from "@/components/EventCoachActions";
 import { SessionFiche } from "@/components/training/SessionFiche";
 import { SessionRpe } from "@/components/training/SessionRpe";
+import { WeatherWidget } from "@/components/event/WeatherWidget";
+import { TerrainImpraticable } from "@/components/event/TerrainImpraticable";
+import { LockerPlaylist } from "@/components/event/LockerPlaylist";
+import { SessionFeedback } from "@/components/training/SessionFeedback";
 import {
   AttendanceLists,
   EventInfoCard,
@@ -249,6 +253,12 @@ export default function TrainingDetailPage() {
                 isMatch={false}
                 onSaved={(updated) => setEvent(updated)}
               />
+              <TerrainImpraticable
+                event={event}
+                teamId={currentTeam.id}
+                isCoach={isCoach}
+                url={`/trainings/${trainingId}`}
+              />
             </div>
           )}
         </CardContent>
@@ -296,6 +306,23 @@ export default function TrainingDetailPage() {
         onRespond={myPresence ? (status, reason) => updateAttendance(myPresence.playerId, status, reason) : undefined}
       />
 
+      {/* Météo du jour J */}
+      <WeatherWidget
+        eventId={trainingId}
+        latitude={event.latitude ?? null}
+        longitude={event.longitude ?? null}
+        location={event.location}
+        isCoach={isCoach}
+      />
+
+      {/* Playlist de vestiaire */}
+      <LockerPlaylist
+        eventId={trainingId}
+        teamId={currentTeam.id}
+        isCoach={isCoach}
+        userId={user?.id ?? ""}
+      />
+
       {/* Partie 2 — Liste des présents et absents */}
       <AttendanceLists
         players={players}
@@ -314,6 +341,17 @@ export default function TrainingDetailPage() {
         childId={childId}
         trainingOver={event.status === "completed" || eventDate.getTime() < now}
         durationHint={90}
+      />
+
+      {/* Analyse de séance post-entraînement */}
+      <SessionFeedback
+        eventId={trainingId}
+        teamId={currentTeam.id}
+        isCoach={isCoach}
+        userId={user?.id}
+        userRole={userRole}
+        childId={childId}
+        trainingOver={event.status === "completed" || eventDate.getTime() < now}
       />
 
       <ConvocationsDialog

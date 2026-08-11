@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import {
   Activity,
@@ -40,6 +41,7 @@ import {
   LayoutDashboard,
   Clock,
   MapPin,
+  Globe,
 } from "lucide-react";
 import { CHALLENGE_DIFFICULTIES, type ChallengeDifficulty } from "@/lib/challenges/ai-generator";
 import { normalizeFffNumber } from "@/lib/clubs";
@@ -90,8 +92,20 @@ export default function TeamSettingsPage() {
     name: string;
     fff_number: string | null;
   } | null>(null);
+  const [clubPublic, setClubPublic] = useState<{
+    is_public: boolean;
+    public_slug: string | null;
+    description: string | null;
+    contact_email: string | null;
+    contact_phone: string | null;
+  } | null>(null);
   const [clubAliases, setClubAliases] = useState<{ id: string; alias: string }[]>([]);
   const [fffInput, setFffInput] = useState("");
+  const [publicSlugInput, setPublicSlugInput] = useState("");
+  const [publicDescInput, setPublicDescInput] = useState("");
+  const [publicEmailInput, setPublicEmailInput] = useState("");
+  const [publicPhoneInput, setPublicPhoneInput] = useState("");
+  const [savingPublic, setSavingPublic] = useState(false);
   const [aliasInput, setAliasInput] = useState("");
   const [savingFff, setSavingFff] = useState(false);
   const [addingAlias, setAddingAlias] = useState(false);
@@ -165,7 +179,11 @@ export default function TeamSettingsPage() {
   const loadClubIdentity = useCallback(async (clubId: string) => {
     const supabase = createClient();
     const [clubRes, aliasesRes] = await Promise.all([
-      supabase.from("clubs").select("id, name, fff_number").eq("id", clubId).maybeSingle(),
+      supabase
+        .from("clubs")
+        .select("id, name, fff_number, is_public, public_slug, description, contact_email, contact_phone")
+        .eq("id", clubId)
+        .maybeSingle(),
       supabase.from("club_aliases").select("id, alias").eq("club_id", clubId).order("alias"),
     ]);
     return {
@@ -252,6 +270,21 @@ export default function TeamSettingsPage() {
         setClubIdentity(club);
         setClubAliases(aliases);
         setFffInput(club?.fff_number ?? "");
+        setClubPublic(
+          club
+            ? {
+                is_public: Boolean((club as unknown as { is_public?: boolean }).is_public),
+                public_slug: (club as unknown as { public_slug?: string | null }).public_slug ?? null,
+                description: (club as unknown as { description?: string | null }).description ?? null,
+                contact_email: (club as unknown as { contact_email?: string | null }).contact_email ?? null,
+                contact_phone: (club as unknown as { contact_phone?: string | null }).contact_phone ?? null,
+              }
+            : null
+        );
+        setPublicSlugInput((club as unknown as { public_slug?: string | null }).public_slug ?? "");
+        setPublicDescInput((club as unknown as { description?: string | null }).description ?? "");
+        setPublicEmailInput((club as unknown as { contact_email?: string | null }).contact_email ?? "");
+        setPublicPhoneInput((club as unknown as { contact_phone?: string | null }).contact_phone ?? "");
       });
     }
   }, [currentTeam, fetchMembers, userRole, loadClubData, loadClubIdentity]);
@@ -607,6 +640,69 @@ export default function TeamSettingsPage() {
     const { club, aliases } = await loadClubIdentity(currentTeam.club_id);
     setClubIdentity(club);
     setClubAliases(aliases);
+    setClubPublic(
+      club
+        ? {
+            is_public: Boolean((club as unknown as { is_public?: boolean }).is_public),
+            public_slug: (club as unknown as { public_slug?: string | null }).public_slug ?? null,
+            description: (club as unknown as { description?: string | null }).description ?? null,
+            contact_email: (club as unknown as { contact_email?: string | null }).contact_email ?? null,
+            contact_phone: (club as unknown as { contact_phone?: string | null }).contact_phone ?? null,
+          }
+        : null
+    );
+  }
+
+  async function savePublicClub() {
+    if (!currentTeam?.club_id) return;
+    setSavingPublic(true);
+    try {
+      const slug = publicSlugInput
+        .trim()
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+      const { error } = await supabase
+        .from("clubs")
+        .update({
+          is_public: true,
+          public_slug: slug || null,
+          description: publicDescInput.trim() || null,
+          contact_email: publicEmailInput.trim() || null,
+          contact_phone: publicPhoneInput.trim() || null,
+        })
+        .eq("id", currentTeam.club_id);
+      if (error) throw error;
+      setClubPublic((prev) => ({
+        ...prev,
+        is_public: true,
+        public_slug: slug || null,
+        description: publicDescInput.trim() || null,
+        contact_email: publicEmailInput.trim() || null,
+        contact_phone: publicPhoneInput.trim() || null,
+      }));
+      toast.success("Page publique mise à jour");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSavingPublic(false);
+    }
+  }
+
+  async function disablePublicClub() {
+    if (!currentTeam?.club_id) return;
+    const { error } = await supabase
+      .from("clubs")
+      .update({ is_public: false })
+      .eq("id", currentTeam.club_id);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    setClubPublic((prev) => (prev ? { ...prev, is_public: false } : prev));
+    toast.success("Page publique masquée");
   }
 
   async function leaveTeam() {
@@ -1513,6 +1609,108 @@ export default function TeamSettingsPage() {
                 </div>
               )}
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Page publique du club */}
+      {currentTeam.club_id && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Globe className="h-5 w-5" />
+              Page publique du club
+            </CardTitle>
+            <CardDescription>
+              Une vitrine publique avec formulaire de demande d&apos;essai,
+              partageable aux nouvelles familles (lien /c/&lt;slug&gt;).
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="space-y-2">
+              <Label className="text-xs">Adresse de la page</Label>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">/c/</span>
+                <Input
+                  value={publicSlugInput}
+                  onChange={(e) => setPublicSlugInput(e.target.value)}
+                  placeholder="ecc-camphin"
+                  className="h-9 font-mono text-sm"
+                  disabled={!canManageClub}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs">Description du club</Label>
+              <Textarea
+                value={publicDescInput}
+                onChange={(e) => setPublicDescInput(e.target.value)}
+                className="text-sm"
+                rows={2}
+                disabled={!canManageClub}
+                placeholder="Valeurs du club, équipes, encadrement, projets..."
+              />
+            </div>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label className="text-xs">Email de contact</Label>
+                <Input
+                  value={publicEmailInput}
+                  onChange={(e) => setPublicEmailInput(e.target.value)}
+                  className="h-9 text-sm"
+                  disabled={!canManageClub}
+                  placeholder="contact@club.fr"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs">Téléphone de contact</Label>
+                <Input
+                  value={publicPhoneInput}
+                  onChange={(e) => setPublicPhoneInput(e.target.value)}
+                  className="h-9 text-sm"
+                  disabled={!canManageClub}
+                  placeholder="06 12 34 56 78"
+                />
+              </div>
+            </div>
+
+            {clubPublic?.is_public && clubPublic.public_slug && (
+              <div className="rounded-lg bg-muted px-3 py-2 text-xs">
+                <p className="font-semibold text-sm">Page en ligne</p>
+                <p className="text-muted-foreground mt-0.5 break-all">
+                  {`${typeof window !== "undefined" ? window.location.origin : ""}/c/${clubPublic.public_slug}`}
+                </p>
+              </div>
+            )}
+
+            {canManageClub && (
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  size="sm"
+                  className="bg-[var(--color-gold)] text-[var(--color-navy)] font-semibold"
+                  disabled={savingPublic}
+                  onClick={savePublicClub}
+                >
+                  {savingPublic ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : clubPublic?.is_public ? (
+                    "Mettre à jour"
+                  ) : (
+                    "Activer la page"
+                  )}
+                </Button>
+                {clubPublic?.is_public && (
+                  <Button size="sm" variant="outline" onClick={disablePublicClub}>
+                    Masquer
+                  </Button>
+                )}
+              </div>
+            )}
+            {!canManageClub && (
+              <p className="text-xs text-muted-foreground">
+                Seul le président du club peut gérer la page publique.
+              </p>
+            )}
           </CardContent>
         </Card>
       )}

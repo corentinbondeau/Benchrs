@@ -40,6 +40,8 @@ import {
   MapPin,
   RefreshCw,
   TrendingDown,
+  ClipboardList,
+  PartyPopper,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -91,6 +93,9 @@ const navItems = [
   { key: "cotisations", href: "/admin/cotisations", label: "Cotisations", icon: Wallet, clubOnly: true },
   { key: "treasury", href: "/admin/treasury", label: "Trésorerie", icon: PiggyBank, clubOnly: true },
   { key: "notifications", href: "/notifications", label: "Notifications", icon: Bell },
+  { key: "meetings", href: "/meetings", label: "Réunions parents", icon: ClipboardList },
+  { key: "cagnotte", href: "/cagnotte", label: "Cagnottes", icon: PiggyBank },
+  { key: "fin-saison", href: "/fin-saison", label: "Fin de saison", icon: PartyPopper },
 ];
 
 const comiteOnlyHrefs = new Set(["/club", "/club/feed", "/club/terrains", "/calendar", "/roster", "/stats", "/notifications", "/material", "/admin/cotisations", "/admin/treasury"]);

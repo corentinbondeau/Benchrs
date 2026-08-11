@@ -70,6 +70,41 @@ export const NOTIFICATION_TYPES: NotificationTypeConfig[] = [
     label: "Équité du temps de jeu",
     description: "Alerte aux coachs sur les joueurs sous leur objectif de minutes",
   },
+  {
+    type: "terrain_impraticable",
+    label: "Terrain impraticable",
+    description: "Match ou entraînement annulé pour cause de terrain",
+  },
+  {
+    type: "reunion",
+    label: "Réunions parents",
+    description: "Convocations et comptes-rendus de réunions parents",
+  },
+  {
+    type: "cagnotte",
+    label: "Cagnotte",
+    description: "Contributions et relances de la cagnotte d'équipe",
+  },
+  {
+    type: "recuperation",
+    label: "Routine de récupération",
+    description: "Protocole de récupération post-match envoyé par le coach",
+  },
+  {
+    type: "newsletter",
+    label: "Newsletter du club",
+    description: "Newsletter mensuelle générée par le club",
+  },
+  {
+    type: "voeux",
+    label: "Vœux de fin de saison",
+    description: "Carte personnalisée de fin de saison",
+  },
+  {
+    type: "suspension",
+    label: "Discipline",
+    description: "Alertes cartons et suspensions",
+  },
 ];
 
 export function defaultNotificationPrefs(userId: string, teamId: string) {

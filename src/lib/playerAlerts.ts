@@ -3,6 +3,37 @@
 import { createClient } from "@/lib/supabase/client";
 import { authFetch } from "@/lib/api-client";
 
+export async function fetchTeamRecipientIds(teamId: string): Promise<string[]> {
+  try {
+    const supabase = createClient();
+    const { data: players } = await supabase
+      .from("team_members")
+      .select("user_id")
+      .eq("team_id", teamId)
+      .eq("role", "player");
+    const playerIds = (players || []).map((p) => (p as { user_id: string }).user_id);
+    if (playerIds.length === 0) return [];
+
+    const { data: active } = await supabase
+      .from("profiles")
+      .select("id")
+      .in("id", playerIds)
+      .neq("is_active", false);
+    const activeIds = (active || []).map((p) => (p as { id: string }).id);
+
+    const { data: links } = await supabase
+      .from("parent_student")
+      .select("parent_id")
+      .eq("team_id", teamId)
+      .in("student_id", playerIds);
+    const parentIds = [...new Set((links || []).map((l) => (l as { parent_id: string }).parent_id))];
+    return [...new Set([...activeIds, ...parentIds])];
+  } catch (err) {
+    console.error("[recipients] fetch error:", err);
+    return [];
+  }
+}
+
 export async function notifyPhysicalTest({
   playerId,
   playerName,

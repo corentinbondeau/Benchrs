@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import { useAuth } from "@/lib/auth";
 import { useTeam } from "@/lib/team";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,6 +27,7 @@ import {
   Lock,
   PenLine,
   Share2,
+  ClipboardList,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ConvocationsDialog } from "@/components/ConvocationsDialog";
@@ -52,6 +54,10 @@ import { MatchFeedback } from "@/components/match/MatchFeedback";
 import { PlayerRatings } from "@/components/match/PlayerRatings";
 import { MatchMvpCard } from "@/components/match/MatchMvpCard";
 import { MatchChecklist } from "@/components/match/MatchChecklist";
+import { WeatherWidget } from "@/components/event/WeatherWidget";
+import { TerrainImpraticable } from "@/components/event/TerrainImpraticable";
+import { LockerPlaylist } from "@/components/event/LockerPlaylist";
+import { RecoveryProtocolCard } from "@/components/match/RecoveryProtocolCard";
 import type {
   AttendanceStatus,
   Event,
@@ -569,6 +575,13 @@ export default function MatchDetailPage() {
                     <Bell className="h-3.5 w-3.5 mr-1" />
                     Convoquer
                   </Button>
+                  <Link
+                    href={`/matches/${matchId}/feuille`}
+                    className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-white/40 px-3 text-xs font-medium text-white hover:bg-white/10"
+                  >
+                    <ClipboardList className="h-3.5 w-3.5" />
+                    Feuille de match
+                  </Link>
                   <Button
                     size="sm"
                     variant="outline"
@@ -583,7 +596,22 @@ export default function MatchDetailPage() {
                     isMatch={true}
                     onSaved={(updated) => setMatch(updated)}
                   />
+                  <TerrainImpraticable
+                    event={match}
+                    teamId={currentTeam.id}
+                    isCoach={isCoach}
+                    url={`/matches/${matchId}`}
+                  />
                 </div>
+              )}
+              {!isCoach && (
+                <Link
+                  href={`/matches/${matchId}/feuille`}
+                  className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-white/40 px-3 text-xs font-medium text-white hover:bg-white/10"
+                >
+                  <ClipboardList className="h-3.5 w-3.5" />
+                  Feuille de match
+                </Link>
               )}
             </div>
             {match.score_us !== null && match.score_them !== null && (
@@ -643,6 +671,23 @@ export default function MatchDetailPage() {
         myPresence={myPresence}
         convocationsSent={!!match?.convocations_sent_at}
         onRespond={myPresence ? (status, reason) => updateMatchAttendance(myPresence.playerId, status, reason) : undefined}
+      />
+
+      {/* Météo du jour J */}
+      <WeatherWidget
+        eventId={matchId}
+        latitude={match.latitude ?? null}
+        longitude={match.longitude ?? null}
+        location={match.location}
+        isCoach={isCoach}
+      />
+
+      {/* Playlist de vestiaire */}
+      <LockerPlaylist
+        eventId={matchId}
+        teamId={currentTeam.id}
+        isCoach={isCoach}
+        userId={user?.id ?? ""}
       />
 
       {/* Sondage de disponibilité avant match */}
@@ -1038,6 +1083,14 @@ export default function MatchDetailPage() {
           players={allPlayers}
         />
       ) : null}
+
+      {/* Routine de récupération post-match */}
+      <RecoveryProtocolCard
+        teamId={currentTeam.id}
+        isCoach={isCoach}
+        matchOver={matchIsOver}
+        url={`/matches/${matchId}`}
+      />
 
       {/* Lineups */}
       {lineups.length > 0 && (

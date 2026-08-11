@@ -131,6 +131,11 @@ export interface Event {
   travel_time_min?: number | null;
   departure_notified_at?: string | null;
   arrival_notified_at?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  referee?: string | null;
+  delegate?: string | null;
+  cancel_reason?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -754,4 +759,133 @@ export interface TournamentMatch {
   notes: string | null;
   sort_order: number;
   created_at: string;
+}
+
+export interface LockerPlaylistItem {
+  id: string;
+  event_id: string;
+  team_id: string;
+  title: string;
+  url: string;
+  added_by: string | null;
+  created_at: string;
+}
+
+export interface Suspension {
+  id: string;
+  player_id: string;
+  team_id: string;
+  reason: string;
+  matches_count: number;
+  start_date: string | null;
+  notes: string | null;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface ParentMeeting {
+  id: string;
+  team_id: string;
+  title: string;
+  description: string | null;
+  meeting_date: string | null;
+  location: string | null;
+  agenda: { label: string }[];
+  minutes: { label: string; content: string }[];
+  status: "planned" | "done" | "cancelled";
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface MeetingSignature {
+  id: string;
+  meeting_id: string;
+  team_id: string;
+  member_id: string;
+  member_name: string;
+  signature_data: string;
+  signed_at: string;
+}
+
+export interface TeamPot {
+  id: string;
+  team_id: string;
+  title: string;
+  description: string | null;
+  goal_amount: number | null;
+  status: "open" | "closed";
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface PotContribution {
+  id: string;
+  pot_id: string;
+  team_id: string;
+  contributor_id: string | null;
+  contributor_name: string;
+  amount: number;
+  message: string | null;
+  payment_method: "cash" | "bank" | "app";
+  transferred: boolean;
+  created_at: string;
+}
+
+export interface Newsletter {
+  id: string;
+  team_id: string;
+  month: string;
+  title: string;
+  content: Record<string, unknown>;
+  sent_at: string | null;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface SeasonStorybook {
+  id: string;
+  team_id: string;
+  season: string;
+  content: Record<string, unknown>;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface SeasonGreeting {
+  id: string;
+  player_id: string;
+  team_id: string;
+  season: string;
+  content: string;
+  created_at: string;
+}
+
+export interface TrialRequest {
+  id: string;
+  club_id: string;
+  player_first_name: string;
+  player_last_name: string;
+  birth_date: string | null;
+  position: string | null;
+  parent_name: string | null;
+  parent_email: string | null;
+  parent_phone: string | null;
+  message: string | null;
+  status: "new" | "contacted" | "scheduled" | "accepted" | "rejected";
+  trial_date: string | null;
+  notes: string | null;
+  created_at: string;
+}
+
+export interface SessionFeedback {
+  id: string;
+  event_id: string;
+  player_id: string;
+  team_id: string;
+  rating: number | null;
+  intensity: number | null;
+  morale: number | null;
+  comment: string | null;
+  created_at: string;
+  updated_at: string;
 }
