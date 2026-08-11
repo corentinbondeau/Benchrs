@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { authFetch } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth";
 import { useTeam } from "@/lib/team";
+import { useAllChildren } from "@/lib/useSelectedChild";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -33,6 +34,7 @@ import {
   MapPin,
   Users,
   Bell,
+  HeartPulse,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ConvocationsDialog } from "@/components/ConvocationsDialog";
@@ -44,6 +46,15 @@ import type { Event, Profile } from "@/types";
 type Recurrence = "Aucun" | "weekly" | "biweekly" | "monthly";
 
 type EventWithMeeting = Event & { meeting_time: string | null };
+
+interface CalendarInjury {
+  id: string;
+  team_id: string;
+  player_id: string;
+  injury_date: string;
+  expected_return: string | null;
+  player: { first_name: string; last_name: string }[] | null;
+}
 
 const DAYS_FR = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 const MONTHS_FR = [
@@ -80,7 +91,8 @@ function toLocalDateStr(date: Date): string {
 
 export default function CalendarPage() {
   const { user } = useAuth();
-  const { currentTeam, userRole } = useTeam();
+  const { currentTeam, userRole, switchTeam } = useTeam();
+  const { children: allChildren } = useAllChildren();
   const router = useRouter();
   const [view, setView] = useState<"month" | "week" | "list">("list");
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -91,6 +103,9 @@ export default function CalendarPage() {
   const [attendanceCounts, setAttendanceCounts] = useState<Record<string, { present: number; total: number }>>({});
   const [convDialogEvent, setConvDialogEvent] = useState<Event | null>(null);
   const [cycles, setCycles] = useState<{ id: string; name: string; cycle_type: string }[]>([]);
+  const [showAllChildren, setShowAllChildren] = useState(false);
+  const [teamMeta, setTeamMeta] = useState<Record<string, { teamName: string; childNames: string[] }>>({});
+  const [eventInjuries, setEventInjuries] = useState<Record<string, string[]>>({});
   const [form, setForm] = useState({
     title: "",
     type: "training" as "match" | "training",
@@ -107,22 +122,92 @@ export default function CalendarPage() {
 
   const isCoach = userRole === "coach" || userRole === "owner";
 
-  function fetchEvents() {
+  // Équipes des enfants (toutes équipes confondues) pour l'agenda fusionné
+  const childTeamIds = useMemo(
+    () =>
+      [...new Set((allChildren || []).flatMap((c) => c.team_ids))].filter(Boolean),
+    [allChildren]
+  );
+
+  useEffect(() => {
+    if (!user?.id || childTeamIds.length === 0) return;
+    let cancelled = false;
     const supabase = createClient();
+    supabase
+      .from("teams")
+      .select("id, name")
+      .in("id", childTeamIds)
+      .then(({ data }) => {
+        if (cancelled) return;
+        const names = (data || []) as { id: string; name: string }[];
+        const meta: Record<string, { teamName: string; childNames: string[] }> = {};
+        for (const tid of childTeamIds) {
+          const t = names.find((n) => n.id === tid);
+          if (!t) continue;
+          meta[tid] = {
+            teamName: t.name,
+            childNames: (allChildren || [])
+              .filter((c) => c.team_ids.includes(tid))
+              .map((c) => c.first_name),
+          };
+        }
+        setTeamMeta(meta);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, childTeamIds, allChildren]);
+
+  function fetchEvents(teamIds: string[]) {
+    const supabase = createClient();
+    const ids = teamIds.length > 0 ? teamIds : [currentTeam!.id];
     Promise.all([
       supabase
         .from("events")
         .select("*")
-        .eq("team_id", currentTeam!.id)
+        .in("team_id", ids)
         .order("event_date", { ascending: true }),
       supabase
         .from("attendances")
         .select("event_id, status")
-        .eq("team_id", currentTeam!.id),
-    ]).then(([eventsRes, attRes]) => {
-      const eventsList = (eventsRes.data as EventWithMeeting[]) || [];
+        .in("team_id", ids),
+      supabase
+        .from("injuries")
+        .select("id, team_id, player_id, injury_date, expected_return, player:profiles!injuries_player_id_fkey(first_name, last_name)")
+        .eq("status", "active")
+        .in("team_id", ids),
+    ]).then(([eventsRes, attRes, injRes]) => {
+      const seen = new Set<string>();
+      const eventsList = ((eventsRes.data as EventWithMeeting[]) || []).filter(
+        (e) => (seen.has(e.id) ? false : (seen.add(e.id), true))
+      );
       setEvents(eventsList);
       setLoading(false);
+
+      const activeInj = ((injRes.data || []) as CalendarInjury[]).filter(
+        (i) =>
+          !i.expected_return || new Date(i.expected_return) >= new Date(i.injury_date)
+      );
+      const injMap: Record<string, string[]> = {};
+      for (const event of eventsList) {
+        const evDate = new Date(event.event_date);
+        const evStart = new Date(evDate);
+        evStart.setHours(0, 0, 0, 0);
+        const evEnd = new Date(evDate);
+        evEnd.setHours(23, 59, 59, 999);
+        for (const inj of activeInj) {
+          if (inj.team_id !== event.team_id) continue;
+          const start = new Date(inj.injury_date);
+          const end = inj.expected_return ? new Date(inj.expected_return) : null;
+          const inWindow = evStart <= (end || evEnd) && evEnd >= start;
+          if (!inWindow) continue;
+          const p = inj.player?.[0];
+          const name = p ? `${p.first_name} ${p.last_name}` : "";
+          if (!injMap[event.id]) injMap[event.id] = [];
+          if (!injMap[event.id].includes(name)) injMap[event.id].push(name);
+        }
+      }
+      setEventInjuries(injMap);
 
       if (attRes.data) {
         const eventIds = new Set(eventsList.map((e) => e.id));
@@ -143,15 +228,20 @@ export default function CalendarPage() {
   }
 
   useEffect(() => {
-    fetchEvents();
-    fetchTeamActivePlayers(currentTeam!.id).then((data) => setPlayers(data));
+    if (!currentTeam) return;
+    const ids =
+      showAllChildren && childTeamIds.length > 0
+        ? childTeamIds
+        : [currentTeam.id];
+    fetchEvents(ids);
+    fetchTeamActivePlayers(currentTeam.id).then((data) => setPlayers(data));
     createClient()
       .from("season_cycles")
       .select("id, name, cycle_type")
       .eq("team_id", currentTeam!.id)
       .order("start_date", { ascending: true })
       .then(({ data }) => setCycles((data as { id: string; name: string; cycle_type: string }[]) || []));
-  }, [currentTeam]);
+  }, [currentTeam, showAllChildren, childTeamIds]);
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -286,7 +376,11 @@ export default function CalendarPage() {
       selected_player_ids: [],
       cycle_id: "",
     });
-    fetchEvents();
+    fetchEvents(
+      showAllChildren && childTeamIds.length > 0
+        ? childTeamIds
+        : [currentTeam!.id]
+    );
     clearQueryCache();
 
     if (dates.length === 1) {
@@ -330,7 +424,19 @@ export default function CalendarPage() {
     }
   }
 
+  function teamLabel(event: EventWithMeeting): string {
+    if (!showAllChildren) return "";
+    const m = teamMeta[event.team_id];
+    if (!m) return "";
+    return m.childNames.length > 0
+      ? `${m.teamName} · ${m.childNames.join(" & ")}`
+      : m.teamName;
+  }
+
   function selectEvent(event: EventWithMeeting) {
+    if (showAllChildren && currentTeam && event.team_id !== currentTeam.id) {
+      switchTeam(event.team_id);
+    }
     if (event.type === "match") {
       router.push(`/matches/${event.id}`);
     } else {
@@ -552,7 +658,33 @@ export default function CalendarPage() {
             <ChevronRight className="h-5 w-5 md:h-4 md:w-4" />
           </Button>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {userRole === "parent" && childTeamIds.length > 1 && (
+            <div className="flex rounded-lg border overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setShowAllChildren(false)}
+                className={`px-3 py-1.5 text-sm font-medium transition-colors ${
+                  !showAllChildren
+                    ? "bg-[var(--color-navy)] text-white"
+                    : "text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                Mon équipe
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowAllChildren(true)}
+                className={`px-3 py-1.5 text-sm font-medium transition-colors ${
+                  showAllChildren
+                    ? "bg-[var(--color-navy)] text-white"
+                    : "text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                Mes {childTeamIds.length} équipes
+              </button>
+            </div>
+          )}
           <div className="flex rounded-lg border overflow-hidden">
             <Button variant={view === "list" ? "secondary" : "ghost"} size="sm" className="rounded-none" onClick={() => setView("list")}>
               Liste
@@ -609,6 +741,9 @@ export default function CalendarPage() {
                           }}
                         >
                           <span className="truncate">{event.title}</span>
+                          {showAllChildren && (
+                            <span className="shrink-0 text-[9px] font-semibold uppercase">{(teamMeta[event.team_id]?.teamName || "").slice(0, 3)}</span>
+                          )}
                           {attCount && attCount.total > 0 && (
                             <span className="shrink-0 flex items-center gap-0.5">
                               <Users className="h-2.5 w-2.5" />
@@ -669,6 +804,11 @@ export default function CalendarPage() {
                       )}
                     </div>
                     <p className="font-semibold text-sm mt-1 truncate">{event.title}</p>
+                    {showAllChildren && (
+                      <p className="text-xs text-[var(--color-royal)] font-medium mt-0.5">
+                        {teamLabel(event)}
+                      </p>
+                    )}
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs text-muted-foreground">
                       <EventTimeDisplay event={event} />
                       {event.location && (
@@ -681,6 +821,12 @@ export default function CalendarPage() {
                       )}
                       {event.score_us !== null && event.score_them !== null && (
                         <span className="font-bold">{event.score_us}-{event.score_them}</span>
+                      )}
+                      {eventInjuries[event.id]?.length > 0 && (
+                        <span className="inline-flex items-center gap-1 text-red-600 dark:text-red-400 font-medium">
+                          <HeartPulse className="h-3 w-3" />
+                          {eventInjuries[event.id].join(", ")} — blessé{eventInjuries[event.id].length > 1 ? "s" : ""}
+                        </span>
                       )}
                     </div>
                   </div>
@@ -736,12 +882,21 @@ export default function CalendarPage() {
                               {event.type === "match" ? "Match" : "Entraînement"}
                             </Badge>
                             <span className="font-medium min-w-0 break-words">{event.title}</span>
+                            {showAllChildren && (
+                              <span className="text-[11px] text-[var(--color-royal)] font-medium">{teamLabel(event)}</span>
+                            )}
                             <EventTimeDisplay event={event} />
                             {event.location && (
                               <span className="text-xs text-muted-foreground min-w-0 break-words">- {event.location}</span>
                             )}
                             {event.score_us !== null && event.score_them !== null && (
                               <span className="text-xs font-bold">{event.score_us}-{event.score_them}</span>
+                            )}
+                            {eventInjuries[event.id]?.length > 0 && (
+                              <span className="inline-flex items-center gap-1 text-[11px] text-red-600 dark:text-red-400 font-medium">
+                                <HeartPulse className="h-3 w-3" />
+                                {eventInjuries[event.id].join(", ")}
+                              </span>
                             )}
                             {attCount && attCount.total > 0 && (
                               <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">

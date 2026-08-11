@@ -5,6 +5,7 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { TopBar } from "@/components/layout/TopBar";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { PushNotificationInit } from "@/components/PushNotificationInit";
+import { ParentOnboarding } from "@/components/onboarding/ParentOnboarding";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +19,7 @@ export default function DashboardLayout({
       <TeamProvider>
         <TeamGuard>
           <PushNotificationInit />
+          <ParentOnboarding />
           <div className="flex h-screen overflow-hidden">
             <Sidebar />
             <div className="flex flex-1 flex-col overflow-hidden">

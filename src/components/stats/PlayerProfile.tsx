@@ -71,6 +71,7 @@ import { PlayerBadgesCard } from "@/components/stats/PlayerBadgesCard";
 import { PlayerNotebookCard } from "@/components/stats/PlayerNotebookCard";
 import { EmergencyInfoCard } from "@/components/stats/EmergencyInfoCard";
 import { DisciplineCard } from "@/components/stats/DisciplineCard";
+import { MedicalRecordCard } from "@/components/stats/MedicalRecordCard";
 interface PlayerStats {
   player_id: string;
   first_name: string;
@@ -866,6 +867,13 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
       />
 
       <DisciplineCard
+        playerId={playerId}
+        playerName={`${profile.first_name} ${profile.last_name}`}
+        teamId={currentTeam.id}
+        isCoach={isCoach}
+      />
+
+      <MedicalRecordCard
         playerId={playerId}
         playerName={`${profile.first_name} ${profile.last_name}`}
         teamId={currentTeam.id}

@@ -10,6 +10,10 @@ export interface ChildInfo {
   last_name: string;
 }
 
+export interface ChildTeamInfo extends ChildInfo {
+  team_ids: string[];
+}
+
 const STORAGE_KEY = (teamId: string) => `selectedChild:${teamId}`;
 
 /**
@@ -66,4 +70,59 @@ export function useSelectedChild(teamId: string | undefined) {
   );
 
   return { children, selectedChildId, setChild, loading };
+}
+
+/**
+ * Tous les enfants d'un parent, TOUTES équipes confondues (parent_student sans
+ * filtre team). Chaque enfant expose ses team_ids. Utilisé pour l'agenda
+ * multi-enfants fusionné du calendrier.
+ */
+export function useAllChildren() {
+  const { user } = useAuth();
+  const [children, setChildren] = useState<ChildTeamInfo[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+    const supabase = createClient();
+    supabase
+      .from("parent_student")
+      .select("student_id, team_id")
+      .eq("parent_id", user.id)
+      .then(async ({ data }) => {
+        const rows = (data || []) as { student_id: string; team_id: string }[];
+        const ids = [...new Set(rows.map((r) => r.student_id))];
+        if (ids.length === 0) {
+          if (!cancelled) {
+            setChildren([]);
+            setLoading(false);
+          }
+          return;
+        }
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("id, first_name, last_name")
+          .in("id", ids);
+        const kids: ChildTeamInfo[] = ((profiles as ChildInfo[]) || []).map(
+          (p) => ({
+            ...p,
+            team_ids: [
+              ...new Set(
+                rows.filter((r) => r.student_id === p.id).map((r) => r.team_id)
+              ),
+            ],
+          })
+        );
+        if (!cancelled) {
+          setChildren(kids);
+          setLoading(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
+
+  return { children, loading };
 }

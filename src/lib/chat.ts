@@ -66,7 +66,7 @@ export async function fetchChannelRecipients(
 ): Promise<string[]> {
   const supabase = createClient();
 
-  if (channel.channel_type === "custom") {
+  if (channel.channel_type === "custom" || channel.channel_type === "player") {
     const { data } = await supabase
       .from("chat_members")
       .select("user_id, notifications_enabled")

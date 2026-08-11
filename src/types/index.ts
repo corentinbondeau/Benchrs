@@ -74,6 +74,7 @@ export interface Profile {
   licence_number?: string | null;
   emergency_contacts?: EmergencyContact[] | null;
   team_id: string | null;
+  parent_onboarding_done?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -257,11 +258,12 @@ export interface ChatChannel {
   name: string;
   description: string | null;
   is_private: boolean;
-  channel_type: "general" | "parents" | "coaches" | "custom";
+  channel_type: "general" | "parents" | "coaches" | "custom" | "player";
   team_id: string;
   created_by: string | null;
   is_default: boolean;
   created_at: string;
+  player_id?: string | null;
 }
 
 export interface ChatMessage {

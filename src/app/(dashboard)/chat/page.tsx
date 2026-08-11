@@ -1,11 +1,14 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { authFetch } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth";
 import { useTeam } from "@/lib/team";
 import { useChatUnread } from "@/lib/useChatUnread";
+import { useSelectedChild } from "@/lib/useSelectedChild";
+import { fetchTeamActivePlayers } from "@/lib/players";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   ensureChatMemberships,
   fetchChannelRecipients,
@@ -23,7 +26,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ChannelSettingsDialog } from "@/components/chat/ChannelSettingsDialog";
-import { Send, Plus, Loader2, Settings } from "lucide-react";
+import { Send, Plus, Loader2, Settings, User } from "lucide-react";
+import { toast } from "sonner";
 import type { ChatChannel, ChatMessage, Profile } from "@/types";
 
 interface MessageWithSender extends Omit<ChatMessage, "sender"> {
@@ -33,13 +37,19 @@ interface MessageWithSender extends Omit<ChatMessage, "sender"> {
 export default function ChatPage() {
   const { user } = useAuth();
   const { currentTeam, userRole } = useTeam();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const teamId = currentTeam?.id ?? null;
+  const { children } = useSelectedChild(teamId ?? undefined);
   const [channels, setChannels] = useState<ChatChannel[]>([]);
   const [selectedChannel, setSelectedChannel] = useState<string | null>(null);
   const [messages, setMessages] = useState<MessageWithSender[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Conversations privées par joueur (coach <-> parents)
+  const [playerConversations, setPlayerConversations] = useState<Profile[]>([]);
 
   // Create channel state
   const [createOpen, setCreateOpen] = useState(false);
@@ -71,7 +81,10 @@ export default function ChatPage() {
         .order("name");
       const roleVisible =
         (all as ChatChannel[] | null)?.filter(
-          (ch) => ch.channel_type === "custom" || channelVisibleForRole(ch, userRole ?? undefined)
+          (ch) =>
+            ch.channel_type === "custom" ||
+            ch.channel_type === "player" ||
+            channelVisibleForRole(ch, userRole ?? undefined)
         ) || [];
 
       await ensureChatMemberships(team.id, me.id, userRole ?? undefined);
@@ -100,6 +113,56 @@ export default function ChatPage() {
     load();
     return () => { ignore = true; };
   }, [currentTeam, user, userRole]);
+
+  // Liste des joueurs pour les conversations privées (coach)
+  useEffect(() => {
+    if (!currentTeam || userRole !== "coach" && userRole !== "owner") return;
+    let ignore = false;
+    fetchTeamActivePlayers(currentTeam.id).then((players) => {
+      if (ignore) return;
+      setPlayerConversations(players);
+    });
+    return () => { ignore = true; };
+  }, [currentTeam, userRole]);
+
+  const openPlayerChannel = useCallback(
+    async (playerId: string): Promise<ChatChannel | null> => {
+      if (!currentTeam || !user) return null;
+      try {
+        const res = await authFetch("/api/chat/player-channel", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ teamId: currentTeam.id, playerId }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          toast.error(data.error || "Impossible d'ouvrir la conversation");
+          return null;
+        }
+        return data.channel as ChatChannel;
+      } catch (e) {
+        toast.error(String(e));
+        return null;
+      }
+    },
+    [currentTeam, user]
+  );
+
+  function applyPlayerChannel(ch: ChatChannel | null) {
+    if (!ch) return;
+    setChannels((prev) =>
+      prev.some((c) => c.id === ch.id) ? prev : [...prev, ch]
+    );
+    setSelectedChannel(ch.id);
+  }
+
+  // Ouverture directe via /chat?player=<id> (ex: bouton "Discuter" sur l'effectif)
+  useEffect(() => {
+    const pid = searchParams?.get("player");
+    if (!pid) return;
+    openPlayerChannel(pid).then(applyPlayerChannel);
+    router.replace("/chat", { scroll: false });
+  }, [searchParams, currentTeam, user, router, openPlayerChannel]);
 
   useEffect(() => {
     if (!currentTeam || !createOpen) return;
@@ -362,8 +425,48 @@ export default function ChatPage() {
 
   const channelUnread = (channelId: string) => unreadCounts[channelId] || 0;
 
+  const isCoachRole = userRole === "coach" || userRole === "owner";
+  const conversationTargets = isCoachRole
+    ? (playerConversations as { id: string; first_name: string; last_name: string }[])
+    : (children as { id: string; first_name: string; last_name: string }[]);
+
   const channelList = (
     <div className="flex-1 overflow-y-auto p-2 space-y-1">
+      {conversationTargets.length > 0 && (
+        <>
+          <p className="px-4 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Conversations joueur
+          </p>
+          {conversationTargets.map((p) => {
+            const existing = channels.find((c) => c.player_id === p.id);
+            const unread = existing ? channelUnread(existing.id) : 0;
+            return (
+              <button
+                key={p.id}
+                onClick={() =>
+                  existing
+                    ? setSelectedChannel(existing.id)
+                    : openPlayerChannel(p.id).then(applyPlayerChannel)
+                }
+                className="w-full text-left rounded-xl px-4 py-2.5 text-sm font-medium transition-colors hover:bg-muted active:bg-muted/80 touch-manipulation"
+              >
+                <div className="flex items-center gap-2">
+                  <User className="h-3.5 w-3.5 text-[var(--color-royal)] shrink-0" />
+                  <span className="flex-1 truncate">
+                    {p.first_name} {p.last_name}
+                  </span>
+                  {unread > 0 && (
+                    <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--color-gold)] px-1.5 text-[11px] font-semibold text-[var(--color-navy)]">
+                      {unread > 99 ? "99+" : unread}
+                    </span>
+                  )}
+                </div>
+              </button>
+            );
+          })}
+          <div className="my-1 border-t" />
+        </>
+      )}
       {channels.map((channel) => {
         const unread = channelUnread(channel.id);
         return (
@@ -375,6 +478,9 @@ export default function ChatPage() {
             }`}
           >
             <div className="flex items-center gap-2">
+              {channel.channel_type === "player" && (
+                <User className="h-3.5 w-3.5 text-[var(--color-royal)] shrink-0" />
+              )}
               <span className="flex-1 truncate">{channel.name}</span>
               {unread > 0 && (
                 <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--color-gold)] px-1.5 text-[11px] font-semibold text-[var(--color-navy)]">
@@ -385,7 +491,7 @@ export default function ChatPage() {
           </button>
         );
       })}
-      {channels.length === 0 && (
+      {channels.length === 0 && conversationTargets.length === 0 && (
         <p className="text-sm text-muted-foreground text-center py-8">Aucun canal</p>
       )}
     </div>
@@ -442,7 +548,7 @@ export default function ChatPage() {
               <h3 className="font-semibold text-sm flex-1 truncate">
                 {channels.find((c) => c.id === selectedChannel)?.name}
               </h3>
-              {selectedChannelObj && (
+              {selectedChannelObj && selectedChannelObj.channel_type !== "player" && (
                 <button
                   onClick={() => openSettings(selectedChannelObj)}
                   className="text-muted-foreground hover:text-foreground p-1"
@@ -488,6 +594,48 @@ export default function ChatPage() {
             </Button>
           </div>
           <div className="flex-1 p-1 overflow-y-auto">
+            {conversationTargets.length > 0 && (
+              <div className="pb-1">
+                <p className="px-2 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Conversations joueur
+                </p>
+                {conversationTargets.map((p) => {
+                  const existing = channels.find((c) => c.player_id === p.id);
+                  const unread = existing ? channelUnread(existing.id) : 0;
+                  const selected = existing && selectedChannel === existing.id;
+                  return (
+                    <button
+                      key={p.id}
+                      onClick={() =>
+                        existing
+                          ? setSelectedChannel(existing.id)
+                          : openPlayerChannel(p.id).then(applyPlayerChannel)
+                      }
+                      className={`w-full text-left rounded-lg px-3 py-2 text-sm transition-colors flex items-center gap-2 ${
+                        selected
+                          ? "bg-[var(--color-royal)] text-white"
+                          : "hover:bg-muted text-foreground"
+                      }`}
+                    >
+                      <User className="h-3.5 w-3.5 shrink-0" />
+                      <span className="flex-1 truncate">
+                        {p.first_name} {p.last_name}
+                      </span>
+                      {unread > 0 && (
+                        <span className={`flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold ${
+                          selected
+                            ? "bg-white text-[var(--color-navy)]"
+                            : "bg-[var(--color-gold)] text-[var(--color-navy)]"
+                        }`}>
+                          {unread > 99 ? "99+" : unread}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+                <div className="my-1 mx-1 border-t" />
+              </div>
+            )}
             {channels.map((channel) => {
               const unread = channelUnread(channel.id);
               return (
@@ -500,6 +648,9 @@ export default function ChatPage() {
                       : "hover:bg-muted text-foreground"
                   }`}
                 >
+                  {channel.channel_type === "player" && (
+                    <User className="h-3.5 w-3.5 shrink-0" />
+                  )}
                   <span className="flex-1 truncate">{channel.name}</span>
                   {unread > 0 && (
                     <span className={`flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold ${
@@ -513,7 +664,7 @@ export default function ChatPage() {
                 </button>
               );
             })}
-            {channels.length === 0 && (
+            {channels.length === 0 && conversationTargets.length === 0 && (
               <p className="text-xs text-muted-foreground text-center py-4">Aucun canal</p>
             )}
           </div>
@@ -524,7 +675,7 @@ export default function ChatPage() {
               <h3 className="font-semibold text-sm flex-1 truncate">
                 {channels.find((c) => c.id === selectedChannel)?.name}
               </h3>
-              {selectedChannelObj && (
+              {selectedChannelObj && selectedChannelObj.channel_type !== "player" && (
                 <button
                   onClick={() => openSettings(selectedChannelObj)}
                   className="text-muted-foreground hover:text-foreground p-1"
