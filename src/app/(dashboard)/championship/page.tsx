@@ -84,7 +84,7 @@ export default function ChampionshipPage() {
       const res = await authFetch("/api/championships/dofa", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fffNumber: clubSearch.trim() }),
+        body: JSON.stringify({ fffNumber: clubSearch.trim(), type: "all" }),
       });
       const data = await res.json();
       if (data.equipes && data.equipes.length > 0) {
