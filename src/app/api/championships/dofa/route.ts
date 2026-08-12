@@ -92,11 +92,12 @@ export async function POST(req: Request) {
   if (!user) return unauthorized();
 
   const body = await req.json();
-  const { teamId, fffNumber, type = "calendar" } = body as {
+  const { teamId, type = "calendar" } = body as {
     teamId?: string;
     fffNumber?: string;
     type?: "calendar" | "results" | "all";
   };
+  let { fffNumber } = body as { fffNumber?: string };
 
   // Vérifier que l'utilisateur a accès à cette équipe
   if (teamId) {
@@ -127,6 +128,7 @@ export async function POST(req: Request) {
           { status: 400 }
         );
       }
+      fffNumber = foundFffNumber;
     }
   }
 
