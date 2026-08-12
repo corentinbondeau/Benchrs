@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Trophy, Medal, Plus, Download, Loader2, Zap } from "lucide-react";
+import { Trophy, Medal, Plus, Loader2, Zap } from "lucide-react";
 import { toast } from "sonner";
 
 interface Championship {
@@ -47,11 +47,9 @@ export default function ChampionshipPage() {
   const [championships, setChampionships] = useState<Championship[]>([]);
   const [selectedId, setSelectedId] = useState("");
   const [loading, setLoading] = useState(true);
-  const [createOpen, setCreateOpen] = useState(false);
-  const [form, setForm] = useState({ name: "", season: "2025-2026", level: "" });
 
   // Mode automatique DOFA
-  const [dofarLoading, setDofaLoading] = useState(false);
+  const [dofaLoading, setDofaLoading] = useState(false);
   const [scrapedMatches, setScrapedMatches] = useState<ScrapedMatch[] | null>(null);
   const [importName, setImportName] = useState("");
   const [importSeason, setImportSeason] = useState("2025-2026");
@@ -78,22 +76,6 @@ export default function ChampionshipPage() {
   }, [currentTeam]);
 
   if (!currentTeam) return null;
-
-  async function handleCreate(e: React.FormEvent) {
-    e.preventDefault();
-    const res = await authFetch("/api/championships", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...form, team_id: currentTeam!.id }),
-    });
-    if (res.ok) {
-      toast.success("Championnat créé");
-      setCreateOpen(false);
-      setForm({ name: "", season: "2025-2026", level: "" });
-      const data = await authFetch(`/api/championships?team_id=${currentTeam!.id}`).then((r) => r.json());
-      setChampionships(data);
-    }
-  }
 
   // Mode automatique : récupère depuis DOFA via le numéro FFF du club
   async function handleFetchDOFA() {
@@ -241,9 +223,9 @@ export default function ChampionshipPage() {
         </div>
         {isCoach && (
           <div className="flex gap-2">
-            <Button onClick={handleFetchDOFA} disabled={dofarLoading} className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold">
-              {dofarLoading ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Zap className="h-4 w-4 mr-1" />}
-              {dofarLoading ? "Chargement..." : "Import auto FFF"}
+            <Button onClick={handleFetchDOFA} disabled={dofaLoading} className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold">
+              {dofaLoading ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Zap className="h-4 w-4 mr-1" />}
+              {dofaLoading ? "Chargement..." : "Import auto FFF"}
             </Button>
             <Dialog open={manualOpen} onOpenChange={setManualOpen}>
               <DialogTrigger asChild>
@@ -276,7 +258,7 @@ export default function ChampionshipPage() {
                     />
                   </div>
                   <Button onClick={handleManualScrape} disabled={fffLoading || (!fffUrl && !fffHtml)} className="w-full">
-                    {fffLoading ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Download className="h-4 w-4 mr-1" />}
+                    {fffLoading ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Zap className="h-4 w-4 mr-1" />}
                     {fffLoading ? "Scraping..." : "Extraire les données"}
                   </Button>
 
