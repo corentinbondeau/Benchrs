@@ -66,6 +66,56 @@ export default function ChampionshipPage() {
   const [dofaStandings, setDofaStandings] = useState<ChampionshipTeam[] | null>(null);
   const [dofaTab, setDofaTab] = useState<"calendar" | "standings">("calendar");
 
+  // Sélection club/équipe
+  const [selectTeamOpen, setSelectTeamOpen] = useState(false);
+  const [clubSearch, setClubSearch] = useState("");
+  const [foundTeams, setFoundTeams] = useState<string[]>([]);
+  const [selectedTeam, setSelectedTeam] = useState("");
+  const [searching, setSearching] = useState(false);
+
+  // Rechercher les équipes du club
+  async function handleSearchClub() {
+    if (!clubSearch.trim()) {
+      toast.error("Entrez un numéro FFF");
+      return;
+    }
+    setSearching(true);
+    try {
+      const res = await authFetch("/api/championships/dofa", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fffNumber: clubSearch.trim() }),
+      });
+      const data = await res.json();
+      if (data.equipes && data.equipes.length > 0) {
+        setFoundTeams(data.equipes);
+        if (data.equipes.length === 1) {
+          setSelectedTeam(data.equipes[0]);
+        }
+      } else {
+        toast.error("Aucune équipe trouvée");
+      }
+    } catch (e) {
+      toast.error("Erreur recherche club");
+      console.error(e);
+    } finally {
+      setSearching(false);
+    }
+  }
+
+  // Importer avec l'équipe sélectionnée
+  function handleImportTeam() {
+    if (!selectedTeam) {
+      toast.error("Sélectionnez une équipe");
+      return;
+    }
+    setSelectTeamOpen(false);
+    setClubSearch("");
+    setFoundTeams([]);
+    setSelectedTeam("");
+    handleFetchDOFA();
+  }
+
   // Mode manuel (copier-coller HTML)
   const [manualOpen, setManualOpen] = useState(false);
   const [fffUrl, setFffUrl] = useState("");
@@ -283,19 +333,73 @@ export default function ChampionshipPage() {
         </div>
         {isCoach && (
           <div className="flex gap-2">
-            {/* Bouton Import auto FFF (DOFA) */}
-            <Button
-              onClick={handleFetchDOFA}
-              disabled={dofaLoading}
-              className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
-            >
-              {dofaLoading ? (
-                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-              ) : (
-                <Zap className="h-4 w-4 mr-1" />
-              )}
-              {dofaLoading ? "Chargement..." : "Import auto FFF"}
-            </Button>
+            {/* Dialog Sélection club/équipe */}
+            <Dialog open={selectTeamOpen} onOpenChange={setSelectTeamOpen}>
+              <DialogTrigger asChild>
+                <Button className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold">
+                  <Zap className="h-4 w-4 mr-1" />
+                  Import auto FFF
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Sélectionner votre équipe</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Numéro FFF du club (6 chiffres)</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="123456"
+                        value={clubSearch}
+                        onChange={(e) => setClubSearch(e.target.value)}
+                        maxLength={6}
+                      />
+                      <Button
+                        onClick={handleSearchClub}
+                        disabled={searching || !clubSearch.trim()}
+                        variant="outline"
+                      >
+                        {searching ? "Recherche..." : "Chercher"}
+                      </Button>
+                    </div>
+                  </div>
+
+                  {foundTeams.length > 0 && (
+                    <div className="space-y-2">
+                      <Label>Équipes trouvées</Label>
+                      <div className="border rounded p-2 max-h-48 overflow-y-auto space-y-1">
+                        {foundTeams.map((team) => (
+                          <label key={team} className="flex items-center gap-2 p-2 rounded hover:bg-muted cursor-pointer">
+                            <input
+                              type="radio"
+                              name="team"
+                              value={team}
+                              checked={selectedTeam === team}
+                              onChange={(e) => setSelectedTeam(e.target.value)}
+                            />
+                            <span className="text-sm">{team}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex gap-2">
+                    <Button variant="outline" onClick={() => setSelectTeamOpen(false)} className="flex-1">
+                      Annuler
+                    </Button>
+                    <Button
+                      onClick={handleImportTeam}
+                      disabled={!selectedTeam}
+                      className="flex-1 bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
+                    >
+                      Importer
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
 
             {/* Dialog Import manuel */}
             <Dialog
