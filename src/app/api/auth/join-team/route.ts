@@ -24,9 +24,9 @@ export async function POST(req: Request) {
       );
     }
 
-    // Les rôles autorisés incluent maintenant "coach" et "owner"
-    // Un code d'invitation peut être utilisé par n'importe quel rôle
-    const allowedRoles = ["player", "parent", "coach", "owner"];
+    // Les rôles autorisés: player, parent, coach
+    // Owner ne peut être attribué que lors de la création de l'équipe
+    const allowedRoles = ["player", "parent", "coach"];
     const memberRole = allowedRoles.includes(role) ? role : "player";
 
     const userId = authUser.id;

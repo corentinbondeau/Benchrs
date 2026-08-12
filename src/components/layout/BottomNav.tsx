@@ -107,7 +107,7 @@ function SheetContentInner({ close }: { close: () => void }) {
   const [teamName, setTeamName] = useState("");
   const [fffNumber, setFffNumber] = useState("");
   const [inviteCode, setInviteCode] = useState("");
-  const [joinRole, setJoinRole] = useState<"player" | "parent" | "coach" | "owner">("player");
+  const [joinRole, setJoinRole] = useState<"player" | "parent" | "coach">("player");
   const [submitting, setSubmitting] = useState(false);
 
   async function handleCreateTeam() {
@@ -259,7 +259,7 @@ function SheetContentInner({ close }: { close: () => void }) {
               <Input value={inviteCode} onChange={(e) => setInviteCode(e.target.value)} placeholder="Code d'invitation" className="bg-white/10 border-white/20 text-white text-sm placeholder:text-white/40" />
               <div className="space-y-1">
                 <Label className="text-white/60 text-xs">Votre rôle dans cette équipe</Label>
-                <Select value={joinRole} onValueChange={(v) => v && setJoinRole(v as "player" | "parent" | "coach" | "owner")}>
+                <Select value={joinRole} onValueChange={(v) => v && setJoinRole(v as "player" | "parent" | "coach")}>
                   <SelectTrigger className="bg-white/10 border-white/20 text-white text-sm">
                     <SelectValue />
                   </SelectTrigger>
@@ -267,7 +267,6 @@ function SheetContentInner({ close }: { close: () => void }) {
                     <SelectItem value="player">Joueur</SelectItem>
                     <SelectItem value="parent">Parent</SelectItem>
                     <SelectItem value="coach">Coach</SelectItem>
-                    <SelectItem value="owner">Owner</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
