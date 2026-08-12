@@ -152,10 +152,11 @@ export async function POST(req: Request) {
   if (!user) return unauthorized();
 
   const body = await req.json();
-  const { teamId, type = "calendar" } = body as {
+  const { teamId, type = "calendar", eqNo } = body as {
     teamId?: string;
     fffNumber?: string;
-    type?: "calendar" | "results" | "all";
+    eqNo?: string;
+    type?: "calendar" | "results" | "all" | "equipes";
   };
   let { fffNumber } = body as { fffNumber?: string };
 
@@ -209,7 +210,7 @@ export async function POST(req: Request) {
 
     if (type === "calendar" || type === "all") {
       try {
-        const data = await fetchDOFA("/calendrier", fffNumber);
+        const data = await fetchDOFA("/calendrier", fffNumber, eqNo);
         result.matches = parseMatches(data);
       } catch (error) {
         console.error("[DOFA] Erreur calendrier:", error);
@@ -219,7 +220,7 @@ export async function POST(req: Request) {
 
     if (type === "results" || type === "all") {
       try {
-        const data = await fetchDOFA("/resultat", fffNumber);
+        const data = await fetchDOFA("/resultat", fffNumber, eqNo);
         const results = parseMatches(data);
         // Fusionner avec les matchs existants
         if (result.matches) {

@@ -75,29 +75,85 @@ export default function ChampionshipPage() {
 
   // Rechercher les équipes du club
   async function handleSearchClub() {
-    if (!clubSearch.trim()) {
+    const fffNum = clubSearch.trim();
+    
+    // Validation de l'input
+    if (!fffNum) {
       toast.error("Entrez un numéro FFF");
       return;
     }
+    
+    if (!/^\d{1,6}$/.test(fffNum)) {
+      toast.error("Le numéro FFF doit contenir 1 à 6 chiffres");
+      return;
+    }
+
     setSearching(true);
+    setFoundTeams([]);
+    setSelectedTeam(null);
+    
     try {
       const res = await authFetch("/api/championships/dofa", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fffNumber: clubSearch.trim(), type: "all" }),
+        body: JSON.stringify({ fffNumber: fffNum, type: "all" }),
       });
+      
       const data = await res.json();
-      if (data.equipes && data.equipes.length > 0) {
-        setFoundTeams(data.equipes);
-        if (data.equipes.length === 1) {
-          setSelectedTeam(data.equipes[0]);
+
+      // Gestion des erreurs API
+      if (!res.ok) {
+        if (res.status === 400) {
+          toast.error("Numéro FFF invalide ou club non reconnu");
+        } else if (res.status === 404) {
+          toast.error("Club non trouvé. Vérifiez le numéro FFF");
+        } else if (res.status === 502 || res.status === 503) {
+          toast.error("Service FFF indisponible. Réessayez dans quelques instants");
+        } else {
+          toast.error(data.error || "Erreur lors de la recherche");
         }
-      } else {
-        toast.error("Aucune équipe trouvée");
+        return;
       }
-    } catch (e) {
-      toast.error("Erreur recherche club");
-      console.error(e);
+
+      // Validation de la réponse
+      if (!data.equipes || !Array.isArray(data.equipes)) {
+        toast.error("Format de réponse invalide");
+        return;
+      }
+
+      if (data.equipes.length === 0) {
+        toast.error("Aucune équipe trouvée pour ce club");
+        return;
+      }
+
+      // Validation des équipes
+      const validEquipes = data.equipes.filter(
+        (e: any) => e.eqNo && e.libelle
+      );
+
+      if (validEquipes.length === 0) {
+        toast.error("Les données d'équipes sont incomplètes");
+        return;
+      }
+
+      setFoundTeams(validEquipes);
+      
+      // Auto-sélection si une seule équipe
+      if (validEquipes.length === 1) {
+        setSelectedTeam(validEquipes[0]);
+        toast.success(`✓ Équipe trouvée: ${validEquipes[0].libelle}`);
+      } else {
+        toast.success(`✓ ${validEquipes.length} équipes trouvées`);
+      }
+    } catch (error) {
+      if (error instanceof TypeError) {
+        toast.error("Erreur de connexion. Vérifiez votre connexion internet");
+      } else if (error instanceof SyntaxError) {
+        toast.error("Réponse invalide du serveur");
+      } else {
+        toast.error("Une erreur inattendue s'est produite");
+      }
+      console.error("[Club Search Error]", error);
     } finally {
       setSearching(false);
     }
@@ -142,40 +198,83 @@ export default function ChampionshipPage() {
 
   if (!currentTeam) return null;
 
-  // Mode automatique : récupère depuis DOFA via le numéro FFF du club
-  async function handleFetchDOFA() {
+  // Mode automatique : récupère depuis DOFA via le numéro FFF du club et équipe
+  async function handleFetchDOFA(eqNo?: string) {
+    if (!selectedTeam && !eqNo) {
+      toast.error("Aucune équipe sélectionnée");
+      return;
+    }
     setDofaLoading(true);
     setDofaMatches(null);
     setDofaStandings(null);
     setDofaTab("calendar");
     try {
+      const body: any = { type: "all", teamId: currentTeam!.id };
+      if (eqNo || selectedTeam?.eqNo) {
+        body.eqNo = eqNo || selectedTeam?.eqNo;
+      }
       const res = await authFetch("/api/championships/dofa", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ teamId: currentTeam!.id, type: "all" }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
+      
+      // Gestion des erreurs API
       if (!res.ok) {
-        toast.error(data.error || "Erreur lors de la récupération DOFA");
+        if (res.status === 400) {
+          toast.error(data.error || "Numéro FFF ou équipe invalide");
+        } else if (res.status === 404) {
+          toast.error("Club ou équipe non trouvée");
+        } else if (res.status === 502 || res.status === 503) {
+          toast.error("API FFF indisponible. Veuillez réessayer plus tard");
+        } else {
+          toast.error(data.error || "Erreur lors de la récupération des données");
+        }
         return;
       }
-      if (data.matches && data.matches.length > 0) {
-        // Trier les matchs par date chronologique
+
+      // Validation des données
+      if (!data.matches || !Array.isArray(data.matches)) {
+        toast.error("Format de réponse invalide. Aucun match trouvé");
+        return;
+      }
+
+      if (data.matches.length === 0) {
+        toast.warning("Aucun match trouvé pour cette équipe");
+        return;
+      }
+
+      // Tri des matchs par date
+      try {
         const sorted = [...data.matches].sort(
-          (a: ScrapedMatch, b: ScrapedMatch) => a.date.localeCompare(b.date)
+          (a: ScrapedMatch, b: ScrapedMatch) => {
+            if (!a.date || !b.date) return 0;
+            return a.date.localeCompare(b.date);
+          }
         );
         setDofaMatches(sorted);
-        if (data.standings && data.standings.length > 0) {
+        
+        // Traitement du classement
+        if (data.standings && Array.isArray(data.standings) && data.standings.length > 0) {
           setDofaStandings(data.standings);
         }
-        const standingsMsg = data.standings ? ` + ${data.standings.length} équipes au classement` : "";
-        toast.success(`${data.matches.length} matchs trouvés${standingsMsg}`);
-      } else {
-        toast.error("Aucun match trouvé pour ce club");
+        
+        const standingsMsg = data.standings?.length > 0 ? ` + ${data.standings.length} équipes au classement` : "";
+        toast.success(`✓ ${data.matches.length} matchs importés${standingsMsg}`);
+      } catch (parseError) {
+        console.error("Erreur lors du traitement des données:", parseError);
+        toast.error("Erreur lors du traitement des données reçues");
       }
     } catch (error) {
-      toast.error("Erreur de connexion à DOFA");
-      console.error(error);
+      if (error instanceof TypeError) {
+        toast.error("Erreur de connexion. Vérifiez votre connexion internet");
+      } else if (error instanceof SyntaxError) {
+        toast.error("Réponse invalide du serveur");
+      } else {
+        toast.error("Une erreur inattendue s'est produite");
+      }
+      console.error("[DOFA Error]", error);
     } finally {
       setDofaLoading(false);
     }
