@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { fetchTeamActivePlayers } from "@/lib/players";
+import { signList, signedStorageUrl } from "@/lib/storage";
 import { useAuth } from "@/lib/auth";
 import { useTeam } from "@/lib/team";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -109,7 +110,12 @@ export default function PhysicalPreparationPage() {
     ]);
 
     setPlayers(playersRes.sort((a, b) => (a.last_name || "").localeCompare(b.last_name || "")));
-    setDocuments((docsRes.data as PhysicalPrepDocument[]) || []);
+    const docs = (docsRes.data as PhysicalPrepDocument[]) || [];
+    const signedDocs = await signList(supabaseRef.current, "physical_docs", docs, (d) => ({
+      path: d.storage_path || d.file_url,
+      urlField: "file_url",
+    }));
+    setDocuments(signedDocs);
     setSessions((sessionsRes.data as PhysicalPrepSession[]) || []);
 
     if (sessionsRes.data) {
@@ -145,15 +151,16 @@ export default function PhysicalPreparationPage() {
       .from("physical_docs")
       .upload(path, buffer, { upsert: true, contentType });
     if (uploadError) { toast.error(`Upload échoué: ${uploadError.message}`); setDocUploading(false); return; }
-    const { data: urlData } = supabase.storage.from("physical_docs").getPublicUrl(path);
     const { data: inserted, error: insertError } = await supabase.from("physical_prep_documents").insert({
       team_id: currentTeam.id,
       title: docTitle.trim(),
-      file_url: urlData.publicUrl,
+      file_url: path,
+      storage_path: path,
       uploaded_by: user?.id,
     }).select().single();
     if (insertError) { toast.error(insertError.message); setDocUploading(false); return; }
-    if (inserted) setDocuments(prev => [inserted as PhysicalPrepDocument, ...prev]);
+    const signed = await signedStorageUrl(supabase, "physical_docs", path);
+    if (inserted) setDocuments(prev => [{ ...(inserted as PhysicalPrepDocument), file_url: signed || (inserted as PhysicalPrepDocument).file_url }, ...prev]);
     toast.success("Document ajouté");
     setDocUploadOpen(false);
     setDocTitle("");

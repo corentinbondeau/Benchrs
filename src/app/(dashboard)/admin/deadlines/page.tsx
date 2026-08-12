@@ -23,7 +23,7 @@ function daysUntil(dateStr: string | null): number | null {
 }
 
 export default function DeadlinesPage() {
-  const { currentTeam } = useTeam();
+  const { currentTeam, userRole } = useTeam();
   const [players, setPlayers] = useState<DeadlineRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [season] = useState(currentSeasonLabel());
@@ -105,6 +105,15 @@ export default function DeadlinesPage() {
     return (
       <div className="flex items-center justify-center h-64">
         <p className="text-muted-foreground">Chargement de l&apos;équipe...</p>
+      </div>
+    );
+  }
+
+  const isCoach = userRole === "coach" || userRole === "owner";
+  if (!isCoach) {
+    return (
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <p className="text-muted-foreground">Accès réservé au coach</p>
       </div>
     );
   }

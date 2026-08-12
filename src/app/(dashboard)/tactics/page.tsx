@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { authFetch } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth";
 import { useTeam } from "@/lib/team";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -37,6 +38,7 @@ import {
   FileText,
   LibraryBig,
   Loader2,
+  LayoutGrid,
   PenLine,
   Plus,
   Shirt,
@@ -52,10 +54,15 @@ import { FOOTBALL_SYSTEMS, EXPERTISE_LEVELS, type AISession, type ExpertiseLevel
 import { AIFicheView, isAiSessionExercises } from "@/components/training/AIFicheView";
 import { VisibilityPicker, type FicheVisibility } from "@/components/training/FicheVisibilityPicker";
 import { ExerciseLibraryDialog } from "@/components/training/ExerciseLibraryDialog";
+import {
+  ExerciseSchematicDialog,
+  ExerciseSchematicView,
+} from "@/components/training/ExerciseSchematic";
 import { DRILL_TYPES } from "@/lib/training/exercises";
 import type {
   TrainingSession,
   Exercise,
+  ExerciseSchematic,
   Profile,
   Event,
   Formation,
@@ -94,6 +101,7 @@ function SéanceTab() {
   const [generating, setGenerating] = useState(false);
   const [attendanceCount, setAttendanceCount] = useState<{ present: number; total: number } | null>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [schematicEdit, setSchematicEdit] = useState<{ index: number; schema: ExerciseSchematic } | null>(null);
 
   const [form, setForm] = useState({
     event_id: "",
@@ -163,10 +171,20 @@ function SéanceTab() {
     setExercises(exercises.filter((_, i) => i !== index));
   }
 
-  function updateExercise(index: number, field: keyof Exercise, value: string | number) {
+  function updateExercise(index: number, field: keyof Exercise, value: string | number | ExerciseSchematic | null) {
     const updated = [...exercises];
     updated[index] = { ...updated[index], [field]: value };
     setExercises(updated);
+  }
+
+  function handleSchematicChange(s: ExerciseSchematic) {
+    setSchematicEdit((prev) => (prev ? { ...prev, schema: s } : prev));
+  }
+
+  function handleSchematicSave() {
+    if (!schematicEdit) return;
+    updateExercise(schematicEdit.index, "schema", schematicEdit.schema);
+    setSchematicEdit(null);
   }
 
   function addFromLibrary(ex: Exercise) {
@@ -184,6 +202,7 @@ function SéanceTab() {
       duration: ex.duration,
       description: ex.description.trim() || null,
       drill_type: ex.drill_type,
+      schema: ex.schema ?? null,
     });
     if (error) {
       toast.error("Erreur lors de l'enregistrement dans la bibliothèque");
@@ -214,7 +233,7 @@ function SéanceTab() {
     try {
       const raw = target.exercises as unknown;
       const isAi = Array.isArray((raw as { sections?: unknown }).sections);
-      const res = await fetch("/api/trainings/pdf", {
+      const res = await authFetch("/api/trainings/pdf", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ session: raw, source: isAi ? "ai" : "manual" }),
@@ -328,7 +347,7 @@ function SéanceTab() {
     }
     setGenerating(true);
     try {
-      const res = await fetch("/api/trainings/generate", {
+      const res = await authFetch("/api/trainings/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -337,6 +356,7 @@ function SéanceTab() {
           playerCount,
           systeme: systeme || undefined,
           expertise,
+          team_id: currentTeam!.id,
         }),
       });
       if (!res.ok) {
@@ -454,6 +474,7 @@ function SéanceTab() {
                           {ex.description}
                         </p>
                       )}
+                      {ex.schema && <ExerciseSchematicView schema={ex.schema} />}
                     </div>
                   ))}
                 </div>
@@ -737,6 +758,24 @@ function SéanceTab() {
                                 Exercice {i + 1}
                               </span>
                               <div className="flex items-center gap-1">
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 px-2 text-muted-foreground"
+                                  onClick={() =>
+                                    setSchematicEdit({
+                                      index: i,
+                                      schema: ex.schema?.elements?.length
+                                        ? { elements: ex.schema.elements.map((el) => ({ ...el })) }
+                                        : { elements: [] },
+                                    })
+                                  }
+                                  title={ex.schema ? "Modifier le schéma" : "Ajouter un schéma"}
+                                >
+                                  <LayoutGrid className="h-3 w-3" />
+                                  {ex.schema?.elements?.length ? <span className="ml-1 text-[10px]">{ex.schema.elements.length}</span> : null}
+                                </Button>
                                 {exercises.length > 1 && (
                                   <Button
                                     type="button"
@@ -851,6 +890,17 @@ function SéanceTab() {
           onOpenChange={setLibraryOpen}
           onAdd={addFromLibrary}
           isCoach={userRole === "coach" || userRole === "owner"}
+        />
+
+        {/* Schéma d'exercice */}
+        <ExerciseSchematicDialog
+          open={!!schematicEdit}
+          onOpenChange={(v) => {
+            if (!v) setSchematicEdit(null);
+          }}
+          value={schematicEdit?.schema ?? { elements: [] }}
+          onChange={handleSchematicChange}
+          onSave={handleSchematicSave}
         />
       </div>
 

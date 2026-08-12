@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { renderSeasonReportPdf } from "@/lib/seasonReportPdf";
+import { getAuthUser, unauthorized } from "@/lib/api-auth";
 
 export async function POST(req: Request) {
+  const user = await getAuthUser(req);
+  if (!user) return unauthorized();
+
   const body = await req.json().catch(() => null);
   const report = body?.report as Record<string, unknown> | undefined;
   const teamName = (body?.teamName as string | undefined) || "";

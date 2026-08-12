@@ -120,7 +120,7 @@ export function Sidebar() {
   const [teamName, setTeamName] = useState("");
   const [fffNumber, setFffNumber] = useState("");
   const [inviteCode, setInviteCode] = useState("");
-  const [joinRole, setJoinRole] = useState<"player" | "coach" | "parent">("player");
+  const [joinRole, setJoinRole] = useState<"player" | "parent">("player");
   const [creating, setCreating] = useState(false);
 
   async function handleCreateTeam() {
@@ -255,13 +255,12 @@ export function Sidebar() {
                     </div>
                     <div className="space-y-2">
                       <Label>Votre rôle dans cette équipe</Label>
-                      <Select value={joinRole} onValueChange={(v) => v && setJoinRole(v as "player" | "coach" | "parent")}>
+                      <Select value={joinRole} onValueChange={(v) => v && setJoinRole(v as "player" | "parent")}>
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="player">Joueur</SelectItem>
-                          <SelectItem value="coach">Coach</SelectItem>
                           <SelectItem value="parent">Parent</SelectItem>
                         </SelectContent>
                       </Select>

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { authFetch } from "@/lib/api-client";
+import { signList } from "@/lib/storage";
 import { useAuth } from "@/lib/auth";
 import { useTeam } from "@/lib/team";
 import { Card, CardContent } from "@/components/ui/card";
@@ -75,8 +76,13 @@ export default function GalleryPage() {
       .select("*")
       .eq("team_id", currentTeam!.id)
       .order("created_at", { ascending: false })
-      .then(({ data }) => {
-        setMedia((data as GalleryMedia[]) || []);
+      .then(async ({ data }) => {
+        const rows = (data as GalleryMedia[]) || [];
+        const signed = await signList(supabase, "gallery", rows, (m) => ({
+          path: m.storage_path || m.url,
+          urlField: "url",
+        }));
+        setMedia(signed);
         setLoading(false);
       });
   }
@@ -173,7 +179,7 @@ export default function GalleryPage() {
 
     const supabase = createClient();
 
-    const res = await fetch("/api/storage/gallery-bucket", { method: "POST" });
+    const res = await authFetch("/api/storage/gallery-bucket", { method: "POST" });
     const bucketData = await res.json();
     if (bucketData.error) {
       toast.error("Erreur lors de la création du stockage");
@@ -201,12 +207,8 @@ export default function GalleryPage() {
         continue;
       }
 
-      const { data: urlData } = supabase.storage
-        .from("gallery")
-        .getPublicUrl(path);
-
       await supabase.from("gallery_media").insert({
-        url: urlData.publicUrl,
+        url: path,
         storage_path: path,
         media_type: file.type,
         caption: caption || null,
@@ -228,7 +230,11 @@ export default function GalleryPage() {
         .limit(uploaded);
 
       if (newMedia?.length) {
-        setMedia((prev) => [...(newMedia as GalleryMedia[]), ...prev]);
+        const signed = await signList(supabase, "gallery", newMedia as GalleryMedia[], (m) => ({
+          path: m.storage_path || m.url,
+          urlField: "url",
+        }));
+        setMedia((prev) => [...signed, ...prev]);
       }
 
       toast.success(`${uploaded} fichier${uploaded > 1 ? "s" : ""} ajouté${uploaded > 1 ? "s" : ""} avec succès`);

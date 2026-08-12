@@ -7,9 +7,18 @@ import {
   type ExpertiseLevel,
 } from "@/lib/training/ai-generator";
 import { renderSessionPdf } from "@/lib/training/pdf";
+import { getAuthUser, unauthorized, forbidden, isTeamMember } from "@/lib/api-auth";
 
 export async function POST(req: Request) {
+  const user = await getAuthUser(req);
+  if (!user) return unauthorized();
+
   const body = await req.json().catch(() => null);
+
+  const teamId = typeof body?.team_id === "string" ? body.team_id : "";
+  if (!teamId || !(await isTeamMember(user.id, teamId))) {
+    return forbidden();
+  }
 
   const phase = typeof body?.phase === "string" ? body.phase : "";
   if (!TACTICAL_PHASE_NAMES.includes(phase)) {

@@ -3,9 +3,16 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { defaultNotificationPrefs } from "@/lib/notificationTypes";
 import { getAuthUser, unauthorized } from "@/lib/api-auth";
 import { normalizeClubName, normalizeFffNumber } from "@/lib/clubs";
+import { rateLimit, AUTH_LIMIT, clientKey } from "@/lib/rateLimit";
 
 export async function POST(req: Request) {
   try {
+    if (!rateLimit(`auth:create-team:${clientKey(req)}`, AUTH_LIMIT)) {
+      return NextResponse.json(
+        { error: "Trop de tentatives, réessayez dans une minute" },
+        { status: 429 }
+      );
+    }
     const user = await getAuthUser(req);
     if (!user) return unauthorized();
 
@@ -57,6 +64,10 @@ export async function POST(req: Request) {
           fff_number: fff,
           name_normalized: normalizeClubName(clubNameStr),
           created_by: userId,
+          comite_invite_code: crypto
+            .randomUUID()
+            .replaceAll("-", "")
+            .slice(0, 12),
         })
         .select()
         .single();

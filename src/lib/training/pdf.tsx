@@ -15,6 +15,7 @@ import {
   Text as SvgText,
 } from "@react-pdf/renderer";
 import type { AISession, FicheSection, Schematic } from "./ai-generator";
+import type { ExerciseSchematic, ExerciseSchematicElement } from "@/types";
 
 const NAVY = "#102A43";
 const ROYAL = "#2B6CB0";
@@ -460,6 +461,7 @@ export interface ManualSession {
     duration: number;
     description: string;
     drill_type: string;
+    schema?: ExerciseSchematic | null;
   }[];
 }
 
@@ -540,6 +542,14 @@ const manualStyles = StyleSheet.create({
     fontSize: 9,
     color: "#486581",
   },
+  schematicBox: {
+    alignItems: "center",
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: "#CBD2D9",
+    borderRadius: 6,
+    padding: 6,
+  },
   footer: {
     textAlign: "center",
     color: "#9FB3C8",
@@ -547,6 +557,112 @@ const manualStyles = StyleSheet.create({
     marginTop: 12,
   },
 });
+
+const EX_TEAM_COLORS: Record<NonNullable<ExerciseSchematicElement["team"]>, string> = {
+  att: ATTACK,
+  def: DEFENSE,
+  neutral: "#FFFFFF",
+};
+
+function ExerciseSchematicSvg({ schema }: { schema: ExerciseSchematic }) {
+  function renderEl(el: ExerciseSchematicElement) {
+    if (el.type === "player") {
+      const color = EX_TEAM_COLORS[el.team || "att"];
+      const dark = el.team === "neutral";
+      return (
+        <G key={el.id}>
+          <Circle cx={el.x} cy={el.y} r={10} fill={color} stroke="#FFFFFF" strokeWidth={1.5} />
+          {el.number ? (
+            <SvgText x={el.x} y={el.y + 3.5} style={{ fontSize: 9, fontWeight: "bold", fill: dark ? "#1F2937" : "#FFFFFF", textAnchor: "middle" }}>
+              {el.number}
+            </SvgText>
+          ) : null}
+        </G>
+      );
+    }
+    if (el.type === "cone") {
+      return (
+        <Polygon
+          key={el.id}
+          points={`${el.x},${el.y - 9} ${el.x - 6},${el.y + 7} ${el.x + 6},${el.y + 7}`}
+          fill="#F97316"
+          stroke="#FFFFFF"
+          strokeWidth={1}
+        />
+      );
+    }
+    if (el.type === "ball") {
+      return <Circle key={el.id} cx={el.x} cy={el.y} r={4.5} fill="#FFFFFF" stroke="#111111" strokeWidth={1} />;
+    }
+    if (el.type === "arrow") {
+      const x1 = el.x;
+      const y1 = el.y;
+      const x2 = el.x2 ?? el.x;
+      const y2 = el.y2 ?? el.y;
+      const angle = Math.atan2(y2 - y1, x2 - x1);
+      const len = 9;
+      const hx = x2 - len * Math.cos(angle);
+      const hy = y2 - len * Math.sin(angle);
+      const dx1 = hx + len * 0.5 * Math.sin(angle);
+      const dy1 = hy - len * 0.5 * Math.cos(angle);
+      const dx2 = hx - len * 0.5 * Math.sin(angle);
+      const dy2 = hy + len * 0.5 * Math.cos(angle);
+      return (
+        <G key={el.id}>
+          <Line x1={x1} y1={y1} x2={x2} y2={y2} stroke={GOLD} strokeWidth={2.5} />
+          <Polygon points={`${x2},${y2} ${dx1},${dy1} ${dx2},${dy2}`} fill={GOLD} />
+        </G>
+      );
+    }
+    if (el.type === "zone") {
+      const x = Math.min(el.x, el.x2 ?? el.x);
+      const y = Math.min(el.y, el.y2 ?? el.y);
+      const w = Math.abs((el.x2 ?? el.x) - el.x);
+      const h = Math.abs((el.y2 ?? el.y) - el.y);
+      return (
+        <G key={el.id}>
+          <Rect x={x} y={y} width={w} height={h} fill="rgba(255,255,255,0.25)" stroke={GOLD} strokeWidth={1.5} />
+          {el.text ? (
+            <SvgText x={x + w / 2} y={y + h / 2} style={{ fontSize: 9, fill: "#FFFFFF", textAnchor: "middle" }}>
+              {el.text}
+            </SvgText>
+          ) : null}
+        </G>
+      );
+    }
+    return (
+      <SvgText
+        key={el.id}
+        x={el.x}
+        y={el.y + 4}
+        style={{ fontSize: 11, fontWeight: "bold", fill: "#FFFFFF", textAnchor: "middle" }}
+      >
+        {el.text || "Texte"}
+      </SvgText>
+    );
+  }
+
+  return (
+    <Svg width={150} height={225} viewBox="0 0 300 450">
+      <Rect x={0} y={0} width={300} height={450} fill="#1B7A3D" />
+      <G stroke="rgba(255,255,255,0.55)" fill="none" strokeWidth={2}>
+        <Rect x={8} y={8} width={284} height={434} rx={2} />
+        <Line x1={8} y1={225} x2={292} y2={225} strokeWidth={1.5} />
+        <Circle cx={150} cy={225} r={50} strokeWidth={1.5} />
+        <Circle cx={150} cy={225} r={3} fill="rgba(255,255,255,0.7)" />
+        <Rect x={75} y={8} width={150} height={80} strokeWidth={1.5} />
+        <Rect x={105} y={8} width={90} height={35} strokeWidth={1.5} />
+        <Circle cx={150} cy={55} r={3} fill="rgba(255,255,255,0.7)" />
+        <Rect x={75} y={362} width={150} height={80} strokeWidth={1.5} />
+        <Rect x={105} y={407} width={90} height={35} strokeWidth={1.5} />
+        <Circle cx={150} cy={395} r={3} fill="rgba(255,255,255,0.7)" />
+        <Rect x={120} y={0} width={60} height={8} strokeWidth={2} />
+        <Rect x={120} y={442} width={60} height={8} strokeWidth={2} />
+      </G>
+      {(schema.elements || []).map((el) => renderEl(el))}
+    </Svg>
+  );
+}
 
 function ManualSessionFiche({ session }: { session: ManualSession }) {
   const total = session.exercises.reduce((sum, e) => sum + (e.duration || 0), 0);
@@ -579,6 +695,11 @@ function ManualSessionFiche({ session }: { session: ManualSession }) {
             ) : null}
             {ex.description ? (
               <Text style={manualStyles.description}>{ex.description}</Text>
+            ) : null}
+            {ex.schema && ex.schema.elements && ex.schema.elements.length > 0 ? (
+              <View style={manualStyles.schematicBox}>
+                <ExerciseSchematicSvg schema={ex.schema} />
+              </View>
             ) : null}
           </View>
         ))}

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { rateLimit, AUTH_LIMIT, clientKey } from "@/lib/rateLimit";
 import nodemailer from "nodemailer";
 
 const transporter = nodemailer.createTransport({
@@ -15,6 +16,12 @@ const transporter = nodemailer.createTransport({
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 export async function POST(req: Request) {
+  if (!rateLimit(`auth:forgot:${clientKey(req)}`, AUTH_LIMIT)) {
+    return NextResponse.json(
+      { error: "Trop de tentatives, réessayez dans une minute" },
+      { status: 429 }
+    );
+  }
   const { email } = await req.json();
 
   if (typeof email !== "string" || !EMAIL_RE.test(email.trim())) {

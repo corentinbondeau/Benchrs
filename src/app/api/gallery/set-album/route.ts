@@ -28,6 +28,25 @@ export async function POST(req: Request) {
       return forbidden();
     }
 
+    if (albumId != null && typeof albumId !== "string") {
+      return NextResponse.json({ error: "Album ID invalide" }, { status: 400 });
+    }
+
+    if (albumId) {
+      const { data: album } = await supabase
+        .from("albums")
+        .select("id")
+        .eq("id", albumId)
+        .eq("team_id", media.team_id)
+        .maybeSingle();
+      if (!album) {
+        return NextResponse.json(
+          { error: "Album introuvable dans cette équipe" },
+          { status: 400 }
+        );
+      }
+    }
+
     const { error } = await supabase
       .from("gallery_media")
       .update({ album_id: albumId || null })

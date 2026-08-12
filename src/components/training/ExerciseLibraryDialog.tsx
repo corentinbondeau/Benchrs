@@ -113,6 +113,7 @@ export function ExerciseLibraryDialog({
       duration: ex.duration,
       description: ex.description || "",
       drill_type: ex.drill_type,
+      schema: ex.schema ?? null,
     });
     toast.success("Exercice ajouté à la séance");
   }

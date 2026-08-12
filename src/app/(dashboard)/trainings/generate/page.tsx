@@ -7,6 +7,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { ArrowLeft, Clock, Sparkles, FileDown, Dumbbell, Eye } from "lucide-react";
 import { toast } from "sonner";
+import { authFetch } from "@/lib/api-client";
+import { useTeam } from "@/lib/team";
 import { TACTICAL_PHASES, TACTICAL_PHASE_NAMES } from "@/lib/training/phases";
 import {
   EXPERTISE_LEVELS,
@@ -17,6 +19,7 @@ import {
 
 export default function GenerateTrainingPage() {
   const router = useRouter();
+  const { currentTeam } = useTeam();
   const [phase, setPhase] = useState<string>(TACTICAL_PHASE_NAMES[0]);
   const [objectives, setObjectives] = useState<string[]>([]);
   const [freeObjective, setFreeObjective] = useState("");
@@ -50,10 +53,10 @@ export default function GenerateTrainingPage() {
     setPdfPages(null);
     setSession(null);
     try {
-      const res = await fetch("/api/trainings/generate", {
+      const res = await authFetch("/api/trainings/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phase, objectives: allObjectives, playerCount, systeme: systeme || undefined, expertise }),
+        body: JSON.stringify({ phase, objectives: allObjectives, playerCount, systeme: systeme || undefined, expertise, team_id: currentTeam!.id }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => null);

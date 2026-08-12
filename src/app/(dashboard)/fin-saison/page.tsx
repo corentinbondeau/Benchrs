@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import { Loader2, PartyPopper, Clapperboard, Send, Sparkles, Heart, ChevronLeft, ChevronRight, BookOpen } from "lucide-react";
 import { authFetch } from "@/lib/api-client";
+import { signList } from "@/lib/storage";
 import { fetchTeamRecipientIds } from "@/lib/playerAlerts";
 import { toast } from "sonner";
 import type { Newsletter, SeasonStorybook, SeasonGreeting } from "@/types";
@@ -56,13 +57,16 @@ export default function FinSaisonPage() {
       supabase.from("newsletters").select("*").eq("team_id", currentTeam!.id).order("created_at", { ascending: false }),
       supabase.from("season_storybooks").select("*").eq("team_id", currentTeam!.id).eq("season", seasonLabel).maybeSingle(),
       supabase.from("season_greetings").select("*").eq("team_id", currentTeam!.id).eq("season", seasonLabel),
-      supabase.from("gallery_media").select("url, caption").eq("team_id", currentTeam!.id).eq("media_type", "image").limit(60),
+      supabase.from("gallery_media").select("url, storage_path, caption").eq("team_id", currentTeam!.id).eq("media_type", "image").limit(60),
     ]);
     return {
       newsletters: (nlRes.data || []) as Newsletter[],
       storybook: (sbRes.data as SeasonStorybook | null) ?? null,
       greetings: (grRes.data || []) as SeasonGreeting[],
-      photos: (phRes.data || []) as { url: string; caption?: string | null }[],
+      photos: (await signList(supabase, "gallery", (phRes.data || []) as { url: string; storage_path: string | null; caption?: string | null }[], (p) => ({
+        path: p.storage_path || p.url,
+        urlField: "url",
+      }))) as { url: string; caption?: string | null }[],
     };
   }, [currentTeam]);
 

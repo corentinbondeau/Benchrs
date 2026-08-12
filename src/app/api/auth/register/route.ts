@@ -1,11 +1,17 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import type { UserRole } from "@/types";
+import { rateLimit, AUTH_LIMIT, clientKey } from "@/lib/rateLimit";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 export async function POST(req: Request) {
   try {
+    if (!rateLimit(`auth:register:${clientKey(req)}`, AUTH_LIMIT)) {
+      return NextResponse.json(
+        { error: "Trop de tentatives, réessayez dans une minute" },
+        { status: 429 }
+      );
+    }
     const { email, password, firstName, lastName, role, phone } =
       await req.json();
 
@@ -57,9 +63,14 @@ export async function POST(req: Request) {
 
     // Le rôle est per-équipe : il est demandé à la rejoint d'une équipe,
     // pas à l'inscription. On garde un défaut "player" pour le profil.
+    // Le rôle client est borné à player/parent — jamais coach/owner (per-team).
+    const requestedRole = typeof role === "string" ? role : "";
+    const profileRole: "player" | "parent" =
+      requestedRole === "parent" ? "parent" : "player";
+
     const { error: profileError } = await supabase.from("profiles").insert({
       id: authData.user.id,
-      role: (role as UserRole) || "player",
+      role: profileRole,
       first_name: firstName.trim(),
       last_name: lastName.trim(),
       phone: phone || null,

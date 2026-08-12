@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getAuthUser, unauthorized, forbidden, isTeamMember } from "@/lib/api-auth";
+import { getAuthUser, unauthorized, forbidden, isTeamMember, isTeamCoach } from "@/lib/api-auth";
 
 export async function GET(req: Request) {
   const user = await getAuthUser(req);
@@ -44,7 +44,7 @@ export async function POST(req: Request) {
 
   const body = await req.json();
 
-  if (!body.team_id || !(await isTeamMember(user.id, body.team_id))) {
+  if (!body.team_id || !(await isTeamCoach(user.id, body.team_id))) {
     return forbidden();
   }
 

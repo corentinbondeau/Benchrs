@@ -65,6 +65,7 @@ function RegisterForm() {
     fffNumber: "",
   });
   const [comiteClub, setComiteClub] = useState<{ id: string; name: string } | null>(null);
+  const [comiteInviteCode, setComiteInviteCode] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(true);
@@ -211,10 +212,18 @@ function RegisterForm() {
           setLoading(false);
           return;
         }
+        if (!comiteInviteCode.trim()) {
+          setError("Veuillez renseigner le code d'invitation du club (demandez-le au président)");
+          setLoading(false);
+          return;
+        }
         const clubRes = await authFetch("/api/auth/join-club", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ clubId: comiteClub.id }),
+          body: JSON.stringify({
+            clubId: comiteClub.id,
+            inviteCode: comiteInviteCode.trim(),
+          }),
         });
         const clubData = await clubRes.json();
         if (!clubRes.ok) {
@@ -380,7 +389,7 @@ function RegisterForm() {
                   <Select
                     value={formData.joinRole}
                     onValueChange={(value) =>
-                      setFormData({ ...formData, joinRole: value as "player" | "coach" | "parent" })
+                      setFormData({ ...formData, joinRole: value as "player" | "parent" })
                     }
                   >
                     <SelectTrigger>
@@ -388,7 +397,6 @@ function RegisterForm() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="player">Joueur</SelectItem>
-                      <SelectItem value="coach">Coach</SelectItem>
                       <SelectItem value="parent">Parent</SelectItem>
                     </SelectContent>
                   </Select>
@@ -469,6 +477,26 @@ function RegisterForm() {
                     )
                   )}
                 </div>
+                {comiteClub && (
+                  <div className="space-y-2">
+                    <Label htmlFor="comiteInvite">
+                      Code d&apos;invitation du club{" "}
+                      <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      id="comiteInvite"
+                      placeholder="Demandez-le au président"
+                      value={comiteInviteCode}
+                      onChange={(e) => setComiteInviteCode(e.target.value)}
+                      autoComplete="off"
+                      required
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Le président du club vous transmet ce code pour rejoindre le
+                      comité en toute sécurité.
+                    </p>
+                  </div>
+                )}
                 <div className="rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground space-y-1">
                   <p className="font-medium text-foreground">Membre du comité</p>
                   <p>

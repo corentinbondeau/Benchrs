@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getAuthUser, isTeamMember } from "@/lib/api-auth";
+import { getAuthUser, isTeamCoach } from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { renderRosterPdf, type RosterRow } from "@/lib/export/rosterPdf";
 
@@ -15,8 +15,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "teamId requis" }, { status: 400 });
   }
 
-  if (!(await isTeamMember(user.id, teamId))) {
-    return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
+  if (!(await isTeamCoach(user.id, teamId))) {
+    return NextResponse.json({ error: "Accès réservé au coach" }, { status: 403 });
   }
 
   try {

@@ -2,9 +2,16 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { defaultNotificationPrefs } from "@/lib/notificationTypes";
 import { getAuthUser, unauthorized } from "@/lib/api-auth";
+import { rateLimit, AUTH_LIMIT, clientKey } from "@/lib/rateLimit";
 
 export async function POST(req: Request) {
   try {
+    if (!rateLimit(`auth:join-team:${clientKey(req)}`, AUTH_LIMIT)) {
+      return NextResponse.json(
+        { error: "Trop de tentatives, réessayez dans une minute" },
+        { status: 429 }
+      );
+    }
     const authUser = await getAuthUser(req);
     if (!authUser) return unauthorized();
 
@@ -17,13 +24,10 @@ export async function POST(req: Request) {
       );
     }
 
-    const allowedRoles = ["coach", "player", "parent"];
-    if (role && !allowedRoles.includes(role)) {
-      return NextResponse.json(
-        { error: "Rôle invalide" },
-        { status: 400 }
-      );
-    }
+    // L'auto-inscription via code ne peut JAMAIS attribuer un rôle coach/owner :
+    // seul un coach/owner existant peut ajouter un coach (via les réglages d'équipe).
+    const allowedRoles = ["player", "parent"];
+    const memberRole = allowedRoles.includes(role) ? role : "player";
 
     const userId = authUser.id;
     const supabase = createAdminClient();
@@ -57,19 +61,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // Determine role: explicit from join form, else fall back to profile role
-    let memberRole = role || "player";
-    if (!role) {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", userId)
-        .single();
-
-      memberRole = profile?.role || "player";
-    }
-
-    // Add as team member
+    // Add as team member (role limité à player/parent ci-dessus)
     const { error: memberError } = await supabase
       .from("team_members")
       .insert({ team_id: team.id, user_id: userId, role: memberRole });

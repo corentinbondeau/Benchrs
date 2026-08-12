@@ -31,15 +31,20 @@ export function proxy(request: NextRequest) {
     pathname.startsWith("/live/") ||
     pathname.startsWith("/c/");
   const isApiAuth = pathname.startsWith("/api/auth");
-  const isApiDiag = pathname === "/api/diag";
-  const isPublicApi = pathname.startsWith("/api/live/") || pathname.startsWith("/api/calendar/ics");
+  // /api/notifications/cron est appelé par Vercel Cron (Bearer CRON_SECRET) sans session,
+  // et /api/clubs/lookup-public est appelé depuis la page publique /register.
+  const isPublicApi =
+    pathname.startsWith("/api/live/") ||
+    pathname.startsWith("/api/calendar/ics") ||
+    pathname === "/api/notifications/cron" ||
+    pathname === "/api/clubs/lookup-public";
 
   const sessionToken =
     request.cookies.get("sb-gxksycbwylhkhihcvddw-auth-token")?.value;
 
   const isLoggedIn = !!sessionToken;
 
-  if (isApiAuth || isApiDiag || isPublicApi) {
+  if (isApiAuth || isPublicApi) {
     return NextResponse.next();
   }
 

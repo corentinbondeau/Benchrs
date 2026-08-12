@@ -10,7 +10,7 @@ import { UserCog, Check, X } from "lucide-react";
 import type { Profile } from "@/types";
 
 export default function AdminPlayersPage() {
-  const { currentTeam } = useTeam();
+  const { currentTeam, userRole } = useTeam();
   const [players, setPlayers] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -60,6 +60,15 @@ export default function AdminPlayersPage() {
       <div className="space-y-4 md:space-y-6 pb-20 md:pb-0">
         <h2 className="text-xl md:text-2xl font-bold">Gestion des joueurs</h2>
         <div className="h-64 animate-pulse rounded-lg bg-muted" />
+      </div>
+    );
+  }
+
+  const isCoach = userRole === "coach" || userRole === "owner";
+  if (!isCoach) {
+    return (
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <p className="text-muted-foreground">Accès réservé au coach</p>
       </div>
     );
   }

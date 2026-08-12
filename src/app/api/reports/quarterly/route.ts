@@ -48,6 +48,19 @@ export async function POST(req: Request) {
     if (!playerId || typeof playerId !== "string") {
       return NextResponse.json({ error: "playerId requis" }, { status: 400 });
     }
+    const { data: playerMember } = await supabase
+      .from("team_members")
+      .select("user_id")
+      .eq("team_id", teamId)
+      .eq("user_id", playerId)
+      .eq("role", "player")
+      .maybeSingle();
+    if (!playerMember) {
+      return NextResponse.json(
+        { error: "Ce joueur ne fait pas partie de l'équipe" },
+        { status: 400 }
+      );
+    }
     if (!report || typeof report !== "object") {
       return NextResponse.json({ error: "report manquant" }, { status: 400 });
     }

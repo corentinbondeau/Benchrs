@@ -86,6 +86,9 @@ export default function TeamSettingsPage() {
   >([]);
   const [clubTeamsList, setClubTeamsList] = useState<{ id: string; name: string }[]>([]);
   const [canManageClub, setCanManageClub] = useState(false);
+  const [comiteInviteCode, setComiteInviteCode] = useState("");
+  const [comiteCodeCopied, setComiteCodeCopied] = useState(false);
+  const [regeneratingCode, setRegeneratingCode] = useState(false);
   const [newMemberEmail, setNewMemberEmail] = useState("");
   const [addingMember, setAddingMember] = useState(false);
   const [clubIdentity, setClubIdentity] = useState<{
@@ -192,6 +195,17 @@ export default function TeamSettingsPage() {
     };
   }, []);
 
+  const fetchInviteCode = useCallback(async (clubId: string) => {
+    const res = await authFetch("/api/clubs/invite-code", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ clubId }),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return (data.inviteCode as string) ?? null;
+  }, []);
+
   useEffect(() => {
     if (!currentTeam) return;
 
@@ -265,6 +279,11 @@ export default function TeamSettingsPage() {
         setClubMembers(members);
         setClubTeamsList(t);
         setCanManageClub(canManage);
+        if (canManage) {
+          fetchInviteCode(team.club_id!).then((code) => {
+            if (code) setComiteInviteCode(code);
+          });
+        }
       });
       loadClubIdentity(team.club_id).then(({ club, aliases }) => {
         setClubIdentity(club);
@@ -287,7 +306,7 @@ export default function TeamSettingsPage() {
         setPublicPhoneInput((club as unknown as { contact_phone?: string | null }).contact_phone ?? "");
       });
     }
-  }, [currentTeam, fetchMembers, userRole, loadClubData, loadClubIdentity]);
+  }, [currentTeam, fetchMembers, userRole, loadClubData, loadClubIdentity, fetchInviteCode]);
 
   async function toggleTabVisibility(key: string, visible: boolean) {
     if (!currentTeam) return;
@@ -520,6 +539,35 @@ export default function TeamSettingsPage() {
     setClubMembers(data.members);
     setClubTeamsList(data.teams);
     setCanManageClub(data.canManage);
+    if (data.canManage) {
+      const code = await fetchInviteCode(currentTeam.club_id);
+      if (code) setComiteInviteCode(code);
+    }
+  }
+
+  async function regenerateInviteCode() {
+    if (!currentTeam?.club_id || !comiteInviteCode) return;
+    setRegeneratingCode(true);
+    const res = await authFetch("/api/clubs/invite-code", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ clubId: currentTeam.club_id, regenerate: true }),
+    });
+    setRegeneratingCode(false);
+    if (res.ok) {
+      const data = await res.json();
+      setComiteInviteCode(data.inviteCode ?? "");
+      toast.success("Code d'invitation régénéré");
+    } else {
+      toast.error("Erreur lors de la régénération du code");
+    }
+  }
+
+  async function copyInviteCode() {
+    if (!comiteInviteCode) return;
+    await navigator.clipboard.writeText(comiteInviteCode);
+    setComiteCodeCopied(true);
+    setTimeout(() => setComiteCodeCopied(false), 2000);
   }
 
   async function addClubMember() {
@@ -1847,6 +1895,44 @@ export default function TeamSettingsPage() {
                     )}
                   </Button>
                 </div>
+              </div>
+            )}
+
+            {canManageClub && comiteInviteCode && (
+              <div className="space-y-2 border-t pt-3">
+                <Label className="text-xs">
+                  Code d&apos;invitation du comité
+                </Label>
+                <div className="flex gap-2">
+                  <Input
+                    value={comiteInviteCode}
+                    readOnly
+                    className="h-9 text-sm font-mono"
+                  />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-9 px-3"
+                    title="Copier le code"
+                    onClick={copyInviteCode}
+                  >
+                    <Copy className={`h-4 w-4 ${comiteCodeCopied ? "text-green-500" : ""}`} />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-9 px-3"
+                    title="Régénérer le code"
+                    disabled={regeneratingCode}
+                    onClick={regenerateInviteCode}
+                  >
+                    <RefreshCw className={`h-4 w-4 ${regeneratingCode ? "animate-spin" : ""}`} />
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  À transmettre aux personnes qui rejoignent le comité à
+                  l&apos;inscription. La régénération invalide l&apos;ancien code.
+                </p>
               </div>
             )}
           </CardContent>

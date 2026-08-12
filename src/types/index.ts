@@ -224,11 +224,28 @@ export interface TrainingSession {
   updated_at: string;
 }
 
+export interface ExerciseSchematicElement {
+  id: string;
+  type: "player" | "cone" | "ball" | "arrow" | "zone" | "label";
+  x: number;
+  y: number;
+  x2?: number;
+  y2?: number;
+  team?: "att" | "def" | "neutral";
+  number?: string;
+  text?: string;
+}
+
+export interface ExerciseSchematic {
+  elements: ExerciseSchematicElement[];
+}
+
 export interface Exercise {
   name: string;
   duration: number;
   description: string;
   drill_type: string;
+  schema?: ExerciseSchematic | null;
 }
 
 export interface Formation {
@@ -556,6 +573,7 @@ export interface ExerciseLibrary {
   duration: number;
   description: string | null;
   drill_type: string;
+  schema?: ExerciseSchematic | null;
   created_at: string;
 }
 
@@ -589,6 +607,7 @@ export interface PhysicalPrepDocument {
   title: string;
   description: string | null;
   file_url: string;
+  storage_path?: string | null;
   file_type: string;
   uploaded_by: string | null;
   is_public: boolean;

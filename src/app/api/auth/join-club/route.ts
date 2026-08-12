@@ -1,14 +1,23 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAuthUser, unauthorized } from "@/lib/api-auth";
+import { rateLimit, AUTH_LIMIT, clientKey } from "@/lib/rateLimit";
 
-// Rejoint le comité d'un club en tant que membre (role 'comite'), depuis l'inscription.
+// Rejoint le comité d'un club en tant que membre (role 'comite').
+// Sécurisé par un code d'invitation généré par le club (comite_invite_code) :
+// un utilisateur quelconque ne peut plus s'auto-inscrire au comité d'un club.
 export async function POST(req: Request) {
   try {
+    if (!rateLimit(`auth:join-club:${clientKey(req)}`, AUTH_LIMIT)) {
+      return NextResponse.json(
+        { error: "Trop de tentatives, réessayez dans une minute" },
+        { status: 429 }
+      );
+    }
     const authUser = await getAuthUser(req);
     if (!authUser) return unauthorized();
 
-    const { clubId } = await req.json();
+    const { clubId, inviteCode } = await req.json();
 
     if (!clubId || typeof clubId !== "string") {
       return NextResponse.json(
@@ -17,11 +26,18 @@ export async function POST(req: Request) {
       );
     }
 
+    if (typeof inviteCode !== "string" || !inviteCode.trim()) {
+      return NextResponse.json(
+        { error: "Code d'invitation requis. Demandez-le au président du club." },
+        { status: 400 }
+      );
+    }
+
     const supabase = createAdminClient();
 
     const { data: club } = await supabase
       .from("clubs")
-      .select("id, name")
+      .select("id, name, comite_invite_code")
       .eq("id", clubId)
       .maybeSingle();
 
@@ -29,6 +45,13 @@ export async function POST(req: Request) {
       return NextResponse.json(
         { error: "Club introuvable" },
         { status: 404 }
+      );
+    }
+
+    if (!club.comite_invite_code || club.comite_invite_code !== inviteCode.trim()) {
+      return NextResponse.json(
+        { error: "Code d'invitation invalide. Demandez-le au président du club." },
+        { status: 403 }
       );
     }
 

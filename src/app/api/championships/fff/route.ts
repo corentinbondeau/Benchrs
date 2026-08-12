@@ -26,6 +26,23 @@ function stripTags(html: string): string {
   return html.replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim();
 }
 
+function isAllowedFffUrl(url: string): boolean {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return false;
+  }
+  const host = parsed.hostname.toLowerCase();
+  const allowed =
+    host === "fff.fr" ||
+    host === "www.fff.fr" ||
+    host.endsWith(".fff.fr") ||
+    host === "media.fff.fr" ||
+    host.endsWith(".media.fff.fr");
+  return parsed.protocol === "https:" && allowed;
+}
+
 function parseStandingsTable(html: string): FFFTeam[] {
   const teams: FFFTeam[] = [];
 
@@ -284,22 +301,9 @@ export async function POST(req: Request) {
     }
   }
 
-  // SSRF : n'autoriser que le domaine fff.fr en HTTPS
+  // SSRF : n'autoriser que le domaine fff.fr en HTTPS (y compris après redirection)
   if (url) {
-    let parsed: URL;
-    try {
-      parsed = new URL(url);
-    } catch {
-      return NextResponse.json({ error: "URL invalide" }, { status: 400 });
-    }
-    const host = parsed.hostname.toLowerCase();
-    const allowed =
-      host === "fff.fr" ||
-      host === "www.fff.fr" ||
-      host.endsWith(".fff.fr") ||
-      host === "media.fff.fr" ||
-      host.endsWith(".media.fff.fr");
-    if (parsed.protocol !== "https:" || !allowed) {
+    if (!isAllowedFffUrl(url)) {
       return NextResponse.json(
         { error: "Seules les URL https://www.fff.fr sont autorisées" },
         { status: 400 }
@@ -311,29 +315,47 @@ export async function POST(req: Request) {
 
   if (!html && url) {
     try {
-      const res = await fetch(url, {
-        headers: {
-          "User-Agent":
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
-          Accept:
-            "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
-          "Accept-Language": "fr-FR,fr;q=0.9,en-US;q=0.8,en;q=0.7",
-          "Accept-Encoding": "gzip, deflate, br",
-          Referer: "https://www.fff.fr/",
-          "sec-ch-ua":
-            '"Google Chrome";v="125", "Chromium";v="125", "Not.A/Brand";v="24"',
-          "sec-ch-ua-mobile": "?0",
-          "sec-ch-ua-platform": '"macOS"',
-          "sec-fetch-dest": "document",
-          "sec-fetch-mode": "navigate",
-          "sec-fetch-site": "same-origin",
-        },
-      });
+      // Suivi manuel des redirections : chaque étape doit rester sur un domaine fff.fr.
+      let currentUrl = url;
+      let res: Response | null = null;
+      for (let i = 0; i < 3; i++) {
+        const candidate = await fetch(currentUrl, {
+          redirect: "manual",
+          headers: {
+            "User-Agent":
+              "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+            Accept:
+              "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+            "Accept-Language": "fr-FR,fr;q=0.9,en-US;q=0.8,en;q=0.7",
+            "Accept-Encoding": "gzip, deflate, br",
+            Referer: "https://www.fff.fr/",
+            "sec-ch-ua":
+              '"Google Chrome";v="125", "Chromium";v="125", "Not.A/Brand";v="24"',
+            "sec-ch-ua-mobile": "?0",
+            "sec-ch-ua-platform": '"macOS"',
+            "sec-fetch-dest": "document",
+            "sec-fetch-mode": "navigate",
+            "sec-fetch-site": "same-origin",
+          },
+        });
+        res = candidate;
+        if (![301, 302, 303, 307, 308].includes(res.status)) break;
+        const location = res.headers.get("location");
+        if (!location) break;
+        currentUrl = new URL(location, currentUrl).toString();
+        if (!isAllowedFffUrl(currentUrl)) {
+          return NextResponse.json(
+            { error: "Redirection hors domaine fff.fr refusée" },
+            { status: 400 }
+          );
+        }
+      }
 
-      if (!res.ok) {
+      if (!res || !res.ok) {
+        const status = res?.status ?? 0;
         return NextResponse.json(
           {
-            error: `Impossible de recuperer la page FFF (HTTP ${res.status}). Le site FFF bloque parfois les requetes serveur. Essayez de copier-coller le HTML de la page.`,
+            error: `Impossible de recuperer la page FFF (HTTP ${status}). Le site FFF bloque parfois les requetes serveur. Essayez de copier-coller le HTML de la page.`,
           },
           { status: 502 }
         );

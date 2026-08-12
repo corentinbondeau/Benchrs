@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { signList } from "@/lib/storage";
 import { useAuth } from "@/lib/auth";
 import { useTeam } from "@/lib/team";
 import { Card, CardContent } from "@/components/ui/card";
@@ -63,7 +64,11 @@ export default function ClubFeedPage() {
       .eq("club_id", clubId)
       .order("created_at", { ascending: false })
       .limit(50);
-    return (data || []) as unknown as PostRow[];
+    const rows = (data || []) as unknown as PostRow[];
+    return signList(supabase, "club_feed", rows, (p) => ({
+      path: p.storage_path || p.media_url,
+      urlField: "media_url",
+    }));
   }, [clubId]);
 
   useEffect(() => {
@@ -135,10 +140,7 @@ export default function ClubFeedPage() {
           .from("club_feed")
           .upload(storagePath, buffer, { upsert: true, contentType: file.type });
         if (uploadError) throw new Error("Upload impossible");
-        const { data: urlData } = supabase.storage
-          .from("club_feed")
-          .getPublicUrl(storagePath);
-        mediaUrl = urlData.publicUrl;
+        mediaUrl = storagePath;
         mediaType = file.type.startsWith("video/") ? "video" : "image";
       }
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { authFetch } from "@/lib/api-client";
 import { useTeam } from "@/lib/team";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -24,6 +25,7 @@ import {
   FileDown,
   FileText,
   LibraryBig,
+  LayoutGrid,
   Loader2,
   Lock,
   Plus,
@@ -49,8 +51,12 @@ import {
 } from "@/components/training/TrainingTemplatesDialog";
 import { TrainingSeriesDialog } from "@/components/training/TrainingSeriesDialog";
 import { ExerciseEducators, type ExerciseSlot } from "@/components/training/ExerciseEducators";
+import {
+  ExerciseSchematicDialog,
+  ExerciseSchematicView,
+} from "@/components/training/ExerciseSchematic";
 import { DRILL_TYPES } from "@/lib/training/exercises";
-import type { Exercise, TrainingTemplate } from "@/types";
+import type { Exercise, ExerciseSchematic, TrainingTemplate } from "@/types";
 
 type FicheSource = "ai" | "manual";
 
@@ -120,6 +126,7 @@ export function SessionFiche({
   const [manualObjectives, setManualObjectives] = useState<string[]>([]);
   const [savingManual, setSavingManual] = useState(false);
   const [visibility, setVisibility] = useState<FicheVisibility>("coach");
+  const [schematicEdit, setSchematicEdit] = useState<{ index: number; schema: ExerciseSchematic } | null>(null);
 
   useEffect(() => {
     if (!currentTeam) return;
@@ -155,7 +162,7 @@ export function SessionFiche({
     if (!f.exercises) return;
     setPdfLoading(true);
     try {
-      const res = await fetch("/api/trainings/pdf", {
+      const res = await authFetch("/api/trainings/pdf", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -226,10 +233,10 @@ export function SessionFiche({
     }
     setGenerating(true);
     try {
-      const res = await fetch("/api/trainings/generate", {
+      const res = await authFetch("/api/trainings/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phase, objectives: allObjectives, playerCount, systeme: systeme || undefined, expertise }),
+        body: JSON.stringify({ phase, objectives: allObjectives, playerCount, systeme: systeme || undefined, expertise, team_id: currentTeam!.id }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => null);
@@ -379,10 +386,20 @@ export function SessionFiche({
     setManualExercises(manualExercises.filter((_, idx) => idx !== i));
   }
 
-  function updateManualExercise(i: number, field: keyof Exercise, value: string | number) {
+  function updateManualExercise(i: number, field: keyof Exercise, value: string | number | ExerciseSchematic | null) {
     const updated = [...manualExercises];
     updated[i] = { ...updated[i], [field]: value };
     setManualExercises(updated);
+  }
+
+  function handleSchematicChange(s: ExerciseSchematic) {
+    setSchematicEdit((prev) => (prev ? { ...prev, schema: s } : prev));
+  }
+
+  function handleSchematicSave() {
+    if (!schematicEdit) return;
+    updateManualExercise(schematicEdit.index, "schema", schematicEdit.schema);
+    setSchematicEdit(null);
   }
 
   function addFromLibrary(ex: Exercise) {
@@ -401,6 +418,7 @@ export function SessionFiche({
       duration: ex.duration,
       description: ex.description.trim() || null,
       drill_type: ex.drill_type,
+      schema: ex.schema ?? null,
     });
     if (error) {
       toast.error("Erreur lors de l'enregistrement dans la bibliothèque");
@@ -564,6 +582,7 @@ export function SessionFiche({
                       {ex.description && (
                         <p className="text-sm text-muted-foreground whitespace-pre-wrap">{ex.description}</p>
                       )}
+                      {ex.schema && <ExerciseSchematicView schema={ex.schema} />}
                     </div>
                   ))}
                   {isCoach && (
@@ -782,6 +801,28 @@ export function SessionFiche({
                         <span className="text-xs text-muted-foreground">min</span>
                       </div>
                     </div>
+                    <div className="flex items-center justify-between">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={() =>
+                          setSchematicEdit({
+                            index: i,
+                            schema: ex.schema?.elements?.length
+                              ? { elements: ex.schema.elements.map((el) => ({ ...el })) }
+                              : { elements: [] },
+                          })
+                        }
+                      >
+                        <LayoutGrid className="h-3 w-3 mr-1" />
+                        {ex.schema?.elements?.length ? `Schéma (${ex.schema.elements.length})` : "Schéma"}
+                      </Button>
+                      <span className="text-[10px] text-muted-foreground">
+                        {ex.schema?.elements?.length ? "schéma attaché" : "sans schéma"}
+                      </span>
+                    </div>
                     <Textarea
                       rows={2}
                       value={ex.description}
@@ -815,6 +856,17 @@ export function SessionFiche({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Schéma d'exercice */}
+      <ExerciseSchematicDialog
+        open={!!schematicEdit}
+        onOpenChange={(v) => {
+          if (!v) setSchematicEdit(null);
+        }}
+        value={schematicEdit?.schema ?? { elements: [] }}
+        onChange={handleSchematicChange}
+        onSave={handleSchematicSave}
+      />
 
       {/* Bibliothèque d'exercices */}
       <ExerciseLibraryDialog

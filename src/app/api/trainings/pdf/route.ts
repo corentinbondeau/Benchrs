@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 import { renderSessionPdf, renderManualSessionPdf, type ManualSession } from "@/lib/training/pdf";
 import type { AISession } from "@/lib/training/ai-generator";
+import { getAuthUser, unauthorized } from "@/lib/api-auth";
 
 export async function POST(req: Request) {
+  const user = await getAuthUser(req);
+  if (!user) return unauthorized();
+
   const body = await req.json().catch(() => null);
   const session = body?.session as AISession | ManualSession | undefined;
   const source = body?.source as "ai" | "manual" | undefined;

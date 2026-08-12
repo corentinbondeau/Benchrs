@@ -27,7 +27,7 @@ import { authFetch } from "@/lib/api-client";
 function JoinTeamForm() {
   const searchParams = useSearchParams();
   const [inviteCode, setInviteCode] = useState(searchParams.get("code") || "");
-  const [role, setRole] = useState<"player" | "coach" | "parent">("player");
+  const [role, setRole] = useState<"player" | "parent">("player");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState("");
@@ -174,13 +174,12 @@ function JoinTeamForm() {
 
           <div className="space-y-2">
             <Label>Votre rôle dans cette équipe</Label>
-            <Select value={role} onValueChange={(v) => v && setRole(v as "player" | "coach" | "parent")}>
+            <Select value={role} onValueChange={(v) => v && setRole(v as "player" | "parent")}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="player">Joueur</SelectItem>
-                <SelectItem value="coach">Coach</SelectItem>
                 <SelectItem value="parent">Parent</SelectItem>
               </SelectContent>
             </Select>

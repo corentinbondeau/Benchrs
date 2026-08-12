@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useTeam } from "@/lib/team";
+import { signList } from "@/lib/storage";
 import { authFetch } from "@/lib/api-client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -130,6 +131,10 @@ export default function ChallengePage() {
         .select("*")
         .eq("challenge_id", challenge.id);
       submissions = (subsRes.data as ChallengeSubmission[]) || [];
+      submissions = await signList(supabase, "challenge_media", submissions, (s) => ({
+        path: s.storage_path || s.media_url,
+        urlField: "media_url",
+      }));
       const playerIds = submissions.map((s) => s.player_id);
       if (playerIds.length > 0) {
         const profRes = await supabase
@@ -266,7 +271,6 @@ export default function ChallengePage() {
         .from("challenge_media")
         .upload(path, buffer, { upsert: true, contentType: file.type });
       if (uploadError) throw new Error("Upload impossible");
-      const { data: urlData } = supabase.storage.from("challenge_media").getPublicUrl(path);
 
       const existing = data.submissions.find((s) => s.player_id === playerId);
       if (existing && existing.status !== "validated") {
@@ -276,7 +280,7 @@ export default function ChallengePage() {
         const { error: updError } = await supabase
           .from("challenge_submissions")
           .update({
-            media_url: urlData.publicUrl,
+            media_url: path,
             storage_path: path,
             comment: comment.trim() || null,
             status: "pending",
@@ -289,7 +293,7 @@ export default function ChallengePage() {
             challenge_id: data.challenge.id,
             player_id: playerId,
             team_id: currentTeam.id,
-            media_url: urlData.publicUrl,
+            media_url: path,
             storage_path: path,
             comment: comment.trim() || null,
             status: "pending",

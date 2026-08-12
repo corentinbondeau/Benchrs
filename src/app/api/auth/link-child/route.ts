@@ -1,9 +1,16 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAuthUser, unauthorized } from "@/lib/api-auth";
+import { rateLimit, AUTH_LIMIT, clientKey } from "@/lib/rateLimit";
 
 export async function POST(req: Request) {
   try {
+    if (!rateLimit(`auth:link-child:${clientKey(req)}`, AUTH_LIMIT)) {
+      return NextResponse.json(
+        { error: "Trop de tentatives, réessayez dans une minute" },
+        { status: 429 }
+      );
+    }
     const authUser = await getAuthUser(req);
     if (!authUser) return unauthorized();
 
@@ -25,7 +32,7 @@ export async function POST(req: Request) {
 
     const { data: parentMember } = await supabase
       .from("team_members")
-      .select("id")
+      .select("id, role")
       .eq("user_id", authUser.id)
       .eq("team_id", teamId)
       .maybeSingle();
@@ -33,6 +40,13 @@ export async function POST(req: Request) {
     if (!parentMember) {
       return NextResponse.json(
         { error: "Vous n'êtes pas membre de cette équipe" },
+        { status: 403 }
+      );
+    }
+
+    if (parentMember.role !== "parent") {
+      return NextResponse.json(
+        { error: "Seuls les parents peuvent lier un joueur" },
         { status: 403 }
       );
     }
