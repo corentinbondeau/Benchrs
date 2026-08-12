@@ -63,6 +63,8 @@ export default function ChampionshipPage() {
   // Mode automatique DOFA
   const [dofaLoading, setDofaLoading] = useState(false);
   const [dofaMatches, setDofaMatches] = useState<ScrapedMatch[] | null>(null);
+  const [dofaStandings, setDofaStandings] = useState<ChampionshipTeam[] | null>(null);
+  const [dofaTab, setDofaTab] = useState<"calendar" | "standings">("calendar");
 
   // Mode manuel (copier-coller HTML)
   const [manualOpen, setManualOpen] = useState(false);
@@ -94,6 +96,8 @@ export default function ChampionshipPage() {
   async function handleFetchDOFA() {
     setDofaLoading(true);
     setDofaMatches(null);
+    setDofaStandings(null);
+    setDofaTab("calendar");
     try {
       const res = await authFetch("/api/championships/dofa", {
         method: "POST",
@@ -106,8 +110,16 @@ export default function ChampionshipPage() {
         return;
       }
       if (data.matches && data.matches.length > 0) {
-        setDofaMatches(data.matches);
-        toast.success(`${data.matches.length} matchs trouvés`);
+        // Trier les matchs par date chronologique
+        const sorted = [...data.matches].sort(
+          (a: ScrapedMatch, b: ScrapedMatch) => a.date.localeCompare(b.date)
+        );
+        setDofaMatches(sorted);
+        if (data.standings && data.standings.length > 0) {
+          setDofaStandings(data.standings);
+        }
+        const standingsMsg = data.standings ? ` + ${data.standings.length} équipes au classement` : "";
+        toast.success(`${data.matches.length} matchs trouvés${standingsMsg}`);
       } else {
         toast.error("Aucun match trouvé pour ce club");
       }
@@ -180,6 +192,24 @@ export default function ChampionshipPage() {
       }
       const championship = await createRes.json();
 
+      // Si classement DOFA disponible, importer les équipes en premier
+      if (source === "dofa" && dofaStandings && dofaStandings.length > 0) {
+        for (const team of dofaStandings) {
+          await authFetch("/api/championships/standings", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              championship_id: championship.id,
+              home_team: team.team_name,
+              away_team: "",
+              home_score: team.goals_for,
+              away_score: team.goals_against,
+              team_id: currentTeam!.id,
+            }),
+          });
+        }
+      }
+
       // Sauvegarder les matchs
       for (const m of matches) {
         await authFetch("/api/championships/standings", {
@@ -199,6 +229,7 @@ export default function ChampionshipPage() {
       toast.success("Championnat importé avec succès");
       if (source === "dofa") {
         setDofaMatches(null);
+        setDofaStandings(null);
         setImportName("");
         setImportSeason("2025-2026");
         setImportLevel("");
@@ -451,64 +482,127 @@ export default function ChampionshipPage() {
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <Zap className="h-4 w-4 text-[var(--color-gold)]" />
-              Aperçu — Calendrier FFF (DOFA)
+              Aperçu DOFA
               <Badge variant="outline" className="ml-auto text-xs">
                 {dofaMatches.length} matchs
+                {dofaStandings ? ` · ${dofaStandings.length} équipes` : ""}
               </Badge>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Tableau des 10 premiers matchs */}
-            <div className="rounded-lg border overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead className="bg-muted/50 sticky top-0">
-                  <tr>
-                    <th className="p-1.5 text-left">Date</th>
-                    <th className="p-1.5 text-left">Domicile</th>
-                    <th className="p-1.5 text-center">Score</th>
-                    <th className="p-1.5 text-left">Extérieur</th>
-                    <th className="p-1.5 text-left">Lieu</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {dofaMatches.slice(0, 10).map((m, idx) => (
-                    <tr key={idx} className="border-t">
-                      <td className="p-1.5 whitespace-nowrap">{m.date}</td>
-                      <td
-                        className={`p-1.5 font-medium ${
-                          m.home_score !== null &&
-                          (m.home_score ?? 0) > (m.away_score ?? 0)
-                            ? "text-green-600"
-                            : ""
-                        }`}
-                      >
-                        {m.home_team}
-                      </td>
-                      <td className="p-1.5 text-center font-bold">
-                        {m.home_score !== null
-                          ? `${m.home_score} - ${m.away_score}`
-                          : "?"}
-                      </td>
-                      <td
-                        className={`p-1.5 font-medium ${
-                          m.away_score !== null &&
-                          (m.away_score ?? 0) > (m.home_score ?? 0)
-                            ? "text-green-600"
-                            : ""
-                        }`}
-                      >
-                        {m.away_team}
-                      </td>
-                      <td className="p-1.5 text-muted-foreground">{m.location ?? "—"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            {/* Onglets Calendrier / Classement */}
+            <div className="flex gap-1 border-b">
+              <button
+                onClick={() => setDofaTab("calendar")}
+                className={`px-3 py-1.5 text-sm font-medium border-b-2 transition-colors ${
+                  dofaTab === "calendar"
+                    ? "border-[var(--color-gold)] text-foreground"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Calendrier
+              </button>
+              {dofaStandings && (
+                <button
+                  onClick={() => setDofaTab("standings")}
+                  className={`px-3 py-1.5 text-sm font-medium border-b-2 transition-colors ${
+                    dofaTab === "standings"
+                      ? "border-[var(--color-gold)] text-foreground"
+                      : "border-transparent text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Classement
+                </button>
+              )}
             </div>
-            {dofaMatches.length > 10 && (
-              <p className="text-xs text-muted-foreground text-center">
-                … et {dofaMatches.length - 10} autres matchs
-              </p>
+
+            {/* Onglet Calendrier : tous les matchs triés par date */}
+            {dofaTab === "calendar" && (
+              <div className="rounded-lg border overflow-x-auto max-h-80 overflow-y-auto">
+                <table className="w-full text-xs">
+                  <thead className="bg-muted/50 sticky top-0">
+                    <tr>
+                      <th className="p-1.5 text-left">Date</th>
+                      <th className="p-1.5 text-left">Domicile</th>
+                      <th className="p-1.5 text-center">Score</th>
+                      <th className="p-1.5 text-left">Extérieur</th>
+                      <th className="p-1.5 text-left">Lieu</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {dofaMatches.map((m, idx) => (
+                      <tr key={idx} className="border-t">
+                        <td className="p-1.5 whitespace-nowrap">{m.date}</td>
+                        <td
+                          className={`p-1.5 font-medium ${
+                            m.home_score !== null &&
+                            (m.home_score ?? 0) > (m.away_score ?? 0)
+                              ? "text-green-600"
+                              : ""
+                          }`}
+                        >
+                          {m.home_team}
+                        </td>
+                        <td className="p-1.5 text-center font-bold">
+                          {m.home_score !== null
+                            ? `${m.home_score} - ${m.away_score}`
+                            : "?"}
+                        </td>
+                        <td
+                          className={`p-1.5 font-medium ${
+                            m.away_score !== null &&
+                            (m.away_score ?? 0) > (m.home_score ?? 0)
+                              ? "text-green-600"
+                              : ""
+                          }`}
+                        >
+                          {m.away_team}
+                        </td>
+                        <td className="p-1.5 text-muted-foreground">{m.location ?? "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Onglet Classement */}
+            {dofaTab === "standings" && dofaStandings && (
+              <div className="rounded-lg border overflow-x-auto max-h-80 overflow-y-auto">
+                <table className="w-full text-xs">
+                  <thead className="bg-muted/50 sticky top-0">
+                    <tr>
+                      <th className="p-1.5 text-left">#</th>
+                      <th className="p-1.5 text-left min-w-[120px]">Équipe</th>
+                      <th className="p-1.5 text-center">J</th>
+                      <th className="p-1.5 text-center">V</th>
+                      <th className="p-1.5 text-center">N</th>
+                      <th className="p-1.5 text-center">D</th>
+                      <th className="p-1.5 text-center">BP</th>
+                      <th className="p-1.5 text-center">BC</th>
+                      <th className="p-1.5 text-center font-bold">Pts</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {dofaStandings.map((team, idx) => (
+                      <tr
+                        key={team.id}
+                        className={`border-t ${idx === 0 ? "bg-amber-50 dark:bg-amber-950/20" : ""}`}
+                      >
+                        <td className="p-1.5">{idx + 1}</td>
+                        <td className="p-1.5 font-medium">{team.team_name}</td>
+                        <td className="p-1.5 text-center">{team.played}</td>
+                        <td className="p-1.5 text-center">{team.won}</td>
+                        <td className="p-1.5 text-center">{team.drawn}</td>
+                        <td className="p-1.5 text-center">{team.lost}</td>
+                        <td className="p-1.5 text-center">{team.goals_for}</td>
+                        <td className="p-1.5 text-center">{team.goals_against}</td>
+                        <td className="p-1.5 text-center font-bold">{team.points}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
 
             {/* Formulaire d'import */}
@@ -544,6 +638,7 @@ export default function ChampionshipPage() {
                   variant="outline"
                   onClick={() => {
                     setDofaMatches(null);
+                    setDofaStandings(null);
                     setImportName("");
                     setImportSeason("2025-2026");
                     setImportLevel("");

@@ -27,6 +27,37 @@ interface DOFAEquipe {
   };
 }
 
+interface DOFATeam {
+  libelle: string;
+  points?: number;
+  joues?: number;
+  victoires?: number;
+  nuls?: number;
+  defaites?: number;
+  butsPour?: number;
+  butsContre?: number;
+  // Variantes possibles selon l'API DOFA
+  nbMatchsJoues?: number;
+  nbVictoires?: number;
+  nbNuls?: number;
+  nbDefaites?: number;
+  nbButsPour?: number;
+  nbButsContre?: number;
+  nbPoints?: number;
+}
+
+interface ParsedTeam {
+  id: string;
+  team_name: string;
+  played: number;
+  won: number;
+  drawn: number;
+  lost: number;
+  goals_for: number;
+  goals_against: number;
+  points: number;
+}
+
 interface ParsedMatch {
   date: string;
   home_team: string;
@@ -34,6 +65,33 @@ interface ParsedMatch {
   home_score: number | null;
   away_score: number | null;
   location?: string;
+}
+
+function parseTeams(data: unknown): ParsedTeam[] {
+  const teams: ParsedTeam[] = [];
+
+  if (!Array.isArray(data)) return teams;
+
+  for (const item of data) {
+    const t = item as DOFATeam;
+
+    if (!t.libelle) continue;
+
+    teams.push({
+      id: crypto.randomUUID(),
+      team_name: t.libelle,
+      played: t.nbMatchsJoues ?? t.joues ?? 0,
+      won: t.nbVictoires ?? t.victoires ?? 0,
+      drawn: t.nbNuls ?? t.nuls ?? 0,
+      lost: t.nbDefaites ?? t.defaites ?? 0,
+      goals_for: t.nbButsPour ?? t.butsPour ?? 0,
+      goals_against: t.nbButsContre ?? t.butsContre ?? 0,
+      points: t.nbPoints ?? t.points ?? 0,
+    });
+  }
+
+  // Trier par points décroissants
+  return teams.sort((a, b) => b.points - a.points);
 }
 
 async function fetchDOFA(endpoint: string, fffNumber: string): Promise<unknown> {
@@ -142,6 +200,7 @@ export async function POST(req: Request) {
   try {
     const result: {
       matches?: ParsedMatch[];
+      standings?: ParsedTeam[];
       equipes?: string[];
       error?: string;
     } = {};
@@ -179,18 +238,20 @@ export async function POST(req: Request) {
       }
     }
 
-    // Récupérer les équipes du club si besoin
-    if (!result.equipes) {
-      try {
-        const data = await fetchDOFA("/equipes.json", fffNumber);
-        if (Array.isArray(data)) {
-          result.equipes = (data as DOFAEquipe[])
-            .map((e) => e.libelle)
-            .filter(Boolean);
+    // Récupérer les équipes du club (classement + noms)
+    try {
+      const data = await fetchDOFA("/equipes.json", fffNumber);
+      if (Array.isArray(data)) {
+        result.equipes = (data as DOFAEquipe[])
+          .map((e) => e.libelle)
+          .filter(Boolean);
+        const standings = parseTeams(data);
+        if (standings.length > 0) {
+          result.standings = standings;
         }
-      } catch (error) {
-        console.error("[DOFA] Erreur équipes:", error);
       }
+    } catch (error) {
+      console.error("[DOFA] Erreur équipes:", error);
     }
 
     return NextResponse.json(result);
