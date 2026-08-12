@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useTeam } from "@/lib/team";
@@ -25,9 +26,17 @@ import { toast } from "sonner";
 import type { TeamPot, PotContribution } from "@/types";
 
 export default function CagnottePage() {
+  const router = useRouter();
   const { user } = useAuth();
   const { currentTeam, userRole } = useTeam();
   const isCoach = userRole === "coach" || userRole === "owner";
+
+  // Rediriger les joueurs vers le dashboard
+  useEffect(() => {
+    if (userRole === "player") {
+      router.push("/");
+    }
+  }, [userRole, router]);
   const [pots, setPots] = useState<TeamPot[]>([]);
   const [contribs, setContribs] = useState<Record<string, PotContribution[]>>({});
   const [loading, setLoading] = useState(true);

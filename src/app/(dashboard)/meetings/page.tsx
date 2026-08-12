@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useTeam } from "@/lib/team";
@@ -35,9 +36,17 @@ import { toast } from "sonner";
 import type { ParentMeeting, MeetingSignature } from "@/types";
 
 export default function MeetingsPage() {
+  const router = useRouter();
   const { user } = useAuth();
   const { currentTeam, userRole } = useTeam();
   const isCoach = userRole === "coach" || userRole === "owner";
+
+  // Rediriger les joueurs vers le dashboard
+  useEffect(() => {
+    if (userRole === "player") {
+      router.push("/");
+    }
+  }, [userRole, router]);
   const [meetings, setMeetings] = useState<ParentMeeting[]>([]);
   const [signatures, setSignatures] = useState<MeetingSignature[]>([]);
   const [loading, setLoading] = useState(true);

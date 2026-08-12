@@ -93,8 +93,8 @@ const navItems = [
   { key: "cotisations", href: "/admin/cotisations", label: "Cotisations", icon: Wallet, clubOnly: true },
   { key: "treasury", href: "/admin/treasury", label: "Trésorerie", icon: PiggyBank, clubOnly: true },
   { key: "notifications", href: "/notifications", label: "Notifications", icon: Bell },
-  { key: "meetings", href: "/meetings", label: "Réunions parents", icon: ClipboardList },
-  { key: "cagnotte", href: "/cagnotte", label: "Cagnottes", icon: PiggyBank },
+  { key: "meetings", href: "/meetings", label: "Réunions parents", icon: ClipboardList, coachOnly: true },
+  { key: "cagnotte", href: "/cagnotte", label: "Cagnottes", icon: PiggyBank, coachOnly: true },
   { key: "fin-saison", href: "/fin-saison", label: "Fin de saison", icon: PartyPopper },
 ];
 
