@@ -349,20 +349,18 @@ export default function ChampionshipPage() {
         <>
           <div className="flex gap-2 overflow-x-auto pb-1">
             {championships.map((c) => (
-              <button
+              <Button
                 key={c.id}
                 onClick={() => setSelectedId(c.id)}
-                className={`shrink-0 px-3 py-2 rounded-lg font-medium text-sm transition-colors ${
-                  c.id === selectedId
-                    ? "bg-[var(--color-gold)] text-[var(--color-navy)]"
-                    : "border hover:bg-muted"
-                }`}
+                variant={c.id === selectedId ? "secondary" : "outline"}
+                size="sm"
+                className="shrink-0"
               >
                 {c.name}
                 <Badge variant="outline" className="ml-2 text-xs">
                   {c.season}
                 </Badge>
-              </button>
+              </Button>
             ))}
           </div>
 
