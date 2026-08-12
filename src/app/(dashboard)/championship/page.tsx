@@ -202,7 +202,7 @@ export default function ChampionshipPage() {
 
   const selected = championships.find((c) => c.id === selectedId);
   const sortedTeams = selected
-    ? [...selected.teams].sort((a, b) => b.points - a.points || b.goals_for - b.goals_against - (a.goals_for - a.goals_against))
+    ? [...selected.teams].sort((a, b) => b.points - a.points || (b.goals_for - b.goals_against) - (a.goals_for - a.goals_against))
     : [];
 
   if (loading) {
@@ -352,7 +352,6 @@ export default function ChampionshipPage() {
               <button
                 key={c.id}
                 onClick={() => setSelectedId(c.id)}
-                variant={c.id === selectedId ? "default" : "outline"}
                 className={`shrink-0 px-3 py-2 rounded-lg font-medium text-sm transition-colors ${
                   c.id === selectedId
                     ? "bg-[var(--color-gold)] text-[var(--color-navy)]"
