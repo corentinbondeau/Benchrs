@@ -152,9 +152,10 @@ export async function POST(req: Request) {
   if (!user) return unauthorized();
 
   const body = await req.json();
-  const { teamId, type = "calendar", eqNo } = body as {
+  const { teamId, type = "calendar", eqNo, clubName } = body as {
     teamId?: string;
     fffNumber?: string;
+    clubName?: string;
     eqNo?: string;
     type?: "calendar" | "results" | "all" | "equipes";
   };

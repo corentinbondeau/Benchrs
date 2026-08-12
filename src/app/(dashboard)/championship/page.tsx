@@ -75,16 +75,11 @@ export default function ChampionshipPage() {
 
   // Rechercher les équipes du club
   async function handleSearchClub() {
-    const fffNum = clubSearch.trim();
+    const searchTerm = clubSearch.trim();
     
     // Validation de l'input
-    if (!fffNum) {
-      toast.error("Entrez un numéro FFF");
-      return;
-    }
-    
-    if (!/^\d{1,6}$/.test(fffNum)) {
-      toast.error("Le numéro FFF doit contenir 1 à 6 chiffres");
+    if (!searchTerm) {
+      toast.error("Entrez un numéro FFF ou le nom du club");
       return;
     }
 
@@ -93,10 +88,19 @@ export default function ChampionshipPage() {
     setSelectedTeam(null);
     
     try {
+      const isNumber = /^\d{1,6}$/.test(searchTerm);
+      const body: any = { type: "all" };
+      
+      if (isNumber) {
+        body.fffNumber = searchTerm;
+      } else {
+        body.clubName = searchTerm;
+      }
+
       const res = await authFetch("/api/championships/dofa", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fffNumber: fffNum, type: "all" }),
+        body: JSON.stringify(body),
       });
       
       const data = await res.json();
@@ -104,34 +108,51 @@ export default function ChampionshipPage() {
       // Gestion des erreurs API
       if (!res.ok) {
         if (res.status === 400) {
-          toast.error("Numéro FFF invalide ou club non reconnu");
+          toast.error(data.error || "Club non trouvé");
         } else if (res.status === 404) {
-          toast.error("Club non trouvé. Vérifiez le numéro FFF");
+          toast.error("Club non trouvé. Vérifiez le numéro FFF ou le nom");
         } else if (res.status === 502 || res.status === 503) {
           toast.error("Service FFF indisponible. Réessayez dans quelques instants");
         } else {
           toast.error(data.error || "Erreur lors de la recherche");
         }
+        console.error("[API Response]", data);
         return;
       }
 
-      // Validation de la réponse
-      if (!data.equipes || !Array.isArray(data.equipes)) {
-        toast.error("Format de réponse invalide");
+      // Validation de la réponse - gère plusieurs formats possibles
+      let equipes = [];
+      
+      if (Array.isArray(data)) {
+        // Si la réponse est directement un tableau
+        equipes = data;
+      } else if (data.equipes && Array.isArray(data.equipes)) {
+        // Si c'est data.equipes
+        equipes = data.equipes;
+      } else if (data.data && Array.isArray(data.data)) {
+        // Si c'est data.data
+        equipes = data.data;
+      } else {
+        console.error("[Search Response]", data);
+        toast.error("Format de réponse non reconnu. Réessayez");
         return;
       }
 
-      if (data.equipes.length === 0) {
-        toast.error("Aucune équipe trouvée pour ce club");
+      if (equipes.length === 0) {
+        toast.error("Aucune équipe trouvée");
         return;
       }
 
-      // Validation des équipes
-      const validEquipes = data.equipes.filter(
-        (e: any) => e.eqNo && e.libelle
-      );
+      // Validation des équipes - gère différentes structures
+      const validEquipes = equipes
+        .map((e: any) => ({
+          eqNo: e.eqNo || e.id || e.numEq || "",
+          libelle: e.libelle || e.name || e.equipe || "",
+        }))
+        .filter((e: any) => e.eqNo && e.libelle);
 
       if (validEquipes.length === 0) {
+        console.error("[Valid Equipes]", equipes);
         toast.error("Les données d'équipes sont incomplètes");
         return;
       }
@@ -444,13 +465,13 @@ export default function ChampionshipPage() {
                 </DialogHeader>
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label>Numéro FFF du club (6 chiffres)</Label>
+                    <Label>Rechercher le club</Label>
                     <div className="flex gap-2">
                       <Input
-                        placeholder="123456"
+                        placeholder="Numéro FFF (ex: 525816) ou nom (ex: AS Monaco)"
                         value={clubSearch}
                         onChange={(e) => setClubSearch(e.target.value)}
-                        maxLength={6}
+                        onKeyPress={(e) => e.key === "Enter" && handleSearchClub()}
                       />
                       <Button
                         onClick={handleSearchClub}
