@@ -9,7 +9,9 @@ import {
   Svg,
   Rect,
   Circle,
+  Ellipse,
   Line,
+  Path,
   Polygon,
   G,
   Text as SvgText,
@@ -562,13 +564,135 @@ const EX_TEAM_COLORS: Record<NonNullable<ExerciseSchematicElement["team"]>, stri
   att: ATTACK,
   def: DEFENSE,
   neutral: "#FFFFFF",
+  yellow: "#F4D03F",
+  green: "#27AE60",
+  orange: "#E67E22",
+  purple: "#8E44AD",
+  black: "#2C3E50",
 };
+
+const EX_LIGHT_TEAMS: NonNullable<ExerciseSchematicElement["team"]>[] = ["neutral", "yellow", "orange"];
+
+const EX_VIEW_DIMS: Record<NonNullable<ExerciseSchematic["view"]>, { w: number; h: number }> = {
+  full: { w: 300, h: 450 },
+  half: { w: 300, h: 450 },
+  third: { w: 300, h: 450 },
+  h_full: { w: 450, h: 300 },
+  h_half: { w: 450, h: 300 },
+};
+
+function exArrowHead(x: number, y: number, angle: number, size = 9, color = GOLD) {
+  const hx = x - size * Math.cos(angle);
+  const hy = y - size * Math.sin(angle);
+  const dx1 = hx + size * 0.5 * Math.sin(angle);
+  const dy1 = hy - size * 0.5 * Math.cos(angle);
+  const dx2 = hx - size * 0.5 * Math.sin(angle);
+  const dy2 = hy + size * 0.5 * Math.cos(angle);
+  return <Polygon points={`${x},${y} ${dx1},${dy1} ${dx2},${dy2}`} fill={color} />;
+}
+
+function exArrowControl(el: ExerciseSchematicElement) {
+  const x1 = el.x;
+  const y1 = el.y;
+  const x2 = el.x2 ?? el.x;
+  const y2 = el.y2 ?? el.y;
+  const mx = (x1 + x2) / 2;
+  const my = (y1 + y2) / 2;
+  const len = Math.hypot(x2 - x1, y2 - y1) || 1;
+  const off = 36;
+  return { x: mx - ((y2 - y1) / len) * off, y: my + ((x2 - x1) / len) * off };
+}
+
+function ExPitchMarkings({ view }: { view: NonNullable<ExerciseSchematic["view"]> }) {
+  const s = "rgba(255,255,255,0.55)";
+  const g = { stroke: s, fill: "none", strokeWidth: 2 };
+  if (view === "half") {
+    return (
+      <G {...g}>
+        <Rect x={8} y={8} width={284} height={434} rx={2} />
+        <Line x1={8} y1={225} x2={292} y2={225} strokeWidth={1.5} />
+        <Path d="M 100 225 A 50 50 0 0 1 200 225" strokeWidth={1.5} />
+        <Circle cx={150} cy={225} r={3} fill="rgba(255,255,255,0.7)" />
+        <Rect x={75} y={362} width={150} height={80} strokeWidth={1.5} />
+        <Rect x={105} y={407} width={90} height={35} strokeWidth={1.5} />
+        <Circle cx={150} cy={395} r={3} fill="rgba(255,255,255,0.7)" />
+        <Path d="M 115 362 Q 150 378 185 362" strokeWidth={1.5} />
+        <Rect x={120} y={442} width={60} height={8} strokeWidth={2} />
+      </G>
+    );
+  }
+  if (view === "third") {
+    return (
+      <G {...g}>
+        <Rect x={8} y={8} width={284} height={434} rx={2} />
+        <Line x1={8} y1={300} x2={292} y2={300} strokeWidth={1.5} />
+        <Rect x={75} y={342} width={150} height={80} strokeWidth={1.5} />
+        <Rect x={105} y={387} width={90} height={35} strokeWidth={1.5} />
+        <Circle cx={150} cy={375} r={3} fill="rgba(255,255,255,0.7)" />
+        <Path d="M 115 342 Q 150 358 185 342" strokeWidth={1.5} />
+        <Rect x={120} y={422} width={60} height={8} strokeWidth={2} />
+      </G>
+    );
+  }
+  if (view === "h_full") {
+    return (
+      <G {...g}>
+        <Rect x={8} y={8} width={434} height={284} rx={2} />
+        <Line x1={225} y1={8} x2={225} y2={292} strokeWidth={1.5} />
+        <Circle cx={225} cy={150} r={50} strokeWidth={1.5} />
+        <Circle cx={225} cy={150} r={3} fill="rgba(255,255,255,0.7)" />
+        <Rect x={8} y={75} width={80} height={150} strokeWidth={1.5} />
+        <Rect x={8} y={105} width={35} height={90} strokeWidth={1.5} />
+        <Circle cx={60} cy={150} r={3} fill="rgba(255,255,255,0.7)" />
+        <Path d="M 88 115 Q 104 150 88 185" strokeWidth={1.5} />
+        <Rect x={0} y={120} width={8} height={60} strokeWidth={2} />
+        <Rect x={362} y={75} width={80} height={150} strokeWidth={1.5} />
+        <Rect x={407} y={105} width={35} height={90} strokeWidth={1.5} />
+        <Circle cx={390} cy={150} r={3} fill="rgba(255,255,255,0.7)" />
+        <Path d="M 362 115 Q 346 150 362 185" strokeWidth={1.5} />
+        <Rect x={442} y={120} width={8} height={60} strokeWidth={2} />
+      </G>
+    );
+  }
+  if (view === "h_half") {
+    return (
+      <G {...g}>
+        <Rect x={8} y={8} width={434} height={284} rx={2} />
+        <Line x1={225} y1={8} x2={225} y2={292} strokeWidth={1.5} />
+        <Path d="M 225 100 A 50 50 0 0 1 225 200" strokeWidth={1.5} />
+        <Circle cx={225} cy={150} r={3} fill="rgba(255,255,255,0.7)" />
+        <Rect x={362} y={75} width={80} height={150} strokeWidth={1.5} />
+        <Rect x={407} y={105} width={35} height={90} strokeWidth={1.5} />
+        <Circle cx={390} cy={150} r={3} fill="rgba(255,255,255,0.7)" />
+        <Path d="M 362 115 Q 346 150 362 185" strokeWidth={1.5} />
+        <Rect x={442} y={120} width={8} height={60} strokeWidth={2} />
+      </G>
+    );
+  }
+  return (
+    <G {...g}>
+      <Rect x={8} y={8} width={284} height={434} rx={2} />
+      <Line x1={8} y1={225} x2={292} y2={225} strokeWidth={1.5} />
+      <Circle cx={150} cy={225} r={50} strokeWidth={1.5} />
+      <Circle cx={150} cy={225} r={3} fill="rgba(255,255,255,0.7)" />
+      <Rect x={75} y={8} width={150} height={80} strokeWidth={1.5} />
+      <Rect x={105} y={8} width={90} height={35} strokeWidth={1.5} />
+      <Circle cx={150} cy={55} r={3} fill="rgba(255,255,255,0.7)" />
+      <Rect x={120} y={0} width={60} height={8} strokeWidth={2} />
+      <Rect x={75} y={362} width={150} height={80} strokeWidth={1.5} />
+      <Rect x={105} y={407} width={90} height={35} strokeWidth={1.5} />
+      <Circle cx={150} cy={395} r={3} fill="rgba(255,255,255,0.7)" />
+      <Rect x={120} y={442} width={60} height={8} strokeWidth={2} />
+    </G>
+  );
+}
 
 function ExerciseSchematicSvg({ schema }: { schema: ExerciseSchematic }) {
   function renderEl(el: ExerciseSchematicElement) {
     if (el.type === "player") {
-      const color = EX_TEAM_COLORS[el.team || "att"];
-      const dark = el.team === "neutral";
+      const team = el.team || "att";
+      const color = EX_TEAM_COLORS[team];
+      const dark = EX_LIGHT_TEAMS.includes(team);
       return (
         <G key={el.id}>
           <Circle cx={el.x} cy={el.y} r={10} fill={color} stroke="#FFFFFF" strokeWidth={1.5} />
@@ -585,32 +709,60 @@ function ExerciseSchematicSvg({ schema }: { schema: ExerciseSchematic }) {
         <Polygon
           key={el.id}
           points={`${el.x},${el.y - 9} ${el.x - 6},${el.y + 7} ${el.x + 6},${el.y + 7}`}
-          fill="#F97316"
+          fill={el.color || "#F97316"}
           stroke="#FFFFFF"
           strokeWidth={1}
         />
       );
     }
     if (el.type === "ball") {
-      return <Circle key={el.id} cx={el.x} cy={el.y} r={4.5} fill="#FFFFFF" stroke="#111111" strokeWidth={1} />;
+      return (
+        <G key={el.id}>
+          {el.ballVariant === "motion" && (
+            <G stroke="rgba(255,255,255,0.9)" strokeWidth={1.5} fill="none">
+              <Path d={`M ${el.x + 7} ${el.y - 5} q 4 3 0 6`} />
+              <Path d={`M ${el.x + 10.5} ${el.y - 1} q 4 3 0 6`} />
+            </G>
+          )}
+          <Circle cx={el.x} cy={el.y} r={4.5} fill="#FFFFFF" stroke="#111111" strokeWidth={1} />
+        </G>
+      );
     }
     if (el.type === "arrow") {
       const x1 = el.x;
       const y1 = el.y;
       const x2 = el.x2 ?? el.x;
       const y2 = el.y2 ?? el.y;
-      const angle = Math.atan2(y2 - y1, x2 - x1);
-      const len = 9;
-      const hx = x2 - len * Math.cos(angle);
-      const hy = y2 - len * Math.sin(angle);
-      const dx1 = hx + len * 0.5 * Math.sin(angle);
-      const dy1 = hy - len * 0.5 * Math.cos(angle);
-      const dx2 = hx - len * 0.5 * Math.sin(angle);
-      const dy2 = hy + len * 0.5 * Math.cos(angle);
+      const variant = el.arrowVariant || "solid";
+      let startAngle: number | null = null;
+      let endAngle: number | null = null;
+      let body: React.ReactElement;
+      if (variant === "curved") {
+        const c = exArrowControl(el);
+        body = <Path d={`M ${x1} ${y1} Q ${c.x} ${c.y} ${x2} ${y2}`} stroke={GOLD} strokeWidth={2.5} fill="none" />;
+        startAngle = Math.atan2(y1 - c.y, x1 - c.x);
+        endAngle = Math.atan2(y2 - c.y, x2 - c.x);
+      } else {
+        body = (
+          <Line
+            x1={x1}
+            y1={y1}
+            x2={x2}
+            y2={y2}
+            stroke={GOLD}
+            strokeWidth={2.5}
+            strokeDasharray={variant === "dashed" ? "6 4" : undefined}
+          />
+        );
+        const ang = Math.atan2(y2 - y1, x2 - x1);
+        startAngle = ang + Math.PI;
+        endAngle = ang;
+      }
       return (
         <G key={el.id}>
-          <Line x1={x1} y1={y1} x2={x2} y2={y2} stroke={GOLD} strokeWidth={2.5} />
-          <Polygon points={`${x2},${y2} ${dx1},${dy1} ${dx2},${dy2}`} fill={GOLD} />
+          {body}
+          {endAngle !== null && exArrowHead(x2, y2, endAngle, 9)}
+          {variant === "double" && startAngle !== null && exArrowHead(x1, y1, startAngle, 9)}
         </G>
       );
     }
@@ -630,6 +782,44 @@ function ExerciseSchematicSvg({ schema }: { schema: ExerciseSchematic }) {
         </G>
       );
     }
+    if (el.type === "shape") {
+      const x = Math.min(el.x, el.x2 ?? el.x);
+      const y = Math.min(el.y, el.y2 ?? el.y);
+      const w = Math.max(1, Math.abs((el.x2 ?? el.x) - el.x));
+      const h = Math.max(1, Math.abs((el.y2 ?? el.y) - el.y));
+      const cx = x + w / 2;
+      const cy = y + h / 2;
+      const color = el.color || GOLD;
+      const kind = el.shapeKind || "rect";
+      const strokeProps = { fill: color + "3D", stroke: color, strokeWidth: 1.5 };
+      let shape: React.ReactElement;
+      if (kind === "circle") {
+        shape = <Ellipse cx={cx} cy={cy} rx={w / 2} ry={h / 2} {...strokeProps} />;
+      } else if (kind === "triangle") {
+        shape = <Polygon points={`${cx},${y} ${x + w},${y + h} ${x},${y + h}`} {...strokeProps} />;
+      } else if (kind === "diamond") {
+        shape = <Polygon points={`${cx},${y} ${x + w},${cy} ${cx},${y + h} ${x},${cy}`} {...strokeProps} />;
+      } else if (kind === "hexagon") {
+        const pts: string[] = [];
+        for (let i = 0; i < 6; i++) {
+          const a = (Math.PI / 3) * i - Math.PI / 2;
+          pts.push(`${(cx + (w / 2) * Math.cos(a)).toFixed(1)},${(cy + (h / 2) * Math.sin(a)).toFixed(1)}`);
+        }
+        shape = <Polygon points={pts.join(" ")} {...strokeProps} />;
+      } else {
+        shape = <Rect x={x} y={y} width={w} height={h} rx={2} {...strokeProps} />;
+      }
+      return (
+        <G key={el.id}>
+          {shape}
+          {el.text ? (
+            <SvgText x={cx} y={cy + 3.5} style={{ fontSize: 9, fill: "#FFFFFF", textAnchor: "middle" }}>
+              {el.text}
+            </SvgText>
+          ) : null}
+        </G>
+      );
+    }
     return (
       <SvgText
         key={el.id}
@@ -642,23 +832,14 @@ function ExerciseSchematicSvg({ schema }: { schema: ExerciseSchematic }) {
     );
   }
 
+  const view = schema.view || "full";
+  const dims = EX_VIEW_DIMS[view];
+  const pdfW = dims.w > dims.h ? 195 : 150;
+  const pdfH = (pdfW * dims.h) / dims.w;
   return (
-    <Svg width={150} height={225} viewBox="0 0 300 450">
-      <Rect x={0} y={0} width={300} height={450} fill="#1B7A3D" />
-      <G stroke="rgba(255,255,255,0.55)" fill="none" strokeWidth={2}>
-        <Rect x={8} y={8} width={284} height={434} rx={2} />
-        <Line x1={8} y1={225} x2={292} y2={225} strokeWidth={1.5} />
-        <Circle cx={150} cy={225} r={50} strokeWidth={1.5} />
-        <Circle cx={150} cy={225} r={3} fill="rgba(255,255,255,0.7)" />
-        <Rect x={75} y={8} width={150} height={80} strokeWidth={1.5} />
-        <Rect x={105} y={8} width={90} height={35} strokeWidth={1.5} />
-        <Circle cx={150} cy={55} r={3} fill="rgba(255,255,255,0.7)" />
-        <Rect x={75} y={362} width={150} height={80} strokeWidth={1.5} />
-        <Rect x={105} y={407} width={90} height={35} strokeWidth={1.5} />
-        <Circle cx={150} cy={395} r={3} fill="rgba(255,255,255,0.7)" />
-        <Rect x={120} y={0} width={60} height={8} strokeWidth={2} />
-        <Rect x={120} y={442} width={60} height={8} strokeWidth={2} />
-      </G>
+    <Svg width={pdfW} height={pdfH} viewBox={`0 0 ${dims.w} ${dims.h}`}>
+      <Rect x={0} y={0} width={dims.w} height={dims.h} fill="#1B7A3D" />
+      <ExPitchMarkings view={view} />
       {(schema.elements || []).map((el) => renderEl(el))}
     </Svg>
   );

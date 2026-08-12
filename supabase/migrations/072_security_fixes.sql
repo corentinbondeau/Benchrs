@@ -28,17 +28,41 @@ SET comite_invite_code = substr(replace(gen_random_uuid()::text, '-', ''), 1, 12
 WHERE comite_invite_code IS NULL OR comite_invite_code = '';
 
 -- ============================================================
--- 2) PROFILES : + WITH CHECK (rôle préservé) sur la policy coach global
---    + garde auth.uid() IS NOT NULL sur la lecture des profils sans équipe
+-- 2) PROFILES : + garde auth.uid() IS NOT NULL sur la lecture
+--    des profils sans équipe.
+--    Le contrôle « le rôle ne change pas » passe par le trigger
+--    prevent_self_role_change (ci-dessous) : NEW/OLD ne sont pas
+--    disponibles dans les policies RLS sur PostgreSQL < 15
+--    (erreur 42P01 "missing FROM-clause entry for table new").
 -- ============================================================
 DROP POLICY IF EXISTS "Coaches can update any profile" ON public.profiles;
 CREATE POLICY "Coaches can update any profile"
   ON public.profiles FOR UPDATE
   USING (public.is_global_coach())
-  WITH CHECK (
-    public.is_global_coach()
-    AND NEW.role IS NOT DISTINCT FROM OLD.role
-  );
+  WITH CHECK (public.is_global_coach());
+
+-- Remplace le trigger de 071 (self-only) : bloque TOUT changement de
+-- rôle côté client (que le user modifie sa propre fiche ou qu'un coach
+-- en modifie une autre). Seul le service role (auth.uid() IS NULL,
+-- routes /api/auth/* via l'admin client) peut modifier profiles.role.
+CREATE OR REPLACE FUNCTION public.prevent_self_role_change()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF auth.uid() IS NOT NULL AND NEW.role IS DISTINCT FROM OLD.role THEN
+    RAISE EXCEPTION 'Impossible de modifier le rôle côté client';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_profiles_no_self_role_change ON public.profiles;
+CREATE TRIGGER trg_profiles_no_self_role_change
+  BEFORE UPDATE ON public.profiles
+  FOR EACH ROW EXECUTE FUNCTION public.prevent_self_role_change();
 
 DROP POLICY IF EXISTS "Members can view team profiles" ON public.profiles;
 CREATE POLICY "Members can view team profiles"

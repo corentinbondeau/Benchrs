@@ -224,20 +224,31 @@ export interface TrainingSession {
   updated_at: string;
 }
 
+export type SchematicView = "full" | "half" | "third" | "h_full" | "h_half";
+export type TeamColor = "att" | "def" | "neutral" | "yellow" | "green" | "orange" | "purple" | "black";
+export type ArrowVariant = "solid" | "dashed" | "double" | "curved";
+export type ShapeKind = "rect" | "circle" | "triangle" | "diamond" | "hexagon";
+export type BallVariant = "classic" | "motion";
+
 export interface ExerciseSchematicElement {
   id: string;
-  type: "player" | "cone" | "ball" | "arrow" | "zone" | "label";
+  type: "player" | "cone" | "ball" | "arrow" | "zone" | "shape" | "label";
   x: number;
   y: number;
   x2?: number;
   y2?: number;
-  team?: "att" | "def" | "neutral";
+  team?: TeamColor;
   number?: string;
   text?: string;
+  color?: string;
+  arrowVariant?: ArrowVariant;
+  ballVariant?: BallVariant;
+  shapeKind?: ShapeKind;
 }
 
 export interface ExerciseSchematic {
   elements: ExerciseSchematicElement[];
+  view?: SchematicView;
 }
 
 export interface Exercise {

@@ -34,6 +34,7 @@ CREATE POLICY "Authenticated can join teams"
 --    + pas de changement de rôle sur soi-même
 -- ============================================================
 DROP POLICY IF EXISTS "Service role can insert profiles" ON public.profiles;
+DROP POLICY IF EXISTS "Users can insert own profile" ON public.profiles;
 CREATE POLICY "Users can insert own profile"
   ON public.profiles FOR INSERT
   WITH CHECK (auth.uid() = id);
@@ -67,6 +68,7 @@ CREATE TRIGGER trg_profiles_no_self_role_change
 -- 3) PARENT_STUDENT : seul le parent concerné gère ses liens
 -- ============================================================
 DROP POLICY IF EXISTS "Members can manage parent_student" ON public.parent_student;
+DROP POLICY IF EXISTS "Users can manage own parent links" ON public.parent_student;
 CREATE POLICY "Users can manage own parent links"
   ON public.parent_student FOR ALL
   USING (
@@ -172,6 +174,7 @@ CREATE POLICY "Members can manage chat_channels"
 --        limitée aux membres du canal ; suppression de la policy FOR ALL
 DROP POLICY IF EXISTS "Members can manage chat_messages" ON public.chat_messages;
 DROP POLICY IF EXISTS "Members can view chat_messages" ON public.chat_messages;
+DROP POLICY IF EXISTS "Members can send chat_messages" ON public.chat_messages;
 
 CREATE POLICY "Members can view chat_messages"
   ON public.chat_messages FOR SELECT
@@ -288,6 +291,7 @@ DECLARE
 BEGIN
   FOREACH t IN ARRAY tables LOOP
     EXECUTE format('DROP POLICY IF EXISTS "Members can manage %s" ON public.%I', t, t);
+    EXECUTE format('DROP POLICY IF EXISTS "Coaches can manage %s" ON public.%I', t, t);
     EXECUTE format(
       'CREATE POLICY "Coaches can manage %s" ON public.%I FOR ALL USING (public.is_team_coach(team_id)) WITH CHECK (public.is_team_coach(team_id))',
       t, t
@@ -299,6 +303,9 @@ END $$;
 -- 6) MOTM_VOTES : chacun ne gère que son vote
 -- ============================================================
 DROP POLICY IF EXISTS "Members can manage motm_votes" ON public.motm_votes;
+DROP POLICY IF EXISTS "Members can insert motm_votes" ON public.motm_votes;
+DROP POLICY IF EXISTS "Members can update own motm_votes" ON public.motm_votes;
+DROP POLICY IF EXISTS "Members can delete own motm_votes" ON public.motm_votes;
 
 CREATE POLICY "Members can insert motm_votes"
   ON public.motm_votes FOR INSERT
@@ -435,6 +442,9 @@ CREATE POLICY "Users can delete own challenge_media"
 -- --- club_feed : SELECT/UPDATE/DELETE membres du club (dossier <club_id>/...)
 DROP POLICY IF EXISTS "Public read club_feed" ON storage.objects;
 DROP POLICY IF EXISTS "Members update club_feed" ON storage.objects;
+DROP POLICY IF EXISTS "Club members can view club_feed" ON storage.objects;
+DROP POLICY IF EXISTS "Club members can update club_feed" ON storage.objects;
+DROP POLICY IF EXISTS "Club members can delete club_feed" ON storage.objects;
 
 CREATE POLICY "Club members can view club_feed"
   ON storage.objects FOR SELECT
