@@ -335,11 +335,9 @@ export default function ChampionshipPage() {
           <div className="flex gap-2">
             {/* Dialog Sélection club/équipe */}
             <Dialog open={selectTeamOpen} onOpenChange={setSelectTeamOpen}>
-              <DialogTrigger asChild>
-                <Button className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold">
-                  <Zap className="h-4 w-4 mr-1" />
-                  Import auto FFF
-                </Button>
+              <DialogTrigger render={<Button className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold" />}>
+                <Zap className="h-4 w-4 mr-1" />
+                Import auto FFF
               </DialogTrigger>
               <DialogContent className="sm:max-w-md">
                 <DialogHeader>
