@@ -69,11 +69,141 @@ export default function ChampionshipPage() {
   // Sélection club/équipe
   const [selectTeamOpen, setSelectTeamOpen] = useState(false);
   const [clubSearch, setClubSearch] = useState("");
+  const [clubSuggestions, setClubSuggestions] = useState<{ eqNo: string; libelle: string }[]>([]);
   const [foundTeams, setFoundTeams] = useState<{ eqNo: string; libelle: string }[]>([]);
   const [selectedTeam, setSelectedTeam] = useState<{ eqNo: string; libelle: string } | null>(null);
   const [searching, setSearching] = useState(false);
+  const [selectedClub, setSelectedClub] = useState<{ eqNo: string; libelle: string } | null>(null);
 
-  // Rechercher les équipes du club
+  // Recherche dynamique de clubs par nom
+  async function handleClubNameChange(value: string) {
+    setClubSearch(value);
+    setSelectedClub(null); // Reset club sélectionné quand on tape
+    
+    if (!value.trim() || value.length < 2) {
+      setClubSuggestions([]);
+      return;
+    }
+
+    setSearching(true);
+    try {
+      const res = await authFetch("/api/championships/dofa", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clubName: value.trim(), type: "all" }),
+      });
+      
+      const data = await res.json();
+
+      if (!res.ok) {
+        console.error("[Club Search Error]", data);
+        setClubSuggestions([]);
+        return;
+      }
+
+      // Gérer plusieurs formats de réponse
+      let equipes = [];
+      if (Array.isArray(data)) {
+        equipes = data;
+      } else if (data.equipes && Array.isArray(data.equipes)) {
+        equipes = data.equipes;
+      } else if (data.data && Array.isArray(data.data)) {
+        equipes = data.data;
+      }
+
+      // Filtrer et normaliser les résultats
+      const suggestions = equipes
+        .map((e: any) => ({
+          eqNo: e.eqNo || e.id || e.numEq || "",
+          libelle: e.libelle || e.name || e.equipe || "",
+        }))
+        .filter((e: any) => e.eqNo && e.libelle)
+        .slice(0, 10); // Limiter à 10 suggestions
+
+      setClubSuggestions(suggestions);
+    } catch (error) {
+      console.error("[Search Exception]", error);
+      setClubSuggestions([]);
+    } finally {
+      setSearching(false);
+    }
+  }
+
+  // Sélectionner un club parmi les suggestions
+  async function handleSelectClubFromSuggestions(club: { eqNo: string; libelle: string }) {
+    setSelectedClub(club);
+    setClubSearch(club.libelle);
+    setClubSuggestions([]);
+    
+    // Récupérer les équipes de ce club
+    await handleSearchTeamsForClub(club);
+  }
+
+  // Rechercher les équipes du club sélectionné
+  async function handleSearchTeamsForClub(club: { eqNo: string; libelle: string }) {
+    setSearching(true);
+    setFoundTeams([]);
+    setSelectedTeam(null);
+
+    try {
+      const res = await authFetch("/api/championships/dofa", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clubName: club.libelle, type: "all" }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        toast.error(data.error || "Erreur lors de la recherche des équipes");
+        return;
+      }
+
+      // Récupérer les équipes
+      let equipes = [];
+      if (Array.isArray(data)) {
+        equipes = data;
+      } else if (data.equipes && Array.isArray(data.equipes)) {
+        equipes = data.equipes;
+      } else if (data.data && Array.isArray(data.data)) {
+        equipes = data.data;
+      }
+
+      if (equipes.length === 0) {
+        toast.error("Aucune équipe trouvée pour ce club");
+        return;
+      }
+
+      const validEquipes = equipes
+        .map((e: any) => ({
+          eqNo: e.eqNo || e.id || "",
+          libelle: e.libelle || e.name || "",
+        }))
+        .filter((e: any) => e.eqNo && e.libelle);
+
+      if (validEquipes.length === 0) {
+        toast.error("Les données d'équipes sont incomplètes");
+        return;
+      }
+
+      setFoundTeams(validEquipes);
+
+      // Auto-sélection si une seule équipe
+      if (validEquipes.length === 1) {
+        setSelectedTeam(validEquipes[0]);
+        toast.success(`✓ Équipe trouvée: ${validEquipes[0].libelle}`);
+      } else {
+        toast.success(`✓ ${validEquipes.length} équipes trouvées`);
+      }
+    } catch (error) {
+      toast.error("Erreur lors de la recherche");
+      console.error(error);
+    } finally {
+      setSearching(false);
+    }
+  }
+
+  // Rechercher les équipes du club par numéro FFF
   async function handleSearchClub() {
     const searchTerm = clubSearch.trim();
     
@@ -464,24 +594,101 @@ export default function ChampionshipPage() {
                   <DialogTitle>Sélectionner votre équipe</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>Rechercher le club</Label>
-                    <div className="flex gap-2">
-                      <Input
-                        placeholder="Numéro FFF (ex: 525816) ou nom (ex: AS Monaco)"
-                        value={clubSearch}
-                        onChange={(e) => setClubSearch(e.target.value)}
-                        onKeyPress={(e) => e.key === "Enter" && handleSearchClub()}
-                      />
+                  {!selectedClub ? (
+                    <>
+                      <div className="space-y-2">
+                        <Label>Rechercher le club par nom</Label>
+                        <div className="relative">
+                          <Input
+                            placeholder="Tapez le nom du club (ex: AS Monaco, PSG...)"
+                            value={clubSearch}
+                            onChange={(e) => handleClubNameChange(e.target.value)}
+                            autoFocus
+                          />
+                          {searching && (
+                            <div className="absolute right-3 top-3">
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            </div>
+                          )}
+                          {clubSuggestions.length > 0 && (
+                            <div className="absolute top-full left-0 right-0 mt-1 border rounded-lg bg-white dark:bg-slate-950 shadow-lg z-10 max-h-64 overflow-y-auto">
+                              <div className="p-2 text-xs text-muted-foreground">
+                                {clubSuggestions.length} résultat{clubSuggestions.length > 1 ? "s" : ""}
+                              </div>
+                              {clubSuggestions.map((club) => (
+                                <button
+                                  key={club.eqNo}
+                                  onClick={() => handleSelectClubFromSuggestions(club)}
+                                  className="w-full text-left px-4 py-3 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-sm border-t"
+                                >
+                                  <div className="font-medium">{club.libelle}</div>
+                                  <div className="text-xs text-muted-foreground">N° équipe: {club.eqNo}</div>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        {clubSearch.length > 0 && clubSearch.length < 2 && (
+                          <p className="text-xs text-muted-foreground">Tapez au moins 2 caractères</p>
+                        )}
+                      </div>
+
+                      <div className="relative">
+                        <div className="absolute inset-0 flex items-center">
+                          <div className="w-full border-t"></div>
+                        </div>
+                        <div className="relative flex justify-center text-xs uppercase">
+                          <span className="bg-white dark:bg-slate-950 px-2 text-muted-foreground">Ou</span>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Rechercher par numéro FFF</Label>
+                        <div className="flex gap-2">
+                          <Input
+                            placeholder="Numéro FFF (ex: 525816)"
+                            value={clubSearch}
+                            onChange={(e) => {
+                              setClubSearch(e.target.value);
+                              setClubSuggestions([]);
+                            }}
+                            maxLength={6}
+                          />
+                          <Button
+                            onClick={handleSearchClub}
+                            disabled={searching || !clubSearch.trim()}
+                            variant="outline"
+                          >
+                            {searching ? "Recherche..." : "Chercher"}
+                          </Button>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="rounded-lg bg-green-50 dark:bg-green-950 p-4 border border-green-200 dark:border-green-800">
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="w-2 h-2 bg-green-600 rounded-full"></div>
+                          <span className="font-semibold text-green-900 dark:text-green-100">Club sélectionné</span>
+                        </div>
+                        <p className="text-sm text-green-800 dark:text-green-200 font-medium">{selectedClub.libelle}</p>
+                      </div>
                       <Button
-                        onClick={handleSearchClub}
-                        disabled={searching || !clubSearch.trim()}
+                        onClick={() => {
+                          setSelectedClub(null);
+                          setClubSearch("");
+                          setClubSuggestions([]);
+                          setFoundTeams([]);
+                          setSelectedTeam(null);
+                        }}
                         variant="outline"
+                        className="w-full"
                       >
-                        {searching ? "Recherche..." : "Chercher"}
+                        Changer de club
                       </Button>
                     </div>
-                  </div>
+                  )}
+
 
                   {foundTeams.length > 0 && (
                     <div className="space-y-2">
