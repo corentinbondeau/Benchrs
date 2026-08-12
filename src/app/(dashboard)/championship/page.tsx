@@ -69,8 +69,8 @@ export default function ChampionshipPage() {
   // Sélection club/équipe
   const [selectTeamOpen, setSelectTeamOpen] = useState(false);
   const [clubSearch, setClubSearch] = useState("");
-  const [foundTeams, setFoundTeams] = useState<string[]>([]);
-  const [selectedTeam, setSelectedTeam] = useState("");
+  const [foundTeams, setFoundTeams] = useState<{ eqNo: string; libelle: string }[]>([]);
+  const [selectedTeam, setSelectedTeam] = useState<{ eqNo: string; libelle: string } | null>(null);
   const [searching, setSearching] = useState(false);
 
   // Rechercher les équipes du club
@@ -112,7 +112,7 @@ export default function ChampionshipPage() {
     setSelectTeamOpen(false);
     setClubSearch("");
     setFoundTeams([]);
-    setSelectedTeam("");
+    setSelectedTeam(null);
     handleFetchDOFA();
   }
 
@@ -368,15 +368,15 @@ export default function ChampionshipPage() {
                       <Label>Équipes trouvées</Label>
                       <div className="border rounded p-2 max-h-48 overflow-y-auto space-y-1">
                         {foundTeams.map((team) => (
-                          <label key={team} className="flex items-center gap-2 p-2 rounded hover:bg-muted cursor-pointer">
+                          <label key={team.eqNo} className="flex items-center gap-2 p-2 rounded hover:bg-muted cursor-pointer">
                             <input
                               type="radio"
                               name="team"
-                              value={team}
-                              checked={selectedTeam === team}
-                              onChange={(e) => setSelectedTeam(e.target.value)}
+                              value={team.eqNo}
+                              checked={selectedTeam?.eqNo === team.eqNo}
+                              onChange={() => setSelectedTeam(team)}
                             />
-                            <span className="text-sm">{team}</span>
+                            <span className="text-sm">{team.libelle}</span>
                           </label>
                         ))}
                       </div>

@@ -21,6 +21,7 @@ interface DOFAMatch {
 }
 
 interface DOFAEquipe {
+  eqNo: string;
   libelle: string;
   competition?: {
     libelle: string;
@@ -94,8 +95,9 @@ function parseTeams(data: unknown): ParsedTeam[] {
   return teams.sort((a, b) => b.points - a.points);
 }
 
-async function fetchDOFA(endpoint: string, fffNumber: string): Promise<unknown> {
-  const url = `https://api-dofa.fff.fr/api/clubs/${fffNumber}${endpoint}`;
+async function fetchDOFA(endpoint: string, fffNumber: string, eqNo?: string): Promise<unknown> {
+  const path = eqNo ? `/api/clubs/${fffNumber}/equipes/${eqNo}${endpoint}` : `/api/clubs/${fffNumber}${endpoint}`;
+  const url = `https://api-dofa.prd-aws.fff.fr${path}`;
   
   try {
     const res = await fetch(url, {
@@ -201,7 +203,7 @@ export async function POST(req: Request) {
     const result: {
       matches?: ParsedMatch[];
       standings?: ParsedTeam[];
-      equipes?: string[];
+      equipes?: { eqNo: string; libelle: string }[];
       error?: string;
     } = {};
 
@@ -243,8 +245,8 @@ export async function POST(req: Request) {
       const data = await fetchDOFA("/equipes.json", fffNumber);
       if (Array.isArray(data)) {
         result.equipes = (data as DOFAEquipe[])
-          .map((e) => e.libelle)
-          .filter(Boolean);
+          .filter((e) => e.eqNo && e.libelle)
+          .map((e) => ({ eqNo: e.eqNo, libelle: e.libelle }));
         const standings = parseTeams(data);
         if (standings.length > 0) {
           result.standings = standings;
