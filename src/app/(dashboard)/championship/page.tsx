@@ -74,11 +74,14 @@ export default function ChampionshipPage() {
   const [selectedTeam, setSelectedTeam] = useState<{ eqNo: string; libelle: string } | null>(null);
   const [searching, setSearching] = useState(false);
   const [selectedClub, setSelectedClub] = useState<{ eqNo: string; libelle: string } | null>(null);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [teamsLoading, setTeamsLoading] = useState(false);
 
   // Recherche dynamique de clubs par nom
   async function handleClubNameChange(value: string) {
     setClubSearch(value);
     setSelectedClub(null); // Reset club sélectionné quand on tape
+    setSearchError(null);
     
     if (!value.trim() || value.length < 2) {
       setClubSuggestions([]);
@@ -96,7 +99,7 @@ export default function ChampionshipPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        console.error("[Club Search Error]", data);
+        console.error("[Club Search Error]", res.status, data);
         setClubSuggestions([]);
         return;
       }
@@ -141,7 +144,8 @@ export default function ChampionshipPage() {
 
   // Rechercher les équipes du club sélectionné
   async function handleSearchTeamsForClub(club: { eqNo: string; libelle: string }) {
-    setSearching(true);
+    setTeamsLoading(true);
+    setSearchError(null);
     setFoundTeams([]);
     setSelectedTeam(null);
 
@@ -155,7 +159,9 @@ export default function ChampionshipPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        toast.error(data.error || "Erreur lors de la recherche des équipes");
+        const errorMsg = data.error || "Impossible de récupérer les équipes";
+        setSearchError(errorMsg);
+        console.error("[Team Search Error]", data);
         return;
       }
 
@@ -170,36 +176,36 @@ export default function ChampionshipPage() {
       }
 
       if (equipes.length === 0) {
-        toast.error("Aucune équipe trouvée pour ce club");
+        setSearchError("Aucune équipe trouvée pour ce club");
         return;
       }
 
       const validEquipes = equipes
         .map((e: any) => ({
-          eqNo: e.eqNo || e.id || "",
-          libelle: e.libelle || e.name || "",
+          eqNo: e.eqNo || e.id || e.numEq || "",
+          libelle: e.libelle || e.name || e.equipe || "",
         }))
         .filter((e: any) => e.eqNo && e.libelle);
 
       if (validEquipes.length === 0) {
-        toast.error("Les données d'équipes sont incomplètes");
+        setSearchError("Format de données non valide");
+        console.error("[Invalid Teams]", equipes);
         return;
       }
 
       setFoundTeams(validEquipes);
+      toast.success(`✓ ${validEquipes.length} équipe${validEquipes.length > 1 ? "s" : ""} trouvée${validEquipes.length > 1 ? "s" : ""}`);
 
       // Auto-sélection si une seule équipe
       if (validEquipes.length === 1) {
         setSelectedTeam(validEquipes[0]);
-        toast.success(`✓ Équipe trouvée: ${validEquipes[0].libelle}`);
-      } else {
-        toast.success(`✓ ${validEquipes.length} équipes trouvées`);
       }
     } catch (error) {
-      toast.error("Erreur lors de la recherche");
-      console.error(error);
+      const errorMsg = error instanceof Error ? error.message : "Erreur inattendue lors de la recherche";
+      setSearchError(errorMsg);
+      console.error("[Team Search Exception]", error);
     } finally {
-      setSearching(false);
+      setTeamsLoading(false);
     }
   }
 
@@ -209,44 +215,44 @@ export default function ChampionshipPage() {
     
     // Validation de l'input
     if (!searchTerm) {
-      toast.error("Entrez un numéro FFF ou le nom du club");
+      setSearchError("Entrez un numéro FFF valide (6 chiffres)");
+      return;
+    }
+
+    const isNumber = /^\d{1,6}$/.test(searchTerm);
+    if (!isNumber) {
+      setSearchError("Numéro FFF invalide. Entrez 1 à 6 chiffres");
       return;
     }
 
     setSearching(true);
+    setSearchError(null);
     setFoundTeams([]);
     setSelectedTeam(null);
     
     try {
-      const isNumber = /^\d{1,6}$/.test(searchTerm);
-      const body: any = { type: "all" };
-      
-      if (isNumber) {
-        body.fffNumber = searchTerm;
-      } else {
-        body.clubName = searchTerm;
-      }
-
       const res = await authFetch("/api/championships/dofa", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ fffNumber: searchTerm, type: "all" }),
       });
       
       const data = await res.json();
 
       // Gestion des erreurs API
       if (!res.ok) {
+        let errorMsg = "Erreur lors de la recherche";
         if (res.status === 400) {
-          toast.error(data.error || "Club non trouvé");
+          errorMsg = "Numéro FFF non valide";
         } else if (res.status === 404) {
-          toast.error("Club non trouvé. Vérifiez le numéro FFF ou le nom");
+          errorMsg = "Club non trouvé avec ce numéro FFF";
         } else if (res.status === 502 || res.status === 503) {
-          toast.error("Service FFF indisponible. Réessayez dans quelques instants");
-        } else {
-          toast.error(data.error || "Erreur lors de la recherche");
+          errorMsg = "Service FFF indisponible. Réessayez plus tard";
+        } else if (data.error) {
+          errorMsg = data.error;
         }
-        console.error("[API Response]", data);
+        setSearchError(errorMsg);
+        console.error(`[API Error ${res.status}]`, data);
         return;
       }
 
@@ -254,26 +260,19 @@ export default function ChampionshipPage() {
       let equipes = [];
       
       if (Array.isArray(data)) {
-        // Si la réponse est directement un tableau
         equipes = data;
       } else if (data.equipes && Array.isArray(data.equipes)) {
-        // Si c'est data.equipes
         equipes = data.equipes;
       } else if (data.data && Array.isArray(data.data)) {
-        // Si c'est data.data
         equipes = data.data;
-      } else {
-        console.error("[Search Response]", data);
-        toast.error("Format de réponse non reconnu. Réessayez");
-        return;
       }
 
       if (equipes.length === 0) {
-        toast.error("Aucune équipe trouvée");
+        setSearchError("Aucune équipe trouvée pour ce numéro FFF");
         return;
       }
 
-      // Validation des équipes - gère différentes structures
+      // Validation des équipes
       const validEquipes = equipes
         .map((e: any) => ({
           eqNo: e.eqNo || e.id || e.numEq || "",
@@ -282,29 +281,28 @@ export default function ChampionshipPage() {
         .filter((e: any) => e.eqNo && e.libelle);
 
       if (validEquipes.length === 0) {
-        console.error("[Valid Equipes]", equipes);
-        toast.error("Les données d'équipes sont incomplètes");
+        setSearchError("Format de données non valide");
+        console.error("[Invalid Equipes]", equipes);
         return;
       }
 
       setFoundTeams(validEquipes);
-      
+      setSelectedClub({ eqNo: searchTerm, libelle: `Club ${searchTerm}` });
+      toast.success(`✓ ${validEquipes.length} équipe${validEquipes.length > 1 ? "s" : ""} trouvée${validEquipes.length > 1 ? "s" : ""}`);
+
       // Auto-sélection si une seule équipe
       if (validEquipes.length === 1) {
         setSelectedTeam(validEquipes[0]);
-        toast.success(`✓ Équipe trouvée: ${validEquipes[0].libelle}`);
-      } else {
-        toast.success(`✓ ${validEquipes.length} équipes trouvées`);
       }
     } catch (error) {
+      let errorMsg = "Une erreur inattendue s'est produite";
       if (error instanceof TypeError) {
-        toast.error("Erreur de connexion. Vérifiez votre connexion internet");
+        errorMsg = "Erreur de connexion. Vérifiez votre Internet";
       } else if (error instanceof SyntaxError) {
-        toast.error("Réponse invalide du serveur");
-      } else {
-        toast.error("Une erreur inattendue s'est produite");
+        errorMsg = "Réponse invalide du serveur";
       }
-      console.error("[Club Search Error]", error);
+      setSearchError(errorMsg);
+      console.error("[Club Search Exception]", error);
     } finally {
       setSearching(false);
     }
@@ -651,6 +649,7 @@ export default function ChampionshipPage() {
                             onChange={(e) => {
                               setClubSearch(e.target.value);
                               setClubSuggestions([]);
+                              setSearchError(null);
                             }}
                             maxLength={6}
                           />
@@ -662,6 +661,13 @@ export default function ChampionshipPage() {
                             {searching ? "Recherche..." : "Chercher"}
                           </Button>
                         </div>
+                        {searchError && (
+                          <div className="rounded-lg bg-red-50 dark:bg-red-950 p-3 border border-red-200 dark:border-red-800">
+                            <p className="text-xs text-red-800 dark:text-red-200">
+                              ⚠️ {searchError}
+                            </p>
+                          </div>
+                        )}
                       </div>
                     </>
                   ) : (
@@ -690,23 +696,59 @@ export default function ChampionshipPage() {
                   )}
 
 
-                  {foundTeams.length > 0 && (
-                    <div className="space-y-2">
-                      <Label>Équipes trouvées</Label>
-                      <div className="border rounded p-2 max-h-48 overflow-y-auto space-y-1">
-                        {foundTeams.map((team) => (
-                          <label key={team.eqNo} className="flex items-center gap-2 p-2 rounded hover:bg-muted cursor-pointer">
-                            <input
-                              type="radio"
-                              name="team"
-                              value={team.eqNo}
-                              checked={selectedTeam?.eqNo === team.eqNo}
-                              onChange={() => setSelectedTeam(team)}
-                            />
-                            <span className="text-sm">{team.libelle}</span>
-                          </label>
-                        ))}
+                  {selectedClub && (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Label>Sélectionner une équipe</Label>
+                        {teamsLoading && <Loader2 className="w-4 h-4 animate-spin" />}
                       </div>
+
+                      {teamsLoading ? (
+                        <div className="space-y-2">
+                          {[1, 2].map((i) => (
+                            <div
+                              key={i}
+                              className="h-10 bg-muted rounded animate-pulse"
+                            />
+                          ))}
+                        </div>
+                      ) : searchError ? (
+                        <div className="rounded-lg bg-red-50 dark:bg-red-950 p-4 border border-red-200 dark:border-red-800">
+                          <p className="text-sm text-red-800 dark:text-red-200">
+                            ⚠️ {searchError}
+                          </p>
+                        </div>
+                      ) : foundTeams.length > 0 ? (
+                        <div className="border rounded-lg overflow-hidden">
+                          {foundTeams.map((team, idx) => (
+                            <label
+                              key={team.eqNo}
+                              className={`flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors ${
+                                idx !== foundTeams.length - 1 ? "border-b" : ""
+                              } ${
+                                selectedTeam?.eqNo === team.eqNo
+                                  ? "bg-blue-50 dark:bg-blue-950"
+                                  : ""
+                              }`}
+                            >
+                              <input
+                                type="radio"
+                                name="team"
+                                value={team.eqNo}
+                                checked={selectedTeam?.eqNo === team.eqNo}
+                                onChange={() => setSelectedTeam(team)}
+                              />
+                              <div className="flex-1">
+                                <p className="font-medium text-sm">{team.libelle}</p>
+                                <p className="text-xs text-muted-foreground">ID: {team.eqNo}</p>
+                              </div>
+                              {selectedTeam?.eqNo === team.eqNo && (
+                                <div className="text-blue-600 dark:text-blue-400">✓</div>
+                              )}
+                            </label>
+                          ))}
+                        </div>
+                      ) : null}
                     </div>
                   )}
 
