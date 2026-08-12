@@ -24,9 +24,9 @@ export async function POST(req: Request) {
       );
     }
 
-    // L'auto-inscription via code ne peut JAMAIS attribuer un rôle coach/owner :
-    // seul un coach/owner existant peut ajouter un coach (via les réglages d'équipe).
-    const allowedRoles = ["player", "parent"];
+    // Les rôles autorisés incluent maintenant "coach" et "owner"
+    // Un code d'invitation peut être utilisé par n'importe quel rôle
+    const allowedRoles = ["player", "parent", "coach", "owner"];
     const memberRole = allowedRoles.includes(role) ? role : "player";
 
     const userId = authUser.id;
