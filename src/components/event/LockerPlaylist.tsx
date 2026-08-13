@@ -112,28 +112,38 @@ export function LockerPlaylist({
     toast.success(`${items.length} lien(s) Deezer copiés. Ouvrez Deezer et cherchez chaque chanson.`);
   }
 
-  function openSpotifySearch() {
+  function openAllOnSpotify() {
     if (items.length === 0) {
       toast.error("La playlist est vide");
       return;
     }
-    // Ouvrir la première chanson sur Spotify
-    window.open(
-      `https://open.spotify.com/search/${encodeURIComponent(items[0].title)}/tracks`,
-      "_blank"
-    );
+    // Ouvrir chaque chanson sur Spotify dans un nouvel onglet
+    items.forEach((item, index) => {
+      setTimeout(() => {
+        window.open(
+          `https://open.spotify.com/search/${encodeURIComponent(item.title)}/tracks`,
+          "_blank"
+        );
+      }, index * 300); // Délai entre les ouvertures pour éviter de bloquer
+    });
+    toast.success(`Ouverture de ${items.length} chanson(s) sur Spotify...`);
   }
 
-  function openDeezerSearch() {
+  function openAllOnDeezer() {
     if (items.length === 0) {
       toast.error("La playlist est vide");
       return;
     }
-    // Ouvrir la première chanson sur Deezer
-    window.open(
-      `https://www.deezer.com/search/${encodeURIComponent(items[0].title)}`,
-      "_blank"
-    );
+    // Ouvrir chaque chanson sur Deezer dans un nouvel onglet
+    items.forEach((item, index) => {
+      setTimeout(() => {
+        window.open(
+          `https://www.deezer.com/search/${encodeURIComponent(item.title)}`,
+          "_blank"
+        );
+      }, index * 300); // Délai entre les ouvertures pour éviter de bloquer
+    });
+    toast.success(`Ouverture de ${items.length} chanson(s) sur Deezer...`);
   }
 
   if (loading) {
@@ -157,26 +167,26 @@ export function LockerPlaylist({
            <div className="flex gap-2">
              {items.length > 0 && (
                <>
-                 <Button 
-                   size="sm" 
-                   variant="outline" 
-                   className="h-7 text-xs bg-green-50 hover:bg-green-100 border-green-200"
-                   onClick={openSpotifySearch}
-                   title="Ouvrir la playlist sur Spotify"
-                 >
-                   <Download className="h-3 w-3 mr-1" />
-                   Spotify
-                 </Button>
-                 <Button 
-                   size="sm" 
-                   variant="outline" 
-                   className="h-7 text-xs bg-orange-50 hover:bg-orange-100 border-orange-200"
-                   onClick={openDeezerSearch}
-                   title="Ouvrir la playlist sur Deezer"
-                 >
-                   <Download className="h-3 w-3 mr-1" />
-                   Deezer
-                 </Button>
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    className="h-7 text-xs bg-green-50 hover:bg-green-100 border-green-200"
+                    onClick={openAllOnSpotify}
+                    title={`Ouvrir tous les morceaux (${items.length}) sur Spotify`}
+                  >
+                    <Download className="h-3 w-3 mr-1" />
+                    Spotify
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    className="h-7 text-xs bg-orange-50 hover:bg-orange-100 border-orange-200"
+                    onClick={openAllOnDeezer}
+                    title={`Ouvrir tous les morceaux (${items.length}) sur Deezer`}
+                  >
+                    <Download className="h-3 w-3 mr-1" />
+                    Deezer
+                  </Button>
                </>
              )}
              {!adding && (
