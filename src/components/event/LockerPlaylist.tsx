@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Music, Plus, Trash2, ExternalLink, Loader2 } from "lucide-react";
+import { Music, Plus, Trash2, ExternalLink, Loader2, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -80,6 +80,62 @@ export function LockerPlaylist({
     setItems((prev) => prev.filter((i) => i.id !== id));
   }
 
+  function exportToSpotify() {
+    if (items.length === 0) {
+      toast.error("La playlist est vide");
+      return;
+    }
+    
+    // Générer un lien de recherche pour chaque chanson
+    const spotifyLinks = items
+      .map((item) => `https://open.spotify.com/search/${encodeURIComponent(item.title)}/tracks`)
+      .join("\n");
+    
+    // Copier dans le presse-papiers
+    navigator.clipboard.writeText(spotifyLinks);
+    toast.success(`${items.length} lien(s) Spotify copiés. Ouvrez Spotify et cherchez chaque chanson.`);
+  }
+
+  function exportToDeezer() {
+    if (items.length === 0) {
+      toast.error("La playlist est vide");
+      return;
+    }
+    
+    // Générer un lien de recherche pour chaque chanson
+    const deezerLinks = items
+      .map((item) => `https://www.deezer.com/search/${encodeURIComponent(item.title)}`)
+      .join("\n");
+    
+    // Copier dans le presse-papiers
+    navigator.clipboard.writeText(deezerLinks);
+    toast.success(`${items.length} lien(s) Deezer copiés. Ouvrez Deezer et cherchez chaque chanson.`);
+  }
+
+  function openSpotifySearch() {
+    if (items.length === 0) {
+      toast.error("La playlist est vide");
+      return;
+    }
+    // Ouvrir la première chanson sur Spotify
+    window.open(
+      `https://open.spotify.com/search/${encodeURIComponent(items[0].title)}/tracks`,
+      "_blank"
+    );
+  }
+
+  function openDeezerSearch() {
+    if (items.length === 0) {
+      toast.error("La playlist est vide");
+      return;
+    }
+    // Ouvrir la première chanson sur Deezer
+    window.open(
+      `https://www.deezer.com/search/${encodeURIComponent(items[0].title)}`,
+      "_blank"
+    );
+  }
+
   if (loading) {
     return (
       <Card>
@@ -93,18 +149,44 @@ export function LockerPlaylist({
   return (
     <Card>
       <CardContent className="p-4 space-y-2">
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-sm font-medium flex items-center gap-1.5">
-            <Music className="h-4 w-4 text-[var(--color-gold)]" />
-            Playlist de vestiaire
-          </p>
-          {!adding && (
-            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setAdding(true)}>
-              <Plus className="h-3 w-3 mr-1" />
-              Ajouter un morceau
-            </Button>
-          )}
-        </div>
+         <div className="flex items-center justify-between gap-2">
+           <p className="text-sm font-medium flex items-center gap-1.5">
+             <Music className="h-4 w-4 text-[var(--color-gold)]" />
+             Playlist de vestiaire
+           </p>
+           <div className="flex gap-2">
+             {items.length > 0 && (
+               <>
+                 <Button 
+                   size="sm" 
+                   variant="outline" 
+                   className="h-7 text-xs bg-green-50 hover:bg-green-100 border-green-200"
+                   onClick={openSpotifySearch}
+                   title="Ouvrir la playlist sur Spotify"
+                 >
+                   <Download className="h-3 w-3 mr-1" />
+                   Spotify
+                 </Button>
+                 <Button 
+                   size="sm" 
+                   variant="outline" 
+                   className="h-7 text-xs bg-orange-50 hover:bg-orange-100 border-orange-200"
+                   onClick={openDeezerSearch}
+                   title="Ouvrir la playlist sur Deezer"
+                 >
+                   <Download className="h-3 w-3 mr-1" />
+                   Deezer
+                 </Button>
+               </>
+             )}
+             {!adding && (
+               <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setAdding(true)}>
+                 <Plus className="h-3 w-3 mr-1" />
+                 Ajouter un morceau
+               </Button>
+             )}
+           </div>
+         </div>
         {adding && (
           <div className="space-y-2 rounded-lg bg-muted/40 p-3">
             <div>
