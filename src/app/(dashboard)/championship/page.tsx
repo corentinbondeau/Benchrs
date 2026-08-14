@@ -583,7 +583,7 @@ export default function ChampionshipPage() {
           <div className="flex gap-2">
             {/* Dialog Sélection club/équipe */}
             <Dialog open={selectTeamOpen} onOpenChange={setSelectTeamOpen}>
-              <DialogTrigger render={<Button className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold" />}>
+              <DialogTrigger render={<Button className="bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold" />}>
                 <Zap className="h-4 w-4 mr-1" />
                 Import auto FFF
               </DialogTrigger>
@@ -759,7 +759,7 @@ export default function ChampionshipPage() {
                     <Button
                       onClick={handleImportTeam}
                       disabled={!selectedTeam}
-                      className="flex-1 bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
+                      className="flex-1 bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold"
                     >
                       Importer
                     </Button>
@@ -824,7 +824,7 @@ export default function ChampionshipPage() {
                       <Button
                         onClick={handleFffScrape}
                         disabled={fffLoading || (!fffUrl && !fffHtml)}
-                        className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] font-semibold"
+                        className="w-full bg-[var(--color-primary-blue)] text-white font-semibold"
                       >
                         {fffLoading ? (
                           <>
@@ -927,7 +927,7 @@ export default function ChampionshipPage() {
                         <Button
                           onClick={() => handleSaveMatches(scrapedMatches, "manual")}
                           disabled={saving || !importName.trim()}
-                          className="flex-1 bg-[var(--color-gold)] text-[var(--color-navy)] font-semibold"
+                          className="flex-1 bg-[var(--color-primary-blue)] text-white font-semibold"
                         >
                           {saving ? (
                             <>
@@ -1121,7 +1121,7 @@ export default function ChampionshipPage() {
                 <Button
                   onClick={() => handleSaveMatches(dofaMatches, "dofa")}
                   disabled={saving || !importName.trim()}
-                  className="flex-1 bg-[var(--color-gold)] text-[var(--color-navy)] font-semibold"
+                  className="flex-1 bg-[var(--color-primary-blue)] text-white font-semibold"
                 >
                   {saving ? (
                     <>

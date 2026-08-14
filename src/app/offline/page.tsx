@@ -14,7 +14,7 @@ export default function OfflinePage() {
       </p>
       <button
         onClick={() => window.location.reload()}
-        className="mt-6 rounded-lg bg-[var(--color-gold)] px-4 py-2 text-sm font-semibold text-[var(--color-navy)]"
+        className="mt-6 rounded-lg bg-[var(--color-primary-blue)] px-4 py-2 text-sm font-semibold text-white"
       >
         Réessayer
       </button>

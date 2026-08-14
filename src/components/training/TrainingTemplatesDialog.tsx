@@ -153,7 +153,7 @@ export function TrainingTemplatesDialog({
               />
               <Button
                 size="sm"
-                className="bg-[var(--color-gold)] text-[var(--color-navy)] font-semibold shrink-0"
+                className="bg-[var(--color-primary-blue)] text-white font-semibold shrink-0"
                 onClick={handleSaveTemplate}
                 disabled={saving || !name.trim()}
               >

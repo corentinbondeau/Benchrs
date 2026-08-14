@@ -134,7 +134,7 @@ export default function ResetPasswordPage() {
           <CardFooter>
             <Button
               type="submit"
-              className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
+              className="w-full bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold"
               disabled={loading}
             >
               {loading ? "Mise à jour..." : "Mettre à jour"}

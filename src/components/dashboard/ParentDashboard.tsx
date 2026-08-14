@@ -192,7 +192,7 @@ export function ParentDashboard() {
           </div>
         </div>
         <Button
-          className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
+          className="w-full bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold"
           onClick={() => router.push(`/link-child?teamId=${currentTeam.id}`)}
         >
           <User className="h-4 w-4" />
@@ -256,34 +256,33 @@ export function ParentDashboard() {
       )}
 
       {nextEvent && eventDate && (
-        <Card
-          className="bg-gradient-to-r from-[var(--color-gold)] to-amber-400 text-[var(--color-navy)] cursor-pointer hover:opacity-90 transition-opacity"
+        <button
+          className="w-full text-left rounded-xl bg-[var(--color-navy)] text-white p-5 hover:bg-[var(--color-navy-light)] transition-colors"
           onClick={() => router.push(nextEvent.type === "match" ? `/matches/${nextEvent.id}` : `/trainings/${nextEvent.id}`)}
         >
-          <CardContent className="p-6">
             <div className="flex items-start justify-between gap-3">
               <div className="space-y-2 min-w-0">
-                <p className="text-[var(--color-navy)]/60 text-sm font-medium uppercase tracking-wide">
+                <p className="text-xs font-semibold uppercase tracking-widest text-white/40">
                   {nextEvent.type === "match"
                     ? "Prochain match"
-                    : "Prochain entraînement"}
+                    : "Prochain entrainement"}
                 </p>
-                <h3 className="text-xl font-bold truncate">{nextEvent.title}</h3>
+                <h3 className="text-lg font-bold truncate">{nextEvent.title}</h3>
                 {nextEvent.opponent && (
-                  <p className="text-[var(--color-navy)]/80 truncate">
+                  <p className="text-white/60 truncate">
                     vs {nextEvent.opponent}
                   </p>
                 )}
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-[var(--color-navy)]/70">
-                  <span className="flex items-center gap-1 min-w-0">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[13px] text-white/55">
+                  <span className="flex items-center gap-1.5">
                     <Calendar className="h-3.5 w-3.5 shrink-0" />
-                    <span className="truncate">{eventDate.toLocaleDateString("fr-FR", {
+                    <span className="truncate capitalize">{eventDate.toLocaleDateString("fr-FR", {
                       weekday: "long",
                       day: "numeric",
                       month: "long",
                     })}</span>
                   </span>
-                  <span className="flex items-center gap-1 shrink-0">
+                  <span className="flex items-center gap-1.5">
                     <Clock className="h-3.5 w-3.5" />
                     {eventDate.toLocaleTimeString("fr-FR", {
                       hour: "2-digit",
@@ -291,7 +290,7 @@ export function ParentDashboard() {
                     })}
                   </span>
                   {nextEvent.location && (
-                    <span className="flex items-center gap-1 min-w-0 w-full sm:w-auto">
+                    <span className="flex items-center gap-1.5">
                       <MapPin className="h-3.5 w-3.5 shrink-0" />
                       <span className="truncate">{nextEvent.location}</span>
                     </span>
@@ -299,13 +298,12 @@ export function ParentDashboard() {
                 </div>
               </div>
               <div className="text-right shrink-0">
-                <div className="inline-flex items-center rounded-lg bg-[var(--color-navy)] px-3 py-1.5 text-sm font-bold text-white">
+                <span className="inline-flex items-center rounded-md bg-[var(--color-primary-blue)] px-2.5 py-1 text-xs font-bold text-white">
                   {countdown}
-                </div>
+                </span>
               </div>
             </div>
-          </CardContent>
-        </Card>
+        </button>
       )}
 
       {pendingConvs.length > 0 && (

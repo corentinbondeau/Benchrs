@@ -129,7 +129,7 @@ export function ParentOnboarding() {
             </Button>
           )}
           <Button
-            className="flex-1 bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
+            className="flex-1 bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold"
             onClick={isLast ? markDone : () => setStep(step + 1)}
             disabled={saving}
           >

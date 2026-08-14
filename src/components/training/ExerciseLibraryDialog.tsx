@@ -253,7 +253,7 @@ export function ExerciseLibraryDialog({
                   size="sm"
                   onClick={handleAddToLibrary}
                   disabled={adding}
-                  className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
+                  className="bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold"
                 >
                   {adding ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Plus className="mr-1 h-3 w-3" />}
                   Ajouter

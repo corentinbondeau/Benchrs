@@ -197,7 +197,7 @@ export function MatchAvailabilityCard({
           {isCoach && (
             <Button
               size="sm"
-              className="bg-[var(--color-gold)] text-[var(--color-navy)] font-semibold"
+              className="bg-[var(--color-primary-blue)] text-white font-semibold"
               onClick={notifyPoll}
               disabled={sending}
             >

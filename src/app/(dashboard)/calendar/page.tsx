@@ -494,7 +494,7 @@ export default function CalendarPage() {
         </div>
         {isCoach && (
           <Dialog open={createOpen} onOpenChange={handleCreateOpenChange}>
-            <DialogTrigger render={<Button className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold" />}>
+            <DialogTrigger render={<Button className="bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold" />}>
               <Plus className="h-4 w-4 mr-1" />
               Événement
             </DialogTrigger>
@@ -638,7 +638,7 @@ export default function CalendarPage() {
                     </p>
                   </div>
                 )}
-                <Button type="submit" className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] font-semibold">
+                <Button type="submit" className="w-full bg-[var(--color-primary-blue)] text-white font-semibold">
                   Créer
                 </Button>
               </form>

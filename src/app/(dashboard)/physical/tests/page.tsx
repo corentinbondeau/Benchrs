@@ -217,7 +217,7 @@ export default function PhysicalTestsPage() {
       <div className="flex flex-col sm:flex-row gap-3">
         {isCoach && (
           <Button
-            className="flex-1 bg-[var(--color-gold)] text-[var(--color-navy)] font-semibold"
+            className="flex-1 bg-[var(--color-primary-blue)] text-white font-semibold"
             disabled={savedCount === 0 || Object.values(saving).some(Boolean)}
             onClick={async () => {
               for (const p of players) {

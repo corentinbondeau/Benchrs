@@ -364,7 +364,7 @@ export default function GalleryPage() {
         <div className="flex gap-2">
           {user && (
             <Dialog open={uploadOpen} onOpenChange={setUploadOpen}>
-              <DialogTrigger render={<Button className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold" />}>
+              <DialogTrigger render={<Button className="bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold" />}>
                 <Upload className="h-4 w-4 mr-1" />
                 Ajouter
               </DialogTrigger>
@@ -535,7 +535,7 @@ export default function GalleryPage() {
               setSelectedIds(new Set());
               setSelecting(false);
             }}
-            className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
+            className="bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold"
           >
             Appliquer
           </Button>
@@ -685,7 +685,7 @@ export default function GalleryPage() {
               </Select>
               <Button
                 size="sm"
-                className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold shrink-0"
+                className="bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold shrink-0"
                 onClick={async () => {
                   const res = await authFetch("/api/gallery/set-album", {
                     method: "POST",

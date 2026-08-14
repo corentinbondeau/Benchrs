@@ -880,7 +880,7 @@ export default function TeamSettingsPage() {
               </Button>
             </div>
             <Button
-              className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] font-semibold"
+              className="w-full bg-[var(--color-primary-blue)] text-white font-semibold"
               onClick={copyInviteLink}
             >
               <Link2 className="h-4 w-4 mr-1" />
@@ -973,7 +973,7 @@ export default function TeamSettingsPage() {
               <Button
                 onClick={saveColors}
                 disabled={savingColors}
-                className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
+                className="bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold"
               >
                 {savingColors ? "Sauvegarde..." : "Sauvegarder les couleurs"}
               </Button>
@@ -1160,7 +1160,7 @@ export default function TeamSettingsPage() {
                   toast.success("Difficulté mise à jour");
                 }
               }}
-              className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
+              className="bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold"
             >
               Enregistrer
             </Button>
@@ -1216,7 +1216,7 @@ export default function TeamSettingsPage() {
                   toast.success("Paramètre enregistré");
                 }
               }}
-              className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
+              className="bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold"
             >
               Enregistrer
             </Button>
@@ -1274,7 +1274,7 @@ export default function TeamSettingsPage() {
                   toast.success("Paramètre enregistré");
                 }
               }}
-              className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
+              className="bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold"
             >
               Enregistrer
             </Button>
@@ -1573,7 +1573,7 @@ export default function TeamSettingsPage() {
                 {canManageClub && (
                   <Button
                     size="sm"
-                    className="bg-[var(--color-gold)] text-[var(--color-navy)] font-semibold h-9"
+                    className="bg-[var(--color-primary-blue)] text-white font-semibold h-9"
                     disabled={savingFff}
                     onClick={saveFffNumber}
                   >
@@ -1735,7 +1735,7 @@ export default function TeamSettingsPage() {
               <div className="flex flex-wrap gap-2">
                 <Button
                   size="sm"
-                  className="bg-[var(--color-gold)] text-[var(--color-navy)] font-semibold"
+                  className="bg-[var(--color-primary-blue)] text-white font-semibold"
                   disabled={savingPublic}
                   onClick={savePublicClub}
                 >
@@ -1884,7 +1884,7 @@ export default function TeamSettingsPage() {
                   />
                   <Button
                     size="sm"
-                    className="bg-[var(--color-gold)] text-[var(--color-navy)] font-semibold h-9"
+                    className="bg-[var(--color-primary-blue)] text-white font-semibold h-9"
                     disabled={addingMember}
                     onClick={addClubMember}
                   >

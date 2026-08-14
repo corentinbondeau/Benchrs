@@ -115,7 +115,7 @@ function LinkChildForm() {
   }
 
   return (
-    <div className="pb-24">
+    <div className="section-gap">
       <div className="px-4 pt-4 pb-1">
         <h2 className="text-xl font-bold">Lier un enfant</h2>
         <p className="text-sm text-muted-foreground mt-0.5">
@@ -187,7 +187,7 @@ function LinkChildForm() {
               Plus tard
             </Button>
             <Button
-              className="flex-1 bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
+              className="flex-1 bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold"
               onClick={handleConfirm}
               disabled={selected.size === 0 || saving}
             >

@@ -427,7 +427,7 @@ export function MatchReportCard({ matchId, teamId, isCoach, hasData }: Props) {
 
           <div className="flex items-center gap-2 pt-1">
             <Button
-              className="bg-[var(--color-gold)] text-[var(--color-navy)] font-semibold"
+              className="bg-[var(--color-primary-blue)] text-white font-semibold"
               onClick={saveManual}
               disabled={saving}
             >
@@ -465,7 +465,7 @@ export function MatchReportCard({ matchId, teamId, isCoach, hasData }: Props) {
               )}
               <Button
                 size="sm"
-                className="bg-[var(--color-gold)] text-[var(--color-navy)] font-semibold"
+                className="bg-[var(--color-primary-blue)] text-white font-semibold"
                 onClick={generate}
                 disabled={generating || !hasData}
               >

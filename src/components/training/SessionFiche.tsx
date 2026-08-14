@@ -492,7 +492,7 @@ export function SessionFiche({
                 <div className="flex flex-col sm:flex-row gap-2 justify-center">
                   <Button
                     onClick={() => { setVisibility("coach"); setAiOpen(true); }}
-                    className="bg-[var(--color-gold)] text-[var(--color-navy)] font-semibold"
+                    className="bg-[var(--color-primary-blue)] text-white font-semibold"
                   >
                     <Sparkles className="h-4 w-4 mr-1" />
                     Générer avec l&apos;IA
@@ -712,7 +712,7 @@ export function SessionFiche({
           <DialogFooter>
             <Button variant="outline" onClick={() => setAiOpen(false)}>Annuler</Button>
             <Button
-              className="bg-[var(--color-gold)] text-[var(--color-navy)] font-semibold"
+              className="bg-[var(--color-primary-blue)] text-white font-semibold"
               onClick={handleGenerate}
               disabled={generating}
             >

@@ -292,7 +292,7 @@ export default function TreasuryPage() {
               </CardTitle>
               <Button
                 size="sm"
-                className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
+                className="bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold"
                 onClick={() => {
                   resetTxForm();
                   setTxOpen(true);
@@ -487,7 +487,7 @@ export default function TreasuryPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setTxOpen(false)}>Annuler</Button>
             <Button
-              className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
+              className="bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold"
               disabled={!txLabel.trim() || !txAmount || saving}
               onClick={handleSaveTx}
             >

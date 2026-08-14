@@ -118,7 +118,7 @@ export default function PublicClubPage({ params }: { params: { slug: string } })
 
   return (
     <div className="min-h-screen bg-[var(--color-navy)] pb-16">
-      <div className="bg-gradient-to-b from-[var(--color-navy)] to-[var(--color-royal)] px-4 py-10 text-center">
+      <div className="bg-[var(--color-navy)] px-4 py-10 text-center">
         <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-1.5 text-xs text-white/80">
           <Shield className="h-3.5 w-3.5" />
           Club de football{club.fff_number ? ` · n°${club.fff_number}` : ""}
@@ -202,7 +202,7 @@ export default function PublicClubPage({ params }: { params: { slug: string } })
               <Label className="text-xs">Message</Label>
               <Textarea className="text-sm mt-1" rows={3} placeholder="Année d'expérience, clubs précédents, disponibilités..." value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} />
             </div>
-            <Button className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold" onClick={submit} disabled={submitting}>
+            <Button className="w-full bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold" onClick={submit} disabled={submitting}>
               {submitting ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : null}
               Envoyer ma demande
             </Button>

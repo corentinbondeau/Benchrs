@@ -165,7 +165,7 @@ export function MedicalRecordCard({
                       />
                     </div>
                   </div>
-                  <Button type="submit" className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] font-semibold" disabled={saving}>
+                  <Button type="submit" className="w-full bg-[var(--color-primary-blue)] text-white font-semibold" disabled={saving}>
                     {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
                     Signaler
                   </Button>

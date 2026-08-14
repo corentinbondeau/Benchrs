@@ -568,7 +568,7 @@ export default function MatchDetailPage() {
                 <div className="flex flex-wrap gap-2 pt-2">
                   <Button
                     size="sm"
-                    className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
+                    className="bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold"
                     onClick={() => setConvDialogOpen(true)}
                   >
                     <Bell className="h-3.5 w-3.5 mr-1" />
@@ -729,7 +729,7 @@ export default function MatchDetailPage() {
                     </Button>
                     <Button
                       size="sm"
-                      className="bg-[var(--color-gold)] text-[var(--color-navy)]"
+                      className="bg-[var(--color-primary-blue)] text-white"
                       onClick={saveScore}
                     >
                       <Check className="h-3.5 w-3.5 mr-1" />
@@ -917,7 +917,7 @@ export default function MatchDetailPage() {
                   </Button>
                   <Button
                     size="sm"
-                    className="bg-[var(--color-gold)] text-[var(--color-navy)]"
+                    className="bg-[var(--color-primary-blue)] text-white"
                     onClick={saveStats}
                     disabled={savingStats}
                   >

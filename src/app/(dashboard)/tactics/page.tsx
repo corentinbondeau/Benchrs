@@ -512,7 +512,7 @@ function SéanceTab() {
               if (!open) resetForm();
             }}
           >
-            <DialogTrigger render={<Button size="sm" className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold" />}>
+            <DialogTrigger render={<Button size="sm" className="bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold" />}>
               <Plus className="mr-1 h-4 w-4" />
               Nouvelle séance
             </DialogTrigger>
@@ -874,7 +874,7 @@ function SéanceTab() {
                   >
                     Annuler
                   </Button>
-                  <Button type="submit" disabled={submitting} className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold">
+                  <Button type="submit" disabled={submitting} className="bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold">
                     {submitting ? "Création..." : "Créer la séance"}
                   </Button>
                 </div>
@@ -1552,7 +1552,7 @@ function FeuilletMatchTab() {
             <Button
               onClick={handleSave}
               disabled={saving || !selectedEventId}
-              className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
+              className="bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold"
             >
               {saving ? "Enregistrement..." : "Enregistrer le feuillet"}
             </Button>

@@ -507,7 +507,7 @@ export default function CotisationsPage() {
                               </Button>
                               <Button
                                 size="sm"
-                                className="h-8 text-xs bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
+                                className="h-8 text-xs bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold"
                                 onClick={() => {
                                   setPaymentCotisation(c);
                                   setPaymentAmount("");
@@ -587,7 +587,7 @@ export default function CotisationsPage() {
               Annuler
             </Button>
             <Button
-              className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
+              className="bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold"
               disabled={!defineAmount || saving}
               onClick={handleDefine}
             >
@@ -657,7 +657,7 @@ export default function CotisationsPage() {
               Annuler
             </Button>
             <Button
-              className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
+              className="bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold"
               disabled={!paymentAmount || saving}
               onClick={handlePayment}
             >

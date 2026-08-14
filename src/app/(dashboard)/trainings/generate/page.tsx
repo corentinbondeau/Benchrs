@@ -197,7 +197,7 @@ export default function GenerateTrainingPage() {
           </div>
 
           <Button
-            className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] font-semibold"
+            className="w-full bg-[var(--color-primary-blue)] text-white font-semibold"
             onClick={handleGenerate}
             disabled={generating}
           >
@@ -207,23 +207,22 @@ export default function GenerateTrainingPage() {
         </div>
       ) : (
         <div className="space-y-4">
-          <Card className="bg-gradient-to-r from-[var(--color-navy)] to-[var(--color-royal)] text-white">
-            <CardContent className="p-6 flex items-center justify-between gap-4">
+          <div className="rounded-xl bg-[var(--color-navy)] text-white p-5 md:p-6 flex items-center justify-between gap-4">
               <div className="min-w-0">
-                <h3 className="text-lg font-bold truncate">{session?.title || "Fiche de séance"}</h3>
-                <p className="text-sm text-white/80 mt-1 flex items-center gap-1">
-                  <Clock className="h-3.5 w-3.5" />Séance de 90 min · niveau {expertise} · avec animation simple
+                <h3 className="text-lg font-bold truncate">{session?.title || "Fiche de seance"}</h3>
+                <p className="text-sm text-white/55 mt-1 flex items-center gap-1">
+                  <Clock className="h-3.5 w-3.5" />Seance de 90 min · niveau {expertise} · avec animation simple
                 </p>
                 {pdfPages && (
-                  <p className="text-xs text-emerald-300 mt-1.5 flex items-center gap-1">
-                    ✓ PDF prêt · {pdfPages} pages
+                  <p className="text-xs text-emerald-400 mt-1.5 flex items-center gap-1">
+                    PDF pret · {pdfPages} pages
                   </p>
                 )}
               </div>
               <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
                 <Button
                   variant="outline"
-                  className="bg-white/10 text-white border-white/30"
+                  className="bg-white/[0.08] text-white border-white/20 hover:bg-white/[0.15]"
                   onClick={() => pdfUrl && window.open(pdfUrl, "_blank")}
                 >
                   <Eye className="h-4 w-4 mr-1" />
@@ -233,14 +232,13 @@ export default function GenerateTrainingPage() {
                   href={pdfUrl || undefined}
                   download={`${session?.title || "seance"}.pdf`.replace(/[^\w\s-]/g, "").trim()}
                 >
-                  <Button className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] font-semibold">
+                  <Button className="w-full bg-[var(--color-primary-blue)] text-white font-semibold hover:bg-[var(--color-primary-blue)]/90">
                     <FileDown className="h-4 w-4 mr-1" />
-                    Télécharger
+                    Telecharger
                   </Button>
                 </a>
               </div>
-            </CardContent>
-          </Card>
+          </div>
 
           <div className="rounded-lg border bg-muted/30 hidden md:block">
             <iframe
@@ -340,7 +338,7 @@ export default function GenerateTrainingPage() {
               Modifier les critères
             </Button>
             <Button
-              className="flex-1 bg-[var(--color-gold)] text-[var(--color-navy)] font-semibold"
+              className="flex-1 bg-[var(--color-primary-blue)] text-white font-semibold"
               onClick={handleGenerate}
               disabled={generating}
             >

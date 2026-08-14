@@ -430,7 +430,7 @@ export function EventCoachActions({
               </Button>
               <Button
                 type="button"
-                className="flex-1 bg-[var(--color-gold)] text-[var(--color-navy)] font-semibold"
+                className="flex-1 bg-[var(--color-primary-blue)] text-white font-semibold"
                 disabled={!reportDate || saving}
                 onClick={saveReport}
               >
@@ -496,7 +496,7 @@ export function EventCoachActions({
               </Button>
               <Button
                 type="button"
-                className="flex-1 bg-[var(--color-gold)] text-[var(--color-navy)] font-semibold"
+                className="flex-1 bg-[var(--color-primary-blue)] text-white font-semibold"
                 disabled={!editTitle.trim() || !editDate || saving}
                 onClick={saveEdit}
               >

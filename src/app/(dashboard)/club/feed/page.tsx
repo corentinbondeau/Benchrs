@@ -223,7 +223,7 @@ export default function ClubFeedPage() {
             <Button
               onClick={handlePost}
               disabled={posting || !teamId}
-              className="ml-auto bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
+              className="ml-auto bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold"
             >
               {posting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               Publier

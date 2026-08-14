@@ -207,7 +207,7 @@ export default function FinSaisonPage() {
               <CardDescription>Résumé du mois rédigé par IA et envoyé aux familles.</CardDescription>
             </div>
             {isCoach && (
-              <Button size="sm" className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold" onClick={() => setNewsletterOpen(true)}>
+              <Button size="sm" className="bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold" onClick={() => setNewsletterOpen(true)}>
                 <Sparkles className="h-3.5 w-3.5 mr-1" />
                 Générer
               </Button>
@@ -244,7 +244,7 @@ export default function FinSaisonPage() {
               <CardDescription>Le récit complet de la saison, prêt à imprimer et à distribuer.</CardDescription>
             </div>
             {isCoach && (
-              <Button size="sm" className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold" onClick={() => setStorybookOpen(true)}>
+              <Button size="sm" className="bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold" onClick={() => setStorybookOpen(true)}>
                 <Sparkles className="h-3.5 w-3.5 mr-1" />
                 Générer
               </Button>
@@ -273,7 +273,7 @@ export default function FinSaisonPage() {
               <CardDescription>Un message de fin de saison personnalisé par joueur, écrit par IA.</CardDescription>
             </div>
             {isCoach && (
-              <Button size="sm" className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold" onClick={() => setGreetingsOpen(true)}>
+              <Button size="sm" className="bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold" onClick={() => setGreetingsOpen(true)}>
                 <Sparkles className="h-3.5 w-3.5 mr-1" />
                 Générer
               </Button>

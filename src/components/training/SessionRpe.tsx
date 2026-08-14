@@ -352,7 +352,7 @@ export function SessionRpe({
                 <Button
                   onClick={handleSave}
                   disabled={saving || selectedRpe === 0}
-                  className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
+                  className="bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold"
                 >
                   {saving ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Check className="mr-1 h-4 w-4" />}
                   Enregistrer

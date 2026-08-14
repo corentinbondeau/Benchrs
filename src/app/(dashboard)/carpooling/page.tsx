@@ -82,7 +82,7 @@ export default function CarpoolingPage() {
           <p className="text-sm text-muted-foreground mt-1">Organisation des trajets</p>
         </div>
         <Dialog open={addOpen} onOpenChange={setAddOpen}>
-          <DialogTrigger render={<Button className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold" />}>
+          <DialogTrigger render={<Button className="bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold" />}>
             <Plus className="h-4 w-4 mr-1" />
             Proposer
           </DialogTrigger>
@@ -118,7 +118,7 @@ export default function CarpoolingPage() {
                 <Label>Notes</Label>
                 <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Infos complémentaires..." />
               </div>
-              <Button type="submit" className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] font-semibold" disabled={!form.eventId}>
+              <Button type="submit" className="w-full bg-[var(--color-primary-blue)] text-white font-semibold" disabled={!form.eventId}>
                 Proposer le trajet
               </Button>
             </form>

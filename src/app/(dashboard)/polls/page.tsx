@@ -195,7 +195,7 @@ export default function PollsPage() {
         </div>
         {isCoach && (
           <Button
-            className="bg-[var(--color-gold)] text-[var(--color-navy)] font-semibold"
+            className="bg-[var(--color-primary-blue)] text-white font-semibold"
             onClick={() => setCreateOpen(true)}
           >
             <Plus className="h-4 w-4 mr-1" />
@@ -349,7 +349,7 @@ export default function PollsPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)}>Annuler</Button>
             <Button
-              className="bg-[var(--color-gold)] text-[var(--color-navy)] font-semibold"
+              className="bg-[var(--color-primary-blue)] text-white font-semibold"
               onClick={handleCreate}
               disabled={creating}
             >

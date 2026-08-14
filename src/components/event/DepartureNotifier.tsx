@@ -80,7 +80,7 @@ export function DepartureNotifier({
         <Button
           size="sm"
           variant={departureAt ? "outline" : "default"}
-          className={!departureAt ? "bg-[var(--color-gold)] text-[var(--color-navy)] font-semibold" : ""}
+          className={!departureAt ? "bg-[var(--color-primary-blue)] text-white font-semibold" : ""}
           disabled={!!departureAt || sending !== null}
           onClick={() => send("depart")}
         >

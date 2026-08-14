@@ -691,19 +691,17 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
   if (profile.role !== "player") {
     return (
       <div className="space-y-6">
-        <Card className="bg-gradient-to-r from-blue-900 to-blue-800 text-white">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-6">
-              <div className="flex h-20 w-20 items-center justify-center rounded-full bg-white/20 text-2xl font-bold">
+        <div className="rounded-xl bg-[var(--color-navy)] text-white p-5 md:p-6">
+            <div className="flex items-center gap-5">
+              <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-white/10 text-xl font-bold shrink-0">
                 {initials}
               </div>
               <div>
-                <h2 className="text-2xl font-bold">{profile.first_name} {profile.last_name}</h2>
-                <p className="text-blue-200 mt-1 capitalize">{roleLabels[profile.role]}</p>
+                <h2 className="text-xl font-bold">{profile.first_name} {profile.last_name}</h2>
+                <p className="text-white/50 text-sm mt-0.5 capitalize">{roleLabels[profile.role]}</p>
               </div>
             </div>
-          </CardContent>
-        </Card>
+        </div>
 
         {/* Contact */}
         <Card>
@@ -764,10 +762,9 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
 
   return (
     <div className="space-y-6">
-      <Card className="bg-gradient-to-r from-blue-900 to-blue-800 text-white">
-        <CardContent className="p-6">
-          <div className="flex items-center gap-6">
-            <div className="relative flex h-20 w-20 items-center justify-center rounded-full bg-white/20 text-2xl font-bold">
+      <div className="rounded-xl bg-[var(--color-navy)] text-white p-5 md:p-6">
+          <div className="flex items-center gap-5">
+            <div className="relative flex h-16 w-16 items-center justify-center rounded-xl bg-white/10 text-xl font-bold shrink-0">
               {editingShirt ? (
                 <Input
                   autoFocus
@@ -811,9 +808,9 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
             </div>
             <div>
               <h2 className="text-2xl font-bold">{stats.first_name} {stats.last_name}</h2>
-              <p className="text-blue-200 mt-1">{stats.position || "Joueur"}</p>
+              <p className="text-white/50 text-sm mt-0.5">{stats.position || "Joueur"}</p>
               {(profile.preferred_foot || profile.height_cm || profile.weight_kg || (profile.secondary_positions?.length ?? 0) > 0) && (
-                <p className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-blue-100/90">
+                <p className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-white/60">
                   {profile.preferred_foot && (
                     <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2 py-0.5">
                       <span className="h-2 w-2 rounded-full bg-white/70" />
@@ -833,7 +830,7 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
                 </p>
               )}
               {(profile.secondary_positions?.length ?? 0) > 0 && (
-                <p className="mt-1 text-[11px] text-blue-200/80">
+                <p className="mt-1 text-[11px] text-white/50">
                   Aussi : {profile.secondary_positions!.join(" · ")}
                 </p>
               )}
@@ -850,8 +847,7 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
               </button>
             </div>
           </div>
-        </CardContent>
-      </Card>
+      </div>
 
       <EmergencyInfoCard
         playerId={playerId}

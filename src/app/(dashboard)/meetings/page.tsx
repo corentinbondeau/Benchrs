@@ -256,7 +256,7 @@ export default function MeetingsPage() {
           <p className="text-sm text-muted-foreground">Convocation, ordre du jour, compte-rendu et signature électronique.</p>
         </div>
         {isCoach && (
-          <Button size="sm" className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold" onClick={() => setCreateOpen(true)}>
+          <Button size="sm" className="bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold" onClick={() => setCreateOpen(true)}>
             <Plus className="h-3.5 w-3.5 mr-1" />
             Nouvelle réunion
           </Button>
