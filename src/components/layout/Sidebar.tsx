@@ -168,13 +168,13 @@ function NavSection({
     <div>
       <button
         onClick={() => setOpen(!isOpen)}
-        className="flex items-center justify-between w-full px-3 py-1.5 text-[10px] font-semibold text-white/30 uppercase tracking-widest hover:text-white/50 transition-colors"
+        className="flex items-center justify-between w-full rounded-lg px-3 py-2 text-[13px] font-semibold text-white/50 hover:bg-white/[0.06] hover:text-white/70 transition-colors"
       >
-        {title}
-        <ChevronDown className={`h-3 w-3 transition-transform duration-200 ${isOpen ? "" : "-rotate-90"}`} />
+        <span>{title}</span>
+        <ChevronRight className={`h-4 w-4 transition-transform duration-200 ${isOpen ? "rotate-90" : ""}`} />
       </button>
       {isOpen && (
-        <div className="space-y-0.5 mt-0.5">
+        <div className="space-y-0.5 mt-0.5 ml-1 border-l border-white/[0.08] pl-2">
           {filtered.map((item) => {
             const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
             return (
@@ -184,10 +184,10 @@ function NavSection({
                 className={`flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium transition-all duration-150 ${
                   active
                     ? "bg-white/[0.12] text-white"
-                    : "text-white/55 hover:bg-white/[0.06] hover:text-white/90"
+                    : "text-white/45 hover:bg-white/[0.06] hover:text-white/90"
                 }`}
               >
-                <item.icon className={`h-[18px] w-[18px] shrink-0 ${active ? "text-[var(--color-primary-blue)]" : ""}`} />
+                <item.icon className={`h-[16px] w-[16px] shrink-0 ${active ? "text-[var(--color-primary-blue)]" : ""}`} />
                 {item.label}
               </Link>
             );
