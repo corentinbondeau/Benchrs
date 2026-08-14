@@ -1493,15 +1493,15 @@ export default function TeamSettingsPage() {
                         {member.profile?.first_name}{" "}
                         {member.profile?.last_name}
                       </p>
-                      <p className="text-xs text-muted-foreground capitalize">
-                        {member.role}
+                      <p className="text-xs text-muted-foreground">
+                        {member.role === "owner" ? "Coach principal" : member.role === "coach" ? "Coach" : member.role === "parent" ? "Parent" : "Joueur"}
                         {member.user_id === user?.id && " (vous)"}
                       </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs bg-muted px-2 py-1 rounded-full capitalize">
-                      {member.role}
+                    <span className="text-xs bg-muted px-2 py-1 rounded-full">
+                      {member.role === "owner" ? "Coach principal" : member.role === "coach" ? "Coach" : member.role === "parent" ? "Parent" : "Joueur"}
                     </span>
                     {isOwner &&
                       member.user_id !== user?.id &&

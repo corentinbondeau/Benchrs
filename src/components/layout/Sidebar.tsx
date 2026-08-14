@@ -83,7 +83,6 @@ const teamItems = [
   { key: "attendance", href: "/attendance", label: "Presences", icon: Users },
   { key: "tasks", href: "/tasks", label: "Taches", icon: ListTodo },
   { key: "polls", href: "/polls", label: "Sondages", icon: Vote },
-  { key: "material", href: "/material", label: "Materiel", icon: Package, coachAndClub: true },
   { key: "gallery", href: "/gallery", label: "Galerie", icon: Image },
   { key: "meetings", href: "/meetings", label: "Reunions parents", icon: ClipboardList, coachOnly: true },
 ];
@@ -104,6 +103,7 @@ const clubItems = [
   { key: "terrains", href: "/club/terrains", label: "Terrains", icon: MapPin, clubOnly: true },
   { key: "mutations", href: "/club/mutations", label: "Mutations", icon: RefreshCw, clubOnly: true },
   { key: "clubfeed", href: "/club/feed", label: "Fil du club", icon: Newspaper, clubTeamOnly: true },
+  { key: "material", href: "/material", label: "Materiel", icon: Package, coachAndClub: true },
   { key: "cotisations", href: "/admin/cotisations", label: "Cotisations", icon: Wallet, clubOnly: true },
   { key: "treasury", href: "/admin/treasury", label: "Tresorerie", icon: PiggyBank, clubOnly: true },
   { key: "cagnotte", href: "/cagnotte", label: "Cagnottes", icon: PiggyBank, coachOnly: true },

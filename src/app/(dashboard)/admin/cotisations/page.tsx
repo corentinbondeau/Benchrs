@@ -65,7 +65,7 @@ const statusConfig: Record<
 };
 
 export default function CotisationsPage() {
-  const { currentTeam, userRole } = useTeam();
+  const { currentTeam, userRole, clubMemberships } = useTeam();
   const { user } = useAuth();
   const [players, setPlayers] = useState<Profile[]>([]);
   const [cotisations, setCotisations] = useState<Cotisation[]>([]);
@@ -329,10 +329,11 @@ export default function CotisationsPage() {
   }
 
   const isCoach = userRole === "coach" || userRole === "owner";
-  if (!isCoach) {
+  const hasClubRole = clubMemberships.length > 0;
+  if (!hasClubRole) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
-        <p className="text-muted-foreground">Accès réservé au coach</p>
+        <p className="text-muted-foreground">Acces reserve au comite du club</p>
       </div>
     );
   }
