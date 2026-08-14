@@ -28,6 +28,9 @@ import {
   PenLine,
   Share2,
   ClipboardList,
+  Car,
+  Heart,
+  Users,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ConvocationsDialog } from "@/components/ConvocationsDialog";
@@ -658,6 +661,40 @@ export default function MatchDetailPage() {
           selectedChildId={childId}
           onSelect={setChildId}
         />
+      )}
+
+      {/* Raccourcis contextuels */}
+      {isCoach && match.status !== "completed" && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <Link
+            href="/carpooling"
+            className="flex items-center gap-2.5 rounded-xl border border-border bg-card p-3 text-sm font-medium text-foreground hover:bg-muted/50 transition-colors"
+          >
+            <Car className="h-4 w-4 text-muted-foreground shrink-0" />
+            Covoiturage
+          </Link>
+          <Link
+            href="/tactics"
+            className="flex items-center gap-2.5 rounded-xl border border-border bg-card p-3 text-sm font-medium text-foreground hover:bg-muted/50 transition-colors"
+          >
+            <Swords className="h-4 w-4 text-muted-foreground shrink-0" />
+            Tactique
+          </Link>
+          <Link
+            href="/attendance"
+            className="flex items-center gap-2.5 rounded-xl border border-border bg-card p-3 text-sm font-medium text-foreground hover:bg-muted/50 transition-colors"
+          >
+            <Users className="h-4 w-4 text-muted-foreground shrink-0" />
+            Presences
+          </Link>
+          <Link
+            href="/medical"
+            className="flex items-center gap-2.5 rounded-xl border border-border bg-card p-3 text-sm font-medium text-foreground hover:bg-muted/50 transition-colors"
+          >
+            <Heart className="h-4 w-4 text-muted-foreground shrink-0" />
+            Infirmerie
+          </Link>
+        </div>
       )}
 
       {/* Partie 1 — Informations globales */}

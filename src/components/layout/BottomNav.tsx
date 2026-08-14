@@ -373,6 +373,7 @@ export function BottomNav() {
         { href: "/", label: "Accueil", icon: Home },
         { href: "/calendar", label: "Agenda", icon: Calendar },
         { href: "/roster", label: "Equipe", icon: Users },
+        { href: "/stats", label: "Perf", icon: BarChart3 },
         { href: "/chat", label: "Messages", icon: MessageSquare },
       ];
 
