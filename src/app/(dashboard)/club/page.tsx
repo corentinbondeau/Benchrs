@@ -380,9 +380,9 @@ export default function ClubPage() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto space-y-4 md:space-y-6 pb-20 md:pb-0">
+    <div className="max-w-5xl mx-auto section-gap">
       <div>
-        <h1 className="text-xl md:text-2xl font-bold flex items-center gap-2">
+        <h1 className="text-2xl font-bold flex items-center gap-2">
           <Building2 className="h-6 w-6" />
           Espace club
         </h1>

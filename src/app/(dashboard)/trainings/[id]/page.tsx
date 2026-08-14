@@ -207,27 +207,26 @@ export default function TrainingDetailPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <Button variant="ghost" size="sm" onClick={() => router.back()}>
+    <div className="section-gap">
+      <Button variant="ghost" size="sm" onClick={() => router.back()} className="-ml-2">
         <ArrowLeft className="mr-2 h-4 w-4" />
         Retour
       </Button>
 
       {/* Header */}
-      <Card className="bg-gradient-to-r from-[var(--color-navy)] to-[var(--color-royal)] text-white">
-        <CardContent className="p-6">
+      <div className="rounded-xl bg-[var(--color-navy)] text-white p-5 md:p-6">
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <Badge className="bg-white/20 text-white border-white/30">
-                Entraînement
+              <Badge className="bg-white/[0.12] text-white border-white/20">
+                Entrainement
               </Badge>
               {event.status === "cancelled" && (
                 <Badge className="bg-red-500/80 text-white border-red-400/30">
-                  Annulé
+                  Annule
                 </Badge>
               )}
             </div>
-            <h2 className="text-2xl font-bold">{event.title}</h2>
+            <h1 className="text-2xl font-bold">{event.title}</h1>
           </div>
           {isCoach && (
             <div className="mt-4 flex flex-wrap gap-2">
@@ -261,8 +260,7 @@ export default function TrainingDetailPage() {
               />
             </div>
           )}
-        </CardContent>
-      </Card>
+      </div>
 
       <DepartureNotifier
         eventId={trainingId}

@@ -73,8 +73,8 @@ export default function TasksPage() {
 
   if (loading) {
     return (
-      <div className="space-y-4 md:space-y-6 pb-20 md:pb-0">
-        <h2 className="text-xl md:text-2xl font-bold">Tâches</h2>
+      <div className="section-gap">
+        <h1 className="text-2xl font-bold">Tâches</h1>
         <div className="h-64 animate-pulse rounded-lg bg-muted" />
       </div>
     );
@@ -84,10 +84,10 @@ export default function TasksPage() {
   const completedTasks = tasks.filter((t) => t.is_completed);
 
   return (
-    <div className="space-y-4 md:space-y-6 pb-20 md:pb-0">
+    <div className="section-gap">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold">Tâches</h2>
+          <h1 className="text-2xl font-bold">Tâches</h1>
           <p className="text-muted-foreground mt-1">Organisation des goûters, maillots et benevolat</p>
         </div>
         {isCoach && (

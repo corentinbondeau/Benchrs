@@ -4,7 +4,6 @@ import { createClient } from "@/lib/supabase/client";
 import { useTeam } from "@/lib/team";
 import { useQueryCache } from "@/lib/queryCache";
 import { countTeamActivePlayers } from "@/lib/players";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar, Users, Trophy } from "lucide-react";
 
 interface QuickStatsData {
@@ -48,38 +47,55 @@ export function QuickStats() {
 
   if (loading || !stats) {
     return (
-      <Card>
-        <CardContent className="p-6">
-          <div className="h-24 animate-pulse rounded-lg bg-muted" />
-        </CardContent>
-      </Card>
+      <div className="grid grid-cols-3 gap-3">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="rounded-xl border border-border bg-card p-4">
+            <div className="h-12 animate-pulse rounded-lg bg-muted" />
+          </div>
+        ))}
+      </div>
     );
   }
 
   const items = [
-    { icon: Calendar, label: "Événements à venir", value: stats.upcomingEvents, color: "text-[var(--color-royal)]", bg: "bg-blue-50" },
-    { icon: Users, label: "Joueurs actifs", value: stats.totalPlayers, color: "text-green-600", bg: "bg-green-50" },
-    { icon: Trophy, label: "Victoires (30j)", value: stats.recentWins, color: "text-[var(--color-gold)]", bg: "bg-amber-50" },
+    {
+      icon: Calendar,
+      label: "A venir",
+      value: stats.upcomingEvents,
+      iconColor: "text-[var(--color-primary-blue)]",
+      iconBg: "bg-blue-50 dark:bg-blue-950/30",
+    },
+    {
+      icon: Users,
+      label: "Joueurs",
+      value: stats.totalPlayers,
+      iconColor: "text-[var(--color-success)]",
+      iconBg: "bg-emerald-50 dark:bg-emerald-950/30",
+    },
+    {
+      icon: Trophy,
+      label: "Victoires",
+      sublabel: "30 jours",
+      value: stats.recentWins,
+      iconColor: "text-[var(--color-gold)]",
+      iconBg: "bg-amber-50 dark:bg-amber-950/30",
+    },
   ];
 
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="text-base">Aperçu rapide</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {items.map((item) => (
-          <div key={item.label} className="flex items-center gap-3">
-            <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${item.bg}`}>
-              <item.icon className={`h-5 w-5 ${item.color}`} />
-            </div>
-            <div>
-              <p className="text-2xl font-bold">{item.value}</p>
-              <p className="text-xs text-muted-foreground">{item.label}</p>
-            </div>
+    <div className="grid grid-cols-3 gap-3">
+      {items.map((item) => (
+        <div key={item.label} className="rounded-xl border border-border bg-card p-4">
+          <div className={`inline-flex items-center justify-center h-9 w-9 rounded-lg ${item.iconBg} mb-3`}>
+            <item.icon className={`h-[18px] w-[18px] ${item.iconColor}`} />
           </div>
-        ))}
-      </CardContent>
-    </Card>
+          <p className="text-2xl font-bold tabular-nums">{item.value}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">{item.label}</p>
+          {item.sublabel && (
+            <p className="text-[10px] text-muted-foreground/60">{item.sublabel}</p>
+          )}
+        </div>
+      ))}
+    </div>
   );
 }

@@ -225,10 +225,10 @@ export default function PhysicalPreparationPage() {
   const activePlayers = players.filter((p) => p.is_active);
 
   return (
-    <div className="space-y-4 md:space-y-6 pb-20 md:pb-0">
+    <div className="section-gap">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl md:text-2xl font-bold">Préparation Physique</h2>
+          <h1 className="text-2xl font-bold">Préparation Physique</h1>
           <p className="text-sm text-muted-foreground mt-1">Suivi VMA, documents et tracking</p>
         </div>
         <Button

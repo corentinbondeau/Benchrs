@@ -4,9 +4,8 @@ import { createClient } from "@/lib/supabase/client";
 import { useTeam } from "@/lib/team";
 import { useRouter } from "next/navigation";
 import { useQueryCache } from "@/lib/queryCache";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { Trophy, Minus } from "lucide-react";
+import { Trophy } from "lucide-react";
 import type { Event } from "@/types";
 
 export function RecentResults() {
@@ -34,56 +33,71 @@ export function RecentResults() {
 
   if (loading || !matches) {
     return (
-      <Card>
-        <CardContent className="p-6">
-          <div className="h-16 animate-pulse rounded-lg bg-muted" />
-        </CardContent>
-      </Card>
+      <div className="rounded-xl border border-border bg-card p-5">
+        <div className="h-16 animate-pulse rounded-lg bg-muted" />
+      </div>
     );
   }
 
   if (matches.length === 0) return null;
 
-  function getResultColor(match: Event) {
-    if (match.match_result === "win") return "border-l-green-500 bg-green-50 dark:bg-green-950/20";
-    if (match.match_result === "loss") return "border-l-red-500 bg-red-50 dark:bg-red-950/20";
-    return "border-l-amber-500 bg-amber-50 dark:bg-amber-950/20";
+  function getResultStyles(match: Event) {
+    if (match.match_result === "win") return {
+      border: "border-l-[var(--color-success)]",
+      bg: "bg-emerald-50/60 dark:bg-emerald-950/20",
+      label: "V",
+      labelColor: "text-[var(--color-success)]",
+    };
+    if (match.match_result === "loss") return {
+      border: "border-l-[var(--color-danger)]",
+      bg: "bg-red-50/60 dark:bg-red-950/20",
+      label: "D",
+      labelColor: "text-[var(--color-danger)]",
+    };
+    return {
+      border: "border-l-[var(--color-warning)]",
+      bg: "bg-amber-50/60 dark:bg-amber-950/20",
+      label: "N",
+      labelColor: "text-[var(--color-warning)]",
+    };
   }
 
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="text-base flex items-center gap-2">
-          <Trophy className="h-4 w-4 text-[var(--color-gold)]" />
-          Derniers résultats
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <ScrollArea className="w-full">
-          <div className="flex gap-3 pb-3">
-            {matches.map((match) => (
+    <div>
+      <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
+        <Trophy className="h-3.5 w-3.5" />
+        Derniers resultats
+      </h3>
+      <ScrollArea className="w-full">
+        <div className="flex gap-2.5 pb-2">
+          {matches.map((match) => {
+            const styles = getResultStyles(match);
+            return (
               <button
                 key={match.id}
                 onClick={() => router.push(`/matches/${match.id}`)}
-                className={`flex-shrink-0 rounded-lg border-l-4 p-3 min-w-[160px] text-left cursor-pointer hover:opacity-80 transition-opacity ${getResultColor(match)}`}
+                className={`flex-shrink-0 rounded-xl border-l-[3px] ${styles.border} ${styles.bg} p-3.5 min-w-[140px] text-left hover:opacity-80 transition-opacity`}
               >
-                <span className="text-xs text-muted-foreground">
-                  {new Date(match.event_date).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}
-                </span>
-                <div className="flex items-center gap-2 mt-1">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[11px] text-muted-foreground">
+                    {new Date(match.event_date).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}
+                  </span>
+                  <span className={`text-xs font-bold ${styles.labelColor}`}>{styles.label}</span>
+                </div>
+                <div className="flex items-center gap-1.5 mt-1.5">
                   <span className="text-xl font-bold tabular-nums">{match.score_us}</span>
-                  <Minus className="h-3 w-3 text-muted-foreground" />
+                  <span className="text-muted-foreground text-xs">-</span>
                   <span className="text-xl font-bold tabular-nums">{match.score_them}</span>
                 </div>
-                <p className="text-xs text-muted-foreground mt-1 truncate">
+                <p className="text-[11px] text-muted-foreground mt-1.5 truncate">
                   {match.opponent || match.title}
                 </p>
               </button>
-            ))}
-          </div>
-          <ScrollBar orientation="horizontal" />
-        </ScrollArea>
-      </CardContent>
-    </Card>
+            );
+          })}
+        </div>
+        <ScrollBar orientation="horizontal" />
+      </ScrollArea>
+    </div>
   );
 }

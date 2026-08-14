@@ -215,44 +215,44 @@ export function ParentDashboard() {
     else countdown = "Bientôt";
   }
 
+  const now = new Date();
+  const dateStr = now.toLocaleDateString("fr-FR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+
   return (
-    <div className="space-y-4 md:space-y-6 pb-20 lg:pb-0">
-      <div>
-        <h2 className="text-xl md:text-2xl font-bold">
-          Bonjour, {user?.profile?.first_name} 👋
-        </h2>
-        <p className="text-muted-foreground mt-1">
-          Espace parent
-        </p>
+    <div className="section-gap">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-foreground">
+          Bonjour {user?.profile?.first_name}
+        </h1>
+        <p className="text-sm text-muted-foreground mt-1 capitalize">{dateStr}</p>
       </div>
 
       {child && (
-        <Card className="bg-gradient-to-r from-[var(--color-navy)] to-[var(--color-royal)] text-white">
-          <CardContent className="p-4 md:p-6">
-            <div className="flex items-center gap-4">
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/20 text-xl font-bold">
-                {child.shirt_number ?? "?"}
-              </div>
-              <div className="flex-1">
-                <h3 className="text-lg font-bold">
-                  {child.first_name} {child.last_name}
-                </h3>
-                <p className="text-white/70 text-sm">
-                  {child.position || "Joueur"}
-                </p>
-              </div>
-              {attendanceRate !== null && (
-                <div className="text-right">
-                  <div className="inline-flex items-center rounded-lg bg-white/20 px-3 py-1.5 text-sm font-bold">
-                    <TrendingUp className="h-4 w-4 mr-1" />
-                    {attendanceRate}%
-                  </div>
-                  <p className="text-white/60 text-xs mt-1">Assiduité</p>
-                </div>
-              )}
+        <div className="rounded-xl bg-[var(--color-navy)] text-white p-5">
+          <div className="flex items-center gap-4">
+            <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-white/10 text-xl font-bold shrink-0">
+              {child.shirt_number != null ? `#${child.shirt_number}` : "?"}
             </div>
-          </CardContent>
-        </Card>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-lg font-bold truncate">
+                {child.first_name} {child.last_name}
+              </h3>
+              <p className="text-white/50 text-sm">
+                {child.position || "Joueur"}
+              </p>
+            </div>
+            {attendanceRate !== null && (
+              <div className="text-right shrink-0">
+                <p className="text-2xl font-bold tabular-nums">{attendanceRate}%</p>
+                <p className="text-white/40 text-xs">Assiduite</p>
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
       {nextEvent && eventDate && (

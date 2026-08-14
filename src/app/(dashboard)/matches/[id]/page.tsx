@@ -545,15 +545,14 @@ export default function MatchDetailPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <Button variant="ghost" size="sm" onClick={() => router.back()}>
+    <div className="section-gap">
+      <Button variant="ghost" size="sm" onClick={() => router.back()} className="-ml-2">
         <ArrowLeft className="mr-2 h-4 w-4" />
         Retour
       </Button>
 
       {/* Match Header */}
-      <Card className="bg-gradient-to-r from-[var(--color-navy)] to-[var(--color-royal)] text-white">
-        <CardContent className="p-6">
+      <div className="rounded-xl bg-[var(--color-navy)] text-white p-5 md:p-6">
           <div className="flex items-start justify-between gap-3">
             <div className="space-y-2 min-w-0">
               <div className="flex items-center gap-2">
@@ -561,7 +560,7 @@ export default function MatchDetailPage() {
                   {getResultLabel(match.match_result)}
                 </Badge>
               </div>
-              <h2 className="text-2xl font-bold break-words">{match.title}</h2>
+              <h1 className="text-2xl font-bold break-words">{match.title}</h1>
               {match.opponent && (
                 <p className="text-white/80 text-lg break-words">vs {match.opponent}</p>
               )}
@@ -631,8 +630,7 @@ export default function MatchDetailPage() {
               </div>
             )}
           </div>
-        </CardContent>
-      </Card>
+      </div>
 
       <DepartureNotifier
         eventId={matchId}

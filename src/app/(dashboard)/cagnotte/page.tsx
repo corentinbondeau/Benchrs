@@ -232,10 +232,10 @@ export default function CagnottePage() {
   }
 
   return (
-    <div className="space-y-4 p-4">
+    <div className="section-gap">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold flex items-center gap-2">
+          <h1 className="text-2xl font-bold flex items-center gap-2">
             <PiggyBank className="h-5 w-5 text-[var(--color-gold)]" />
             Cagnottes d&apos;équipe
           </h1>

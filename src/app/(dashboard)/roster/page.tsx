@@ -140,9 +140,12 @@ export default function RosterPage() {
 
   if (loading) {
     return (
-      <div className="p-4 pb-24">
-        <h2 className="text-xl font-bold mb-6">Effectif</h2>
-        <div className="space-y-3">
+      <div className="section-gap">
+        <div>
+          <h1 className="text-2xl font-bold">Equipe</h1>
+          <p className="text-sm text-muted-foreground mt-1">{currentTeam.name}</p>
+        </div>
+        <div className="space-y-2">
           {Array.from({ length: 8 }).map((_, i) => (
             <div key={i} className="h-16 animate-pulse rounded-xl bg-muted" />
           ))}
@@ -159,14 +162,14 @@ export default function RosterPage() {
 
     return (
       <div>
-        <div className="flex items-center gap-2 px-4 pt-5 pb-3">
-          <Icon className="h-5 w-5 text-muted-foreground" />
-          <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wider">
+        <div className="flex items-center gap-2 pt-2 pb-3">
+          <Icon className="h-4 w-4 text-muted-foreground" />
+          <h3 className="font-semibold text-[11px] text-muted-foreground uppercase tracking-widest">
             {section.label}
           </h3>
-          <span className="text-xs text-muted-foreground/60">({profiles.length})</span>
+          <span className="text-[11px] text-muted-foreground/50">({profiles.length})</span>
         </div>
-        <div className="px-4 space-y-2">
+        <div className="space-y-1.5">
           {profiles.map((profile) => {
             const initials = `${profile.first_name[0]}${profile.last_name[0]}`;
             const isPlayer = section.key === "player";
@@ -227,49 +230,50 @@ export default function RosterPage() {
   }
 
   return (
-    <div className="pb-24">
-      <div className="px-4 pt-4 pb-1">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-bold">Effectif</h2>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              {allProfiles.length} membre{allProfiles.length > 1 ? "s" : ""}
-            </p>
-          </div>
-          {(userRole === "coach" || userRole === "owner") && allProfiles.length > 0 && (
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={exportCsv}
-                className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-muted/50"
-              >
-                <FileText className="h-3.5 w-3.5" />
-                CSV
-              </button>
-              <button
-                type="button"
-                onClick={exportPdf}
-                disabled={exporting === "pdf"}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--color-gold)] px-3 py-1.5 text-xs font-bold text-[var(--color-navy)] transition-opacity hover:opacity-90 disabled:opacity-50"
-              >
-                {exporting === "pdf" ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Download className="h-3.5 w-3.5" />
-                )}
-                PDF
-              </button>
-            </div>
-          )}
+    <div className="section-gap">
+      {/* Page header */}
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold">Equipe</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            {players.length} joueur{players.length > 1 ? "s" : ""} &middot; {currentTeam.name}
+          </p>
         </div>
+        {(userRole === "coach" || userRole === "owner") && allProfiles.length > 0 && (
+          <div className="flex gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={exportCsv}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-muted/50 transition-colors"
+            >
+              <FileText className="h-3.5 w-3.5" />
+              CSV
+            </button>
+            <button
+              type="button"
+              onClick={exportPdf}
+              disabled={exporting === "pdf"}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--color-primary-blue)] px-3 py-2 text-xs font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+            >
+              {exporting === "pdf" ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Download className="h-3.5 w-3.5" />
+              )}
+              PDF
+            </button>
+          </div>
+        )}
       </div>
 
       {allProfiles.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 text-center px-4">
-          <Users className="h-12 w-12 text-muted-foreground mb-4" />
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <div className="h-14 w-14 rounded-2xl bg-muted flex items-center justify-center mb-4">
+            <Users className="h-7 w-7 text-muted-foreground/50" />
+          </div>
           <h3 className="font-semibold text-lg">Aucun membre</h3>
-          <p className="text-muted-foreground text-sm mt-1">
-            Invitez des joueurs via le code d&apos;invitation de l&apos;équipe.
+          <p className="text-muted-foreground text-sm mt-1 max-w-xs">
+            Invitez des joueurs via le code d&apos;invitation de l&apos;equipe.
           </p>
         </div>
       ) : (

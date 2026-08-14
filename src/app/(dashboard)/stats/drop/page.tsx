@@ -156,13 +156,13 @@ export default function FormDropPage() {
   const alertCount = metrics.filter((m) => m.level !== "ok").length;
 
   return (
-    <div className="max-w-3xl mx-auto space-y-4 md:space-y-6 pb-20 md:pb-0">
+    <div className="max-w-3xl mx-auto section-gap">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl md:text-2xl font-bold flex items-center gap-2">
+          <h1 className="text-2xl font-bold flex items-center gap-2">
             <TrendingDown className="h-6 w-6" />
             Alerte de baisse de forme
-          </h2>
+          </h1>
           <p className="text-sm text-muted-foreground mt-1">
             Assiduité + RPE ressenti + check-in de forme : qui décroche&nbsp;?
           </p>

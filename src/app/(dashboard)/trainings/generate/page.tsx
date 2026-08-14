@@ -83,13 +83,13 @@ export default function GenerateTrainingPage() {
   }
 
   return (
-    <div className="space-y-4 md:space-y-6 pb-20 md:pb-0">
+    <div className="section-gap">
       <div className="flex items-center gap-3">
         <button className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-muted transition-colors" onClick={() => router.back()}>
           <ArrowLeft className="h-5 w-5" />
         </button>
         <div>
-          <h2 className="text-xl md:text-2xl font-bold">Générer une séance</h2>
+          <h1 className="text-2xl font-bold">Générer une séance</h1>
           <p className="text-sm text-muted-foreground mt-0.5">Fiche de séance complète générée par IA</p>
         </div>
       </div>

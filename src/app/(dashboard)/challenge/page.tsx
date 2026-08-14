@@ -349,10 +349,10 @@ export default function ChallengePage() {
     : undefined;
 
   return (
-    <div className="space-y-6">
+    <div className="section-gap">
       <div className="flex items-center gap-2">
         <Flame className="h-5 w-5 text-[var(--color-gold)]" />
-        <h1 className="text-xl font-bold">Défi de la semaine</h1>
+        <h1 className="text-2xl font-bold">Défi de la semaine</h1>
       </div>
 
       {isCoach && (

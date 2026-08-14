@@ -95,13 +95,13 @@ export default function PhysicalTestsPage() {
   const savedCount = players.filter((p) => valueFor(testType, p.id).trim() !== "").length;
 
   return (
-    <div className="space-y-4 md:space-y-6 pb-20 md:pb-0">
+    <div className="section-gap">
       <div className="flex items-center gap-3">
         <button className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-muted transition-colors" onClick={() => router.push("/physical")}>
           <ArrowLeft className="h-5 w-5" />
         </button>
         <div>
-          <h2 className="text-xl md:text-2xl font-bold">Tests VMA / VMI</h2>
+          <h1 className="text-2xl font-bold">Tests VMA / VMI</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
             Saisis les résultats de la journée de test — ils alimentent l&apos;historique des joueurs.
           </p>

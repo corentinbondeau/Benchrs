@@ -7,7 +7,6 @@ import { useQueryCache } from "@/lib/queryCache";
 import { NextEventCard } from "@/components/dashboard/NextEventCard";
 import { PendingConvocations } from "@/components/dashboard/PendingConvocations";
 import { RecentResults } from "@/components/dashboard/RecentResults";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TrendingUp, Target, Clock, Trophy } from "lucide-react";
 
 interface PlayerStats {
@@ -66,58 +65,60 @@ export function PlayerDashboard() {
 
   if (!currentTeam) return null;
 
+  const now = new Date();
+  const dateStr = now.toLocaleDateString("fr-FR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+
   const statItems = stats
     ? [
-        { icon: Clock, label: "Assiduité", value: `${stats.attendanceRate}%`, color: "text-[var(--color-royal)]", bg: "bg-blue-50" },
-        { icon: Trophy, label: "Matchs joués", value: stats.matchesPlayed, color: "text-green-600", bg: "bg-green-50" },
-        { icon: Target, label: "Buts", value: stats.goals, color: "text-[var(--color-gold)]", bg: "bg-amber-50" },
-        { icon: TrendingUp, label: "Passes", value: stats.assists, color: "text-purple-600", bg: "bg-purple-50" },
+        { icon: Clock, label: "Assiduite", value: `${stats.attendanceRate}%`, iconColor: "text-[var(--color-primary-blue)]", iconBg: "bg-blue-50 dark:bg-blue-950/30" },
+        { icon: Trophy, label: "Matchs joues", value: stats.matchesPlayed, iconColor: "text-[var(--color-success)]", iconBg: "bg-emerald-50 dark:bg-emerald-950/30" },
+        { icon: Target, label: "Buts", value: stats.goals, iconColor: "text-[var(--color-gold)]", iconBg: "bg-amber-50 dark:bg-amber-950/30" },
+        { icon: TrendingUp, label: "Passes D.", value: stats.assists, iconColor: "text-purple-600", iconBg: "bg-purple-50 dark:bg-purple-950/30" },
       ]
     : [];
 
   return (
-    <div className="pb-24">
-      <div className="px-4 pt-4 pb-2">
-        <h2 className="text-xl font-bold">
-          Bonjour, {user?.profile?.first_name} 👋
-        </h2>
-        <p className="text-sm text-muted-foreground mt-0.5">
-          Voici ton résumé
-        </p>
+    <div className="section-gap">
+      {/* Header */}
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-foreground">
+          Bonjour {user?.profile?.first_name}
+        </h1>
+        <p className="text-sm text-muted-foreground mt-1 capitalize">{dateStr}</p>
       </div>
 
-      <div className="px-4 space-y-4">
-        <NextEventCard />
+      {/* P0: Next event */}
+      <NextEventCard />
 
-        {!loading && stats && (
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <TrendingUp className="h-4 w-4 text-[var(--color-royal)]" />
-                Mes stats
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 gap-3">
-                {statItems.map((item) => (
-                  <div key={item.label} className="flex items-center gap-3 rounded-lg border p-3">
-                    <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${item.bg}`}>
-                      <item.icon className={`h-5 w-5 ${item.color}`} />
-                    </div>
-                    <div>
-                      <p className="text-xl font-bold">{item.value}</p>
-                      <p className="text-xs text-muted-foreground">{item.label}</p>
-                    </div>
-                  </div>
-                ))}
+      {/* P0: Pending convocations */}
+      <PendingConvocations />
+
+      {/* P1: My stats */}
+      {!loading && stats && (
+        <div>
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+            Mes statistiques
+          </h3>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {statItems.map((item) => (
+              <div key={item.label} className="rounded-xl border border-border bg-card p-4">
+                <div className={`inline-flex items-center justify-center h-9 w-9 rounded-lg ${item.iconBg} mb-3`}>
+                  <item.icon className={`h-[18px] w-[18px] ${item.iconColor}`} />
+                </div>
+                <p className="text-2xl font-bold tabular-nums">{item.value}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{item.label}</p>
               </div>
-            </CardContent>
-          </Card>
-        )}
+            ))}
+          </div>
+        </div>
+      )}
 
-        <PendingConvocations />
-        <RecentResults />
-      </div>
+      {/* P2: Recent results */}
+      <RecentResults />
     </div>
   );
 }

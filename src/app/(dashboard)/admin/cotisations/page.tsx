@@ -338,10 +338,10 @@ export default function CotisationsPage() {
   }
 
   return (
-    <div className="space-y-4 md:space-y-6 pb-20 md:pb-0">
+    <div className="section-gap">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
-          <h2 className="text-xl md:text-2xl font-bold">Cotisations</h2>
+          <h1 className="text-2xl font-bold">Cotisations</h1>
           <p className="text-sm text-muted-foreground mt-1">Suivi des paiements</p>
         </div>
         <div className="flex items-center gap-2">

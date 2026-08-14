@@ -3,11 +3,18 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* ============================================================
+   BENCHRS DESIGN SYSTEM — Design Tokens
+   ============================================================ */
+
 @theme inline {
+  /* Semantic color aliases */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  /* Sidebar tokens */
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -16,11 +23,15 @@
   --color-sidebar-primary: var(--sidebar-primary);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar: var(--sidebar);
+
+  /* Chart palette */
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
+
+  /* UI semantic tokens */
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
@@ -37,85 +48,137 @@
   --color-card: var(--card);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
-  --color-navy: #0F172A;
+
+  /* ── Benchrs Brand Colors ── */
+  --color-navy: #0B1220;
+  --color-navy-light: #0F172A;
   --color-royal: #1E40AF;
-  --color-gold: #EAB308;
+  --color-primary-blue: #2563EB;
+  --color-gold: #F4C430;
   --color-gold-light: #FACC15;
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+
+  /* ── Semantic Colors ── */
+  --color-success: #16A34A;
+  --color-warning: #F59E0B;
+  --color-danger: #DC2626;
+  --color-info: #2563EB;
+
+  /* ── Radius ── */
+  --radius-xs: 0.375rem;   /* 6px  — utility elements */
+  --radius-sm: 0.5rem;     /* 8px  — small elements */
+  --radius-md: 0.625rem;   /* 10px — cards, inputs */
+  --radius-lg: 0.875rem;   /* 14px — larger cards, buttons */
+  --radius-xl: 1.125rem;   /* 18px — hero blocks */
+  --radius-2xl: 1.5rem;    /* 24px — large hero sections */
 }
 
+/* ============================================================
+   LIGHT THEME
+   ============================================================ */
 :root {
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0.042 265.755);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0.042 265.755);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+
+  /* Backgrounds */
+  --background: #F6F8FB;
+  --foreground: #111827;
+
+  /* Cards & Surfaces */
+  --card: #FFFFFF;
+  --card-foreground: #111827;
+  --popover: #FFFFFF;
+  --popover-foreground: #111827;
+
+  /* Primary — Navy/Blue */
+  --primary: #2563EB;
+  --primary-foreground: #FFFFFF;
+
+  /* Secondary */
+  --secondary: #F3F4F6;
+  --secondary-foreground: #111827;
+
+  /* Muted */
+  --muted: #F3F4F6;
+  --muted-foreground: #6B7280;
+
+  /* Accent */
+  --accent: #F3F4F6;
+  --accent-foreground: #111827;
+
+  /* Destructive */
+  --destructive: #DC2626;
+
+  /* Borders & inputs */
+  --border: #E5E7EB;
+  --input: #E5E7EB;
+  --ring: #2563EB;
+
+  /* Charts — Benchrs cohesive palette */
+  --chart-1: #2563EB;
+  --chart-2: #16A34A;
+  --chart-3: #F59E0B;
+  --chart-4: #8B5CF6;
+  --chart-5: #EC4899;
+
+  /* Sidebar */
+  --sidebar: #0B1220;
+  --sidebar-foreground: #FFFFFF;
+  --sidebar-primary: #2563EB;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: rgba(255, 255, 255, 0.1);
+  --sidebar-accent-foreground: #FFFFFF;
+  --sidebar-border: rgba(255, 255, 255, 0.1);
+  --sidebar-ring: #2563EB;
 }
 
+/* ============================================================
+   DARK THEME
+   ============================================================ */
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.145 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.145 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.985 0 0);
-  --primary-foreground: oklch(0.205 0.042 265.755);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.269 0 0);
-  --input: oklch(0.269 0 0);
-  --ring: oklch(0.439 0 0);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0.042 265.755);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(0.269 0 0);
-  --sidebar-ring: oklch(0.439 0 0);
+  --background: #0B1220;
+  --foreground: #F3F4F6;
+
+  --card: #111827;
+  --card-foreground: #F3F4F6;
+  --popover: #111827;
+  --popover-foreground: #F3F4F6;
+
+  --primary: #3B82F6;
+  --primary-foreground: #FFFFFF;
+
+  --secondary: #1F2937;
+  --secondary-foreground: #F3F4F6;
+
+  --muted: #1F2937;
+  --muted-foreground: #9CA3AF;
+
+  --accent: #1F2937;
+  --accent-foreground: #F3F4F6;
+
+  --destructive: #DC2626;
+
+  --border: #1F2937;
+  --input: #1F2937;
+  --ring: #3B82F6;
+
+  --chart-1: #3B82F6;
+  --chart-2: #22C55E;
+  --chart-3: #FBBF24;
+  --chart-4: #A78BFA;
+  --chart-5: #F472B6;
+
+  --sidebar: #070D18;
+  --sidebar-foreground: #F3F4F6;
+  --sidebar-primary: #3B82F6;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: rgba(255, 255, 255, 0.08);
+  --sidebar-accent-foreground: #F3F4F6;
+  --sidebar-border: rgba(255, 255, 255, 0.08);
+  --sidebar-ring: #3B82F6;
 }
 
+/* ============================================================
+   BASE STYLES
+   ============================================================ */
 @layer base {
   * {
     @apply border-border;
@@ -123,8 +186,56 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  /* Typography scale */
+  h1 {
+    font-size: 2rem;       /* 32px */
+    line-height: 2.375rem; /* 38px */
+    font-weight: 700;
+  }
+  h2 {
+    font-size: 1.5rem;     /* 24px */
+    line-height: 1.875rem; /* 30px */
+    font-weight: 700;
+  }
+  h3 {
+    font-size: 1.125rem;   /* 18px */
+    line-height: 1.5rem;   /* 24px */
+    font-weight: 600;
+  }
 }
 
+/* ============================================================
+   UTILITY CLASSES
+   ============================================================ */
+@layer utilities {
+  /* Page container with max-width */
+  .page-container {
+    @apply mx-auto w-full max-w-[1440px];
+  }
+
+  /* Section spacing */
+  .section-gap {
+    @apply space-y-8;
+  }
+
+  /* Card gap */
+  .card-gap {
+    @apply gap-4;
+  }
+
+  /* Status dot utility */
+  .status-dot {
+    @apply inline-block h-2 w-2 rounded-full;
+  }
+  .status-dot-available { @apply bg-[var(--color-success)]; }
+  .status-dot-absent { @apply bg-[var(--color-danger)]; }
+  .status-dot-pending { @apply bg-[var(--color-warning)]; }
+}
+
+/* ============================================================
+   SONNER TOAST POSITIONING
+   ============================================================ */
 @media (max-width: 768px) {
   .sonner-toaster {
     top: calc(env(safe-area-inset-top, 0px) + 3rem) !important;

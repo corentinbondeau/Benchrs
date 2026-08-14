@@ -235,10 +235,10 @@ export default function SeasonPage() {
   });
 
   return (
-    <div className="space-y-4">
+    <div className="section-gap">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-lg font-bold flex items-center gap-2">
+          <h1 className="text-2xl font-bold flex items-center gap-2">
             <CalendarRange className="h-5 w-5 text-[var(--color-royal)]" />
             Plan de saison
           </h1>

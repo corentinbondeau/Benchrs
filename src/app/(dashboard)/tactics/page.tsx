@@ -1332,7 +1332,7 @@ function FeuilletMatchTab() {
   }
 
   return (
-    <div className="space-y-4 pb-20">
+    <div className="space-y-4">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="space-y-1.5">
           <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Match</Label>
@@ -1580,9 +1580,9 @@ function FeuilletMatchTab() {
 
 export default function TacticsPage() {
   return (
-    <div className="space-y-4 md:space-y-6 pb-20 md:pb-0">
+    <div className="section-gap">
       <div>
-        <h2 className="text-xl md:text-2xl font-bold">Tactique & Séances</h2>
+        <h1 className="text-2xl font-bold">Tactique & Séances</h1>
         <p className="text-sm mt-1 text-muted-foreground">
           Gestion des entraînements et compositions d&apos;équipe
         </p>

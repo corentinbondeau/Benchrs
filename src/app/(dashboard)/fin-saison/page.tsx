@@ -170,9 +170,9 @@ export default function FinSaisonPage() {
   }
 
   return (
-    <div className="space-y-4 p-4">
+    <div className="section-gap">
       <div>
-        <h1 className="text-xl font-bold flex items-center gap-2">
+        <h1 className="text-2xl font-bold flex items-center gap-2">
           <PartyPopper className="h-5 w-5 text-[var(--color-gold)]" />
           Fin de saison
         </h1>

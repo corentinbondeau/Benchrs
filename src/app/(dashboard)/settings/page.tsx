@@ -272,9 +272,9 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="space-y-4 md:space-y-6 pb-20 md:pb-0 max-w-2xl">
+    <div className="section-gap max-w-2xl">
       <div>
-        <h2 className="text-xl md:text-2xl font-bold">Paramètres</h2>
+        <h1 className="text-2xl font-bold">Paramètres</h1>
         <p className="text-sm text-muted-foreground mt-1">Gérez votre profil et vos préférences</p>
       </div>
 

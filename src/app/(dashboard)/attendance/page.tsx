@@ -63,17 +63,17 @@ export default function AttendancePage() {
 
   if (loading) {
     return (
-      <div className="space-y-4 md:space-y-6 pb-20 md:pb-0">
-        <h2 className="text-xl md:text-2xl font-bold">Présences</h2>
+      <div className="section-gap">
+        <h1 className="text-2xl font-bold">Présences</h1>
         <div className="h-64 animate-pulse rounded-lg bg-muted" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-4 md:space-y-6 pb-20 md:pb-0">
+    <div className="section-gap">
       <div>
-        <h2 className="text-xl md:text-2xl font-bold">Présences</h2>
+        <h1 className="text-2xl font-bold">Présences</h1>
         <p className="text-sm text-muted-foreground mt-1">Suivi des présences aux entraînements et matchs</p>
       </div>
 
