@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Heart, Plus, AlertTriangle } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
 import type { Injury, Profile } from "@/types";
 
 interface InjuryWithPlayer extends Injury {
@@ -154,7 +155,11 @@ export default function MedicalPage() {
         </CardHeader>
         <CardContent>
           {activeInjuries.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-4">Aucune blessure active</p>
+            <EmptyState
+              icon={Heart}
+              title="Aucune blessure active"
+              description="Tous les joueurs sont en pleine forme."
+            />
           ) : (
             <div className="space-y-3">
               {activeInjuries.map((injury) => (

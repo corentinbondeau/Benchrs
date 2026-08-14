@@ -27,6 +27,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Plus, Upload, Image as ImageIcon, Folder, ArrowLeft, Trash2, Download } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
 import { toast } from "sonner";
 import type { GalleryMedia, Event, Album } from "@/types";
 
@@ -301,12 +302,11 @@ export default function GalleryPage() {
           </div>
         </div>
         {albumMedia.length === 0 ? (
-          <div className="flex h-48 items-center justify-center rounded-lg border border-dashed text-muted-foreground">
-            <div className="text-center">
-              <ImageIcon className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p className="text-sm">Aucune photo dans cet album</p>
-            </div>
-          </div>
+          <EmptyState
+            icon={ImageIcon}
+            title="Aucune photo dans cet album"
+            description="Ajoutez des photos à cet album."
+          />
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {albumMedia.map((item) => (
@@ -584,13 +584,11 @@ export default function GalleryPage() {
       <div>
         <h3 className="text-sm font-semibold mb-3">{albums.length > 0 ? "Toutes les photos" : "Photos"}</h3>
         {media.length === 0 ? (
-          <div className="flex h-48 items-center justify-center rounded-lg border border-dashed text-muted-foreground">
-            <div className="text-center">
-              <ImageIcon className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <h3 className="font-semibold text-lg">Aucun média</h3>
-              <p className="text-sm mt-1">Les photos et videos apparaitront ici</p>
-            </div>
-          </div>
+          <EmptyState
+            icon={ImageIcon}
+            title="Aucun média"
+            description="Les photos et vidéos apparaîtront ici."
+          />
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {media.map((item) => {

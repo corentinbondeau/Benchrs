@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Car, Plus, MapPin, Users } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
 import type { CarpoolingTrip, Event, Profile } from "@/types";
 
 interface TripWithDetails extends CarpoolingTrip {
@@ -127,9 +128,11 @@ export default function CarpoolingPage() {
       </div>
 
       {trips.length === 0 ? (
-        <div className="flex h-48 items-center justify-center rounded-lg border border-dashed text-muted-foreground">
-          <p className="text-sm">Aucun trajet proposé</p>
-        </div>
+        <EmptyState
+          icon={Car}
+          title="Aucun trajet proposé"
+          description="Proposez un trajet pour un événement à venir."
+        />
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {trips.map((trip) => (

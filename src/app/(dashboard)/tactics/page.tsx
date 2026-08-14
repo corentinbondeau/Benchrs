@@ -49,6 +49,7 @@ import {
   Users,
 } from "lucide-react";
 import { toast } from "sonner";
+import { EmptyState } from "@/components/ui/empty-state";
 import { TACTICAL_PHASES as PHASE_OBJECTIVES, TACTICAL_PHASE_NAMES } from "@/lib/training/phases";
 import { FOOTBALL_SYSTEMS, EXPERTISE_LEVELS, type AISession, type ExpertiseLevel } from "@/lib/training/ai-generator";
 import { AIFicheView, isAiSessionExercises } from "@/components/training/AIFicheView";
@@ -909,9 +910,11 @@ function SéanceTab() {
           Chargement...
         </div>
       ) : sessions.length === 0 ? (
-        <div className="flex h-48 items-center justify-center rounded-lg border border-dashed text-muted-foreground">
-          Aucune séance enregistrée
-        </div>
+        <EmptyState
+          icon={Swords}
+          title="Aucune séance enregistrée"
+          description="Créez votre première séance d'entraînement tactique."
+        />
       ) : (
         <div className="space-y-3">
           {sessions.map((session) => {

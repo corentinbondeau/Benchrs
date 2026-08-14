@@ -26,7 +26,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ChannelSettingsDialog } from "@/components/chat/ChannelSettingsDialog";
-import { Send, Plus, Loader2, Settings, User } from "lucide-react";
+import { Send, Plus, Loader2, Settings, User, MessageSquare } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
 import { toast } from "sonner";
 import type { ChatChannel, ChatMessage, Profile } from "@/types";
 
@@ -492,7 +493,11 @@ export default function ChatPage() {
         );
       })}
       {channels.length === 0 && conversationTargets.length === 0 && (
-        <p className="text-sm text-muted-foreground text-center py-8">Aucun canal</p>
+        <EmptyState
+          icon={MessageSquare}
+          title="Aucun canal"
+          description="Créez un canal pour commencer à discuter."
+        />
       )}
     </div>
   );
@@ -665,7 +670,11 @@ export default function ChatPage() {
               );
             })}
             {channels.length === 0 && conversationTargets.length === 0 && (
-              <p className="text-xs text-muted-foreground text-center py-4">Aucun canal</p>
+              <EmptyState
+                icon={MessageSquare}
+                title="Aucun canal"
+                description="Créez un canal pour commencer à discuter."
+              />
             )}
           </div>
         </div>

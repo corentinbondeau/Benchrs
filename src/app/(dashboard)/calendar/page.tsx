@@ -36,6 +36,7 @@ import {
   Bell,
   HeartPulse,
 } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
 import { toast } from "sonner";
 import { ConvocationsDialog } from "@/components/ConvocationsDialog";
 import { LocationPicker } from "@/components/calendar/LocationPicker";
@@ -773,10 +774,11 @@ export default function CalendarPage() {
 
         if (sortedEvents.length === 0) {
           return (
-            <div className="text-center py-12 text-muted-foreground">
-              <CalendarDays className="h-12 w-12 mx-auto mb-3 opacity-40" />
-              <p className="text-lg">Aucun événement à venir</p>
-            </div>
+            <EmptyState
+              icon={CalendarDays}
+              title="Aucun événement à venir"
+              description="Les prochains matchs et entraînements apparaîtront ici."
+            />
           );
         }
 

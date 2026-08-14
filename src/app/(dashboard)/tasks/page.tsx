@@ -12,6 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, ListTodo } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
 import type { Task, Event, Profile } from "@/types";
 
 interface TaskWithDetails extends Task {
@@ -135,7 +136,11 @@ export default function TasksPage() {
         </CardHeader>
         <CardContent>
           {pendingTasks.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-4">Aucune tâche en cours</p>
+            <EmptyState
+              icon={ListTodo}
+              title="Aucune tâche en cours"
+              description="Toutes les tâches sont terminées."
+            />
           ) : (
             <div className="space-y-2">
               {pendingTasks.map((task) => (
