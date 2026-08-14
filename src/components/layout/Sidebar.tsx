@@ -5,6 +5,7 @@ import { useTeam } from "@/lib/team";
 import { authFetch } from "@/lib/api-client";
 import { normalizeFffNumber } from "@/lib/clubs";
 import { useChatUnread } from "@/lib/useChatUnread";
+import { useHiddenTabs } from "@/lib/tabs";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -17,9 +18,33 @@ import {
   Settings2,
   ChevronsUpDown,
   ChevronDown,
+  ChevronRight,
   Building2,
   CalendarRange,
   Trophy,
+  Heart,
+  Car,
+  ListTodo,
+  Swords,
+  Image,
+  Bell,
+  Dumbbell,
+  Medal,
+  Vote,
+  Package,
+  Flag,
+  GitCompareArrows,
+  Wallet,
+  PiggyBank,
+  MapPin,
+  RefreshCw,
+  TrendingDown,
+  ClipboardList,
+  PartyPopper,
+  Flame,
+  Newspaper,
+  CalendarClock,
+  UserCog,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -44,12 +69,134 @@ import { useState } from "react";
 
 /* ─── Primary nav: 5 main spaces ─── */
 const primaryNav = [
-  { href: "/", label: "Accueil", icon: Home },
-  { href: "/calendar", label: "Agenda", icon: Calendar },
-  { href: "/roster", label: "Equipe", icon: Users },
-  { href: "/stats", label: "Performance", icon: BarChart3 },
-  { href: "/chat", label: "Messages", icon: MessageSquare },
+  { key: "dashboard", href: "/", label: "Accueil", icon: Home },
+  { key: "calendar", href: "/calendar", label: "Agenda", icon: Calendar },
+  { key: "roster", href: "/roster", label: "Equipe", icon: Users },
+  { key: "stats", href: "/stats", label: "Performance", icon: BarChart3 },
+  { key: "chat", href: "/chat", label: "Messages", icon: MessageSquare },
 ];
+
+/* ─── Grouped secondary nav ─── */
+const teamItems = [
+  { key: "medical", href: "/medical", label: "Infirmerie", icon: Heart },
+  { key: "carpooling", href: "/carpooling", label: "Covoiturage", icon: Car },
+  { key: "attendance", href: "/attendance", label: "Presences", icon: Users },
+  { key: "tasks", href: "/tasks", label: "Taches", icon: ListTodo },
+  { key: "polls", href: "/polls", label: "Sondages", icon: Vote },
+  { key: "material", href: "/material", label: "Materiel", icon: Package, coachAndClub: true },
+  { key: "gallery", href: "/gallery", label: "Galerie", icon: Image },
+  { key: "meetings", href: "/meetings", label: "Reunions parents", icon: ClipboardList, coachOnly: true },
+];
+
+const performanceItems = [
+  { key: "physical", href: "/physical", label: "Prepa physique", icon: Dumbbell, coachOnly: true },
+  { key: "tactics", href: "/tactics", label: "Tactique", icon: Swords, coachOnly: true },
+  { key: "championship", href: "/championship", label: "Championnat", icon: Medal },
+  { key: "adversaires", href: "/adversaires", label: "Adversaires", icon: Flag },
+  { key: "compare", href: "/stats/compare", label: "Comparer", icon: GitCompareArrows, coachOnly: true },
+  { key: "drop", href: "/stats/drop", label: "Baisse de forme", icon: TrendingDown, coachOnly: true },
+  { key: "trophies", href: "/trophies", label: "Trophees", icon: Trophy },
+  { key: "tournament", href: "/tournament", label: "Tournois", icon: Trophy },
+];
+
+const clubItems = [
+  { key: "club", href: "/club", label: "Espace club", icon: Building2, clubOnly: true },
+  { key: "terrains", href: "/club/terrains", label: "Terrains", icon: MapPin, clubOnly: true },
+  { key: "mutations", href: "/club/mutations", label: "Mutations", icon: RefreshCw, clubOnly: true },
+  { key: "clubfeed", href: "/club/feed", label: "Fil du club", icon: Newspaper, clubTeamOnly: true },
+  { key: "cotisations", href: "/admin/cotisations", label: "Cotisations", icon: Wallet, clubOnly: true },
+  { key: "treasury", href: "/admin/treasury", label: "Tresorerie", icon: PiggyBank, clubOnly: true },
+  { key: "cagnotte", href: "/cagnotte", label: "Cagnottes", icon: PiggyBank, coachOnly: true },
+];
+
+const moreItems = [
+  { key: "season", href: "/season", label: "Plan de saison", icon: CalendarRange },
+  { key: "challenge", href: "/challenge", label: "Defi de la semaine", icon: Flame },
+  { key: "fin-saison", href: "/fin-saison", label: "Fin de saison", icon: PartyPopper },
+  { key: "notifications", href: "/notifications", label: "Notifications", icon: Bell },
+];
+
+const coachAdminItems = [
+  { href: "/admin/players", label: "Gestion joueurs", icon: UserCog },
+  { href: "/admin/deadlines", label: "Echeances", icon: CalendarClock },
+];
+
+const comiteOnlyHrefs = new Set(["/club", "/club/feed", "/club/terrains", "/calendar", "/roster", "/stats", "/notifications", "/material", "/admin/cotisations", "/admin/treasury"]);
+
+/* ─── Collapsible Section Component ─── */
+function NavSection({
+  title,
+  items,
+  isCoach,
+  hasClubRole,
+  isComiteOnly,
+  currentTeam,
+  hiddenTabs,
+  pathname,
+}: {
+  title: string;
+  items: typeof teamItems;
+  isCoach: boolean;
+  hasClubRole: boolean;
+  isComiteOnly: boolean;
+  currentTeam: { club_id: string } | null;
+  hiddenTabs: Set<string>;
+  pathname: string;
+}) {
+  const [open, setOpen] = useState(false);
+
+  const filtered = items.filter((item) => {
+    if ((item as { coachOnly?: boolean }).coachOnly && !isCoach) return false;
+    if ((item as { clubOnly?: boolean }).clubOnly && !hasClubRole) return false;
+    if ((item as { coachAndClub?: boolean }).coachAndClub && !isCoach && !hasClubRole) return false;
+    if ((item as { clubTeamOnly?: boolean }).clubTeamOnly && !currentTeam?.club_id && !hasClubRole) return false;
+    if (isComiteOnly && !comiteOnlyHrefs.has(item.href)) return false;
+    if (hiddenTabs.has(item.key)) return false;
+    return true;
+  });
+
+  if (filtered.length === 0) return null;
+
+  // Auto-open if any item in this section is active
+  const hasActive = filtered.some((item) =>
+    item.href === "/" ? pathname === "/" : pathname.startsWith(item.href)
+  );
+
+  const isOpen = open || hasActive;
+
+  return (
+    <div>
+      <button
+        onClick={() => setOpen(!isOpen)}
+        className="flex items-center justify-between w-full px-3 py-1.5 text-[10px] font-semibold text-white/30 uppercase tracking-widest hover:text-white/50 transition-colors"
+      >
+        {title}
+        <ChevronDown className={`h-3 w-3 transition-transform duration-200 ${isOpen ? "" : "-rotate-90"}`} />
+      </button>
+      {isOpen && (
+        <div className="space-y-0.5 mt-0.5">
+          {filtered.map((item) => {
+            const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium transition-all duration-150 ${
+                  active
+                    ? "bg-white/[0.12] text-white"
+                    : "text-white/55 hover:bg-white/[0.06] hover:text-white/90"
+                }`}
+              >
+                <item.icon className={`h-[18px] w-[18px] shrink-0 ${active ? "text-[var(--color-primary-blue)]" : ""}`} />
+                {item.label}
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -58,6 +205,7 @@ export function Sidebar() {
   const isCoach = userRole === "coach" || userRole === "owner";
   const hasClubRole = clubMemberships.length > 0;
   const isComiteOnly = hasClubRole && userRole === null;
+  const hiddenTabs = useHiddenTabs(currentTeam?.id);
   const { total: unreadChat } = useChatUnread(currentTeam?.id, user?.id, userRole ?? undefined);
   const [createOpen, setCreateOpen] = useState(false);
   const [joinMode, setJoinMode] = useState(false);
@@ -81,6 +229,15 @@ export function Sidebar() {
         : userRole === "parent"
           ? "Parent"
           : "Joueur";
+
+  const sectionProps = {
+    isCoach,
+    hasClubRole,
+    isComiteOnly,
+    currentTeam: currentTeam ? { club_id: currentTeam.club_id } : null,
+    hiddenTabs,
+    pathname,
+  };
 
   async function handleCreateTeam() {
     if (!clubName.trim() || !teamName.trim()) return;
@@ -197,13 +354,13 @@ export function Sidebar() {
         </div>
       )}
 
-      {/* ─── Primary Navigation ─── */}
-      <nav className="flex-1 overflow-y-auto py-3 px-3">
+      {/* ─── Navigation ─── */}
+      <nav className="flex-1 overflow-y-auto py-3 px-3 space-y-1">
+        {/* Primary: 5 main items always visible */}
         <div className="space-y-0.5">
           {primaryNav.map((item) => {
             const active = isActive(item.href);
             const badge = item.href === "/chat" ? unreadChat : 0;
-            // Skip chat for comite-only users if needed
             if (isComiteOnly && !["/", "/calendar", "/roster", "/stats"].includes(item.href)) return null;
 
             return (
@@ -230,37 +387,67 @@ export function Sidebar() {
           })}
         </div>
 
-        {/* ─── Secondary: Season & Club ─── */}
-        <div className="mt-6 pt-4 border-t border-white/[0.08]">
-          <p className="px-3 mb-2 text-[10px] font-semibold text-white/30 uppercase tracking-widest">
-            Saison
-          </p>
-          <Link
-            href="/season"
-            className={`flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium transition-all duration-150 ${
-              isActive("/season")
-                ? "bg-white/[0.12] text-white"
-                : "text-white/55 hover:bg-white/[0.06] hover:text-white/90"
-            }`}
-          >
-            <CalendarRange className="h-[18px] w-[18px]" />
-            Plan de saison
-          </Link>
-
-          {hasClubRole && (
-            <Link
-              href="/club"
-              className={`flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium transition-all duration-150 ${
-                isActive("/club")
-                  ? "bg-white/[0.12] text-white"
-                  : "text-white/55 hover:bg-white/[0.06] hover:text-white/90"
-              }`}
-            >
-              <Building2 className="h-[18px] w-[18px]" />
-              Espace club
-            </Link>
-          )}
+        {/* Secondary: grouped by domain, collapsible */}
+        <div className="pt-3 mt-3 border-t border-white/[0.08] space-y-1">
+          <NavSection title="Equipe" items={teamItems} {...sectionProps} />
+          <NavSection title="Performance" items={performanceItems} {...sectionProps} />
+          <NavSection title="Club" items={clubItems} {...sectionProps} />
         </div>
+
+        {/* More items */}
+        <div className="pt-3 mt-1 border-t border-white/[0.08] space-y-0.5">
+          {moreItems
+            .filter((item) => {
+              if (isComiteOnly && !comiteOnlyHrefs.has(item.href)) return false;
+              if (hiddenTabs.has(item.key)) return false;
+              return true;
+            })
+            .map((item) => {
+              const active = isActive(item.href);
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium transition-all duration-150 ${
+                    active
+                      ? "bg-white/[0.12] text-white"
+                      : "text-white/55 hover:bg-white/[0.06] hover:text-white/90"
+                  }`}
+                >
+                  <item.icon className={`h-[18px] w-[18px] shrink-0 ${active ? "text-[var(--color-primary-blue)]" : ""}`} />
+                  {item.label}
+                </Link>
+              );
+            })}
+        </div>
+
+        {/* Coach admin */}
+        {isCoach && (
+          <div className="pt-3 mt-1 border-t border-white/[0.08]">
+            <p className="px-3 py-1.5 text-[10px] font-semibold text-white/30 uppercase tracking-widest">
+              Admin
+            </p>
+            <div className="space-y-0.5">
+              {coachAdminItems.map((item) => {
+                const active = pathname.startsWith(item.href);
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium transition-all duration-150 ${
+                      active
+                        ? "bg-white/[0.12] text-white"
+                        : "text-white/55 hover:bg-white/[0.06] hover:text-white/90"
+                    }`}
+                  >
+                    <item.icon className={`h-[18px] w-[18px] shrink-0 ${active ? "text-[var(--color-primary-blue)]" : ""}`} />
+                    {item.label}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </nav>
 
       {/* ─── Bottom: Settings + User ─── */}
