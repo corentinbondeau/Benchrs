@@ -55,7 +55,7 @@ export default function ForgotPasswordPage() {
           <div className="rounded-lg bg-green-50 p-3 text-sm text-green-700">
             Email envoyé ! Vérifiez votre boîte de réception.
           </div>
-          <Link href="/login" className="text-sm text-[var(--color-royal)] hover:underline font-medium">
+          <Link href="/login" className="text-sm text-[var(--color-primary-blue)] hover:underline font-medium">
             Retour à la connexion
           </Link>
         </CardContent>

@@ -298,7 +298,7 @@ export function CoachWeekOverview() {
             )}
 
             {data.injuries.length > 0 && (
-              <div className="rounded-lg border border-red-200 bg-red-50/40 p-3">
+              <div className="rounded-lg border border-red-200 dark:border-red-900/50 bg-red-50/40 dark:bg-red-950/20 p-3">
                 {sectionTitle(<ShieldAlert className="h-3.5 w-3.5 text-red-500" />, "Blessés")}
                 <div className="space-y-1.5">
                   {data.injuries.map((i) => (

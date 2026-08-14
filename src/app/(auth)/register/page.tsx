@@ -466,7 +466,7 @@ function RegisterForm() {
                     Le numéro de votre club (sur la licence FFF ou la fiche du club).
                   </p>
                   {comiteClub ? (
-                    <p className="text-xs text-[var(--color-royal)] font-medium">
+                    <p className="text-xs text-[var(--color-primary-blue)] font-medium">
                       Club trouvé : {comiteClub.name} — vous rejoindrez son comité.
                     </p>
                   ) : (
@@ -662,7 +662,7 @@ function RegisterForm() {
           </Button>
           <p className="text-sm text-muted-foreground text-center">
             Déjà un compte ?{" "}
-            <Link href="/login" className="text-[var(--color-royal)] hover:underline font-medium">
+            <Link href="/login" className="text-[var(--color-primary-blue)] hover:underline font-medium">
               Se connecter
             </Link>
           </p>
