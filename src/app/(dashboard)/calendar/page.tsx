@@ -35,6 +35,8 @@ import {
   Users,
   Bell,
   HeartPulse,
+  Trophy,
+  Dumbbell,
 } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { toast } from "sonner";
@@ -446,14 +448,31 @@ export default function CalendarPage() {
   }
 
   function getEventBadgeColor(event: Event) {
+    if (event.status === "cancelled") return "bg-gray-100 dark:bg-gray-800/40 text-gray-500 border-gray-200 dark:border-gray-700 line-through";
     if (event.type === "match") {
-      if (event.match_result === "win") return "bg-green-100 text-green-700 border-green-200";
-      if (event.match_result === "loss") return "bg-red-100 text-red-700 border-red-200";
-      if (event.match_result === "draw") return "bg-amber-100 text-amber-700 border-amber-200";
-      return "bg-blue-100 text-blue-700 border-blue-200";
+      if (event.match_result === "win") return "bg-green-100 dark:bg-green-950/30 text-green-700 dark:text-green-400 border-green-200 dark:border-green-800";
+      if (event.match_result === "loss") return "bg-red-100 dark:bg-red-950/30 text-red-700 dark:text-red-400 border-red-200 dark:border-red-800";
+      if (event.match_result === "draw") return "bg-amber-100 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800";
+      return "bg-blue-100 dark:bg-blue-950/30 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800";
     }
-    if (event.status === "cancelled") return "bg-gray-100 text-gray-500 border-gray-200 line-through";
-    return "bg-blue-100 text-blue-700 border-blue-200";
+    // Training = emerald to distinguish from match blue
+    return "bg-emerald-100 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800";
+  }
+
+  function getEventIcon(event: Event) {
+    if (event.type === "match") return Trophy;
+    return Dumbbell;
+  }
+
+  function getEventBorderColor(event: Event) {
+    if (event.status === "cancelled") return "border-l-gray-400";
+    if (event.type === "match") {
+      if (event.match_result === "win") return "border-l-green-500";
+      if (event.match_result === "loss") return "border-l-red-500";
+      if (event.match_result === "draw") return "border-l-amber-500";
+      return "border-l-blue-500";
+    }
+    return "border-l-emerald-500";
   }
 
   function formatTimeDisplay(dateStr: string) {
@@ -741,6 +760,7 @@ export default function CalendarPage() {
                             selectEvent(event);
                           }}
                         >
+                          {(() => { const Icon = getEventIcon(event); return <Icon className="h-2.5 w-2.5 shrink-0" />; })()}
                           <span className="truncate">{event.title}</span>
                           {showAllChildren && (
                             <span className="shrink-0 text-[9px] font-semibold uppercase">{(teamMeta[event.team_id]?.teamName || "").slice(0, 3)}</span>
@@ -787,7 +807,7 @@ export default function CalendarPage() {
             {sortedEvents.map((event) => {
               const attCount = attendanceCounts[event.id];
               return (
-                <div key={event.id} className="rounded-lg border p-4 flex items-start gap-3 cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => selectEvent(event)}>
+                <div key={event.id} className={`rounded-lg border border-l-[3px] ${getEventBorderColor(event)} p-4 flex items-start gap-3 cursor-pointer hover:bg-muted/50 transition-colors`} onClick={() => selectEvent(event)}>
                   <div className="flex flex-col items-center min-w-[48px]">
                     <span className="text-xs text-muted-foreground uppercase">
                       {new Date(event.event_date).toLocaleDateString("fr-FR", { month: "short" })}
@@ -798,11 +818,12 @@ export default function CalendarPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <Badge variant="outline" className={getEventBadgeColor(event)}>
-                        {event.type === "match" ? "Match" : "Entraînement"}
+                      <Badge variant="outline" className={`${getEventBadgeColor(event)} flex items-center gap-1`}>
+                        {(() => { const Icon = getEventIcon(event); return <Icon className="h-3 w-3" />; })()}
+                        {event.type === "match" ? "Match" : "Entrainement"}
                       </Badge>
                       {event.status === "cancelled" && (
-                        <Badge variant="destructive" className="text-[10px]">Annulé</Badge>
+                        <Badge variant="destructive" className="text-[10px]">Annule</Badge>
                       )}
                     </div>
                     <p className="font-semibold text-sm mt-1 truncate">{event.title}</p>
@@ -877,11 +898,12 @@ export default function CalendarPage() {
                         return (
                           <div
                             key={event.id}
-                            className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm group relative cursor-pointer hover:bg-muted/50 rounded-lg px-2 py-1 -mx-2 transition-colors"
+                            className={`flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm group relative cursor-pointer hover:bg-muted/50 rounded-lg px-2 py-1.5 -mx-2 transition-colors border-l-[3px] ${getEventBorderColor(event)} pl-3`}
                             onClick={() => selectEvent(event)}
                           >
-                            <Badge variant="outline" className={getEventBadgeColor(event)}>
-                              {event.type === "match" ? "Match" : "Entraînement"}
+                            <Badge variant="outline" className={`${getEventBadgeColor(event)} flex items-center gap-1`}>
+                              {(() => { const Icon = getEventIcon(event); return <Icon className="h-3 w-3" />; })()}
+                              {event.type === "match" ? "Match" : "Entrainement"}
                             </Badge>
                             <span className="font-medium min-w-0 break-words">{event.title}</span>
                             {showAllChildren && (
