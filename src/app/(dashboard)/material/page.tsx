@@ -252,13 +252,13 @@ export default function MaterialPage() {
         </div>
         {hasClubRole && clubTeams.length > 1 && (
           <div className="flex items-center gap-2">
-            <Label className="text-xs text-muted-foreground shrink-0">Équipe :</Label>
+            <Label className="text-xs text-muted-foreground shrink-0">Equipe :</Label>
             <Select
               value={effectiveTeamId ?? ""}
               onValueChange={(v) => v && setViewTeamId(v)}
             >
               <SelectTrigger className="w-52">
-                <SelectValue />
+                <SelectValue placeholder="Choisir une equipe" />
               </SelectTrigger>
               <SelectContent>
                 {clubTeams.map((t) => (
@@ -269,6 +269,9 @@ export default function MaterialPage() {
               </SelectContent>
             </Select>
           </div>
+        )}
+        {hasClubRole && clubTeams.length === 1 && (
+          <p className="text-sm text-muted-foreground">{clubTeams[0].name}</p>
         )}
         {canManage && (
           <Button
@@ -428,10 +431,10 @@ export default function MaterialPage() {
           </div>
           {hasClubRole && clubTeams.length > 0 && (
             <div className="space-y-2">
-              <Label>Équipe de destination *</Label>
+              <Label>Equipe de destination *</Label>
               <Select value={itemTeam || effectiveTeamId || ""} onValueChange={(v) => v && setItemTeam(v)}>
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue placeholder="Choisir une equipe" />
                 </SelectTrigger>
                 <SelectContent>
                   {clubTeams.map((t) => (
