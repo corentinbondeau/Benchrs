@@ -354,7 +354,7 @@ export function EventCoachActions({
   }
 
   return (
-    <div className="mt-4 flex flex-wrap gap-2">
+    <>
       <Button
         size="sm"
         variant="outline"
@@ -566,6 +566,6 @@ export function EventCoachActions({
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 }
