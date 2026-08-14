@@ -117,7 +117,7 @@ function LinkChildForm() {
   return (
     <div className="section-gap">
       <div className="px-4 pt-4 pb-1">
-        <h2 className="text-xl font-bold">Lier un enfant</h2>
+        <h1 className="text-2xl font-bold">Lier un enfant</h1>
         <p className="text-sm text-muted-foreground mt-0.5">
           Sélectionnez le ou les joueurs qui sont vos enfants pour suivre leurs
           convocations, résultats et notifications.
