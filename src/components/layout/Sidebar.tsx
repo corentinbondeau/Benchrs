@@ -350,6 +350,9 @@ export function Sidebar() {
               )}
             </div>
             {teams.length > 1 && <ChevronsUpDown className="h-3.5 w-3.5 text-white/30 shrink-0" />}
+            <Link href="/settings/team" className="text-white/30 hover:text-white shrink-0 p-1 rounded-lg hover:bg-white/[0.06] transition-colors" title="Parametres de l'equipe">
+              <Settings2 className="h-4 w-4" />
+            </Link>
           </div>
         </div>
       )}

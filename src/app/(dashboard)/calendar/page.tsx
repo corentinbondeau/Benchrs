@@ -455,8 +455,8 @@ export default function CalendarPage() {
       if (event.match_result === "draw") return "bg-amber-100 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800";
       return "bg-blue-100 dark:bg-blue-950/30 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800";
     }
-    // Training = emerald to distinguish from match blue
-    return "bg-emerald-100 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800";
+    // Training — neutral/secondary to contrast with match blue
+    return "bg-secondary text-secondary-foreground border-border";
   }
 
   function getEventIcon(event: Event) {
@@ -467,12 +467,12 @@ export default function CalendarPage() {
   function getEventBorderColor(event: Event) {
     if (event.status === "cancelled") return "border-l-gray-400";
     if (event.type === "match") {
-      if (event.match_result === "win") return "border-l-green-500";
-      if (event.match_result === "loss") return "border-l-red-500";
-      if (event.match_result === "draw") return "border-l-amber-500";
-      return "border-l-blue-500";
+      if (event.match_result === "win") return "border-l-[var(--color-success)]";
+      if (event.match_result === "loss") return "border-l-[var(--color-danger)]";
+      if (event.match_result === "draw") return "border-l-[var(--color-warning)]";
+      return "border-l-[var(--color-primary-blue)]";
     }
-    return "border-l-emerald-500";
+    return "border-l-[var(--color-muted-foreground)]";
   }
 
   function formatTimeDisplay(dateStr: string) {
