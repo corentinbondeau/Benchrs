@@ -234,6 +234,19 @@
 }
 
 /* ============================================================
+   HIDE SCROLLBAR ON MOBILE
+   ============================================================ */
+@media (max-width: 1023px) {
+  main {
+    scrollbar-width: none;           /* Firefox */
+    -ms-overflow-style: none;        /* IE / old Edge */
+  }
+  main::-webkit-scrollbar {
+    display: none;                   /* Chrome, Safari, new Edge */
+  }
+}
+
+/* ============================================================
    REDUCED MOTION — ACCESSIBILITY
    ============================================================ */
 @media (prefers-reduced-motion: reduce) {
