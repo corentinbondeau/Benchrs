@@ -234,16 +234,14 @@
 }
 
 /* ============================================================
-   HIDE SCROLLBAR ON MOBILE
+   HIDE SCROLLBAR GLOBALLY
    ============================================================ */
-@media (max-width: 1023px) {
-  main {
-    scrollbar-width: none;           /* Firefox */
-    -ms-overflow-style: none;        /* IE / old Edge */
-  }
-  main::-webkit-scrollbar {
-    display: none;                   /* Chrome, Safari, new Edge */
-  }
+main {
+  scrollbar-width: none;           /* Firefox */
+  -ms-overflow-style: none;        /* IE / old Edge */
+}
+main::-webkit-scrollbar {
+  display: none;                   /* Chrome, Safari, new Edge */
 }
 
 /* ============================================================
