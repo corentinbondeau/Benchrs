@@ -200,7 +200,7 @@ export function PlayerRatings({ eventId, teamId, userId, presentPlayers, childPl
           {canRate && rateable.length > 0 && (
             <Button
               size="sm"
-              className="bg-[var(--color-gold)] text-[var(--color-navy)] font-semibold"
+              className="bg-[var(--color-primary-blue)] text-white font-semibold"
               onClick={saveAll}
               disabled={saving}
             >

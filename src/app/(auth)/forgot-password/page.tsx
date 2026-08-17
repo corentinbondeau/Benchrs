@@ -55,7 +55,7 @@ export default function ForgotPasswordPage() {
           <div className="rounded-lg bg-green-50 p-3 text-sm text-green-700">
             Email envoyé ! Vérifiez votre boîte de réception.
           </div>
-          <Link href="/login" className="text-sm text-[var(--color-royal)] hover:underline font-medium">
+          <Link href="/login" className="text-sm text-[var(--color-primary-blue)] hover:underline font-medium">
             Retour à la connexion
           </Link>
         </CardContent>
@@ -82,7 +82,7 @@ export default function ForgotPasswordPage() {
           <CardFooter className="flex flex-col gap-4">
             <Button
               type="submit"
-              className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
+              className="w-full bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold"
               disabled={loading}
             >
               {loading ? "Envoi..." : "Envoyer le lien"}

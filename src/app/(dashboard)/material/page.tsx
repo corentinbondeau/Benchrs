@@ -239,26 +239,26 @@ export default function MaterialPage() {
   }
 
   return (
-    <div className="space-y-4 md:space-y-6 pb-20 md:pb-0">
+    <div className="section-gap">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
-          <h2 className="text-xl md:text-2xl font-bold flex items-center gap-2">
+          <h1 className="text-2xl font-bold flex items-center gap-2">
             <Package className="h-5 w-5 text-[var(--color-royal)]" />
             Matériel
-          </h2>
+          </h1>
           <p className="text-sm text-muted-foreground mt-1">
             Inventaire du club : liste du matériel saisi par le comité.
           </p>
         </div>
         {hasClubRole && clubTeams.length > 1 && (
           <div className="flex items-center gap-2">
-            <Label className="text-xs text-muted-foreground shrink-0">Équipe :</Label>
+            <Label className="text-xs text-muted-foreground shrink-0">Equipe :</Label>
             <Select
               value={effectiveTeamId ?? ""}
               onValueChange={(v) => v && setViewTeamId(v)}
             >
               <SelectTrigger className="w-52">
-                <SelectValue />
+                <SelectValue placeholder="Choisir une equipe" />
               </SelectTrigger>
               <SelectContent>
                 {clubTeams.map((t) => (
@@ -270,9 +270,12 @@ export default function MaterialPage() {
             </Select>
           </div>
         )}
+        {hasClubRole && clubTeams.length === 1 && (
+          <p className="text-sm text-muted-foreground">{clubTeams[0].name}</p>
+        )}
         {canManage && (
           <Button
-            className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
+            className="bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold"
             onClick={() => {
               setItemTeam(effectiveTeamId ?? "");
               setItemOpen(true);
@@ -428,10 +431,10 @@ export default function MaterialPage() {
           </div>
           {hasClubRole && clubTeams.length > 0 && (
             <div className="space-y-2">
-              <Label>Équipe de destination *</Label>
+              <Label>Equipe de destination *</Label>
               <Select value={itemTeam || effectiveTeamId || ""} onValueChange={(v) => v && setItemTeam(v)}>
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue placeholder="Choisir une equipe" />
                 </SelectTrigger>
                 <SelectContent>
                   {clubTeams.map((t) => (

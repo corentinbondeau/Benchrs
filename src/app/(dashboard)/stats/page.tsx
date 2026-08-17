@@ -15,11 +15,11 @@ export default function StatsPage() {
   const isComiteOnly = clubMemberships.length > 0 && userRole === null;
 
   return (
-    <div className="space-y-4 md:space-y-6 pb-20 md:pb-0">
+    <div className="section-gap">
       <div>
-        <h2 className="text-xl md:text-2xl font-bold">Statistiques</h2>
+        <h1 className="text-2xl font-bold">Performance</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Classements et performances de l&apos;équipe
+          Classements et performances de l&apos;equipe
         </p>
       </div>
 

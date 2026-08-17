@@ -272,9 +272,9 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="space-y-4 md:space-y-6 pb-20 md:pb-0 max-w-2xl">
+    <div className="section-gap max-w-2xl">
       <div>
-        <h2 className="text-xl md:text-2xl font-bold">Paramètres</h2>
+        <h1 className="text-2xl font-bold">Paramètres</h1>
         <p className="text-sm text-muted-foreground mt-1">Gérez votre profil et vos préférences</p>
       </div>
 
@@ -569,7 +569,7 @@ export default function SettingsPage() {
               href={`/link-child?teamId=${currentTeam?.id}`}
               className="w-full"
             >
-              <Button className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold">
+              <Button className="w-full bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold">
                 Lier mon enfant
               </Button>
             </Link>

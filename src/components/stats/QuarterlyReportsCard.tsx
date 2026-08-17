@@ -214,7 +214,7 @@ export function QuarterlyReportsCard({
             <Button
               onClick={generate}
               disabled={generating}
-              className="flex-1 bg-[var(--color-gold)] text-black hover:opacity-90"
+              className="flex-1 bg-[var(--color-primary-blue)] text-white hover:opacity-90"
             >
               {generating ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
               {generating ? "Génération en cours…" : "Générer par IA"}
@@ -272,7 +272,7 @@ export function QuarterlyReportsCard({
             </div>
             <div className="flex items-center gap-2">
               <Button
-                className="bg-[var(--color-gold)] text-black hover:opacity-90"
+                className="bg-[var(--color-primary-blue)] text-white hover:opacity-90"
                 onClick={saveManual}
                 disabled={saving}
               >

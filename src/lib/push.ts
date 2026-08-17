@@ -6,7 +6,7 @@ import { authFetch } from "@/lib/api-client";
 const FALLBACK_VAPID_KEY =
   "BKp6frQFz94B7dpWC7WlId_rxF1f_7DNJUhSjX1h5wVbMLuxzSR8VHTAaalGdXHf20_CzQ91lez1CkWnFkCczoU";
 
-const PUSH_ENABLED_KEY = "sportplus:pushEnabled";
+const PUSH_ENABLED_KEY = "benchrs:pushEnabled";
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);

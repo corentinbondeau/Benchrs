@@ -185,17 +185,17 @@ export default function PollsPage() {
   }
 
   return (
-    <div className="space-y-4 md:space-y-6 pb-20 md:pb-0">
+    <div className="section-gap">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl md:text-2xl font-bold">Sondages</h2>
+          <h1 className="text-2xl font-bold">Sondages</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Votes rapides pour l&apos;équipe
           </p>
         </div>
         {isCoach && (
           <Button
-            className="bg-[var(--color-gold)] text-[var(--color-navy)] font-semibold"
+            className="bg-[var(--color-primary-blue)] text-white font-semibold"
             onClick={() => setCreateOpen(true)}
           >
             <Plus className="h-4 w-4 mr-1" />
@@ -349,7 +349,7 @@ export default function PollsPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)}>Annuler</Button>
             <Button
-              className="bg-[var(--color-gold)] text-[var(--color-navy)] font-semibold"
+              className="bg-[var(--color-primary-blue)] text-white font-semibold"
               onClick={handleCreate}
               disabled={creating}
             >

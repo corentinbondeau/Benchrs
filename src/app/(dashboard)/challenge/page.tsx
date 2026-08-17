@@ -349,10 +349,10 @@ export default function ChallengePage() {
     : undefined;
 
   return (
-    <div className="space-y-6">
+    <div className="section-gap">
       <div className="flex items-center gap-2">
         <Flame className="h-5 w-5 text-[var(--color-gold)]" />
-        <h1 className="text-xl font-bold">Défi de la semaine</h1>
+        <h1 className="text-2xl font-bold">Défi de la semaine</h1>
       </div>
 
       {isCoach && (
@@ -384,7 +384,7 @@ export default function ChallengePage() {
               <Button
                 onClick={handleGenerate}
                 disabled={generating}
-                className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
+                className="bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold"
               >
                 {generating ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Sparkles className="mr-1 h-4 w-4" />}
                 {generating ? "Génération en cours..." : data.challenge ? "Régénérer par IA" : "Générer par IA"}
@@ -456,7 +456,7 @@ export default function ChallengePage() {
                 <Button
                   onClick={handleSubmit}
                   disabled={uploading}
-                  className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
+                  className="bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold"
                 >
                   {uploading ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Upload className="mr-1 h-4 w-4" />}
                   {uploading ? "Envoi en cours..." : "Envoyer ma preuve"}
@@ -491,7 +491,7 @@ export default function ChallengePage() {
                             size="sm"
                             onClick={() => handleValidate(s.id, "validated")}
                             disabled={validatingId === s.id}
-                            className="bg-[var(--color-gold)] text-[var(--color-navy)] font-semibold"
+                            className="bg-[var(--color-primary-blue)] text-white font-semibold"
                           >
                             <Check className="mr-1 h-3 w-3" />
                             Valider
@@ -671,7 +671,7 @@ export default function ChallengePage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setManualOpen(false)}>Annuler</Button>
             <Button
-              className="bg-[var(--color-gold)] text-[var(--color-navy)] font-semibold"
+              className="bg-[var(--color-primary-blue)] text-white font-semibold"
               onClick={handleSaveManual}
               disabled={savingManual}
             >

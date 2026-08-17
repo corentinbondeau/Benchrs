@@ -466,7 +466,7 @@ function RegisterForm() {
                     Le numéro de votre club (sur la licence FFF ou la fiche du club).
                   </p>
                   {comiteClub ? (
-                    <p className="text-xs text-[var(--color-royal)] font-medium">
+                    <p className="text-xs text-[var(--color-primary-blue)] font-medium">
                       Club trouvé : {comiteClub.name} — vous rejoindrez son comité.
                     </p>
                   ) : (
@@ -511,7 +511,7 @@ function RegisterForm() {
           <CardFooter className="flex flex-col gap-4">
             <Button
               type="submit"
-              className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
+              className="w-full bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold"
               disabled={loading}
             >
               {loading
@@ -656,13 +656,13 @@ function RegisterForm() {
         <CardFooter className="flex flex-col gap-4">
           <Button
             type="submit"
-            className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
+            className="w-full bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold"
           >
             Continuer
           </Button>
           <p className="text-sm text-muted-foreground text-center">
             Déjà un compte ?{" "}
-            <Link href="/login" className="text-[var(--color-royal)] hover:underline font-medium">
+            <Link href="/login" className="text-[var(--color-primary-blue)] hover:underline font-medium">
               Se connecter
             </Link>
           </p>

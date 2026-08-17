@@ -241,8 +241,8 @@ export default function TrophiesPage() {
 
   if (loading) {
     return (
-      <div className="space-y-4 md:space-y-6 pb-20 md:pb-0">
-        <h2 className="text-xl md:text-2xl font-bold">Trophées</h2>
+      <div className="section-gap">
+        <h1 className="text-2xl font-bold">Trophées</h1>
         <div className="h-64 animate-pulse rounded-lg bg-muted" />
       </div>
     );
@@ -256,9 +256,9 @@ export default function TrophiesPage() {
   }
 
   return (
-    <div className="space-y-4 md:space-y-6 pb-20 md:pb-0">
+    <div className="section-gap">
       <div>
-        <h2 className="text-xl md:text-2xl font-bold">Trophées & Vie du Club</h2>
+        <h1 className="text-2xl font-bold">Trophées & Vie du Club</h1>
         <p className="text-sm text-muted-foreground mt-1">Récompenses, votes et moments mémorables</p>
       </div>
 

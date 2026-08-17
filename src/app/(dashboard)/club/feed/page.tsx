@@ -96,8 +96,8 @@ export default function ClubFeedPage() {
 
   if (!clubId) {
     return (
-      <div className="max-w-2xl mx-auto space-y-4 pb-20 md:pb-0">
-        <h1 className="text-xl md:text-2xl font-bold flex items-center gap-2">
+      <div className="max-w-2xl mx-auto section-gap">
+        <h1 className="text-2xl font-bold flex items-center gap-2">
           <Newspaper className="h-6 w-6" />
           Fil du club
         </h1>
@@ -190,9 +190,9 @@ export default function ClubFeedPage() {
     isCoach || post.author_id === user?.id;
 
   return (
-    <div className="max-w-2xl mx-auto space-y-4 pb-20 md:pb-0">
+    <div className="max-w-2xl mx-auto section-gap">
       <div>
-        <h1 className="text-xl md:text-2xl font-bold flex items-center gap-2">
+        <h1 className="text-2xl font-bold flex items-center gap-2">
           <Newspaper className="h-6 w-6" />
           Fil du club
         </h1>
@@ -223,7 +223,7 @@ export default function ClubFeedPage() {
             <Button
               onClick={handlePost}
               disabled={posting || !teamId}
-              className="ml-auto bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
+              className="ml-auto bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold"
             >
               {posting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               Publier

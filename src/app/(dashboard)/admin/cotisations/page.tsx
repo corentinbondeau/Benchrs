@@ -65,7 +65,7 @@ const statusConfig: Record<
 };
 
 export default function CotisationsPage() {
-  const { currentTeam, userRole } = useTeam();
+  const { currentTeam, userRole, clubMemberships } = useTeam();
   const { user } = useAuth();
   const [players, setPlayers] = useState<Profile[]>([]);
   const [cotisations, setCotisations] = useState<Cotisation[]>([]);
@@ -329,19 +329,20 @@ export default function CotisationsPage() {
   }
 
   const isCoach = userRole === "coach" || userRole === "owner";
-  if (!isCoach) {
+  const hasClubRole = clubMemberships.length > 0;
+  if (!hasClubRole) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
-        <p className="text-muted-foreground">Accès réservé au coach</p>
+        <p className="text-muted-foreground">Acces reserve au comite du club</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4 md:space-y-6 pb-20 md:pb-0">
+    <div className="section-gap">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
-          <h2 className="text-xl md:text-2xl font-bold">Cotisations</h2>
+          <h1 className="text-2xl font-bold">Cotisations</h1>
           <p className="text-sm text-muted-foreground mt-1">Suivi des paiements</p>
         </div>
         <div className="flex items-center gap-2">
@@ -507,7 +508,7 @@ export default function CotisationsPage() {
                               </Button>
                               <Button
                                 size="sm"
-                                className="h-8 text-xs bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
+                                className="h-8 text-xs bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold"
                                 onClick={() => {
                                   setPaymentCotisation(c);
                                   setPaymentAmount("");
@@ -587,7 +588,7 @@ export default function CotisationsPage() {
               Annuler
             </Button>
             <Button
-              className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
+              className="bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold"
               disabled={!defineAmount || saving}
               onClick={handleDefine}
             >
@@ -657,7 +658,7 @@ export default function CotisationsPage() {
               Annuler
             </Button>
             <Button
-              className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
+              className="bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold"
               disabled={!paymentAmount || saving}
               onClick={handlePayment}
             >

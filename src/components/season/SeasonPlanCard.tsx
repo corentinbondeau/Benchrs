@@ -291,7 +291,7 @@ export function SeasonPlanCard({
             </div>
             <div className="flex items-center gap-2">
               <Button
-                className="bg-[var(--color-gold)] text-[var(--color-navy)] font-semibold"
+                className="bg-[var(--color-primary-blue)] text-white font-semibold"
                 onClick={handleSaveManual}
                 disabled={savingManual}
               >
@@ -307,7 +307,7 @@ export function SeasonPlanCard({
           isCoach ? (
             <div className="space-y-2">
               <Button
-                className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold w-full"
+                className="bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold w-full"
                 onClick={handleGenerate}
                 disabled={generating}
               >

@@ -20,11 +20,15 @@ export default function DashboardLayout({
         <TeamGuard>
           <PushNotificationInit />
           <ParentOnboarding />
-          <div className="flex h-screen overflow-hidden">
+          <div className="flex h-screen overflow-hidden bg-background">
             <Sidebar />
-            <div className="flex flex-1 flex-col overflow-hidden">
+            <div className="flex flex-1 flex-col overflow-hidden min-w-0">
               <TopBar />
-              <main className="flex-1 overflow-y-auto overflow-x-clip p-3 md:p-4 lg:p-6 pb-20 lg:pb-6">{children}</main>
+              <main className="flex-1 overflow-y-auto overflow-x-clip">
+                <div className="page-container px-4 py-4 md:px-6 md:py-5 lg:px-8 lg:py-6 pb-24 lg:pb-8">
+                  {children}
+                </div>
+              </main>
               <BottomNav />
             </div>
           </div>

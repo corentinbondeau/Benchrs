@@ -801,8 +801,8 @@ export default function TeamSettingsPage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto space-y-4 md:space-y-6 pb-20 md:pb-0">
-      <h1 className="text-xl md:text-2xl font-bold">Paramètres d&apos;équipe</h1>
+    <div className="max-w-2xl mx-auto section-gap">
+      <h1 className="text-2xl font-bold">Paramètres d&apos;équipe</h1>
 
       {/* Team Info + Invite Code */}
       <Card>
@@ -880,7 +880,7 @@ export default function TeamSettingsPage() {
               </Button>
             </div>
             <Button
-              className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] font-semibold"
+              className="w-full bg-[var(--color-primary-blue)] text-white font-semibold"
               onClick={copyInviteLink}
             >
               <Link2 className="h-4 w-4 mr-1" />
@@ -973,7 +973,7 @@ export default function TeamSettingsPage() {
               <Button
                 onClick={saveColors}
                 disabled={savingColors}
-                className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
+                className="bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold"
               >
                 {savingColors ? "Sauvegarde..." : "Sauvegarder les couleurs"}
               </Button>
@@ -1160,7 +1160,7 @@ export default function TeamSettingsPage() {
                   toast.success("Difficulté mise à jour");
                 }
               }}
-              className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
+              className="bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold"
             >
               Enregistrer
             </Button>
@@ -1216,7 +1216,7 @@ export default function TeamSettingsPage() {
                   toast.success("Paramètre enregistré");
                 }
               }}
-              className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
+              className="bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold"
             >
               Enregistrer
             </Button>
@@ -1274,7 +1274,7 @@ export default function TeamSettingsPage() {
                   toast.success("Paramètre enregistré");
                 }
               }}
-              className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
+              className="bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold"
             >
               Enregistrer
             </Button>
@@ -1493,15 +1493,15 @@ export default function TeamSettingsPage() {
                         {member.profile?.first_name}{" "}
                         {member.profile?.last_name}
                       </p>
-                      <p className="text-xs text-muted-foreground capitalize">
-                        {member.role}
+                      <p className="text-xs text-muted-foreground">
+                        {member.role === "owner" ? "Coach principal" : member.role === "coach" ? "Coach" : member.role === "parent" ? "Parent" : "Joueur"}
                         {member.user_id === user?.id && " (vous)"}
                       </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs bg-muted px-2 py-1 rounded-full capitalize">
-                      {member.role}
+                    <span className="text-xs bg-muted px-2 py-1 rounded-full">
+                      {member.role === "owner" ? "Coach principal" : member.role === "coach" ? "Coach" : member.role === "parent" ? "Parent" : "Joueur"}
                     </span>
                     {isOwner &&
                       member.user_id !== user?.id &&
@@ -1573,7 +1573,7 @@ export default function TeamSettingsPage() {
                 {canManageClub && (
                   <Button
                     size="sm"
-                    className="bg-[var(--color-gold)] text-[var(--color-navy)] font-semibold h-9"
+                    className="bg-[var(--color-primary-blue)] text-white font-semibold h-9"
                     disabled={savingFff}
                     onClick={saveFffNumber}
                   >
@@ -1735,7 +1735,7 @@ export default function TeamSettingsPage() {
               <div className="flex flex-wrap gap-2">
                 <Button
                   size="sm"
-                  className="bg-[var(--color-gold)] text-[var(--color-navy)] font-semibold"
+                  className="bg-[var(--color-primary-blue)] text-white font-semibold"
                   disabled={savingPublic}
                   onClick={savePublicClub}
                 >
@@ -1884,7 +1884,7 @@ export default function TeamSettingsPage() {
                   />
                   <Button
                     size="sm"
-                    className="bg-[var(--color-gold)] text-[var(--color-navy)] font-semibold h-9"
+                    className="bg-[var(--color-primary-blue)] text-white font-semibold h-9"
                     disabled={addingMember}
                     onClick={addClubMember}
                   >

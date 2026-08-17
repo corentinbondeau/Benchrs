@@ -27,6 +27,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Plus, Upload, Image as ImageIcon, Folder, ArrowLeft, Trash2, Download } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
 import { toast } from "sonner";
 import type { GalleryMedia, Event, Album } from "@/types";
 
@@ -259,8 +260,8 @@ export default function GalleryPage() {
 
   if (loading) {
     return (
-      <div className="space-y-4 md:space-y-6 pb-20 md:pb-0">
-        <h2 className="text-xl md:text-2xl font-bold">Galerie</h2>
+      <div className="section-gap">
+        <h1 className="text-2xl font-bold">Galerie</h1>
         <div className="h-64 animate-pulse rounded-lg bg-muted" />
       </div>
     );
@@ -268,7 +269,7 @@ export default function GalleryPage() {
 
   if (selectedAlbum) {
     return (
-      <div className="space-y-4 md:space-y-6 pb-20 md:pb-0">
+      <div className="section-gap">
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="sm" onClick={() => setSelectedAlbum(null)}>
             <ArrowLeft className="mr-2 h-4 w-4" />
@@ -276,7 +277,7 @@ export default function GalleryPage() {
           </Button>
         </div>
         <div>
-          <h2 className="text-2xl font-bold">{selectedAlbum.title}</h2>
+          <h1 className="text-2xl font-bold">{selectedAlbum.title}</h1>
           {selectedAlbum.description && (
             <p className="text-muted-foreground mt-1">{selectedAlbum.description}</p>
           )}
@@ -301,12 +302,11 @@ export default function GalleryPage() {
           </div>
         </div>
         {albumMedia.length === 0 ? (
-          <div className="flex h-48 items-center justify-center rounded-lg border border-dashed text-muted-foreground">
-            <div className="text-center">
-              <ImageIcon className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p className="text-sm">Aucune photo dans cet album</p>
-            </div>
-          </div>
+          <EmptyState
+            icon={ImageIcon}
+            title="Aucune photo dans cet album"
+            description="Ajoutez des photos à cet album."
+          />
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {albumMedia.map((item) => (
@@ -355,16 +355,16 @@ export default function GalleryPage() {
   }
 
   return (
-    <div className="space-y-4 md:space-y-6 pb-20 md:pb-0">
+    <div className="section-gap">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
-          <h2 className="text-xl md:text-2xl font-bold">Galerie</h2>
+          <h1 className="text-2xl font-bold">Galerie</h1>
           <p className="text-sm text-muted-foreground mt-1">Photos et vidéos de l&apos;équipe</p>
         </div>
         <div className="flex gap-2">
           {user && (
             <Dialog open={uploadOpen} onOpenChange={setUploadOpen}>
-              <DialogTrigger render={<Button className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold" />}>
+              <DialogTrigger render={<Button className="bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold" />}>
                 <Upload className="h-4 w-4 mr-1" />
                 Ajouter
               </DialogTrigger>
@@ -535,7 +535,7 @@ export default function GalleryPage() {
               setSelectedIds(new Set());
               setSelecting(false);
             }}
-            className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
+            className="bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold"
           >
             Appliquer
           </Button>
@@ -584,13 +584,11 @@ export default function GalleryPage() {
       <div>
         <h3 className="text-sm font-semibold mb-3">{albums.length > 0 ? "Toutes les photos" : "Photos"}</h3>
         {media.length === 0 ? (
-          <div className="flex h-48 items-center justify-center rounded-lg border border-dashed text-muted-foreground">
-            <div className="text-center">
-              <ImageIcon className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <h3 className="font-semibold text-lg">Aucun média</h3>
-              <p className="text-sm mt-1">Les photos et videos apparaitront ici</p>
-            </div>
-          </div>
+          <EmptyState
+            icon={ImageIcon}
+            title="Aucun média"
+            description="Les photos et vidéos apparaîtront ici."
+          />
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {media.map((item) => {
@@ -685,7 +683,7 @@ export default function GalleryPage() {
               </Select>
               <Button
                 size="sm"
-                className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold shrink-0"
+                className="bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold shrink-0"
                 onClick={async () => {
                   const res = await authFetch("/api/gallery/set-album", {
                     method: "POST",

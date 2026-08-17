@@ -252,7 +252,7 @@ export default function CreateTeamPage() {
                   required
                 />
                 {existingClub && (
-                  <p className="text-xs text-[var(--color-royal)] font-medium">
+                  <p className="text-xs text-[var(--color-primary-blue)] font-medium">
                     Ce numéro appartient au club {existingClub.name} — l&apos;équipe sera
                     ajoutée à ce club existant.
                   </p>
@@ -293,7 +293,7 @@ export default function CreateTeamPage() {
                   required
                 />
                 {existingClub ? (
-                  <p className="text-xs text-[var(--color-royal)] font-medium">
+                  <p className="text-xs text-[var(--color-primary-blue)] font-medium">
                     Club trouvé : {existingClub.name} — vous rejoindrez son comité.
                   </p>
                 ) : (
@@ -321,7 +321,7 @@ export default function CreateTeamPage() {
         <CardFooter className="flex flex-col gap-4">
           <Button
             type="submit"
-            className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
+            className="w-full bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold"
             disabled={loading}
           >
             {loading
@@ -332,7 +332,7 @@ export default function CreateTeamPage() {
           </Button>
           <p className="text-sm text-muted-foreground text-center">
             Vous avez un code d&apos;invitation ?{" "}
-            <Link href="/join" className="text-[var(--color-royal)] hover:underline font-medium">
+            <Link href="/join" className="text-[var(--color-primary-blue)] hover:underline font-medium">
               Rejoindre une équipe
             </Link>
           </p>

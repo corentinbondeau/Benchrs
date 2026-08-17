@@ -921,3 +921,16 @@ export interface SessionFeedback {
   created_at: string;
   updated_at: string;
 }
+
+export interface ClubhouseReservation {
+  id: string;
+  club_id: string;
+  title: string;
+  description: string | null;
+  reservation_date: string; // YYYY-MM-DD
+  start_time: string; // HH:MM:SS
+  end_time: string; // HH:MM:SS
+  created_by: string;
+  created_at: string;
+  creator?: Pick<Profile, "id" | "first_name" | "last_name" | "avatar_url">;
+}

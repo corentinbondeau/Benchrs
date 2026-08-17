@@ -17,11 +17,11 @@ import { Card, CardContent } from "@/components/ui/card";
 
 function WidgetSkeleton({ className = "" }: { className?: string }) {
   return (
-    <Card>
-      <CardContent className="p-6">
+    <div className="rounded-xl border border-border bg-card">
+      <div className="p-5">
         <div className={`animate-pulse rounded-lg bg-muted ${className}`} />
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 
@@ -39,9 +39,29 @@ const SeasonSummary = dynamic(
   }
 );
 
+function TodayHeader({ name }: { name: string }) {
+  const now = new Date();
+  const dateStr = now.toLocaleDateString("fr-FR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+
+  return (
+    <div className="mb-6">
+      <h1 className="text-2xl font-bold text-foreground">
+        Bonjour {name}
+      </h1>
+      <p className="text-sm text-muted-foreground mt-1 capitalize">
+        {dateStr}
+      </p>
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const { user } = useAuth();
-  const { userRole, clubMemberships } = useTeam();
+  const { userRole, clubMemberships, currentTeam } = useTeam();
   const router = useRouter();
   const isComiteOnly = clubMemberships.length > 0 && userRole === null;
 
@@ -63,33 +83,35 @@ export default function DashboardPage() {
     return <ParentDashboard />;
   }
 
-  // Coach / default
+  // Coach / Owner — "Aujourd'hui" view
   return (
-    <div className="pb-24">
-      <div className="px-4 pt-4 pb-2">
-        <h2 className="text-xl font-bold">
-          Bonjour, {user?.profile?.first_name} 👋
-        </h2>
-        <p className="text-sm text-muted-foreground mt-0.5">
-          Voici un résumé de votre équipe
-        </p>
-      </div>
+    <div className="section-gap">
+      <TodayHeader name={user?.profile?.first_name || ""} />
 
-      <div className="px-4 space-y-4">
-        <NextEventCard />
-        <LazyMount fallback={<WidgetSkeleton className="h-40" />}>
-          <CoachWeekOverview />
-        </LazyMount>
-        <QuickStats />
-        <RecentResults />
-        <PendingConvocations />
-        <LazyMount fallback={<WidgetSkeleton className="h-28" />}>
-          <NewsFeed />
-        </LazyMount>
-        <LazyMount fallback={<WidgetSkeleton className="h-36" />}>
-          <SeasonSummary />
-        </LazyMount>
-      </div>
+      {/* P0: Next event — most important, always visible */}
+      <NextEventCard />
+
+      {/* P0: Pending actions — convocations waiting for response */}
+      <PendingConvocations />
+
+      {/* P1: This week overview — events, availability, RPE, injuries */}
+      <LazyMount fallback={<WidgetSkeleton className="h-40" />}>
+        <CoachWeekOverview />
+      </LazyMount>
+
+      {/* P1: Quick stats — overview numbers */}
+      <QuickStats />
+
+      {/* P2: Recent results */}
+      <RecentResults />
+
+      {/* P3: News feed & season summary */}
+      <LazyMount fallback={<WidgetSkeleton className="h-28" />}>
+        <NewsFeed />
+      </LazyMount>
+      <LazyMount fallback={<WidgetSkeleton className="h-36" />}>
+        <SeasonSummary />
+      </LazyMount>
     </div>
   );
 }

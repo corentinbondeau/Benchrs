@@ -49,6 +49,7 @@ import {
   Users,
 } from "lucide-react";
 import { toast } from "sonner";
+import { EmptyState } from "@/components/ui/empty-state";
 import { TACTICAL_PHASES as PHASE_OBJECTIVES, TACTICAL_PHASE_NAMES } from "@/lib/training/phases";
 import { FOOTBALL_SYSTEMS, EXPERTISE_LEVELS, type AISession, type ExpertiseLevel } from "@/lib/training/ai-generator";
 import { AIFicheView, isAiSessionExercises } from "@/components/training/AIFicheView";
@@ -512,7 +513,7 @@ function SéanceTab() {
               if (!open) resetForm();
             }}
           >
-            <DialogTrigger render={<Button size="sm" className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold" />}>
+            <DialogTrigger render={<Button size="sm" className="bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold" />}>
               <Plus className="mr-1 h-4 w-4" />
               Nouvelle séance
             </DialogTrigger>
@@ -874,7 +875,7 @@ function SéanceTab() {
                   >
                     Annuler
                   </Button>
-                  <Button type="submit" disabled={submitting} className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold">
+                  <Button type="submit" disabled={submitting} className="bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold">
                     {submitting ? "Création..." : "Créer la séance"}
                   </Button>
                 </div>
@@ -909,9 +910,11 @@ function SéanceTab() {
           Chargement...
         </div>
       ) : sessions.length === 0 ? (
-        <div className="flex h-48 items-center justify-center rounded-lg border border-dashed text-muted-foreground">
-          Aucune séance enregistrée
-        </div>
+        <EmptyState
+          icon={Swords}
+          title="Aucune séance enregistrée"
+          description="Créez votre première séance d'entraînement tactique."
+        />
       ) : (
         <div className="space-y-3">
           {sessions.map((session) => {
@@ -1488,7 +1491,7 @@ function FeuilletMatchTab() {
   }
 
   return (
-    <div className="space-y-4 pb-20">
+    <div className="space-y-4">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="space-y-1.5">
           <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Match</Label>
@@ -1753,7 +1756,7 @@ function FeuilletMatchTab() {
             <Button
               onClick={handleSave}
               disabled={saving || !selectedEventId}
-              className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
+              className="bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold"
             >
               {saving ? "Enregistrement..." : "Enregistrer le feuillet"}
             </Button>
@@ -1781,9 +1784,9 @@ function FeuilletMatchTab() {
 
 export default function TacticsPage() {
   return (
-    <div className="space-y-4 md:space-y-6 pb-20 md:pb-0">
+    <div className="section-gap">
       <div>
-        <h2 className="text-xl md:text-2xl font-bold">Tactique & Séances</h2>
+        <h1 className="text-2xl font-bold">Tactique & Séances</h1>
         <p className="text-sm mt-1 text-muted-foreground">
           Gestion des entraînements et compositions d&apos;équipe
         </p>

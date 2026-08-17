@@ -394,7 +394,7 @@ export function SeasonReportCard({ teamId, isCoach }: { teamId: string; isCoach:
             </div>
             <div className="flex items-center gap-2">
               <Button
-                className="bg-[var(--color-gold)] text-[var(--color-navy)] font-semibold"
+                className="bg-[var(--color-primary-blue)] text-white font-semibold"
                 onClick={saveManual}
                 disabled={saving}
               >
@@ -497,7 +497,7 @@ export function SeasonReportCard({ teamId, isCoach }: { teamId: string; isCoach:
             </p>
             <div className="flex flex-col sm:flex-row gap-2 justify-center">
               <Button
-                className="bg-[var(--color-gold)] text-[var(--color-navy)] font-semibold"
+                className="bg-[var(--color-primary-blue)] text-white font-semibold"
                 onClick={generate}
                 disabled={generating}
               >

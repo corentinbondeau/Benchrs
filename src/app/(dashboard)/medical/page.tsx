@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Heart, Plus, AlertTriangle } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
 import type { Injury, Profile } from "@/types";
 
 interface InjuryWithPlayer extends Injury {
@@ -80,8 +81,8 @@ export default function MedicalPage() {
 
   if (loading) {
     return (
-      <div className="space-y-4 md:space-y-6 pb-20 md:pb-0">
-        <h2 className="text-xl md:text-2xl font-bold">Infirmerie</h2>
+      <div className="section-gap">
+        <h1 className="text-2xl font-bold">Infirmerie</h1>
         <div className="h-64 animate-pulse rounded-lg bg-muted" />
       </div>
     );
@@ -91,15 +92,15 @@ export default function MedicalPage() {
   const recoveredInjuries = injuries.filter((i) => i.status === "recovered");
 
   return (
-    <div className="space-y-4 md:space-y-6 pb-20 md:pb-0">
+    <div className="section-gap">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl md:text-2xl font-bold">Infirmerie</h2>
+          <h1 className="text-2xl font-bold">Infirmerie</h1>
           <p className="text-sm text-muted-foreground mt-1">Suivi des blessures</p>
         </div>
         {isCoach && (
           <Dialog open={addOpen} onOpenChange={setAddOpen}>
-            <DialogTrigger render={<Button className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold" />}>
+            <DialogTrigger render={<Button className="bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold" />}>
               <Plus className="h-4 w-4 mr-1" />
               Signaler
             </DialogTrigger>
@@ -137,7 +138,7 @@ export default function MedicalPage() {
                     <Input type="date" value={form.expectedReturn} onChange={(e) => setForm({ ...form, expectedReturn: e.target.value })} />
                   </div>
                 </div>
-                <Button type="submit" className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] font-semibold">Signaler</Button>
+                <Button type="submit" className="w-full bg-[var(--color-primary-blue)] text-white font-semibold">Signaler</Button>
               </form>
             </DialogContent>
           </Dialog>
@@ -154,7 +155,11 @@ export default function MedicalPage() {
         </CardHeader>
         <CardContent>
           {activeInjuries.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-4">Aucune blessure active</p>
+            <EmptyState
+              icon={Heart}
+              title="Aucune blessure active"
+              description="Tous les joueurs sont en pleine forme."
+            />
           ) : (
             <div className="space-y-3">
               {activeInjuries.map((injury) => (

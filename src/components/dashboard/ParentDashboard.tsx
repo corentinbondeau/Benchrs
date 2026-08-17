@@ -192,7 +192,7 @@ export function ParentDashboard() {
           </div>
         </div>
         <Button
-          className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
+          className="w-full bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold"
           onClick={() => router.push(`/link-child?teamId=${currentTeam.id}`)}
         >
           <User className="h-4 w-4" />
@@ -215,75 +215,74 @@ export function ParentDashboard() {
     else countdown = "Bientôt";
   }
 
+  const now = new Date();
+  const dateStr = now.toLocaleDateString("fr-FR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+
   return (
-    <div className="space-y-4 md:space-y-6 pb-20 lg:pb-0">
-      <div>
-        <h2 className="text-xl md:text-2xl font-bold">
-          Bonjour, {user?.profile?.first_name} 👋
-        </h2>
-        <p className="text-muted-foreground mt-1">
-          Espace parent
-        </p>
+    <div className="section-gap">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-foreground">
+          Bonjour {user?.profile?.first_name}
+        </h1>
+        <p className="text-sm text-muted-foreground mt-1 capitalize">{dateStr}</p>
       </div>
 
       {child && (
-        <Card className="bg-gradient-to-r from-[var(--color-navy)] to-[var(--color-royal)] text-white">
-          <CardContent className="p-4 md:p-6">
-            <div className="flex items-center gap-4">
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/20 text-xl font-bold">
-                {child.shirt_number ?? "?"}
-              </div>
-              <div className="flex-1">
-                <h3 className="text-lg font-bold">
-                  {child.first_name} {child.last_name}
-                </h3>
-                <p className="text-white/70 text-sm">
-                  {child.position || "Joueur"}
-                </p>
-              </div>
-              {attendanceRate !== null && (
-                <div className="text-right">
-                  <div className="inline-flex items-center rounded-lg bg-white/20 px-3 py-1.5 text-sm font-bold">
-                    <TrendingUp className="h-4 w-4 mr-1" />
-                    {attendanceRate}%
-                  </div>
-                  <p className="text-white/60 text-xs mt-1">Assiduité</p>
-                </div>
-              )}
+        <div className="rounded-xl bg-[var(--color-navy)] text-white p-5">
+          <div className="flex items-center gap-4">
+            <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-white/10 text-xl font-bold shrink-0">
+              {child.shirt_number != null ? `#${child.shirt_number}` : "?"}
             </div>
-          </CardContent>
-        </Card>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-lg font-bold truncate">
+                {child.first_name} {child.last_name}
+              </h3>
+              <p className="text-white/50 text-sm">
+                {child.position || "Joueur"}
+              </p>
+            </div>
+            {attendanceRate !== null && (
+              <div className="text-right shrink-0">
+                <p className="text-2xl font-bold tabular-nums">{attendanceRate}%</p>
+                <p className="text-white/40 text-xs">Assiduite</p>
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
       {nextEvent && eventDate && (
-        <Card
-          className="bg-gradient-to-r from-[var(--color-gold)] to-amber-400 text-[var(--color-navy)] cursor-pointer hover:opacity-90 transition-opacity"
+        <button
+          className="w-full text-left rounded-xl bg-[var(--color-navy)] text-white p-5 hover:bg-[var(--color-navy-light)] transition-colors"
           onClick={() => router.push(nextEvent.type === "match" ? `/matches/${nextEvent.id}` : `/trainings/${nextEvent.id}`)}
         >
-          <CardContent className="p-6">
             <div className="flex items-start justify-between gap-3">
               <div className="space-y-2 min-w-0">
-                <p className="text-[var(--color-navy)]/60 text-sm font-medium uppercase tracking-wide">
+                <p className="text-xs font-semibold uppercase tracking-widest text-white/40">
                   {nextEvent.type === "match"
                     ? "Prochain match"
-                    : "Prochain entraînement"}
+                    : "Prochain entrainement"}
                 </p>
-                <h3 className="text-xl font-bold truncate">{nextEvent.title}</h3>
+                <h3 className="text-lg font-bold truncate">{nextEvent.title}</h3>
                 {nextEvent.opponent && (
-                  <p className="text-[var(--color-navy)]/80 truncate">
+                  <p className="text-white/60 truncate">
                     vs {nextEvent.opponent}
                   </p>
                 )}
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-[var(--color-navy)]/70">
-                  <span className="flex items-center gap-1 min-w-0">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[13px] text-white/55">
+                  <span className="flex items-center gap-1.5">
                     <Calendar className="h-3.5 w-3.5 shrink-0" />
-                    <span className="truncate">{eventDate.toLocaleDateString("fr-FR", {
+                    <span className="truncate capitalize">{eventDate.toLocaleDateString("fr-FR", {
                       weekday: "long",
                       day: "numeric",
                       month: "long",
                     })}</span>
                   </span>
-                  <span className="flex items-center gap-1 shrink-0">
+                  <span className="flex items-center gap-1.5">
                     <Clock className="h-3.5 w-3.5" />
                     {eventDate.toLocaleTimeString("fr-FR", {
                       hour: "2-digit",
@@ -291,7 +290,7 @@ export function ParentDashboard() {
                     })}
                   </span>
                   {nextEvent.location && (
-                    <span className="flex items-center gap-1 min-w-0 w-full sm:w-auto">
+                    <span className="flex items-center gap-1.5">
                       <MapPin className="h-3.5 w-3.5 shrink-0" />
                       <span className="truncate">{nextEvent.location}</span>
                     </span>
@@ -299,13 +298,12 @@ export function ParentDashboard() {
                 </div>
               </div>
               <div className="text-right shrink-0">
-                <div className="inline-flex items-center rounded-lg bg-[var(--color-navy)] px-3 py-1.5 text-sm font-bold text-white">
+                <span className="inline-flex items-center rounded-md bg-[var(--color-primary-blue)] px-2.5 py-1 text-xs font-bold text-white">
                   {countdown}
-                </div>
+                </span>
               </div>
             </div>
-          </CardContent>
-        </Card>
+        </button>
       )}
 
       {pendingConvs.length > 0 && (

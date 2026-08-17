@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useTeam } from "@/lib/team";
@@ -25,9 +26,17 @@ import { toast } from "sonner";
 import type { TeamPot, PotContribution } from "@/types";
 
 export default function CagnottePage() {
+  const router = useRouter();
   const { user } = useAuth();
   const { currentTeam, userRole } = useTeam();
   const isCoach = userRole === "coach" || userRole === "owner";
+
+  // Rediriger les joueurs vers le dashboard
+  useEffect(() => {
+    if (userRole === "player") {
+      router.push("/");
+    }
+  }, [userRole, router]);
   const [pots, setPots] = useState<TeamPot[]>([]);
   const [contribs, setContribs] = useState<Record<string, PotContribution[]>>({});
   const [loading, setLoading] = useState(true);
@@ -223,17 +232,17 @@ export default function CagnottePage() {
   }
 
   return (
-    <div className="space-y-4 p-4">
+    <div className="section-gap">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold flex items-center gap-2">
+          <h1 className="text-2xl font-bold flex items-center gap-2">
             <PiggyBank className="h-5 w-5 text-[var(--color-gold)]" />
             Cagnottes d&apos;équipe
           </h1>
           <p className="text-sm text-muted-foreground">Financement des tournois, tenues et projets. Les fonds sont versés à la trésorerie.</p>
         </div>
         {isCoach && (
-          <Button size="sm" className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold" onClick={() => setCreateOpen(true)}>
+          <Button size="sm" className="bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold" onClick={() => setCreateOpen(true)}>
             <Plus className="h-3.5 w-3.5 mr-1" />
             Nouvelle cagnotte
           </Button>

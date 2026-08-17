@@ -20,8 +20,22 @@ import {
   TrendingDown,
   Minus,
   BarChart3,
+  Globe,
+  ExternalLink,
+  Copy,
+  Loader2,
+  Mail,
+  Phone,
+  FileText,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { toast } from "sonner";
 import { ActivityLogCard } from "@/components/club/ActivityLogCard";
+import type { TrialRequest } from "@/types";
 
 interface ClubRow {
   club_id: string;
@@ -83,6 +97,11 @@ interface ClubData {
   myRole: "president" | "comite";
   teams: ClubTeam[];
   members: CommitteeMember[];
+  is_public: boolean;
+  public_slug: string | null;
+  description: string | null;
+  contact_email: string | null;
+  contact_phone: string | null;
 }
 
 function formatMatchDay(iso: string) {
@@ -218,6 +237,218 @@ function TeamCard({
   );
 }
 
+/* ─── Showcase / Page vitrine ─── */
+function ShowcaseSection({ club, onUpdate }: { club: ClubData; onUpdate: (patch: Partial<ClubData>) => void }) {
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [slug, setSlug] = useState(club.public_slug || "");
+  const [description, setDescription] = useState(club.description || "");
+  const [contactEmail, setContactEmail] = useState(club.contact_email || "");
+  const [contactPhone, setContactPhone] = useState(club.contact_phone || "");
+  const [trials, setTrials] = useState<TrialRequest[]>([]);
+  const [trialsLoaded, setTrialsLoaded] = useState(false);
+
+  useEffect(() => {
+    if (!club.is_public) return;
+    const supabase = createClient();
+    supabase
+      .from("trial_requests")
+      .select("*")
+      .eq("club_id", club.id)
+      .order("created_at", { ascending: false })
+      .limit(20)
+      .then(({ data }) => {
+        setTrials((data as TrialRequest[]) || []);
+        setTrialsLoaded(true);
+      });
+  }, [club.id, club.is_public]);
+
+  async function togglePublic() {
+    setSaving(true);
+    const supabase = createClient();
+    const newVal = !club.is_public;
+    const updates: Record<string, unknown> = { is_public: newVal };
+    if (newVal && !club.public_slug) {
+      const autoSlug = club.name
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "");
+      updates.public_slug = autoSlug;
+      setSlug(autoSlug);
+    }
+    const { error } = await supabase.from("clubs").update(updates).eq("id", club.id);
+    setSaving(false);
+    if (error) {
+      toast.error("Impossible de modifier la page vitrine");
+      return;
+    }
+    onUpdate({ is_public: newVal, public_slug: (updates.public_slug as string) || club.public_slug });
+    toast.success(newVal ? "Page vitrine activee" : "Page vitrine desactivee");
+  }
+
+  async function saveDetails() {
+    if (!slug.trim()) {
+      toast.error("L'adresse de la page est obligatoire");
+      return;
+    }
+    setSaving(true);
+    const supabase = createClient();
+    const { error } = await supabase.from("clubs").update({
+      public_slug: slug.trim(),
+      description: description.trim() || null,
+      contact_email: contactEmail.trim() || null,
+      contact_phone: contactPhone.trim() || null,
+    }).eq("id", club.id);
+    setSaving(false);
+    if (error) {
+      if (error.code === "23505") {
+        toast.error("Cette adresse est deja utilisee par un autre club");
+      } else {
+        toast.error("Impossible d'enregistrer les modifications");
+      }
+      return;
+    }
+    onUpdate({
+      public_slug: slug.trim(),
+      description: description.trim() || null,
+      contact_email: contactEmail.trim() || null,
+      contact_phone: contactPhone.trim() || null,
+    });
+    setEditing(false);
+    toast.success("Page vitrine mise a jour");
+  }
+
+  const publicUrl = club.public_slug ? `${typeof window !== "undefined" ? window.location.origin : ""}/c/${club.public_slug}` : null;
+
+  return (
+    <div className="space-y-3 pt-2">
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+          <Globe className="h-3.5 w-3.5" />
+          Page vitrine
+        </p>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">{club.is_public ? "Active" : "Desactivee"}</span>
+          <Switch checked={club.is_public} onCheckedChange={togglePublic} disabled={saving} />
+        </div>
+      </div>
+
+      {club.is_public && (
+        <div className="rounded-xl border border-border bg-card p-4 space-y-4">
+          {/* Public URL */}
+          {publicUrl && (
+            <div className="flex items-center gap-2 rounded-lg bg-muted/50 px-3 py-2">
+              <Globe className="h-4 w-4 text-muted-foreground shrink-0" />
+              <span className="text-sm text-muted-foreground truncate flex-1">{publicUrl}</span>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 text-xs shrink-0"
+                onClick={() => { navigator.clipboard.writeText(publicUrl); toast.success("Lien copie"); }}
+              >
+                <Copy className="h-3 w-3 mr-1" />
+                Copier
+              </Button>
+              <a href={publicUrl} target="_blank" rel="noopener noreferrer">
+                <Button size="sm" variant="ghost" className="h-7 text-xs shrink-0">
+                  <ExternalLink className="h-3 w-3 mr-1" />
+                  Ouvrir
+                </Button>
+              </a>
+            </div>
+          )}
+
+          {/* Details */}
+          {editing ? (
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <Label className="text-xs">Adresse de la page *</Label>
+                <div className="flex items-center gap-1">
+                  <span className="text-xs text-muted-foreground shrink-0">/c/</span>
+                  <Input value={slug} onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))} placeholder="mon-club" className="h-8 text-sm" />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Description du club</Label>
+                <Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Presentez votre club aux familles..." rows={3} className="text-sm" />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">Email de contact</Label>
+                  <Input type="email" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} placeholder="contact@club.fr" className="h-8 text-sm" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Telephone</Label>
+                  <Input type="tel" value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} placeholder="06 12 34 56 78" className="h-8 text-sm" />
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={() => setEditing(false)}>Annuler</Button>
+                <Button size="sm" className="bg-[var(--color-primary-blue)] text-white" onClick={saveDetails} disabled={saving}>
+                  {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : null}
+                  Enregistrer
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="space-y-1 text-sm">
+                  {club.description && <p className="text-muted-foreground">{club.description}</p>}
+                  {club.contact_email && (
+                    <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <Mail className="h-3 w-3" />{club.contact_email}
+                    </p>
+                  )}
+                  {club.contact_phone && (
+                    <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <Phone className="h-3 w-3" />{club.contact_phone}
+                    </p>
+                  )}
+                  {!club.description && !club.contact_email && !club.contact_phone && (
+                    <p className="text-muted-foreground text-xs">Aucune information configuree</p>
+                  )}
+                </div>
+                <Button size="sm" variant="outline" className="h-8 text-xs shrink-0" onClick={() => setEditing(true)}>
+                  Configurer
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Trial requests */}
+          {trialsLoaded && trials.length > 0 && (
+            <div className="pt-2 border-t border-border">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 mb-2">
+                <FileText className="h-3.5 w-3.5" />
+                Demandes d&apos;essai ({trials.length})
+              </p>
+              <div className="space-y-2">
+                {trials.map((t) => (
+                  <div key={t.id} className="flex items-start justify-between gap-3 rounded-lg bg-muted/30 px-3 py-2">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium">{t.player_first_name} {t.player_last_name}</p>
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground mt-0.5">
+                        {t.position && <span>{t.position}</span>}
+                        {t.birth_date && <span>Ne le {new Date(t.birth_date).toLocaleDateString("fr-FR")}</span>}
+                        {t.parent_name && <span>Parent : {t.parent_name}</span>}
+                      </div>
+                      {t.message && <p className="text-xs text-muted-foreground mt-1 italic">{t.message}</p>}
+                    </div>
+                    <Badge variant="secondary" className="text-[10px] shrink-0 capitalize">{t.status}</Badge>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function ClubPage() {
   const { user } = useAuth();
   const { switchTeam } = useTeam();
@@ -230,7 +461,7 @@ export default function ClubPage() {
     const [rowsRes, createdRes] = await Promise.all([
       supabase
         .from("club_members")
-        .select("club_id, role, club:clubs(id, name, logo_url)")
+        .select("club_id, role, club:clubs(id, name, logo_url, is_public, public_slug, description, contact_email, contact_phone)")
         .eq("user_id", userId),
       supabase.from("clubs").select("id, name, logo_url").eq("created_by", userId),
     ]);
@@ -361,6 +592,11 @@ export default function ClubPage() {
           ...m,
           profile: profileMap.get(m.user_id) as CommitteeMember["profile"],
         })),
+        is_public: (club as Record<string, unknown>).is_public === true,
+        public_slug: ((club as Record<string, unknown>).public_slug as string) || null,
+        description: ((club as Record<string, unknown>).description as string) || null,
+        contact_email: ((club as Record<string, unknown>).contact_email as string) || null,
+        contact_phone: ((club as Record<string, unknown>).contact_phone as string) || null,
       });
     }
     return result;
@@ -380,9 +616,9 @@ export default function ClubPage() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto space-y-4 md:space-y-6 pb-20 md:pb-0">
+    <div className="max-w-5xl mx-auto section-gap">
       <div>
-        <h1 className="text-xl md:text-2xl font-bold flex items-center gap-2">
+        <h1 className="text-2xl font-bold flex items-center gap-2">
           <Building2 className="h-6 w-6" />
           Espace club
         </h1>
@@ -489,6 +725,8 @@ export default function ClubPage() {
                 </div>
               )}
             </div>
+
+            <ShowcaseSection club={club} onUpdate={(patch) => setClubs(prev => prev.map(c => c.id === club.id ? { ...c, ...patch } : c))} />
 
             <ActivityLogCard clubId={club.id} />
           </div>

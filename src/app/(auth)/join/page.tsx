@@ -124,7 +124,7 @@ function JoinTeamForm() {
         </CardHeader>
         <CardContent className="space-y-3">
           <Link href={`/login?next=${encodeURIComponent(next)}`}>
-            <Button className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold">
+            <Button className="w-full bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold">
               Se connecter
             </Button>
           </Link>
@@ -191,7 +191,7 @@ function JoinTeamForm() {
         <CardFooter className="flex flex-col gap-4">
           <Button
             type="submit"
-            className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
+            className="w-full bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold"
             disabled={loading}
           >
             {loading ? "Connexion..." : "Rejoindre l'équipe"}

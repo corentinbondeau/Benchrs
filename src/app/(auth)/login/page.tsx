@@ -86,7 +86,7 @@ function LoginForm() {
               onChange={(e) => setPassword(e.target.value)}
               required
             />
-            <Link href="/forgot-password" className="text-xs text-[var(--color-royal)] hover:underline">
+            <Link href="/forgot-password" className="text-xs text-[var(--color-primary-blue)] hover:underline">
               Mot de passe oublié ?
             </Link>
           </div>
@@ -94,7 +94,7 @@ function LoginForm() {
         <CardFooter className="flex flex-col gap-4">
           <Button
             type="submit"
-            className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
+            className="w-full bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold"
             disabled={loading}
           >
             {loading ? "Connexion..." : "Se connecter"}
@@ -103,7 +103,7 @@ function LoginForm() {
             Pas encore de compte ?{" "}
             <Link
               href={next !== "/" ? `/register?next=${encodeURIComponent(next)}` : "/register"}
-              className="text-[var(--color-royal)] hover:underline font-medium"
+              className="text-[var(--color-primary-blue)] hover:underline font-medium"
             >
               Créer un compte
             </Link>

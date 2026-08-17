@@ -28,6 +28,9 @@ import {
   PenLine,
   Share2,
   ClipboardList,
+  Car,
+  Heart,
+  Users,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ConvocationsDialog } from "@/components/ConvocationsDialog";
@@ -545,15 +548,14 @@ export default function MatchDetailPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <Button variant="ghost" size="sm" onClick={() => router.back()}>
+    <div className="section-gap">
+      <Button variant="ghost" size="sm" onClick={() => router.back()} className="-ml-2">
         <ArrowLeft className="mr-2 h-4 w-4" />
         Retour
       </Button>
 
       {/* Match Header */}
-      <Card className="bg-gradient-to-r from-[var(--color-navy)] to-[var(--color-royal)] text-white">
-        <CardContent className="p-6">
+      <div className="rounded-xl bg-[var(--color-navy)] text-white p-5 md:p-6">
           <div className="flex items-start justify-between gap-3">
             <div className="space-y-2 min-w-0">
               <div className="flex items-center gap-2">
@@ -561,7 +563,7 @@ export default function MatchDetailPage() {
                   {getResultLabel(match.match_result)}
                 </Badge>
               </div>
-              <h2 className="text-2xl font-bold break-words">{match.title}</h2>
+              <h1 className="text-2xl font-bold break-words">{match.title}</h1>
               {match.opponent && (
                 <p className="text-white/80 text-lg break-words">vs {match.opponent}</p>
               )}
@@ -569,7 +571,7 @@ export default function MatchDetailPage() {
                 <div className="flex flex-wrap gap-2 pt-2">
                   <Button
                     size="sm"
-                    className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
+                    className="bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold"
                     onClick={() => setConvDialogOpen(true)}
                   >
                     <Bell className="h-3.5 w-3.5 mr-1" />
@@ -631,8 +633,7 @@ export default function MatchDetailPage() {
               </div>
             )}
           </div>
-        </CardContent>
-      </Card>
+      </div>
 
       <DepartureNotifier
         eventId={matchId}
@@ -660,6 +661,40 @@ export default function MatchDetailPage() {
           selectedChildId={childId}
           onSelect={setChildId}
         />
+      )}
+
+      {/* Raccourcis contextuels */}
+      {isCoach && match.status !== "completed" && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <Link
+            href="/carpooling"
+            className="flex items-center gap-2.5 rounded-xl border border-border bg-card p-3 text-sm font-medium text-foreground hover:bg-muted/50 transition-colors"
+          >
+            <Car className="h-4 w-4 text-muted-foreground shrink-0" />
+            Covoiturage
+          </Link>
+          <Link
+            href="/tactics"
+            className="flex items-center gap-2.5 rounded-xl border border-border bg-card p-3 text-sm font-medium text-foreground hover:bg-muted/50 transition-colors"
+          >
+            <Swords className="h-4 w-4 text-muted-foreground shrink-0" />
+            Tactique
+          </Link>
+          <Link
+            href="/attendance"
+            className="flex items-center gap-2.5 rounded-xl border border-border bg-card p-3 text-sm font-medium text-foreground hover:bg-muted/50 transition-colors"
+          >
+            <Users className="h-4 w-4 text-muted-foreground shrink-0" />
+            Presences
+          </Link>
+          <Link
+            href="/medical"
+            className="flex items-center gap-2.5 rounded-xl border border-border bg-card p-3 text-sm font-medium text-foreground hover:bg-muted/50 transition-colors"
+          >
+            <Heart className="h-4 w-4 text-muted-foreground shrink-0" />
+            Infirmerie
+          </Link>
+        </div>
       )}
 
       {/* Partie 1 — Informations globales */}
@@ -731,7 +766,7 @@ export default function MatchDetailPage() {
                     </Button>
                     <Button
                       size="sm"
-                      className="bg-[var(--color-gold)] text-[var(--color-navy)]"
+                      className="bg-[var(--color-primary-blue)] text-white"
                       onClick={saveScore}
                     >
                       <Check className="h-3.5 w-3.5 mr-1" />
@@ -919,7 +954,7 @@ export default function MatchDetailPage() {
                   </Button>
                   <Button
                     size="sm"
-                    className="bg-[var(--color-gold)] text-[var(--color-navy)]"
+                    className="bg-[var(--color-primary-blue)] text-white"
                     onClick={saveStats}
                     disabled={savingStats}
                   >

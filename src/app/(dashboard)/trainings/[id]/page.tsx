@@ -8,7 +8,8 @@ import { useTeam } from "@/lib/team";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Bell, PenLine } from "lucide-react";
+import Link from "next/link";
+import { ArrowLeft, Bell, PenLine, Car, Heart, Users } from "lucide-react";
 import { toast } from "sonner";
 import { ConvocationsDialog } from "@/components/ConvocationsDialog";
 import { AnnouncementDialog } from "@/components/announcements/AnnouncementDialog";
@@ -207,33 +208,32 @@ export default function TrainingDetailPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <Button variant="ghost" size="sm" onClick={() => router.back()}>
+    <div className="section-gap">
+      <Button variant="ghost" size="sm" onClick={() => router.back()} className="-ml-2">
         <ArrowLeft className="mr-2 h-4 w-4" />
         Retour
       </Button>
 
       {/* Header */}
-      <Card className="bg-gradient-to-r from-[var(--color-navy)] to-[var(--color-royal)] text-white">
-        <CardContent className="p-6">
+      <div className="rounded-xl bg-[var(--color-navy)] text-white p-5 md:p-6">
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <Badge className="bg-white/20 text-white border-white/30">
-                Entraînement
+              <Badge className="bg-white/[0.12] text-white border-white/20">
+                Entrainement
               </Badge>
               {event.status === "cancelled" && (
                 <Badge className="bg-red-500/80 text-white border-red-400/30">
-                  Annulé
+                  Annule
                 </Badge>
               )}
             </div>
-            <h2 className="text-2xl font-bold">{event.title}</h2>
+            <h1 className="text-2xl font-bold">{event.title}</h1>
           </div>
           {isCoach && (
             <div className="mt-4 flex flex-wrap gap-2">
               <Button
                 size="sm"
-                className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
+                className="bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold"
                 onClick={() => setConvDialogOpen(true)}
               >
                 <Bell className="h-3.5 w-3.5 mr-1" />
@@ -261,8 +261,7 @@ export default function TrainingDetailPage() {
               />
             </div>
           )}
-        </CardContent>
-      </Card>
+      </div>
 
       <DepartureNotifier
         eventId={trainingId}
@@ -293,6 +292,33 @@ export default function TrainingDetailPage() {
           selectedChildId={childId}
           onSelect={setChildId}
         />
+      )}
+
+      {/* Raccourcis contextuels */}
+      {isCoach && event.status !== "completed" && (
+        <div className="grid grid-cols-3 gap-2">
+          <Link
+            href="/carpooling"
+            className="flex items-center gap-2.5 rounded-xl border border-border bg-card p-3 text-sm font-medium text-foreground hover:bg-muted/50 transition-colors"
+          >
+            <Car className="h-4 w-4 text-muted-foreground shrink-0" />
+            Covoiturage
+          </Link>
+          <Link
+            href="/attendance"
+            className="flex items-center gap-2.5 rounded-xl border border-border bg-card p-3 text-sm font-medium text-foreground hover:bg-muted/50 transition-colors"
+          >
+            <Users className="h-4 w-4 text-muted-foreground shrink-0" />
+            Presences
+          </Link>
+          <Link
+            href="/medical"
+            className="flex items-center gap-2.5 rounded-xl border border-border bg-card p-3 text-sm font-medium text-foreground hover:bg-muted/50 transition-colors"
+          >
+            <Heart className="h-4 w-4 text-muted-foreground shrink-0" />
+            Infirmerie
+          </Link>
+        </div>
       )}
 
       {/* Partie 1 — Informations globales */}

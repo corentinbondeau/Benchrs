@@ -900,56 +900,50 @@ export function LiveMatchTracker({
             {isCoach && (
               phase === "pre" ? (
                 <Button
-                  size="sm"
-                  className="h-7 text-xs gap-1 bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
+                  className="h-10 px-4 text-sm gap-2 bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold touch-manipulation"
                   onClick={startMatch}
                   disabled={busyLive}
                 >
-                  {busyLive ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
-                  Début du match
+                  {busyLive ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+                  Coup d'envoi
                 </Button>
               ) : phase === "playing" && !halftimeAt ? (
                 <Button
-                  size="sm"
                   variant="outline"
-                  className="h-7 text-xs gap-1"
+                  className="h-10 px-4 text-sm gap-2 touch-manipulation"
                   onClick={halfTime}
                   disabled={busyLive}
                 >
-                  {busyLive ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Pause className="h-3.5 w-3.5" />}
+                  {busyLive ? <Loader2 className="h-4 w-4 animate-spin" /> : <Pause className="h-4 w-4" />}
                   Mi-temps
                 </Button>
               ) : phase === "halftime" ? (
                 <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-7 text-xs gap-1"
+                  className="h-10 px-4 text-sm gap-2 bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold touch-manipulation"
                   onClick={resumeMatch}
                   disabled={busyLive}
                 >
-                  {busyLive ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
-                  Début 2e mi-temps
+                  {busyLive ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+                  2e mi-temps
                 </Button>
               ) : phase === "playing" ? (
                 <Button
-                  size="sm"
                   variant="outline"
-                  className="h-7 text-xs gap-1"
+                  className="h-10 px-4 text-sm gap-2 border-[var(--color-danger)] text-[var(--color-danger)] hover:bg-red-50 touch-manipulation"
                   onClick={endMatch}
                   disabled={busyLive}
                 >
-                  {busyLive ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Flag className="h-3.5 w-3.5" />}
+                  {busyLive ? <Loader2 className="h-4 w-4 animate-spin" /> : <Flag className="h-4 w-4" />}
                   Fin du match
                 </Button>
               ) : (
                 <Button
-                  size="sm"
                   variant="outline"
-                  className="h-7 text-xs gap-1"
+                  className="h-10 px-4 text-sm gap-2 touch-manipulation"
                   onClick={reopenMatch}
                   disabled={busyLive}
                 >
-                  <RotateCw className="h-3.5 w-3.5" />
+                  <RotateCw className="h-4 w-4" />
                   Relancer
                 </Button>
               )
@@ -968,20 +962,18 @@ export function LiveMatchTracker({
       </CardHeader>
       <CardContent>
         {canEdit && (
-          <div className="mb-3 flex flex-wrap gap-1.5">
+          <div className="mb-4 grid grid-cols-3 sm:grid-cols-6 gap-2">
             {EVENT_ORDER.map((type) => {
               const cfg = EVENT_TYPE_CONFIG[type];
               return (
-                <Button
+                <button
                   key={type}
-                  size="sm"
-                  variant="outline"
-                  className="h-7 text-xs gap-1 px-2"
+                  className="flex flex-col items-center justify-center gap-1.5 rounded-xl border border-border bg-card p-3 min-h-[60px] text-center hover:bg-muted/50 active:scale-95 transition-all touch-manipulation"
                   onClick={() => openDialog(type)}
                 >
-                  <cfg.icon className={`h-3.5 w-3.5 ${cfg.iconClass}`} />
-                  {cfg.shortLabel}
-                </Button>
+                  <cfg.icon className={`h-5 w-5 ${cfg.iconClass}`} />
+                  <span className="text-[11px] font-medium text-muted-foreground leading-tight">{cfg.shortLabel}</span>
+                </button>
               );
             })}
           </div>

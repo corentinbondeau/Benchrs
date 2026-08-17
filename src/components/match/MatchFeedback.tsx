@@ -169,7 +169,7 @@ export function MatchFeedback({ matchId, teamId, isCoach, userId, players }: Pro
                 </Button>
                 <Button
                   size="sm"
-                  className="bg-[var(--color-gold)] text-[var(--color-navy)]"
+                  className="bg-[var(--color-primary-blue)] text-white"
                   onClick={save}
                   disabled={saving}
                 >

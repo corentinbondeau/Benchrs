@@ -1060,7 +1060,7 @@ export function ExerciseSchematicDialog({
           </Button>
           <Button
             onClick={onSave}
-            className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
+            className="bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold"
           >
             Enregistrer le schéma
           </Button>

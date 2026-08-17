@@ -5,8 +5,7 @@ import { useTeam } from "@/lib/team";
 import { useRouter } from "next/navigation";
 import { useQueryCache } from "@/lib/queryCache";
 import type { Event } from "@/types";
-import { Card, CardContent } from "@/components/ui/card";
-import { Calendar, MapPin, Clock } from "lucide-react";
+import { Calendar, MapPin, Clock, ChevronRight, Users } from "lucide-react";
 
 export function NextEventCard() {
   const router = useRouter();
@@ -33,21 +32,20 @@ export function NextEventCard() {
 
   if (loading) {
     return (
-      <Card>
-        <CardContent className="p-6">
-          <div className="h-32 animate-pulse rounded-lg bg-muted" />
-        </CardContent>
-      </Card>
+      <div className="rounded-xl bg-[var(--color-navy)] p-5">
+        <div className="h-28 animate-pulse rounded-lg bg-white/10" />
+      </div>
     );
   }
 
   if (!event) {
     return (
-      <div className="flex h-48 items-center justify-center rounded-lg border border-dashed text-muted-foreground">
-        <div className="text-center">
-          <Calendar className="h-8 w-8 mx-auto mb-2 opacity-50" />
-          <p className="text-sm">Aucun événement à venir</p>
-        </div>
+      <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-border py-10 px-6">
+        <Calendar className="h-10 w-10 text-muted-foreground/40 mb-3" />
+        <p className="text-sm font-medium text-muted-foreground">Aucun evenement a venir</p>
+        <p className="text-xs text-muted-foreground/60 mt-1">
+          Votre prochain rendez-vous apparaitra ici
+        </p>
       </div>
     );
   }
@@ -59,49 +57,61 @@ export function NextEventCard() {
   const diffHours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
 
   let countdown = "";
-  if (diffDays > 0) countdown = `${diffDays}j ${diffHours}h`;
-  else if (diffHours > 0) countdown = `${diffHours}h`;
-  else countdown = "Bientôt";
+  if (diffDays > 1) countdown = `Dans ${diffDays} jours`;
+  else if (diffDays === 1) countdown = "Demain";
+  else if (diffHours > 0) countdown = `Dans ${diffHours}h`;
+  else countdown = "Maintenant";
+
+  const isMatch = event.type === "match";
+  const typeLabel = isMatch ? "Prochain match" : "Prochain entrainement";
 
   return (
-    <Card
-      className="bg-gradient-to-r from-[var(--color-navy)] to-[var(--color-royal)] text-white cursor-pointer hover:opacity-90 transition-opacity"
-      onClick={() => router.push(event.type === "match" ? `/matches/${event.id}` : `/trainings/${event.id}`)}
+    <button
+      onClick={() => router.push(isMatch ? `/matches/${event.id}` : `/trainings/${event.id}`)}
+      className="w-full text-left rounded-xl bg-[var(--color-navy)] text-white p-5 md:p-6 hover:bg-[var(--color-navy-light)] transition-colors group"
     >
-      <CardContent className="p-6">
-        <div className="flex items-start justify-between gap-3">
-          <div className="space-y-2 min-w-0">
-            <p className="text-white/60 text-sm font-medium uppercase tracking-wide">
-              {event.type === "match" ? "Prochain match" : "Prochain entraînement"}
-            </p>
-            <h3 className="text-xl font-bold truncate">{event.title}</h3>
-            {event.opponent && (
-              <p className="text-white/80 truncate">vs {event.opponent}</p>
-            )}
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-white/70">
-              <span className="flex items-center gap-1 min-w-0">
-                <Calendar className="h-3.5 w-3.5 shrink-0" />
-                <span className="truncate">{eventDate.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}</span>
-              </span>
-              <span className="flex items-center gap-1 shrink-0">
-                <Clock className="h-3.5 w-3.5" />
-                {eventDate.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
-              </span>
-              {event.location && (
-                <span className="flex items-center gap-1 min-w-0 w-full sm:w-auto">
-                  <MapPin className="h-3.5 w-3.5 shrink-0" />
-                  <span className="truncate">{event.location}</span>
-                </span>
-              )}
-            </div>
-          </div>
-          <div className="text-right shrink-0">
-            <div className="inline-flex items-center rounded-lg bg-[var(--color-gold)] px-3 py-1.5 text-sm font-bold text-[var(--color-navy)]">
-              {countdown}
-            </div>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+      {/* Top: label + countdown */}
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-xs font-semibold uppercase tracking-widest text-white/40">
+          {typeLabel}
+        </span>
+        <span className="inline-flex items-center rounded-md bg-[var(--color-primary-blue)] px-2.5 py-1 text-xs font-bold text-white">
+          {countdown}
+        </span>
+      </div>
+
+      {/* Title */}
+      <h3 className="text-lg font-bold truncate">
+        {isMatch && event.opponent
+          ? `${currentTeam?.name || "Equipe"} vs ${event.opponent}`
+          : event.title}
+      </h3>
+
+      {/* Details row */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mt-3 text-[13px] text-white/55">
+        <span className="flex items-center gap-1.5">
+          <Calendar className="h-3.5 w-3.5 shrink-0" />
+          <span className="capitalize">
+            {eventDate.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}
+          </span>
+        </span>
+        <span className="flex items-center gap-1.5">
+          <Clock className="h-3.5 w-3.5 shrink-0" />
+          {eventDate.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+        </span>
+        {event.location && (
+          <span className="flex items-center gap-1.5">
+            <MapPin className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">{event.location}</span>
+          </span>
+        )}
+      </div>
+
+      {/* CTA */}
+      <div className="flex items-center gap-2 mt-4 text-sm font-medium text-white/70 group-hover:text-white transition-colors">
+        Ouvrir {isMatch ? "le match" : "l'entrainement"}
+        <ChevronRight className="h-4 w-4" />
+      </div>
+    </button>
   );
 }

@@ -130,12 +130,12 @@ export default function ComparePage() {
   }
 
   return (
-    <div className="space-y-4 md:space-y-6 pb-20 md:pb-0">
+    <div className="section-gap">
       <div>
-        <h2 className="text-xl md:text-2xl font-bold flex items-center gap-2">
+        <h1 className="text-2xl font-bold flex items-center gap-2">
           <Scale className="h-5 w-5 text-[var(--color-royal)]" />
           Comparer les joueurs
-        </h2>
+        </h1>
         <p className="text-sm text-muted-foreground mt-1">
           Sélectionne deux joueurs pour comparer leurs stats côte à côte.
         </p>

@@ -12,6 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, ListTodo } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
 import type { Task, Event, Profile } from "@/types";
 
 interface TaskWithDetails extends Task {
@@ -73,8 +74,8 @@ export default function TasksPage() {
 
   if (loading) {
     return (
-      <div className="space-y-4 md:space-y-6 pb-20 md:pb-0">
-        <h2 className="text-xl md:text-2xl font-bold">Tâches</h2>
+      <div className="section-gap">
+        <h1 className="text-2xl font-bold">Tâches</h1>
         <div className="h-64 animate-pulse rounded-lg bg-muted" />
       </div>
     );
@@ -84,15 +85,15 @@ export default function TasksPage() {
   const completedTasks = tasks.filter((t) => t.is_completed);
 
   return (
-    <div className="space-y-4 md:space-y-6 pb-20 md:pb-0">
+    <div className="section-gap">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold">Tâches</h2>
+          <h1 className="text-2xl font-bold">Tâches</h1>
           <p className="text-muted-foreground mt-1">Organisation des goûters, maillots et benevolat</p>
         </div>
         {isCoach && (
           <Dialog open={addOpen} onOpenChange={setAddOpen}>
-            <DialogTrigger render={<Button className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold" />}>
+            <DialogTrigger render={<Button className="bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold" />}>
               <Plus className="h-4 w-4 mr-1" />
               Tâche
             </DialogTrigger>
@@ -118,7 +119,7 @@ export default function TasksPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                <Button type="submit" className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] font-semibold">Créer</Button>
+                <Button type="submit" className="w-full bg-[var(--color-primary-blue)] text-white font-semibold">Créer</Button>
               </form>
             </DialogContent>
           </Dialog>
@@ -135,7 +136,11 @@ export default function TasksPage() {
         </CardHeader>
         <CardContent>
           {pendingTasks.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-4">Aucune tâche en cours</p>
+            <EmptyState
+              icon={ListTodo}
+              title="Aucune tâche en cours"
+              description="Toutes les tâches sont terminées."
+            />
           ) : (
             <div className="space-y-2">
               {pendingTasks.map((task) => (

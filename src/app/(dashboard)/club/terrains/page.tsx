@@ -271,10 +271,10 @@ export default function ClubPitchesPage() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto space-y-4 md:space-y-6 pb-20 md:pb-0">
+    <div className="max-w-6xl mx-auto section-gap">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl md:text-2xl font-bold flex items-center gap-2">
+          <h1 className="text-2xl font-bold flex items-center gap-2">
             <CalendarRange className="h-6 w-6" />
             Terrains & créneaux
           </h1>

@@ -297,7 +297,7 @@ export function ConvocationsDialog({ event, open, onOpenChange }: ConvocationsDi
                 <Button
                   type="button"
                   size="sm"
-                  className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
+                  className="w-full bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold"
                   onClick={convocateSelected}
                   disabled={selectedNewPlayerIds.length === 0}
                 >
