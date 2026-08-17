@@ -45,6 +45,7 @@ import {
   Newspaper,
   CalendarClock,
   UserCog,
+  Sofa,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -101,6 +102,7 @@ const performanceItems = [
 const clubItems = [
   { key: "club", href: "/club", label: "Espace club", icon: Building2, clubOnly: true },
   { key: "terrains", href: "/club/terrains", label: "Terrains", icon: MapPin, clubOnly: true },
+  { key: "clubhouse", href: "/club/clubhouse", label: "Club House", icon: Sofa, clubTeamOnly: true },
   { key: "mutations", href: "/club/mutations", label: "Mutations", icon: RefreshCw, clubOnly: true },
   { key: "clubfeed", href: "/club/feed", label: "Fil du club", icon: Newspaper, clubTeamOnly: true },
   { key: "material", href: "/material", label: "Materiel", icon: Package, coachAndClub: true },
