@@ -20,7 +20,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Sofa, Building2, Loader2, Plus, Trash2 } from "lucide-react";
-import type { ClubhouseReservation, Profile } from "@/types";
+import type { ClubhouseReservation } from "@/types";
 import { fr } from "date-fns/locale";
 
 // ─── Types locaux ─────────────────────────────────────────────────────────────
