@@ -226,31 +226,33 @@ export default function PhysicalPreparationPage() {
 
   return (
     <div className="section-gap">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">Préparation Physique</h1>
           <p className="text-sm text-muted-foreground mt-1">Suivi VMA, documents et tracking</p>
         </div>
-        <Button
-          size="sm"
-          variant="outline"
-          className="shrink-0"
-          onClick={() => router.push("/physical/tests")}
-        >
-          <Gauge className="h-4 w-4 mr-1" />
-          Tests VMA/VMI
-        </Button>
-        {isCoach && (
+        <div className="flex items-center gap-2">
           <Button
             size="sm"
             variant="outline"
             className="shrink-0"
-            onClick={() => router.push("/stats/drop")}
+            onClick={() => router.push("/physical/tests")}
           >
-            <AlertCircle className="h-4 w-4 mr-1" />
-            Baisse de forme
+            <Gauge className="h-4 w-4 mr-1" />
+            Tests VMA/VMI
           </Button>
-        )}
+          {isCoach && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="shrink-0"
+              onClick={() => router.push("/stats/drop")}
+            >
+              <AlertCircle className="h-4 w-4 mr-1" />
+              Baisse de forme
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Tabs */}
