@@ -1,0 +1,2 @@
+Benchrs has been deployed.
+Access the application at: kubectl port-forward svc/{{ include "Benchrs.fullname" . }} 8080:{{ .Values.service.port }}
