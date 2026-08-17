@@ -1052,6 +1052,58 @@ const FORMATIONS: Record<string, SlotPos[]> = {
     { x: 38, y: 22, label: "Buteur" },
     { x: 62, y: 22, label: "Buteur" },
   ],
+  "3-4-3": [
+    { x: 50, y: 90, label: "Gardien" },
+    { x: 25, y: 72, label: "Défenseur" },
+    { x: 50, y: 72, label: "Défenseur" },
+    { x: 75, y: 72, label: "Défenseur" },
+    { x: 10, y: 48, label: "Milieu G" },
+    { x: 38, y: 48, label: "Milieu" },
+    { x: 62, y: 48, label: "Milieu" },
+    { x: 90, y: 48, label: "Milieu D" },
+    { x: 25, y: 25, label: "Ailier G" },
+    { x: 50, y: 20, label: "Buteur" },
+    { x: 75, y: 25, label: "Ailier D" },
+  ],
+  "4-2-2-2": [
+    { x: 50, y: 90, label: "Gardien" },
+    { x: 15, y: 70, label: "Arrière G" },
+    { x: 38, y: 72, label: "Défenseur" },
+    { x: 62, y: 72, label: "Défenseur" },
+    { x: 85, y: 70, label: "Arrière D" },
+    { x: 35, y: 50, label: "Milieu D" },
+    { x: 65, y: 50, label: "Milieu D" },
+    { x: 32, y: 32, label: "Milieu O" },
+    { x: 68, y: 32, label: "Milieu O" },
+    { x: 38, y: 16, label: "Buteur" },
+    { x: 62, y: 16, label: "Buteur" },
+  ],
+  "4-1-4-1": [
+    { x: 50, y: 90, label: "Gardien" },
+    { x: 15, y: 70, label: "Arrière G" },
+    { x: 38, y: 72, label: "Défenseur" },
+    { x: 62, y: 72, label: "Défenseur" },
+    { x: 85, y: 70, label: "Arrière D" },
+    { x: 50, y: 55, label: "Milieu D" },
+    { x: 18, y: 38, label: "Ailier G" },
+    { x: 40, y: 36, label: "Milieu" },
+    { x: 60, y: 36, label: "Milieu" },
+    { x: 82, y: 38, label: "Ailier D" },
+    { x: 50, y: 18, label: "Buteur" },
+  ],
+  "5-4-1": [
+    { x: 50, y: 90, label: "Gardien" },
+    { x: 8, y: 70, label: "Arrière G" },
+    { x: 27, y: 72, label: "Défenseur" },
+    { x: 50, y: 72, label: "Défenseur" },
+    { x: 73, y: 72, label: "Défenseur" },
+    { x: 92, y: 70, label: "Arrière D" },
+    { x: 20, y: 45, label: "Milieu G" },
+    { x: 42, y: 42, label: "Milieu" },
+    { x: 58, y: 42, label: "Milieu" },
+    { x: 80, y: 45, label: "Milieu D" },
+    { x: 50, y: 18, label: "Buteur" },
+  ],
   "4-2-3-1": [
     { x: 50, y: 90, label: "Gardien" },
     { x: 15, y: 70, label: "Arrière G" },
@@ -1101,6 +1153,7 @@ function FeuilletMatchTab() {
   const [loading, setLoading] = useState(true);
   const [loadingPlayers, setLoadingPlayers] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false);
   const [loadedFormationId, setLoadedFormationId] = useState<string | null>(null);
   const [pickingSlot, setPickingSlot] = useState<string | null>(null);
   const [captainId, setCaptainId] = useState<string | null>(null);
@@ -1180,6 +1233,100 @@ function FeuilletMatchTab() {
     setCaptainId(null);
   }
 
+  function autoCompose() {
+    const slots = currentPositions.map((_, i) => `slot-${i}`);
+    const available = [...presentPlayers];
+    const newAssignments: Record<string, string> = {};
+    const newBench: Record<string, string> = {};
+
+    const gkIdx = available.findIndex((p) => (p.position || "").toLowerCase().includes("gardi"));
+    if (gkIdx >= 0 && slots.length > 0) {
+      newAssignments[slots[0]] = available[gkIdx].id;
+      available.splice(gkIdx, 1);
+    }
+    const slotStart = gkIdx >= 0 ? 1 : 0;
+    for (const slot of slots.slice(slotStart)) {
+      if (available.length === 0) break;
+      newAssignments[slot] = available[0].id;
+      available.splice(0, 1);
+    }
+    const benchSlots = Array.from({ length: benchSize }, (_, i) => `bench-${i}`);
+    for (const bs of benchSlots) {
+      if (available.length === 0) break;
+      newBench[bs] = available[0].id;
+      available.splice(0, 1);
+    }
+    setAssignments(newAssignments);
+    setBenchAssignments(newBench);
+    setLoadedFormationId(null);
+    setCaptainId((prev) => (prev && presentPlayers.some((p) => p.id === prev) ? prev : null));
+    toast.success("Composition générée — ajustez puis enregistrez");
+  }
+
+  function onDragStartPlayer(e: React.DragEvent, pid: string) {
+    e.dataTransfer.setData("text/plain", pid);
+    e.dataTransfer.effectAllowed = "move";
+  }
+
+  function onDropToSlot(slotKey: string, e: React.DragEvent) {
+    e.preventDefault();
+    const pid = e.dataTransfer.getData("text/plain");
+    if (pid) assignToSlot(slotKey, pid);
+  }
+
+  function onDragOverSlot(e: React.DragEvent) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+  }
+
+  async function handleExportPdf() {
+    if (!selectedEventId || !currentTeam || !selectedEvent) return;
+    setPdfLoading(true);
+    try {
+      const playersPayload = presentPlayers.map((p) => ({
+        id: p.id,
+        first_name: p.first_name,
+        last_name: p.last_name,
+        shirt_number: p.shirt_number,
+      }));
+      const positions = currentPositions.map((slot, i) => ({
+        player_id: assignments[`slot-${i}`] || null,
+        x: slot.x,
+        y: slot.y,
+        label: slot.label,
+      }));
+      const bench = Array.from({ length: benchSize }, (_, i) => benchAssignments[`bench-${i}`] || null);
+      const res = await authFetch("/api/export/feuillet", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          teamId: currentTeam.id,
+          teamName: currentTeam.name,
+          eventTitle: selectedEvent.title,
+          eventDate: selectedEvent.event_date,
+          formationName,
+          formationData: { positions, bench, captain_id: captainId },
+          players: playersPayload,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error || "Erreur lors de l'export");
+      }
+      const data = await res.json();
+      const base64 = (data.pdf as string).split(",")[1] || "";
+      const binary = atob(base64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      const url = URL.createObjectURL(new Blob([bytes], { type: "application/pdf" }));
+      window.open(url, "_blank");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erreur lors de l'export PDF");
+    } finally {
+      setPdfLoading(false);
+    }
+  }
+
   // Fetch events
   useEffect(() => {
     if (!currentTeam) return;
@@ -1242,6 +1389,13 @@ function FeuilletMatchTab() {
           });
           setAssignments(newAssignments);
         }
+        if (Array.isArray(fd.bench)) {
+          const newBench: Record<string, string> = {};
+          fd.bench.forEach((pid: string | null, i: number) => {
+            if (pid) newBench[`bench-${i}`] = pid;
+          });
+          setBenchAssignments(newBench);
+        }
         setCaptainId(fd.captain_id || null);
       } else {
         resetAssignments();
@@ -1263,7 +1417,9 @@ function FeuilletMatchTab() {
       label: slot.label,
     }));
 
-    const formationData: Record<string, any> = { positions };
+    const bench: (string | null)[] = Array.from({ length: benchSize }, (_, i) => benchAssignments[`bench-${i}`] || null);
+
+    const formationData: Record<string, any> = { positions, bench };
     if (captainId) formationData.captain_id = captainId;
 
     if (loadedFormationId) {
@@ -1415,6 +1571,8 @@ function FeuilletMatchTab() {
                       className="absolute z-10 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center cursor-pointer"
                       style={{ left: `${slot.x}%`, top: `${slot.y}%` }}
                       onClick={() => setPickingSlot(slotKey)}
+                      onDragOver={onDragOverSlot}
+                      onDrop={(e) => onDropToSlot(slotKey, e)}
                     >
                       {player ? (
                         <div className="relative group">
@@ -1457,6 +1615,8 @@ function FeuilletMatchTab() {
                       key={slotKey}
                       className="flex items-center gap-2.5 rounded-lg border bg-card p-2.5 text-sm cursor-pointer hover:bg-accent/50 transition-colors"
                       onClick={() => setPickingSlot(slotKey)}
+                      onDragOver={onDragOverSlot}
+                      onDrop={(e) => onDropToSlot(slotKey, e)}
                     >
                       <span className="w-6 shrink-0 text-xs text-muted-foreground">{label}</span>
                       {player ? (
@@ -1480,6 +1640,27 @@ function FeuilletMatchTab() {
             {!loadingPlayers && presentPlayers.length > 0 && (
               <div className="text-xs text-muted-foreground">
                 {Object.keys(assignments).length}/11 postes · {Object.keys(benchAssignments).length}/{benchSize} remplaçants
+              </div>
+            )}
+
+            {/* Joueurs disponibles (draggable) */}
+            {isCoach && availablePlayers.length > 0 && (
+              <div>
+                <h4 className="text-sm font-semibold mb-2">Joueurs disponibles</h4>
+                <div className="flex flex-wrap gap-1.5">
+                  {availablePlayers.map((p) => (
+                    <div
+                      key={p.id}
+                      draggable
+                      onDragStart={(e) => onDragStartPlayer(e, p.id)}
+                      className="flex items-center gap-1.5 rounded-full border bg-muted/50 px-2.5 py-1 text-xs cursor-grab active:cursor-grabbing hover:bg-accent transition-colors"
+                      title={`${p.first_name} ${p.last_name} — glissez sur le terrain ou le banc`}
+                    >
+                      <span className="font-bold">{p.shirt_number ?? "?"}</span>
+                      <span className="truncate max-w-[80px]">{p.last_name}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -1547,8 +1728,28 @@ function FeuilletMatchTab() {
       </Dialog>
 
       {selectedEventId && (
-        <div className="flex items-center justify-between pt-2">
-          <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {isCoach && (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={autoCompose}
+                  disabled={saving}
+                >
+                  Composer automatiquement
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExportPdf}
+                  disabled={pdfLoading}
+                >
+                  {pdfLoading ? "Génération..." : "Exporter PDF"}
+                </Button>
+              </>
+            )}
             <Button
               onClick={handleSave}
               disabled={saving || !selectedEventId}
