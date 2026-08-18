@@ -7,6 +7,7 @@ import { authFetch } from "@/lib/api-client";
 import { signList } from "@/lib/storage";
 import { useAuth } from "@/lib/auth";
 import { useTeam } from "@/lib/team";
+import { logActivity } from "@/lib/activity";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -52,6 +53,7 @@ export default function GalleryPage() {
   const [lightboxAlbum, setLightboxAlbum] = useState("Aucun");
   const [albumTitle, setAlbumTitle] = useState("");
   const [albumDescription, setAlbumDescription] = useState("");
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [selecting, setSelecting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkAlbum, setBulkAlbum] = useState("Aucun");
@@ -103,6 +105,19 @@ export default function GalleryPage() {
       .order("event_date", { ascending: false })
       .then(({ data }) => setEvents((data as Event[]) || []));
   }, [uploadOpen, albumOpen]);
+
+  useEffect(() => {
+    if (!media.length || !currentTeam) return;
+    const eventIds = [...new Set(media.map((m) => m.event_id).filter(Boolean))] as string[];
+    if (!eventIds.length) return;
+    const supabase = createClient();
+    supabase
+      .from("events")
+      .select("*")
+      .in("id", eventIds)
+      .order("event_date", { ascending: false })
+      .then(({ data }) => { setEvents((data as Event[]) || []); });
+  }, [media, currentTeam]);
 
   async function handleCreateAlbum() {
     if (!albumTitle.trim()) return;
@@ -239,6 +254,14 @@ export default function GalleryPage() {
       }
 
       toast.success(`${uploaded} fichier${uploaded > 1 ? "s" : ""} ajouté${uploaded > 1 ? "s" : ""} avec succès`);
+
+      logActivity({
+        teamId: currentTeam!.id,
+        userId: user!.id,
+        actionType: "gallery.upload",
+        description: `${uploaded} média${uploaded > 1 ? "s" : ""} ajouté${uploaded > 1 ? "s" : ""}`,
+        metadata: { count: uploaded },
+      }).catch(() => {});
     }
 
     setUploadOpen(false);
@@ -249,9 +272,17 @@ export default function GalleryPage() {
     setUploading(false);
   }
 
-  const albumMedia = selectedAlbum
-    ? media.filter((m) => m.album_id === selectedAlbum.id)
-    : [];
+  const eventsWithPhotos = events.filter((e) =>
+    media.some((m) => m.event_id === e.id)
+  );
+
+  const filteredMedia = media.filter((m) => {
+    if (selectedAlbum && m.album_id !== selectedAlbum.id) return false;
+    if (selectedEvent && m.event_id !== selectedEvent.id) return false;
+    return true;
+  });
+
+  const albumMedia = filteredMedia;
 
   function getAlbumCover(album: Album): string | null {
     const first = media.find((m) => m.album_id === album.id);
@@ -301,11 +332,43 @@ export default function GalleryPage() {
             )}
           </div>
         </div>
+        {eventsWithPhotos.length > 0 && (
+          <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
+            <button
+              onClick={() => setSelectedEvent(null)}
+              className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+                !selectedEvent
+                  ? "bg-[var(--color-gold)] text-[var(--color-navy)]"
+                  : "bg-muted text-muted-foreground hover:bg-muted/80"
+              }`}
+            >
+              Toutes les photos
+            </button>
+            {eventsWithPhotos.map((evt) => (
+              <button
+                key={evt.id}
+                onClick={() => setSelectedEvent(selectedEvent?.id === evt.id ? null : evt)}
+                className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+                  selectedEvent?.id === evt.id
+                    ? "bg-[var(--color-gold)] text-[var(--color-navy)]"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80"
+                }`}
+              >
+                <span className="truncate max-w-[140px] inline-block">{evt.title}</span>
+                {evt.event_date && (
+                  <span className="ml-1.5 opacity-70">
+                    {new Date(evt.event_date).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        )}
         {albumMedia.length === 0 ? (
           <EmptyState
             icon={ImageIcon}
-            title="Aucune photo dans cet album"
-            description="Ajoutez des photos à cet album."
+            title={selectedEvent ? "Aucune photo pour cet événement" : "Aucune photo dans cet album"}
+            description={selectedEvent ? "Changez de filtre ou réinitialisez." : "Ajoutez des photos à cet album."}
           />
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -580,18 +643,67 @@ export default function GalleryPage() {
         </div>
       )}
 
-      {/* All Media */}
+      {/* Filters & All Media */}
       <div>
-        <h3 className="text-sm font-semibold mb-3">{albums.length > 0 ? "Toutes les photos" : "Photos"}</h3>
-        {media.length === 0 ? (
+        {eventsWithPhotos.length > 0 && (
+          <div className="mb-4">
+            <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
+              <button
+                onClick={() => setSelectedEvent(null)}
+                className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+                  !selectedEvent
+                    ? "bg-[var(--color-gold)] text-[var(--color-navy)]"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80"
+                }`}
+              >
+                Toutes les photos
+              </button>
+              {eventsWithPhotos.map((evt) => (
+                <button
+                  key={evt.id}
+                  onClick={() => setSelectedEvent(selectedEvent?.id === evt.id ? null : evt)}
+                  className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+                    selectedEvent?.id === evt.id
+                      ? "bg-[var(--color-gold)] text-[var(--color-navy)]"
+                      : "bg-muted text-muted-foreground hover:bg-muted/80"
+                  }`}
+                >
+                  <span className="truncate max-w-[140px] inline-block">{evt.title}</span>
+                  {evt.event_date && (
+                    <span className="ml-1.5 opacity-70">
+                      {new Date(evt.event_date).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+            {selectedAlbum && selectedEvent && (
+              <button
+                onClick={() => { setSelectedAlbum(null); setSelectedEvent(null); }}
+                className="mt-2 text-xs text-[var(--color-gold)] hover:underline"
+              >
+                Réinitialiser les filtres
+              </button>
+            )}
+          </div>
+        )}
+        <h3 className="text-sm font-semibold mb-3">
+          {albums.length > 0 ? "Toutes les photos" : "Photos"}
+          {filteredMedia.length !== media.length && (
+            <span className="ml-2 font-normal text-muted-foreground">
+              ({filteredMedia.length} sur {media.length})
+            </span>
+          )}
+        </h3>
+        {filteredMedia.length === 0 ? (
           <EmptyState
             icon={ImageIcon}
-            title="Aucun média"
-            description="Les photos et vidéos apparaîtront ici."
+            title={selectedEvent ? "Aucune photo pour cet événement" : "Aucun média"}
+            description={selectedEvent ? "Changez de filtre ou réinitialisez." : "Les photos et vidéos apparaîtront ici."}
           />
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {media.map((item) => {
+            {filteredMedia.map((item) => {
               const album = albums.find((a) => a.id === item.album_id);
               return (
               <Card key={item.id} className="overflow-hidden cursor-pointer group relative" onClick={() => {

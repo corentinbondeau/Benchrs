@@ -6,7 +6,15 @@ export type ActivityAction =
   | "attendance.update"
   | "match.report"
   | "match.event"
-  | "event.convocation";
+  | "event.convocation"
+  | "roster.join"
+  | "roster.leave"
+  | "roster.transfer"
+  | "settings.update"
+  | "formation.save"
+  | "challenge.submit"
+  | "challenge.validate"
+  | "gallery.upload";
 
 const ACTION_LABELS: Record<ActivityAction, string> = {
   "match.score": "Score",
@@ -14,6 +22,14 @@ const ACTION_LABELS: Record<ActivityAction, string> = {
   "match.report": "Compte-rendu",
   "match.event": "Live",
   "event.convocation": "Convocation",
+  "roster.join": "Adhésion",
+  "roster.leave": "Départ",
+  "roster.transfer": "Transfert",
+  "settings.update": "Réglages",
+  "formation.save": "Feuillet",
+  "challenge.submit": "Défi",
+  "challenge.validate": "Validation défi",
+  "gallery.upload": "Photo/vidéo",
 };
 
 export function activityActionLabel(action: string): string {

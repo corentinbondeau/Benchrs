@@ -69,6 +69,7 @@ import { CareerHistoryCard } from "@/components/stats/CareerHistoryCard";
 import { QuarterlyReportsCard } from "@/components/stats/QuarterlyReportsCard";
 import { PlayerBadgesCard } from "@/components/stats/PlayerBadgesCard";
 import { PlayerNotebookCard } from "@/components/stats/PlayerNotebookCard";
+import { CoachNotesCard } from "@/components/stats/CoachNotesCard";
 import { EmergencyInfoCard } from "@/components/stats/EmergencyInfoCard";
 import { DisciplineCard } from "@/components/stats/DisciplineCard";
 import { MedicalRecordCard } from "@/components/stats/MedicalRecordCard";
@@ -1072,6 +1073,11 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
           </div>
         </CardContent>
       </Card>
+
+      {/* Carnet du joueur — notes coach */}
+      {currentTeam && (
+        <CoachNotesCard playerId={playerId} teamId={currentTeam.id} />
+      )}
 
       {/* Comparaison joueur vs équipe */}
       <Card>

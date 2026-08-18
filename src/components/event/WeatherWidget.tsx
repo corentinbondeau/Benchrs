@@ -37,16 +37,19 @@ interface WeatherData {
   wind: number;
   precipitationProb: number;
   code: number;
+  isForecast: boolean;
 }
 
 export function WeatherWidget({
   eventId,
+  eventDate,
   latitude,
   longitude,
   location,
   isCoach,
 }: {
   eventId: string;
+  eventDate: string;
   latitude: number | null;
   longitude: number | null;
   location: string | null;
@@ -66,24 +69,66 @@ export function WeatherWidget({
   useEffect(() => {
     if (lat == null || lng == null) return;
     let mounted = true;
+    const eventDateMs = new Date(eventDate).getTime();
+    const now = Date.now();
+    const daysAhead = Math.ceil((eventDateMs - now) / 86_400_000);
+    const forecastDays = Math.min(Math.max(daysAhead + 1, 1), 16);
+
     fetch(
-      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,weather_code,wind_speed_10m&daily=precipitation_probability_max&timezone=auto`
+      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&hourly=temperature_2m,weather_code,wind_speed_10m,precipitation_probability&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max,wind_speed_10m_max&forecast_days=${forecastDays}&timezone=auto`
     )
       .then((r) => r.json())
       .then((data) => {
         if (!mounted) return;
-        setWeather({
-          temp: Math.round(data?.current?.temperature_2m ?? 0),
-          wind: Math.round(data?.current?.wind_speed_10m ?? 0),
-          precipitationProb: Math.round(data?.daily?.precipitation_probability_max?.[0] ?? 0),
-          code: data?.current?.weather_code ?? 0,
-        });
+        const eventD = new Date(eventDate);
+        const eventDateStr = eventD.toISOString().slice(0, 10);
+        const eventHour = eventD.getHours();
+
+        let temp = 0;
+        let wind = 0;
+        let precipitationProb = 0;
+        let code = 0;
+        let isForecast = false;
+
+        const hourlyTimes: string[] = data?.hourly?.time ?? [];
+        const matchIdx = hourlyTimes.findIndex(
+          (t: string) => t.startsWith(eventDateStr) && parseInt(t.slice(11, 13), 10) === eventHour
+        );
+
+        if (matchIdx !== -1) {
+          temp = Math.round(data.hourly.temperature_2m[matchIdx] ?? 0);
+          wind = Math.round(data.hourly.wind_speed_10m[matchIdx] ?? 0);
+          precipitationProb = Math.round(data.hourly.precipitation_probability[matchIdx] ?? 0);
+          code = data.hourly.weather_code[matchIdx] ?? 0;
+          isForecast = daysAhead > 0;
+        } else {
+          const dailyDates: string[] = data?.daily?.time ?? [];
+          const dayIdx = dailyDates.indexOf(eventDateStr);
+          if (dayIdx !== -1) {
+            const avgTemp = ((data.daily.temperature_2m_max[dayIdx] ?? 0) + (data.daily.temperature_2m_min[dayIdx] ?? 0)) / 2;
+            temp = Math.round(avgTemp);
+            wind = Math.round(data.daily.wind_speed_10m_max[dayIdx] ?? 0);
+            precipitationProb = Math.round(data.daily.precipitation_probability_max[dayIdx] ?? 0);
+            code = data.daily.weather_code[dayIdx] ?? 0;
+            isForecast = true;
+          } else {
+            const c = data?.current;
+            if (c) {
+              temp = Math.round(c.temperature_2m ?? 0);
+              wind = Math.round(c.wind_speed_10m ?? 0);
+              precipitationProb = Math.round(data?.daily?.precipitation_probability_max?.[0] ?? 0);
+              code = c.weather_code ?? 0;
+            }
+          }
+        }
+
+        setWeather({ temp, wind, precipitationProb, code, isForecast });
       })
       .catch(() => {});
     return () => {
       mounted = false;
     };
-  }, [lat, lng]);
+  }, [lat, lng, eventDate]);
 
   async function geocode() {
     if (!location?.trim()) {
@@ -126,9 +171,9 @@ export function WeatherWidget({
     return (
       <Card>
         <CardContent className="p-4">
-          <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center gap-2 mb-2">
             <CloudSun className="h-4 w-4 text-[var(--color-gold)]" />
-            <p className="text-sm font-medium">Météo du jour J</p>
+            <p className="text-sm font-medium">Météo prévue</p>
           </div>
           {lat != null && lng != null && !editing ? (
             <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setEditing(true)}>
@@ -192,7 +237,7 @@ export function WeatherWidget({
             <div>
               <p className="text-sm font-medium">{meta.label}</p>
               <p className="text-xs text-muted-foreground">
-                {weather ? `${weather.temp}°C · Risque de pluie ${weather.precipitationProb}%` : "Météo du jour J"}
+                {weather ? `${weather.temp}°C · Risque de pluie ${weather.precipitationProb}%` : "Météo prévue"}
               </p>
             </div>
           </div>

@@ -45,6 +45,7 @@ import {
 } from "lucide-react";
 import { CHALLENGE_DIFFICULTIES, type ChallengeDifficulty } from "@/lib/challenges/ai-generator";
 import { normalizeFffNumber } from "@/lib/clubs";
+import { logActivity } from "@/lib/activity";
 import { NAV_TABS } from "@/lib/tabs";
 import type { TeamMember, Profile } from "@/types";
 import type { TeamLocation } from "@/components/calendar/LocationPicker";
@@ -396,6 +397,13 @@ export default function TeamSettingsPage() {
       await refreshTeams();
       setEditingName(false);
       toast.success("Nom mis à jour !");
+      logActivity({
+        teamId: currentTeam.id,
+        userId: user?.id || null,
+        actionType: "settings.update",
+        description: "Nom de l'équipe modifié",
+        metadata: { field: "name" },
+      }).catch(() => {});
     }
   }
 
@@ -413,6 +421,13 @@ export default function TeamSettingsPage() {
     } else {
       await refreshTeams();
       toast.success("Couleurs mises à jour !");
+      logActivity({
+        teamId: currentTeam.id,
+        userId: user?.id || null,
+        actionType: "settings.update",
+        description: "Couleurs de l'équipe modifiées",
+        metadata: { field: "colors" },
+      }).catch(() => {});
     }
     setSavingColors(false);
   }

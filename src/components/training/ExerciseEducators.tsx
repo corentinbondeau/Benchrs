@@ -41,29 +41,49 @@ export function ExerciseEducators({
 
   const fetchPlans = useCallback(async () => {
     const supabase = createClient();
+
     const [plansRes, coachesRes] = await Promise.all([
       supabase
         .from("educator_plans")
-        .select(
-          "id, event_id, exercise_index, educator:profiles!educator_plans_user_id_fkey(id, first_name, last_name)"
-        )
+        .select("id, event_id, exercise_index, user_id")
         .eq("event_id", eventId)
         .order("created_at", { ascending: true }),
       supabase
         .from("team_members")
-        .select("user_id, profile:profiles!team_members_user_id_fkey(id, first_name, last_name)")
+        .select("user_id")
         .eq("team_id", teamId)
         .in("role", ["coach", "owner"]),
     ]);
-    const coachRows = (coachesRes.data || []) as unknown as { user_id: string; profile: { id: string; first_name: string; last_name: string } | null }[];
-    const coaches = coachRows
-      .map((c) => c.profile)
-      .filter((p): p is CoachMember => !!p)
-      .filter((p, i, arr) => arr.findIndex((x) => x.id === p.id) === i);
-    return {
-      plans: (plansRes.data || []) as unknown as EducatorRow[],
-      coaches,
-    };
+
+    const planRows = (plansRes.data || []) as { id: string; event_id: string; exercise_index: number | null; user_id: string }[];
+    const coachUserIds = [...new Set((coachesRes.data || []).map((r) => r.user_id))];
+
+    const educatorUserIds = [...new Set(planRows.map((p) => p.user_id).filter(Boolean))];
+    const allUserIds = [...new Set([...educatorUserIds, ...coachUserIds])];
+
+    const profileMap = new Map<string, CoachMember>();
+    if (allUserIds.length > 0) {
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("id, first_name, last_name")
+        .in("id", allUserIds);
+      for (const p of (profiles || []) as CoachMember[]) {
+        profileMap.set(p.id, p);
+      }
+    }
+
+    const plans: EducatorRow[] = planRows.map((r) => ({
+      id: r.id,
+      event_id: r.event_id,
+      exercise_index: r.exercise_index,
+      educator: profileMap.get(r.user_id) || null,
+    }));
+
+    const coaches = coachUserIds
+      .map((id) => profileMap.get(id))
+      .filter((p): p is CoachMember => !!p);
+
+    return { plans, coaches };
   }, [eventId, teamId]);
 
   useEffect(() => {
@@ -94,7 +114,8 @@ export function ExerciseEducators({
       { onConflict: "team_id,event_id,exercise_index" }
     );
     if (error) {
-      toast.error("Impossible d'assigner le responsable");
+      console.error("[ExerciseEducators] upsert error:", error);
+      toast.error(`Impossible d'assigner le responsable: ${error.message}`);
       return;
     }
     toast.success("Responsable de l'exercice mis à jour");

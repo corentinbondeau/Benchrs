@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useTeam } from "@/lib/team";
+import { logActivity } from "@/lib/activity";
 import { signList } from "@/lib/storage";
 import { authFetch } from "@/lib/api-client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -306,6 +307,12 @@ export default function ChallengePage() {
       setFile(null);
       setComment("");
       toast.success("Défi soumis !");
+      logActivity({
+        teamId: currentTeam.id,
+        userId: user?.id || null,
+        actionType: "challenge.submit",
+        description: "Soumission d'un défi",
+      }).catch(() => {});
       await refresh();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Erreur lors de la soumission");
@@ -328,6 +335,13 @@ export default function ChallengePage() {
       return;
     }
     toast.success(status === "validated" ? "Défi validé !" : "Défi refusé");
+    logActivity({
+      teamId: currentTeam.id,
+      userId: user?.id || null,
+      actionType: "challenge.validate",
+      description: `Défi ${status === "validated" ? "validé" : "refusé"}`,
+      metadata: { status },
+    }).catch(() => {});
     await refresh();
   }
 

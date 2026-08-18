@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { defaultNotificationPrefs } from "@/lib/notificationTypes";
 import { getAuthUser, unauthorized } from "@/lib/api-auth";
 import { rateLimit, AUTH_LIMIT, clientKey } from "@/lib/rateLimit";
+import { logActivity } from "@/lib/activity";
 
 export async function POST(req: Request) {
   try {
@@ -81,6 +82,15 @@ export async function POST(req: Request) {
       defaultNotificationPrefs(userId, team.id),
       { onConflict: "user_id,team_id,type" }
     );
+
+    logActivity({
+      supabase,
+      teamId: team.id,
+      clubId: team.club_id,
+      userId,
+      actionType: "roster.join",
+      description: `Nouveau membre (${memberRole})`,
+    }).catch(() => {});
 
     return NextResponse.json({
       team,

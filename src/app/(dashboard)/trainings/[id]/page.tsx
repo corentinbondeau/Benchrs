@@ -335,6 +335,7 @@ export default function TrainingDetailPage() {
       {/* Météo du jour J */}
       <WeatherWidget
         eventId={trainingId}
+        eventDate={event.event_date}
         latitude={event.latitude ?? null}
         longitude={event.longitude ?? null}
         location={event.location}

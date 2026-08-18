@@ -413,6 +413,7 @@ export interface Notification {
   is_read: boolean;
   team_id: string | null;
   created_at: string;
+  url?: string | null;
 }
 
 export interface PushSubscription {

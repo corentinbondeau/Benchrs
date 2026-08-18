@@ -108,6 +108,9 @@ export async function GET(req: Request) {
     await sendPlayingTimeAlerts(supabase, now);
   }
 
+  // --- Relance cotisations (pending/partial dues within 7 days or overdue) ---
+  await sendCotisationReminders(supabase, now);
+
   // --- Félicitations auto : anniversaires, premier but, 50e match ---
   await sendCongrats(supabase, now);
 
@@ -574,6 +577,74 @@ async function sendAttendanceReminders(supabase: ReturnType<typeof createAdminCl
       if (error) {
         console.error("[notifications/cron] relance insert error:", error);
       }
+    }
+  }
+}
+
+// ---------- Relance cotisations ----------
+async function sendCotisationReminders(supabase: ReturnType<typeof createAdminClient>, now: string) {
+  const windowEnd = new Date(now);
+  windowEnd.setDate(windowEnd.getDate() + 7);
+
+  const { data: cotisations } = await supabase
+    .from("cotisations")
+    .select("id, player_id, season, amount_expected, amount_paid, status, team_id")
+    .in("status", ["pending", "partial"])
+    .not("due_date", "is", null)
+    .lte("due_date", windowEnd.toISOString().slice(0, 10));
+
+  if (!cotisations || cotisations.length === 0) return;
+
+  const today = now.slice(0, 10);
+
+  for (const cot of cotisations as {
+    id: string;
+    player_id: string;
+    season: string;
+    amount_expected: number;
+    amount_paid: number;
+    status: string;
+    team_id: string;
+  }[]) {
+    if (!cot.team_id) continue;
+
+    const ref = `cotisation-relance:${cot.id}:${today}`;
+    const { data: existing } = await supabase
+      .from("notifications")
+      .select("id")
+      .eq("type", "relance")
+      .eq("reference_id", ref)
+      .limit(1)
+      .maybeSingle();
+    if (existing) continue;
+
+    const remaining = cot.amount_expected - (cot.amount_paid || 0);
+    const body =
+      cot.status === "partial"
+        ? `Cotisation ${cot.season} : ${remaining}€ restant(s) à régler`
+        : `Cotisation ${cot.season} : ${cot.amount_expected}€ à régler`;
+
+    const { data: links } = await supabase
+      .from("parent_student")
+      .select("parent_id")
+      .eq("team_id", cot.team_id)
+      .eq("student_id", cot.player_id);
+    const parentIds = [...new Set((links || []).map((l) => (l as { parent_id: string }).parent_id))];
+    const userIds = [...new Set([cot.player_id, ...parentIds])];
+
+    const rows = userIds.map((uid: string) => ({
+      user_id: uid,
+      team_id: cot.team_id,
+      type: "relance",
+      title: "Relance cotisation",
+      body,
+      reference_id: ref,
+      url: "/admin/cotisations",
+      scheduled_for: now,
+    }));
+    const { error } = await supabase.from("notifications").insert(rows);
+    if (error) {
+      console.error("[notifications/cron] cotisation relance insert error:", error);
     }
   }
 }

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAuthUser, unauthorized, forbidden } from "@/lib/api-auth";
+import { logActivity } from "@/lib/activity";
 
 export async function POST(req: Request) {
   try {
@@ -44,6 +45,14 @@ export async function POST(req: Request) {
       .delete()
       .eq("team_id", teamId)
       .eq("student_id", user.id);
+
+    logActivity({
+      supabase,
+      teamId,
+      userId: user.id,
+      actionType: "roster.leave",
+      description: `Départ d'un membre (${member.role})`,
+    }).catch(() => {});
 
     return NextResponse.json({ success: true });
   } catch {

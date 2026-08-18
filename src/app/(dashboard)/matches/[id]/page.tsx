@@ -711,6 +711,7 @@ export default function MatchDetailPage() {
       {/* Météo du jour J */}
       <WeatherWidget
         eventId={matchId}
+        eventDate={match.event_date}
         latitude={match.latitude ?? null}
         longitude={match.longitude ?? null}
         location={match.location}

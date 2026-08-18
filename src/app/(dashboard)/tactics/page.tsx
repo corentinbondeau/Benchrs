@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { authFetch } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth";
 import { useTeam } from "@/lib/team";
+import { logActivity } from "@/lib/activity";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -1437,6 +1438,13 @@ function FeuilletMatchTab() {
         toast.error("Erreur lors de la mise à jour");
       } else {
         toast.success("Feuillet mis à jour");
+        logActivity({
+          teamId: currentTeam.id,
+          userId: user?.id || null,
+          actionType: "formation.save",
+          description: `Feuillet mis à jour (${formationName})`,
+          metadata: { formation: formationName, event_id: selectedEventId },
+        }).catch(() => {});
       }
     } else {
       const { data, error } = await supabase
@@ -1456,6 +1464,13 @@ function FeuilletMatchTab() {
       } else {
         setLoadedFormationId((data as any)?.id || null);
         toast.success("Feuillet enregistré");
+        logActivity({
+          teamId: currentTeam.id,
+          userId: user?.id || null,
+          actionType: "formation.save",
+          description: `Feuillet créé (${formationName})`,
+          metadata: { formation: formationName, event_id: selectedEventId },
+        }).catch(() => {});
       }
     }
     setSaving(false);
