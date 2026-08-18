@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, useCallback, useMemo } from "react";
+import { createContext, useContext, useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { User, Profile } from "@/types";
 import type { Session } from "@supabase/supabase-js";
@@ -60,26 +60,23 @@ export function useAuth() {
 // ─── Provider ────────────────────────────────────────────────────────────────
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  // Restauration synchrone depuis le cache pour un loading=false immédiat au second montage
-  const cachedUser = readCache();
-
-  const [user, setUser] = useState<User | null>(cachedUser);
+  const [user, setUser] = useState<User | null>(() => readCache());
   const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(cachedUser === null); // false si cache présent
-  const supabase = createClient();
+  const [loading, setLoading] = useState(() => readCache() === null);
+  const supabaseRef = useRef(createClient());
 
   const fetchProfile = useCallback(async (userId: string) => {
     try {
-      const { data } = await supabase
+      const { data } = await supabaseRef.current
         .from("profiles")
-        .select("id, first_name, last_name, avatar_url, role, is_active, team_id, birth_date")
+        .select("*")
         .eq("id", userId)
         .single();
-      return (data as unknown as Profile) ?? null;
+      return (data as Profile) ?? null;
     } catch {
       return null;
     }
-  }, [supabase]);
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -88,11 +85,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       let currentSession: Session | null = null;
 
       try {
-        const { data } = await supabase.auth.getSession();
+        const { data } = await supabaseRef.current.auth.getSession();
         currentSession = data?.session ?? null;
       } catch {
         // getSession a échoué — on finalise sans session
-        if (mounted && cachedUser === null) setLoading(false);
+        if (mounted) setLoading(false);
         return;
       }
 
@@ -126,7 +123,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
         } else {
           // fetchProfile a échoué — si on avait un cache, on le garde ; sinon user reste null
-          if (cachedUser === null) {
+          if (readCache() === null) {
             setUser(null);
           }
         }
@@ -142,7 +139,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     init();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+    const { data: { subscription } } = supabaseRef.current.auth.onAuthStateChange(
       async (_event, newSession) => {
         if (!mounted) return;
 
@@ -171,8 +168,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       mounted = false;
       subscription.unsubscribe();
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [supabase, fetchProfile]);
+  }, [fetchProfile]);
 
   const refreshUser = useCallback(async () => {
     if (!session?.user) return;
@@ -190,12 +186,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [session, fetchProfile]);
 
   const signOut = useCallback(async () => {
-    await supabase.auth.signOut();
+    await supabaseRef.current.auth.signOut();
     setUser(null);
     setSession(null);
     clearCache();
     window.location.href = "/login";
-  }, [supabase]);
+  }, []);
 
   const contextValue = useMemo(
     () => ({ user, session, loading, signOut, refreshUser }),
