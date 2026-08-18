@@ -20,7 +20,8 @@ npm run dev
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase dashboard | Yes (build fails without) |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase dashboard | Yes |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase dashboard | Yes (API routes fail 401 without) |
-| `MISTRAL_API_KEY` | Mistral console | For AI features only |
+| `OLLAMA_URL` | URL du serveur Ollama | Optional (défaut : `http://localhost:11434`) |
+| `AI_MODEL` | Modèle Ollama | Optional (défaut : `llama3.1:8b`) |
 | `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | Generated keypair | Optional (fallback in code) |
 | `VAPID_PRIVATE_KEY` | Generated keypair | Optional (fallback in code) |
 | `VAPID_SUBJECT` | `mailto:email` | Optional (fallback in code) |

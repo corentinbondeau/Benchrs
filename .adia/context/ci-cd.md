@@ -8,7 +8,7 @@
   1. `lint-and-build`: Typecheck (`tsc --noEmit`) → Lint (`eslint`) → Build (`next build`)
   2. `e2e`: Playwright tests (Chromium only, timeout 30min)
 - **Node**: 22 (CI) vs 20.9+ (local engines)
-- **Secrets**: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `MISTRAL_API_KEY`
+- **Secrets**: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `OLLAMA_URL`, `AI_MODEL`
 
 ## Deployment — Vercel
 - **Preview**: any push to `main` or PR → Vercel preview deployment

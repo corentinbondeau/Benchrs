@@ -18,7 +18,7 @@
 ## Patterns
 - Every route starts with `getAuthUser(request)` for auth
 - Team scoping via `isTeamMember(userId, teamId)` or `isTeamCoach(userId, teamId)`
-- AI routes: `fetch("https://api.mistral.ai/v1/chat/completions", ...)` — direct, no SDK
+- AI routes: `callAI()` via `src/lib/ai/` (Ollama-compatible, `OLLAMA_URL` + `AI_MODEL`) — no SDK
 - PDF routes: `@react-pdf/renderer` (server-only, no client bundle impact)
 - Admin operations: `createAdminClient()` for bypassing RLS
 

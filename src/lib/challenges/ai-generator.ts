@@ -1,3 +1,5 @@
+import { callAI, cleanJson } from "@/lib/ai";
+
 export const CHALLENGE_DIFFICULTIES = ["facile", "moyen", "difficile"] as const;
 
 export type ChallengeDifficulty = (typeof CHALLENGE_DIFFICULTIES)[number];
@@ -13,20 +15,6 @@ const DIFFICULTY_LABELS: Record<ChallengeDifficulty, string> = {
   moyen: "demande un minimum de technique et d'entraînement, réalisable en quelques jours",
   difficile: "exige une vraie maîtrise technique ; réservé aux joueurs les plus adroits",
 };
-
-function cleanJson(text: string): string {
-  const trimmed = text.trim();
-  if (trimmed.startsWith("```")) {
-    const lines = trimmed.split("\n");
-    lines.shift();
-    if (lines[lines.length - 1]?.includes("```")) lines.pop();
-    return lines.join("\n");
-  }
-  const start = trimmed.indexOf("{");
-  const end = trimmed.lastIndexOf("}");
-  if (start === -1 || end === -1) return trimmed;
-  return trimmed.slice(start, end + 1);
-}
 
 const MAX_TITLE_LENGTH = 60;
 const MAX_DESCRIPTION_LENGTH = 280;
@@ -65,9 +53,6 @@ function parseChallenge(content: string): WeeklyChallenge {
 export async function generateWeeklyChallenge(
   difficulty: ChallengeDifficulty
 ): Promise<WeeklyChallenge> {
-  const apiKey = process.env.MISTRAL_API_KEY;
-  if (!apiKey) throw new Error("MISTRAL_API_KEY manquante");
-
   const systemPrompt = `Tu es un entraîneur de football diplômé spécialisé dans la formation des jeunes joueurs.
 
 Tu proposes chaque semaine un « défi de la semaine » amusant et motivant pour une équipe de football jeune (U10-U18). Il doit :
@@ -90,35 +75,11 @@ Tu réponds UNIQUEMENT par un objet JSON valide (aucun texte avant/après, aucun
 }
 Le champ "difficulty" doit être exactement : "${difficulty}". Tout est rédigé en français.`;
 
-  const res = await fetch("https://api.mistral.ai/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: process.env.MISTRAL_MODEL || "mistral-small-latest",
-      temperature: 0.8,
-      max_tokens: 1024,
-      response_format: { type: "json_object" },
-      messages: [
-        { role: "system", content: systemPrompt },
-        {
-          role: "user",
-          content: `Génère le défi de la semaine pour une équipe de ${difficulty === "facile" ? "jeunes débutants" : difficulty === "moyen" ? "jeunes confirmés" : "jeunes très à l'aise techniquement"}.`,
-        },
-      ],
-    }),
-  });
-
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Mistral API ${res.status}: ${text.slice(0, 200)}`);
-  }
-
-  const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
-  const content = data.choices?.[0]?.message?.content ?? "";
-  if (!content) throw new Error("Réponse vide de Mistral");
+  const content = await callAI(
+    systemPrompt,
+    `Génère le défi de la semaine pour une équipe de ${difficulty === "facile" ? "jeunes débutants" : difficulty === "moyen" ? "jeunes confirmés" : "jeunes très à l'aise techniquement"}.`,
+    { temperature: 0.8, maxTokens: 1024, responseFormat: "json" }
+  );
 
   return parseChallenge(content);
 }

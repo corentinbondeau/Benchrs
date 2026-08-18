@@ -2,7 +2,7 @@
 
 ## Vue d'ensemble
 
-Benchrs est une application **Next.js 16** utilisant l'App Router avec **Supabase** comme backend (PostgreSQL + Auth + Realtime + Storage). L'application est deployee sur **Vercel** et utilise **Mistral AI** pour la generation de contenu.
+Benchrs est une application **Next.js 16** utilisant l'App Router avec **Supabase** comme backend (PostgreSQL + Auth + Realtime + Storage). L'application est deployee sur **Vercel** et utilise **Ollama (IA locale)** pour la generation de contenu.
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -24,7 +24,7 @@ Benchrs est une application **Next.js 16** utilisant l'App Router avec **Supabas
 │  │ API Routes (src/app/api/) — 59 endpoints            │ │
 │  │ getAuthUser() → JWT verification                    │ │
 │  │ Supabase Admin Client (service role key)            │ │
-│  │ Mistral AI (generation IA)                          │ │
+│  │ Ollama (generation IA locale)                        │ │
 │  │ @react-pdf/renderer (exports PDF)                   │ │
 │  │ web-push + nodemailer (notifications)               │ │
 │  └─────────────────────────────────────────────────────┘ │
@@ -139,9 +139,9 @@ export async function POST(req: Request) {
 
 **Regle :** Utiliser le client **Admin** uniquement dans les API routes pour les operations qui necessitent un bypass RLS (suppression en cascade, operations cross-team, etc.).
 
-## Services IA (Mistral)
+## Services IA (Ollama)
 
-Tous les generateurs IA utilisent `mistral-small-latest` et sont dans `src/lib/` :
+Tous les generateurs IA utilisent `callAI()` (via `src/lib/ai/`, modele configurable via `AI_MODEL`, defaut `llama3.1:8b`) et sont dans `src/lib/` :
 
 | Generateur | Fichier | Fonction |
 |------------|---------|----------|

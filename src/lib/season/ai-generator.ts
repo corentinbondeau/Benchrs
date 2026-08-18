@@ -29,51 +29,7 @@ export interface StorybookContent {
   conclusion: string;
 }
 
-interface MistralResponse {
-  choices?: { message?: { content?: string } }[];
-}
-
-async function callMistral(systemPrompt: string): Promise<string> {
-  const apiKey = process.env.MISTRAL_API_KEY;
-  if (!apiKey) throw new Error("MISTRAL_API_KEY manquante");
-
-  const res = await fetch("https://api.mistral.ai/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: process.env.MISTRAL_MODEL || "mistral-small-latest",
-      temperature: 0.8,
-      max_tokens: 2048,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: "Génère le contenu maintenant, en respectant strictement le format JSON demandé." },
-      ],
-    }),
-  });
-
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Mistral API ${res.status}: ${text.slice(0, 200)}`);
-  }
-
-  const data = (await res.json()) as MistralResponse;
-  const content = data.choices?.[0]?.message?.content ?? "";
-  if (!content) throw new Error("Réponse vide de Mistral");
-  return content.trim();
-}
-
-function cleanJson(text: string): string {
-  const t = text.trim();
-  const fenceMatch = t.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
-  if (fenceMatch) return fenceMatch[1];
-  const firstBrace = t.indexOf("{");
-  const lastBrace = t.lastIndexOf("}");
-  if (firstBrace >= 0 && lastBrace > firstBrace) return t.slice(firstBrace, lastBrace + 1);
-  return t;
-}
+import { callAI, cleanJson } from "@/lib/ai";
 
 function formatResults(ctx: SeasonStatsContext): string {
   const lines = ctx.results.map((r) => {
@@ -177,7 +133,7 @@ ${ctx.results.length > 0 ? `- Derniers résultats : ${formatResults(ctx)}` : ""}
 }
 
 export async function generateNewsletter(ctx: SeasonStatsContext): Promise<NewsletterContent> {
-  const raw = cleanJson(await callMistral(buildNewsletterPrompt(ctx)));
+  const raw = cleanJson(await callAI(buildNewsletterPrompt(ctx), "Génère le contenu maintenant, en respectant strictement le format JSON demandé.", { temperature: 0.8, maxTokens: 2048, responseFormat: "json" }));
   const parsed = JSON.parse(raw) as Partial<NewsletterContent>;
   const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
   const sections = Array.isArray(parsed.sections)
@@ -200,7 +156,7 @@ export async function generateNewsletter(ctx: SeasonStatsContext): Promise<Newsl
 }
 
 export async function generateStorybook(ctx: SeasonStatsContext): Promise<StorybookContent> {
-  const raw = cleanJson(await callMistral(buildStorybookPrompt(ctx)));
+  const raw = cleanJson(await callAI(buildStorybookPrompt(ctx), "Génère le contenu maintenant, en respectant strictement le format JSON demandé.", { temperature: 0.8, maxTokens: 2048, responseFormat: "json" }));
   const parsed = JSON.parse(raw) as Partial<StorybookContent>;
   const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
   const chapters = Array.isArray(parsed.chapters)
@@ -227,6 +183,6 @@ export async function generateStorybook(ctx: SeasonStatsContext): Promise<Storyb
 }
 
 export async function generateGreeting(ctx: SeasonStatsContext, playerName: string): Promise<string> {
-  const content = await callMistral(buildGreetingPrompt(ctx, playerName));
+  const content = await callAI(buildGreetingPrompt(ctx, playerName), "Rédige le message de vœux maintenant.", { temperature: 0.8, maxTokens: 2048, responseFormat: "text" });
   return content.slice(0, 1200);
 }

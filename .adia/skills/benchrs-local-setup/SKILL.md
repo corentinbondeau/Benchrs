@@ -16,7 +16,8 @@ Démarrer le projet Benchrs en développement local.
    - `NEXT_PUBLIC_SUPABASE_URL` (obligatoire, build échoue sans)
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY` (obligatoire)
    - `SUPABASE_SERVICE_ROLE_KEY` (obligatoire pour les API routes)
-   - `MISTRAL_API_KEY` (optionnel, pour les fonctionnalités IA)
+   - `OLLAMA_URL` (optionnel, pour les fonctionnalités IA — défaut : `http://localhost:11434`)
+   - `AI_MODEL` (optionnel, modèle Ollama — défaut : `llama3.1:8b`)
 4. Lancer le serveur : `npm run dev`
 5. Ouvrir `http://localhost:3000`
 

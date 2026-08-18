@@ -31,7 +31,8 @@ Benchrs est deploye sur **Vercel** avec l'integration GitHub automatique.
 | `SUPABASE_SERVICE_ROLE_KEY` | Cle service role (API routes) | Oui |
 | `NEXTAUTH_SECRET` | Secret NextAuth.js (32+ chars) | Oui |
 | `NEXTAUTH_URL` | URL de l'application | Oui |
-| `MISTRAL_API_KEY` | Cle API Mistral (features IA) | Oui |
+| `OLLAMA_URL` | URL du serveur Ollama (IA locale) | Non (défaut : `http://localhost:11434`) |
+| `AI_MODEL` | Modele Ollama a utiliser | Non (défaut : `llama3.1:8b`) |
 | `VAPID_PUBLIC_KEY` | Cle publique VAPID (Web Push) | Oui |
 | `VAPID_PRIVATE_KEY` | Cle privee VAPID (Web Push) | Oui |
 | `SMTP_HOST` | Serveur SMTP | Oui |
@@ -97,7 +98,8 @@ docker run -p 8080:8080 \
   -e SUPABASE_SERVICE_ROLE_KEY=eyJ... \
   -e NEXTAUTH_SECRET=mon-secret \
   -e NEXTAUTH_URL=http://localhost:8080 \
-  -e MISTRAL_API_KEY=xxx \
+  -e OLLAMA_URL=http://host.docker.internal:11434 \
+  -e AI_MODEL=llama3.1:8b \
   benchrs
 ```
 
@@ -215,5 +217,6 @@ Le fichier `.github/workflows/ci.yml` execute sur chaque push/PR :
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
-- `MISTRAL_API_KEY`
+- `OLLAMA_URL`
+- `AI_MODEL`
 - `NEXTAUTH_SECRET`

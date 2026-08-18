@@ -1,3 +1,5 @@
+import { callAI, cleanJson } from "@/lib/ai";
+
 export interface FicheBlock {
   label: string;
   text: string;
@@ -94,7 +96,9 @@ const COMMON_RULES = `### 🛑 RÈGLES ET CONTRAINTES STRICTES
 2. Structure : exactement 4 sections (leur contenu exact dépend de la phase, voir le format de réponse ci-dessous).
 3. Clarté : chaque section doit être suffisamment détaillée pour être animée sans autre support — organisation sur le terrain, consignes, critères de réussite, temps de travail et de récupération.
 4. Cohérence : chaque atelier doit être en lien direct avec la phase de jeu et les objectifs demandés.
-5. Durée par atelier : aucun exercice ou jeu ne doit dépasser 20 minutes (explications, passages et récupérations compris), sauf indication contraire dans le format de réponse de la phase.`;
+5. Durée par atelier : aucun exercice ou jeu ne doit dépasser 20 minutes (explications, passages et récupérations compris), sauf indication contraire dans le format de réponse de la phase.
+6. IMPORTANT : Ta réponse doit contenir UNIQUEMENT un objet JSON valide. Pas de texte avant, pas de texte après, pas de commentaires. Commence directement par { et termine par }.
+7. N'utilise JAMAIS de commentaires dans le JSON (// ou /* */), ils le rendent invalide.`;
 
 const SCHEMATIC_GUIDE = `- "schematic" : décrit le dispositif à schématiser. "type" ∈ ["pitch", "zones", "grid", "circle", "corridor", "line", "none"] :
   - "zones" : atelier en zones/squares délimités (préciser combien et où).
@@ -301,16 +305,6 @@ ${COMMON_RULES}
 ${isAthletisation ? ATHLETISATION_SCHEMA : TACTICAL_SCHEMA}`;
 }
 
-function cleanJson(text: string): string {
-  const t = text.trim();
-  const fenceMatch = t.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
-  if (fenceMatch) return fenceMatch[1];
-  const firstBrace = t.indexOf("{");
-  const lastBrace = t.lastIndexOf("}");
-  if (firstBrace >= 0 && lastBrace > firstBrace) return t.slice(firstBrace, lastBrace + 1);
-  return t;
-}
-
 function parseAISession(content: string): AISession {
   const raw = JSON.parse(cleanJson(content)) as Record<string, unknown>;
 
@@ -367,9 +361,6 @@ export async function generateSessionWithAI(
   systeme?: FootballSystem,
   expertise: ExpertiseLevel = "UEFA B"
 ): Promise<AISession> {
-  const apiKey = process.env.MISTRAL_API_KEY;
-  if (!apiKey) throw new Error("MISTRAL_API_KEY manquante");
-
   const objectiveText = objectives.map((o) => `- ${o}`).join("\n");
   const userContent = [
     `Phase de jeu : ${phase}`,
@@ -382,43 +373,18 @@ export async function generateSessionWithAI(
     .filter(Boolean)
     .join("\n");
 
-  async function callMistral(userMsg: string): Promise<string> {
-    const res = await fetch("https://api.mistral.ai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: process.env.MISTRAL_MODEL || "mistral-small-latest",
-        temperature: 0.7,
-        max_tokens: 4096,
-        response_format: { type: "json_object" },
-        messages: [
-          { role: "system", content: buildSystemPrompt(phase, expertise) },
-          { role: "user", content: userMsg },
-        ],
-      }),
-    });
-
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`Mistral API ${res.status}: ${text.slice(0, 200)}`);
-    }
-
-    const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
-    const content = data.choices?.[0]?.message?.content ?? "";
-    if (!content) throw new Error("Réponse vide de Mistral");
-    return content;
-  }
-
   const correction = `
 Correction : la réponse précédente ne respectait pas les contraintes (la somme des durées des sections doit être exactement 90, et les sections doivent correspondre au format demandé pour la phase "${phase}"). Corrige et renvoie uniquement un objet JSON valide, sans texte autour.`;
 
   let lastError: Error | null = null;
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      const session = parseAISession(await callMistral(attempt === 0 ? userContent : userContent + correction));
+      const content = await callAI(
+        buildSystemPrompt(phase, expertise),
+        attempt === 0 ? userContent : userContent + correction,
+        { temperature: 0.7, maxTokens: 4096, responseFormat: "json" }
+      );
+      const session = parseAISession(content);
       const sum = session.sections.reduce((a, s) => a + s.duration, 0);
       if (sum === 90) return session;
       lastError = new Error("Réponse IA non conforme (durées ≠ 90)");

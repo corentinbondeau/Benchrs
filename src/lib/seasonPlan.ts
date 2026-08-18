@@ -1,4 +1,5 @@
 import { TACTICAL_PHASE_NAMES } from "@/lib/training/phases";
+import { callAI, cleanJson } from "@/lib/ai";
 
 export interface SeasonPlanPhase {
   name: string;
@@ -21,15 +22,6 @@ export interface SeasonPlanContext {
   seasonStart: string;
   seasonEnd: string;
   prevSummary?: string;
-}
-
-function cleanJson(text: string): string {
-  const fence = /```(?:json)?\s*([\s\S]*?)\s*```/i.exec(text);
-  if (fence) return fence[1];
-  const first = text.indexOf("{");
-  const last = text.lastIndexOf("}");
-  if (first !== -1 && last > first) return text.slice(first, last + 1);
-  return text;
 }
 
 function isoDate(dateStr: string, fallback: string): string {
@@ -60,9 +52,6 @@ export function parseSeasonPlan(content: string): SeasonPlan {
 }
 
 export async function generateSeasonPlan(ctx: SeasonPlanContext): Promise<SeasonPlan> {
-  const apiKey = process.env.MISTRAL_API_KEY;
-  if (!apiKey) throw new Error("MISTRAL_API_KEY manquante");
-
   const phaseList = TACTICAL_PHASE_NAMES.join(", ");
   const systemPrompt = `Tu es un entraîneur diplômé (UEFA A) et préparateur physique expert en football jeunes.
 Tu conçois un plan de saison périodisé complet pour l'équipe « ${ctx.teamName} » (saison ${ctx.season}, du ${ctx.seasonStart} au ${ctx.seasonEnd}).
@@ -88,30 +77,7 @@ Ne mentionne pas de compétition, d'adversaire ou d'effectif précis que tu ne c
     .filter(Boolean)
     .join("\n\n");
 
-  const res = await fetch("https://api.mistral.ai/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: process.env.MISTRAL_MODEL || "mistral-small-latest",
-      temperature: 0.5,
-      max_tokens: 4096,
-      response_format: { type: "json_object" },
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userContent },
-      ],
-    }),
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Mistral API ${res.status}: ${text.slice(0, 200)}`);
-  }
-  const data = await res.json();
-  const content: string = data.choices?.[0]?.message?.content ?? "";
-  if (!content) throw new Error("Réponse vide de Mistral");
+  const content = await callAI(systemPrompt, userContent, { temperature: 0.5, maxTokens: 4096, responseFormat: "json" });
   const plan = parseSeasonPlan(content);
   if (plan.phases.length === 0) throw new Error("Plan invalide (aucun cycle)");
   return plan;

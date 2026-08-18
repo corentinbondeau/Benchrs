@@ -77,7 +77,7 @@ Page d'accueil personnalisee selon le role :
 - Programme horaire du jour de match (rendez-vous, echauffement, coup d'envoi)
 
 ### Compte-rendu
-- Generation automatique par **IA Mistral** ou saisie manuelle
+- Generation automatique par **IA Ollama (locale)** ou saisie manuelle
 - Sauvegarde en base (JSONB)
 
 ### Annonce/Convocation
@@ -95,7 +95,7 @@ Page d'accueil personnalisee selon le role :
 ### Generateur IA (`/trainings/generate`)
 - Input : phase de saison, objectifs, nombre de joueurs, systeme de jeu, expertise
 - Output : fiche d'entrainement complete + **PDF telecharger**
-- Modele : Mistral `mistral-small-latest`
+- Modele : Ollama (configurable via `AI_MODEL`, defaut `llama3.1:8b`)
 
 ### Bibliotheque d'exercices
 - Exercices reutilisables par type (echauffement, technique, tactique, physique, jeu)
