@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import Image from "next/image";
+import { memo, useCallback, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth";
@@ -36,7 +37,7 @@ import {
   Car,
   ListTodo,
   Swords,
-  Image,
+  Image as ImageIcon,
   Trophy,
   Bell,
   CalendarRange,
@@ -75,7 +76,7 @@ const moreItems = [
   { key: "terrains", href: "/club/terrains", label: "Terrains", icon: MapPin, clubOnly: true },
   { key: "mutations", href: "/club/mutations", label: "Mutations", icon: RefreshCw, clubOnly: true },
   { key: "clubfeed", href: "/club/feed", label: "Fil du club", icon: Newspaper, clubTeamOnly: true },
-  { key: "gallery", href: "/gallery", label: "Galerie", icon: Image },
+  { key: "gallery", href: "/gallery", label: "Galerie", icon: ImageIcon },
   { key: "trophies", href: "/trophies", label: "Trophees", icon: Trophy },
   { key: "championship", href: "/championship", label: "Championnat", icon: Medal },
   { key: "material", href: "/material", label: "Materiel", icon: Package, coachAndClub: true },
@@ -169,7 +170,7 @@ function SheetContentInner({ close }: { close: () => void }) {
       {/* Header */}
       <div className="flex h-14 shrink-0 items-center justify-between px-4 border-b border-white/[0.08]" style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
         <div className="flex items-center gap-2.5">
-          <img src="/logo.svg" alt="Benchrs" className="h-7 w-7" />
+          <Image src="/logo.svg" alt="Benchrs" width={28} height={28} className="h-7 w-7" />
           <span className="text-lg font-bold text-white tracking-tight">Benchrs</span>
         </div>
         <SheetClose className="text-white/40 hover:text-white p-1">
@@ -183,7 +184,7 @@ function SheetContentInner({ close }: { close: () => void }) {
           <div className="px-4 py-3 border-b border-white/[0.08]">
             <div className="flex items-center gap-2.5">
               {currentTeam.logo_url ? (
-                <img src={currentTeam.logo_url} alt="" className="h-9 w-9 rounded-lg object-cover shrink-0" />
+                <Image src={currentTeam.logo_url} alt="" width={36} height={36} className="h-9 w-9 rounded-lg object-cover shrink-0" />
               ) : (
                 <div className="h-9 w-9 rounded-lg bg-white/10 flex items-center justify-center shrink-0">
                   <Trophy className="h-4 w-4 text-white/50" />
@@ -350,7 +351,7 @@ function SheetContentInner({ close }: { close: () => void }) {
   );
 }
 
-export function BottomNav() {
+function BottomNav() {
   const pathname = usePathname();
   const { user } = useAuth();
   const { currentTeam, userRole, clubMemberships } = useTeam();
@@ -380,7 +381,7 @@ export function BottomNav() {
   return (
     <Sheet>
       <nav
-        className="fixed bottom-0 left-0 right-0 z-50 flex items-center bg-[var(--color-navy)] lg:hidden"
+        className="fixed bottom-0 left-0 right-0 z-50 flex items-center bg-[var(--color-navy)]"
         style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
       >
         {/* Subtle top border */}
@@ -427,3 +428,5 @@ export function BottomNav() {
     </Sheet>
   );
 }
+
+export default memo(BottomNav);

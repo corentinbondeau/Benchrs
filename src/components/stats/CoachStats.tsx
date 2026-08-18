@@ -14,7 +14,7 @@ import {
   CartesianGrid,
   Tooltip,
   Legend,
-} from "recharts";
+} from "@/components/charts";
 import {
   Trophy,
   Minus,

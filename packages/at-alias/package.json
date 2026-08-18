@@ -1,0 +1,6 @@
+{
+  "name": "@",
+  "version": "1.0.0",
+  "description": "Bridge package pour résoudre require('@/...') dans les tests Vitest",
+  "main": "index.js"
+}

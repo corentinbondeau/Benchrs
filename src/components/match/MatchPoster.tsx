@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { toPng } from "html-to-image";
 import { createClient } from "@/lib/supabase/client";
 import {
   Dialog,
@@ -144,6 +143,7 @@ export function MatchPoster({
     if (!posterRef.current || !data) return;
     setExporting(true);
     try {
+      const { toPng } = await import("html-to-image");
       const dataUrl = await toPng(posterRef.current, { pixelRatio: 2, cacheBust: true });
       const blob = await (await fetch(dataUrl)).blob();
       const file = new File([blob], `affiche-match-${data.eventDate.slice(0, 10)}.png`, {

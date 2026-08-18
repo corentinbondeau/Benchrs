@@ -1,5 +1,7 @@
 "use client";
 
+import Image from "next/image";
+import { memo } from "react";
 import { useAuth } from "@/lib/auth";
 import { useTeam } from "@/lib/team";
 import { useRouter } from "next/navigation";
@@ -14,7 +16,7 @@ import {
 import { LogOut, Settings, User, Bell } from "lucide-react";
 import Link from "next/link";
 
-export function TopBar() {
+function TopBar() {
   const { user, signOut } = useAuth();
   const { currentTeam, userRole, clubMemberships } = useTeam();
   const router = useRouter();
@@ -33,9 +35,9 @@ export function TopBar() {
       <div className="flex h-12 items-center gap-3 px-4 lg:h-14 lg:px-6">
         {/* Mobile: team logo + name */}
         {currentTeam?.logo_url ? (
-          <img src={currentTeam.logo_url} alt="" className="h-7 w-7 shrink-0 rounded-lg object-cover lg:hidden" />
+          <Image src={currentTeam.logo_url} alt="" width={28} height={28} className="h-7 w-7 shrink-0 rounded-lg object-cover lg:hidden" />
         ) : (
-          <img src="/logo.svg" alt="Benchrs" className="h-7 w-7 shrink-0 lg:hidden" />
+          <Image src="/logo.svg" alt="Benchrs" width={28} height={28} priority className="h-7 w-7 shrink-0 lg:hidden" />
         )}
         <span className="text-sm font-bold text-white leading-none shrink-0 lg:hidden truncate max-w-[45vw]">
           {currentTeam?.name || "Benchrs"}
@@ -47,7 +49,7 @@ export function TopBar() {
         {currentTeam && (
           <div className="hidden lg:flex items-center gap-2 text-sm text-muted-foreground mr-2">
             {currentTeam.logo_url && (
-              <img src={currentTeam.logo_url} alt="" className="h-6 w-6 shrink-0 rounded object-cover" />
+              <Image src={currentTeam.logo_url} alt="" width={24} height={24} className="h-6 w-6 shrink-0 rounded object-cover" />
             )}
             <span className="truncate max-w-[300px]">
               {currentTeam.club?.name ? `${currentTeam.club.name} — ` : ""}{currentTeam.name}
@@ -68,7 +70,7 @@ export function TopBar() {
           <DropdownMenuTrigger render={<Button variant="ghost" className="relative h-9 w-9 rounded-full p-0" />}>
             <Avatar className="h-8 w-8">
               {user?.profile?.avatar_url ? (
-                <img src={user.profile.avatar_url} alt="" className="h-8 w-8 rounded-full object-cover" />
+                <Image src={user.profile.avatar_url} alt="" width={32} height={32} className="h-8 w-8 rounded-full object-cover" />
               ) : (
                 <AvatarFallback className="bg-[var(--color-primary-blue)] text-white text-xs font-bold">
                   {initials}
@@ -103,3 +105,5 @@ export function TopBar() {
     </header>
   );
 }
+
+export default memo(TopBar);

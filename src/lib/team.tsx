@@ -7,6 +7,7 @@ import {
   useEffect,
   useCallback,
   useRef,
+  useMemo,
   type ReactNode,
 } from "react";
 import { createClient } from "@/lib/supabase/client";
@@ -56,13 +57,63 @@ function resetTeamColors() {
   root.style.setProperty("--color-navy", "#0F172A");
 }
 
+const TEAM_CACHE_KEY = "team_cache";
+
+interface TeamCache {
+  teams: Team[];
+  currentTeamId: string | null;
+  userId: string;
+}
+
+function readTeamCache(userId: string): { teams: Team[]; currentTeam: Team | null } | null {
+  try {
+    const raw = localStorage.getItem(TEAM_CACHE_KEY);
+    if (!raw) return null;
+    const parsed: TeamCache = JSON.parse(raw);
+    if (parsed.userId !== userId) return null;
+    const currentTeam = parsed.teams.find((t) => t.id === parsed.currentTeamId) ?? parsed.teams[0] ?? null;
+    return { teams: parsed.teams, currentTeam };
+  } catch {
+    return null;
+  }
+}
+
+function writeTeamCache(userId: string, teams: Team[], currentTeam: Team | null) {
+  try {
+    const cache: TeamCache = {
+      teams,
+      currentTeamId: currentTeam?.id ?? null,
+      userId,
+    };
+    localStorage.setItem(TEAM_CACHE_KEY, JSON.stringify(cache));
+  } catch {
+    // ignore localStorage errors
+  }
+}
+
 export function TeamProvider({ children }: { children: ReactNode }) {
   const { user: authUser, loading: authLoading } = useAuth();
-  const [teams, setTeams] = useState<Team[]>([]);
-  const [currentTeam, setCurrentTeam] = useState<Team | null>(null);
+
+  // Restauration synchrone depuis le cache : calculée une seule fois (ref de premier render)
+  // On utilise useRef pour mémoriser le résultat sans re-déclencher le rendu
+  const initRef = useRef<{ teams: Team[]; currentTeam: Team | null; loading: boolean } | null>(null);
+  if (initRef.current === null) {
+    if (authLoading || !authUser) {
+      initRef.current = { teams: [], currentTeam: null, loading: authLoading ? true : false };
+    } else {
+      const cached = readTeamCache(authUser.id);
+      initRef.current = cached
+        ? { teams: cached.teams, currentTeam: cached.currentTeam, loading: false }
+        : { teams: [], currentTeam: null, loading: true };
+    }
+  }
+  const initialState = initRef.current;
+
+  const [teams, setTeams] = useState<Team[]>(initialState.teams);
+  const [currentTeam, setCurrentTeam] = useState<Team | null>(initialState.currentTeam);
   const [userRole, setUserRole] = useState<TeamMemberRole | null>(null);
   const [clubMemberships, setClubMemberships] = useState<ClubMembership[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(initialState.loading);
   const supabaseRef = useRef(createClient());
 
   const loadTeams = useCallback(async (userId: string) => {
@@ -179,20 +230,25 @@ export function TeamProvider({ children }: { children: ReactNode }) {
       localStorage.removeItem("selectedTeamId");
     }
 
+    // Écriture du cache après un chargement réseau réussi
+    writeTeamCache(userId, merged, team);
+
     setLoading(false);
   }, []);
 
+  const authUserId = authUser?.id ?? null;
+
   useEffect(() => {
     if (authLoading) return;
-    if (!authUser) {
+    if (!authUserId) {
       setTeams([]);
       setCurrentTeam(null);
       setClubMemberships([]);
       setLoading(false);
       return;
     }
-    loadTeams(authUser.id);
-  }, [authLoading, authUser, loadTeams]);
+    loadTeams(authUserId);
+  }, [authLoading, authUserId, loadTeams]);
 
   const switchTeam = useCallback(
     (teamId: string) => {
@@ -201,28 +257,24 @@ export function TeamProvider({ children }: { children: ReactNode }) {
         setCurrentTeam(team);
         applyTeamColors(team.color_primary, team.color_secondary);
         localStorage.setItem("selectedTeamId", teamId);
-        if (authUser) loadTeams(authUser.id);
+        // Mise à jour du cache sans rechargement réseau
+        if (authUserId) writeTeamCache(authUserId, teams, team);
       }
     },
-    [teams, loadTeams, authUser]
+    [teams, authUserId]
   );
 
   const refreshTeams = useCallback(async () => {
-    if (authUser) await loadTeams(authUser.id);
-  }, [authUser, loadTeams]);
+    if (authUserId) await loadTeams(authUserId);
+  }, [authUserId, loadTeams]);
 
-    return (
-    <TeamContext.Provider
-      value={{
-        currentTeam,
-        teams,
-        userRole,
-        clubMemberships,
-        switchTeam,
-        loading,
-        refreshTeams,
-      }}
-    >
+  const contextValue = useMemo(
+    () => ({ currentTeam, teams, userRole, clubMemberships, switchTeam, loading, refreshTeams }),
+    [currentTeam, teams, userRole, clubMemberships, switchTeam, loading, refreshTeams]
+  );
+
+  return (
+    <TeamContext.Provider value={contextValue}>
       {children}
     </TeamContext.Provider>
   );

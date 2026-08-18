@@ -6,7 +6,7 @@ import { useAuth } from "@/lib/auth";
 import { useTeam } from "@/lib/team";
 import { useRouter } from "next/navigation";
 import { useQueryCache, clearQueryCache } from "@/lib/queryCache";
-import { RecentResults } from "@/components/dashboard/RecentResults";
+import RecentResults from "@/components/dashboard/RecentResults";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { Suspense, useState, useEffect, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { authFetch } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth";
@@ -39,6 +39,7 @@ import {
   Dumbbell,
 } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
+import { ContentSkeleton } from "@/components/ui/content-skeleton";
 import { toast } from "sonner";
 import { ConvocationsDialog } from "@/components/ConvocationsDialog";
 import { LocationPicker } from "@/components/calendar/LocationPicker";
@@ -167,7 +168,7 @@ export default function CalendarPage() {
     Promise.all([
       supabase
         .from("events")
-        .select("*")
+        .select("id, title, event_date, type, status, location, opponent, score_us, score_them, match_result, team_id, meeting_time")
         .in("team_id", ids)
         .order("event_date", { ascending: true }),
       supabase
@@ -506,6 +507,7 @@ export default function CalendarPage() {
   }
 
   return (
+    <Suspense fallback={<ContentSkeleton />}>
     <div className="section-gap">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
@@ -952,5 +954,6 @@ export default function CalendarPage() {
         />
       )}
     </div>
+    </Suspense>
   );
 }

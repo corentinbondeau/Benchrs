@@ -156,9 +156,9 @@ async function fetchPendingConvocations(teamId: string): Promise<PendingConvocat
         .map((l) => l.parent_id);
       const parents = allParents.filter((p) => parentIdsForPlayer.includes(p.id));
       return {
-        attendance: att as CoachPendingItem["attendance"],
-        event: att.event as CoachPendingItem["event"],
-        player: player as CoachPendingItem["player"],
+        attendance: att as unknown as CoachPendingItem["attendance"],
+        event: att.event as unknown as CoachPendingItem["event"],
+        player: player as unknown as CoachPendingItem["player"],
         parents,
       };
     })

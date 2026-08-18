@@ -13,7 +13,7 @@ import {
   Radar,
   Legend,
   Tooltip,
-} from "recharts";
+} from "@/components/charts";
 import {
   Select,
   SelectContent,

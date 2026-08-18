@@ -1,19 +1,20 @@
 "use client";
 
+import { Suspense, useEffect } from "react";
 import dynamic from "next/dynamic";
-import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { useTeam } from "@/lib/team";
 import { LazyMount } from "@/components/LazyMount";
-import { NextEventCard } from "@/components/dashboard/NextEventCard";
+import NextEventCard from "@/components/dashboard/NextEventCard";
 import { PendingConvocations } from "@/components/dashboard/PendingConvocations";
-import { QuickStats } from "@/components/dashboard/QuickStats";
-import { RecentResults } from "@/components/dashboard/RecentResults";
+import QuickStats from "@/components/dashboard/QuickStats";
+import RecentResults from "@/components/dashboard/RecentResults";
 import { CoachWeekOverview } from "@/components/dashboard/CoachWeekOverview";
 import { PlayerDashboard } from "@/components/dashboard/PlayerDashboard";
 import { ParentDashboard } from "@/components/dashboard/ParentDashboard";
 import { Card, CardContent } from "@/components/ui/card";
+import { ContentSkeleton } from "@/components/ui/content-skeleton";
 
 function WidgetSkeleton({ className = "" }: { className?: string }) {
   return (
@@ -89,10 +90,14 @@ export default function DashboardPage() {
       <TodayHeader name={user?.profile?.first_name || ""} />
 
       {/* P0: Next event — most important, always visible */}
-      <NextEventCard />
+      <Suspense fallback={<ContentSkeleton />}>
+        <NextEventCard />
+      </Suspense>
 
       {/* P0: Pending actions — convocations waiting for response */}
-      <PendingConvocations />
+      <Suspense fallback={<ContentSkeleton />}>
+        <PendingConvocations />
+      </Suspense>
 
       {/* P1: This week overview — events, availability, RPE, injuries */}
       <LazyMount fallback={<WidgetSkeleton className="h-40" />}>

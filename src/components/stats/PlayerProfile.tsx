@@ -39,7 +39,7 @@ import {
   PolarGrid,
   PolarAngleAxis,
   Radar,
-} from "recharts";
+} from "@/components/charts";
 import {
   Trophy,
   Target,

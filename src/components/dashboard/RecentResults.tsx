@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useTeam } from "@/lib/team";
 import { useRouter } from "next/navigation";
@@ -8,7 +9,7 @@ import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Trophy } from "lucide-react";
 import type { Event } from "@/types";
 
-export function RecentResults() {
+function RecentResults() {
   const router = useRouter();
   const { currentTeam } = useTeam();
   const { data: matches, loading } = useQueryCache<Event[]>(
@@ -17,7 +18,7 @@ export function RecentResults() {
       const supabase = createClient();
       const { data } = await supabase
         .from("events")
-        .select("*")
+        .select("id, title, event_date, score_us, score_them, opponent, match_result")
         .eq("team_id", currentTeam!.id)
         .eq("type", "match")
         .eq("status", "completed")
@@ -101,3 +102,5 @@ export function RecentResults() {
     </div>
   );
 }
+
+export default memo(RecentResults);

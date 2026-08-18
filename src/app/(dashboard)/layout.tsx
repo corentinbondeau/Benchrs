@@ -1,19 +1,22 @@
+"use client";
+
 import { AuthProvider } from "@/lib/auth";
 import { TeamProvider } from "@/lib/team";
 import { TeamGuard } from "@/components/team-guard";
-import { Sidebar } from "@/components/layout/Sidebar";
-import { TopBar } from "@/components/layout/TopBar";
-import { BottomNav } from "@/components/layout/BottomNav";
+import Sidebar from "@/components/layout/Sidebar";
+import TopBar from "@/components/layout/TopBar";
+import BottomNav from "@/components/layout/BottomNav";
 import { PushNotificationInit } from "@/components/PushNotificationInit";
 import { ParentOnboarding } from "@/components/onboarding/ParentOnboarding";
-
-export const dynamic = "force-dynamic";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const isMobile = useIsMobile();
+
   return (
     <AuthProvider>
       <TeamProvider>
@@ -21,7 +24,7 @@ export default function DashboardLayout({
           <PushNotificationInit />
           <ParentOnboarding />
           <div className="flex h-screen overflow-hidden bg-background">
-            <Sidebar />
+            {!isMobile && <Sidebar />}
             <div className="flex flex-1 flex-col overflow-hidden min-w-0">
               <TopBar />
               <main className="flex-1 overflow-y-auto overflow-x-clip">
@@ -29,7 +32,7 @@ export default function DashboardLayout({
                   {children}
                 </div>
               </main>
-              <BottomNav />
+              {isMobile && <BottomNav />}
             </div>
           </div>
         </TeamGuard>

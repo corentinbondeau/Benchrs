@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useTeam } from "@/lib/team";
+import { ContentSkeleton } from "@/components/ui/content-skeleton";
 
 export function TeamGuard({ children }: { children: React.ReactNode }) {
   const { teams, clubMemberships, loading } = useTeam();
@@ -15,11 +16,7 @@ export function TeamGuard({ children }: { children: React.ReactNode }) {
   }, [loading, teams, clubMemberships, router]);
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <p className="text-muted-foreground">Chargement...</p>
-      </div>
-    );
+    return <ContentSkeleton />;
   }
 
   if (teams.length === 0 && clubMemberships.length === 0) {
