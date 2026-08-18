@@ -1,151 +1,13 @@
 import { NextResponse } from "next/server";
 import { getAuthUser, unauthorized, forbidden, isTeamMember } from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
-
-interface DOFAMatch {
-  idRencontre: string;
-  dateMatch: string;
-  heureMatch: string;
-  libelle: string;
-  equipeAccueil: {
-    libelle: string;
-    score?: number;
-  };
-  equipeVisiteur: {
-    libelle: string;
-    score?: number;
-  };
-  stade?: {
-    libelle: string;
-  };
-}
-
-interface DOFAEquipe {
-  eqNo: string;
-  libelle: string;
-  competition?: {
-    libelle: string;
-  };
-}
-
-interface DOFATeam {
-  libelle: string;
-  points?: number;
-  joues?: number;
-  victoires?: number;
-  nuls?: number;
-  defaites?: number;
-  butsPour?: number;
-  butsContre?: number;
-  // Variantes possibles selon l'API DOFA
-  nbMatchsJoues?: number;
-  nbVictoires?: number;
-  nbNuls?: number;
-  nbDefaites?: number;
-  nbButsPour?: number;
-  nbButsContre?: number;
-  nbPoints?: number;
-}
-
-interface ParsedTeam {
-  id: string;
-  team_name: string;
-  played: number;
-  won: number;
-  drawn: number;
-  lost: number;
-  goals_for: number;
-  goals_against: number;
-  points: number;
-}
-
-interface ParsedMatch {
-  date: string;
-  home_team: string;
-  away_team: string;
-  home_score: number | null;
-  away_score: number | null;
-  location?: string;
-}
-
-function parseTeams(data: unknown): ParsedTeam[] {
-  const teams: ParsedTeam[] = [];
-
-  if (!Array.isArray(data)) return teams;
-
-  for (const item of data) {
-    const t = item as DOFATeam;
-
-    if (!t.libelle) continue;
-
-    teams.push({
-      id: crypto.randomUUID(),
-      team_name: t.libelle,
-      played: t.nbMatchsJoues ?? t.joues ?? 0,
-      won: t.nbVictoires ?? t.victoires ?? 0,
-      drawn: t.nbNuls ?? t.nuls ?? 0,
-      lost: t.nbDefaites ?? t.defaites ?? 0,
-      goals_for: t.nbButsPour ?? t.butsPour ?? 0,
-      goals_against: t.nbButsContre ?? t.butsContre ?? 0,
-      points: t.nbPoints ?? t.points ?? 0,
-    });
-  }
-
-  // Trier par points décroissants
-  return teams.sort((a, b) => b.points - a.points);
-}
-
-async function fetchDOFA(endpoint: string, fffNumber: string, eqNo?: string): Promise<unknown> {
-  const path = eqNo ? `/api/clubs/${fffNumber}/equipes/${eqNo}${endpoint}` : `/api/clubs/${fffNumber}${endpoint}`;
-  const url = `https://api-dofa.prd-aws.fff.fr${path}`;
-  
-  try {
-    const res = await fetch(url, {
-      method: "GET",
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Benchrs) AppleWebKit/537.36",
-        Accept: "application/json",
-      },
-    });
-
-    if (!res.ok) {
-      throw new Error(`DOFA HTTP ${res.status}`);
-    }
-
-    return await res.json();
-  } catch (error) {
-    console.error(`[DOFA] Erreur fetch ${endpoint}:`, error);
-    throw error;
-  }
-}
-
-function parseMatches(data: unknown): ParsedMatch[] {
-  const matches: ParsedMatch[] = [];
-  
-  if (!Array.isArray(data)) return matches;
-
-  for (const item of data) {
-    const m = item as DOFAMatch;
-    
-    if (!m.dateMatch || !m.equipeAccueil?.libelle || !m.equipeVisiteur?.libelle) {
-      continue;
-    }
-
-    // Format: "AAAA-MM-DD"
-    const dateStr = m.dateMatch.substring(0, 10);
-    
-    matches.push({
-      date: dateStr,
-      home_team: m.equipeAccueil.libelle,
-      away_team: m.equipeVisiteur.libelle,
-      home_score: m.equipeAccueil.score ?? null,
-      away_score: m.equipeVisiteur.score ?? null,
-      location: m.stade?.libelle,
-    });
-  }
-
-  return matches;
-}
+import {
+  fetchClubEquipes,
+  fetchCalendrier,
+  fetchResultats,
+  fetchClassement,
+} from "@/lib/dofa";
+import type { ParsedMatch, ParsedTeam } from "@/lib/dofa";
 
 export async function POST(req: Request) {
   const user = await getAuthUser(req);
@@ -157,7 +19,7 @@ export async function POST(req: Request) {
     fffNumber?: string;
     clubName?: string;
     eqNo?: string;
-    type?: "calendar" | "results" | "all" | "equipes";
+    type?: "calendar" | "results" | "all" | "equipes" | "standings";
   };
   let { fffNumber } = body as { fffNumber?: string };
 
@@ -211,8 +73,7 @@ export async function POST(req: Request) {
 
     if (type === "calendar" || type === "all") {
       try {
-        const data = await fetchDOFA("/calendrier", fffNumber, eqNo);
-        result.matches = parseMatches(data);
+        result.matches = await fetchCalendrier(fffNumber, eqNo ?? "");
       } catch (error) {
         console.error("[DOFA] Erreur calendrier:", error);
         result.error = "Impossible de récupérer le calendrier";
@@ -221,8 +82,7 @@ export async function POST(req: Request) {
 
     if (type === "results" || type === "all") {
       try {
-        const data = await fetchDOFA("/resultat", fffNumber, eqNo);
-        const results = parseMatches(data);
+        const results = await fetchResultats(fffNumber, eqNo ?? "");
         // Fusionner avec les matchs existants
         if (result.matches) {
           result.matches = [...result.matches, ...results].filter(
@@ -242,17 +102,21 @@ export async function POST(req: Request) {
       }
     }
 
+    if (type === "standings" && eqNo) {
+      try {
+        result.standings = await fetchClassement(fffNumber, eqNo);
+      } catch (error) {
+        console.error("[DOFA] Erreur classement:", error);
+      }
+    }
+
     // Récupérer les équipes du club (classement + noms)
     try {
-      const data = await fetchDOFA("/equipes.json", fffNumber);
-      if (Array.isArray(data)) {
-        result.equipes = (data as DOFAEquipe[])
+      const equipes = await fetchClubEquipes(fffNumber);
+      if (equipes.length > 0) {
+        result.equipes = equipes
           .filter((e) => e.eqNo && e.libelle)
           .map((e) => ({ eqNo: e.eqNo, libelle: e.libelle }));
-        const standings = parseTeams(data);
-        if (standings.length > 0) {
-          result.standings = standings;
-        }
       }
     } catch (error) {
       console.error("[DOFA] Erreur équipes:", error);
