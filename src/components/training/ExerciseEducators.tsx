@@ -107,17 +107,21 @@ export function ExerciseEducators({
 
   async function assignEducator(index: number, userId: string) {
     const supabase = createClient();
-    const { error } = await supabase.from("educator_plans").upsert(
-      {
-        team_id: teamId,
-        user_id: userId,
-        event_id: eventId,
-        exercise_index: index,
-        role: "responsable",
-      },
-      { onConflict: "team_id,event_id,exercise_index" }
-    );
+    // Delete existing assignment first (partial unique index not supported by PostgREST upsert)
+    await supabase
+      .from("educator_plans")
+      .delete()
+      .eq("event_id", eventId)
+      .eq("exercise_index", index);
+    const { error } = await supabase.from("educator_plans").insert({
+      team_id: teamId,
+      user_id: userId,
+      event_id: eventId,
+      exercise_index: index,
+      role: "responsable",
+    });
     if (error) {
+      console.error("[educator_plans] insert error:", error.message, error.code, error.details);
       toast.error("Impossible d'assigner le responsable");
       return;
     }
