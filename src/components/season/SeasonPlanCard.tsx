@@ -82,7 +82,12 @@ export function SeasonPlanCard({
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Erreur");
       setPlan(json.plan);
-      toast.success(json.cached ? "Plan chargé" : "Plan de saison généré");
+      if (json.saveError) {
+        toast.warning("Plan généré mais non sauvegardé — il sera régénéré au prochain chargement");
+        console.warn("[season/plan] save error:", json.saveError);
+      } else {
+        toast.success(json.cached ? "Plan chargé" : "Plan de saison généré");
+      }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Erreur de génération");
     } finally {
