@@ -231,7 +231,7 @@ describe("callAI — erreur réseau", () => {
       new Error("ECONNREFUSED")
     );
 
-    await expect(callAI("system", "user")).rejects.toThrow(/ECONNREFUSED|erreur|error/i);
+    await expect(callAI("system", "user")).rejects.toThrow(/Impossible de contacter|Ollama|OLLAMA_URL/i);
   });
 });
 

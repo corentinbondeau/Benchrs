@@ -56,6 +56,7 @@ import {
   ExerciseSchematicDialog,
   ExerciseSchematicView,
 } from "@/components/training/ExerciseSchematic";
+import { ExerciseEducators, type ExerciseSlot } from "@/components/training/ExerciseEducators";
 import { DRILL_TYPES } from "@/lib/training/exercises";
 
 import type {
@@ -493,6 +494,20 @@ export default function SeanceTab() {
                 </p>
               </div>
             )}
+
+            {(() => {
+              const slots: ExerciseSlot[] = aiSelected
+                ? ((selectedSession.exercises as unknown as AISession).sections || []).map((s, i) => ({ index: i, label: s.name }))
+                : (selectedSession.exercises || []).map((e, i) => ({ index: i, label: e.name }));
+              return slots.length > 0 && currentTeam ? (
+                <ExerciseEducators
+                  eventId={selectedSession.event_id}
+                  teamId={currentTeam.id}
+                  isCoach={isCoach}
+                  exercises={slots}
+                />
+              ) : null;
+            })()}
           </CardContent>
         </Card>
       </div>
