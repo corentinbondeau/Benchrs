@@ -3,19 +3,15 @@
  *
  * Périmètre :
  *   1. Nominal        : callAI retourne le contenu de la réponse OpenAI-compatible
- *   2. Config env     : OLLAMA_URL et AI_MODEL sont respectés
+ *   2. Config env     : AI_BASE_URL, OLLAMA_URL (rétro-compat), AI_MODEL, AI_API_KEY
  *   3. JSON mode      : response_format envoyé quand responseFormat='json'
  *   4. Erreur réseau  : une erreur fetch est propagée
- *   5. Retry 500      : retry automatique sur erreur serveur (1 tentative)
+ *   5. Retry 500/429  : retry automatique sur erreur serveur ou rate-limit
  *   6. Timeout        : AbortSignal / timeout respecté dans les options fetch
  *
  * Hors-scope :
- *   - Tests d'intégration réseau réels (Ollama local / Vertex)
+ *   - Tests d'intégration réseau réels
  *   - Streaming de réponses
- *   - Authentification / tokens API
- *
- * Phase "Red" attendue :
- *   - TOUS les tests DOIVENT ÉCHOUER — src/lib/ai/client.ts n'existe pas encore.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
@@ -26,8 +22,8 @@ import { callAI } from "@/lib/ai/client";
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 
-const DEFAULT_URL = "http://localhost:11434/v1/chat/completions";
-const DEFAULT_MODEL = "llama3";
+const DEFAULT_URL = "https://api.mistral.ai/v1/chat/completions";
+const DEFAULT_MODEL = "mistral-small-latest";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -56,8 +52,10 @@ beforeEach(() => {
   vi.spyOn(global, "fetch");
 
   // Rétablir les variables d'environnement par défaut
+  delete process.env.AI_BASE_URL;
   delete process.env.OLLAMA_URL;
   delete process.env.AI_MODEL;
+  delete process.env.AI_API_KEY;
 });
 
 afterEach(() => {
@@ -134,7 +132,20 @@ describe("callAI — cas nominal", () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe("callAI — variables d'environnement", () => {
-  it("utilise OLLAMA_URL quand la variable est définie", async () => {
+  it("utilise AI_BASE_URL quand la variable est définie", async () => {
+    process.env.AI_BASE_URL = "https://custom-api.example.com";
+
+    const fetchSpy = vi
+      .spyOn(global, "fetch")
+      .mockResolvedValue(makeOkResponse("ok"));
+
+    await callAI("system", "user");
+
+    const [url] = fetchSpy.mock.calls[0];
+    expect(url).toContain("https://custom-api.example.com");
+  });
+
+  it("utilise OLLAMA_URL en fallback (rétro-compatibilité)", async () => {
     process.env.OLLAMA_URL = "http://custom:8080";
 
     const fetchSpy = vi
@@ -147,8 +158,48 @@ describe("callAI — variables d'environnement", () => {
     expect(url).toContain("http://custom:8080");
   });
 
+  it("AI_BASE_URL a priorité sur OLLAMA_URL", async () => {
+    process.env.AI_BASE_URL = "https://priority.example.com";
+    process.env.OLLAMA_URL = "http://fallback:8080";
+
+    const fetchSpy = vi
+      .spyOn(global, "fetch")
+      .mockResolvedValue(makeOkResponse("ok"));
+
+    await callAI("system", "user");
+
+    const [url] = fetchSpy.mock.calls[0];
+    expect(url).toContain("https://priority.example.com");
+  });
+
+  it("envoie le header Authorization quand AI_API_KEY est défini", async () => {
+    process.env.AI_API_KEY = "test-key-123";
+
+    const fetchSpy = vi
+      .spyOn(global, "fetch")
+      .mockResolvedValue(makeOkResponse("ok"));
+
+    await callAI("system", "user");
+
+    const [, options] = fetchSpy.mock.calls[0];
+    const headers = (options as RequestInit).headers as Record<string, string>;
+    expect(headers["Authorization"]).toBe("Bearer test-key-123");
+  });
+
+  it("n'envoie pas de header Authorization sans AI_API_KEY", async () => {
+    const fetchSpy = vi
+      .spyOn(global, "fetch")
+      .mockResolvedValue(makeOkResponse("ok"));
+
+    await callAI("system", "user");
+
+    const [, options] = fetchSpy.mock.calls[0];
+    const headers = (options as RequestInit).headers as Record<string, string>;
+    expect(headers["Authorization"]).toBeUndefined();
+  });
+
   it("utilise AI_MODEL quand la variable est définie", async () => {
-    process.env.AI_MODEL = "mistral:7b";
+    process.env.AI_MODEL = "mistral-large-latest";
 
     const fetchSpy = vi
       .spyOn(global, "fetch")
@@ -159,11 +210,10 @@ describe("callAI — variables d'environnement", () => {
     const [, options] = fetchSpy.mock.calls[0];
     const body = JSON.parse((options as RequestInit).body as string);
 
-    expect(body.model).toBe("mistral:7b");
+    expect(body.model).toBe("mistral-large-latest");
   });
 
   it("utilise le modèle par défaut quand AI_MODEL n'est pas défini", async () => {
-    // S'assurer que AI_MODEL n'est pas défini
     delete process.env.AI_MODEL;
 
     const fetchSpy = vi
@@ -175,8 +225,7 @@ describe("callAI — variables d'environnement", () => {
     const [, options] = fetchSpy.mock.calls[0];
     const body = JSON.parse((options as RequestInit).body as string);
 
-    // Le modèle ne doit pas être undefined ou vide
-    expect(body.model).toBeTruthy();
+    expect(body.model).toBe("mistral-small-latest");
     expect(typeof body.model).toBe("string");
   });
 });
@@ -231,7 +280,7 @@ describe("callAI — erreur réseau", () => {
       new Error("ECONNREFUSED")
     );
 
-    await expect(callAI("system", "user")).rejects.toThrow(/Impossible de contacter|Ollama|OLLAMA_URL/i);
+    await expect(callAI("system", "user")).rejects.toThrow(/Impossible de contacter|AI_BASE_URL/i);
   });
 });
 

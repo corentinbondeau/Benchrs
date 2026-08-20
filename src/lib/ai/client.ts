@@ -1,10 +1,17 @@
 /**
- * Service IA centralisé — Ollama / OpenAI-compatible
+ * Service IA centralisé — compatible Ollama, Mistral, OpenAI et tout
+ * fournisseur exposant le endpoint POST /v1/chat/completions.
  *
- * - URL   : OLLAMA_URL || "http://localhost:11434"
- * - Model : AI_MODEL  || "llama3.1:8b"
- * - Retry : 1 retry automatique sur erreur serveur (>= 500) ou erreur réseau
- * - Timeout : AbortController (défaut 120 000 ms)
+ * Variables d'environnement :
+ *   AI_BASE_URL : URL de base de l'API (défaut "https://api.mistral.ai")
+ *                 — accepte aussi l'ancien nom OLLAMA_URL pour rétro-compatibilité
+ *   AI_API_KEY  : clé d'API (Bearer token). Obligatoire pour Mistral/OpenAI,
+ *                 ignorée pour Ollama local.
+ *   AI_MODEL    : identifiant du modèle (défaut "mistral-small-latest")
+ *
+ * Retry : 1 retry automatique sur erreur serveur (>= 500), rate-limit (429)
+ *         ou erreur réseau.
+ * Timeout : AbortController (défaut 120 000 ms)
  */
 
 export async function callAI(
@@ -17,11 +24,22 @@ export async function callAI(
     timeout?: number;
   }
 ): Promise<string> {
-  const baseUrl = process.env.OLLAMA_URL || "http://localhost:11434";
+  const baseUrl =
+    process.env.AI_BASE_URL ||
+    process.env.OLLAMA_URL ||
+    "https://api.mistral.ai";
   const url = `${baseUrl}/v1/chat/completions`;
-  const model = process.env.AI_MODEL || "llama3.1:8b";
+  const apiKey = process.env.AI_API_KEY || "";
+  const model = process.env.AI_MODEL || "mistral-small-latest";
   const temperature = options?.temperature ?? 0.7;
   const timeoutMs = options?.timeout ?? 120_000;
+
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (apiKey) {
+    headers["Authorization"] = `Bearer ${apiKey}`;
+  }
 
   const body: Record<string, unknown> = {
     model,
@@ -44,30 +62,31 @@ export async function callAI(
     try {
       response = await fetch(url, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify(body),
         signal: controller.signal,
       });
     } catch (fetchErr) {
       clearTimeout(timerId);
-      // Enhance network-level errors with actionable context
       if (fetchErr instanceof DOMException && fetchErr.name === "AbortError") {
         throw new Error(
           `Le serveur IA n'a pas répondu dans les ${Math.round(timeoutMs / 1000)}s. ` +
-          `Vérifiez qu'Ollama est lancé (ollama serve) et accessible sur ${baseUrl}.`
+          `Vérifiez que le service est accessible sur ${baseUrl}.`
         );
       }
       throw new Error(
         `Impossible de contacter le serveur IA sur ${baseUrl}. ` +
-        `Vérifiez qu'Ollama est lancé (ollama serve) et que OLLAMA_URL est correctement configuré.`
+        `Vérifiez AI_BASE_URL et que le service est accessible.`
       );
     } finally {
       clearTimeout(timerId);
     }
 
     if (!response.ok) {
+      let detail = "";
+      try { detail = ` — ${(await response.json()).error?.message || ""}`; } catch { /* ignore */ }
       const err = new Error(
-        `AI request failed: HTTP ${response.status} ${response.statusText}`
+        `AI request failed: HTTP ${response.status} ${response.statusText}${detail}`
       );
       (err as Error & { status: number }).status = response.status;
       throw err;
@@ -89,11 +108,12 @@ export async function callAI(
   } catch (err) {
     const status = (err as Error & { status?: number }).status;
     const message = (err as Error).message || "";
-    // Retry on server error (>= 500) or network/connection errors (not on 4xx or abort/timeout)
+    // Retry on server error (>= 500), rate-limit (429), or network errors
+    const isRetryableHttp = status !== undefined && (status >= 500 || status === 429);
     const isNetworkError = status === undefined && !message.includes("n'a pas répondu");
-    if ((status !== undefined && status >= 500) || isNetworkError) {
-      // Attempt 2 (unique retry) — wait 2s for Ollama cold start
-      await new Promise((r) => setTimeout(r, 2000));
+    if (isRetryableHttp || isNetworkError) {
+      // Wait before retry — longer on rate-limit
+      await new Promise((r) => setTimeout(r, status === 429 ? 5000 : 2000));
       return await doFetch();
     }
     throw err;
