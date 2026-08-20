@@ -41,29 +41,53 @@ export function ExerciseEducators({
 
   const fetchPlans = useCallback(async () => {
     const supabase = createClient();
-    const [plansRes, coachesRes] = await Promise.all([
-      supabase
-        .from("educator_plans")
-        .select(
-          "id, event_id, exercise_index, educator:profiles!educator_plans_user_id_fkey(id, first_name, last_name)"
-        )
-        .eq("event_id", eventId)
-        .order("created_at", { ascending: true }),
-      supabase
-        .from("team_members")
-        .select("user_id, profile:profiles!team_members_user_id_fkey(id, first_name, last_name)")
-        .eq("team_id", teamId)
-        .in("role", ["coach", "owner"]),
-    ]);
-    const coachRows = (coachesRes.data || []) as unknown as { user_id: string; profile: { id: string; first_name: string; last_name: string } | null }[];
-    const coaches = coachRows
-      .map((c) => c.profile)
-      .filter((p): p is CoachMember => !!p)
-      .filter((p, i, arr) => arr.findIndex((x) => x.id === p.id) === i);
-    return {
-      plans: (plansRes.data || []) as unknown as EducatorRow[],
-      coaches,
-    };
+
+    // 1. Fetch educator assignments for this event
+    const plansRes = await supabase
+      .from("educator_plans")
+      .select("id, event_id, exercise_index, user_id")
+      .eq("event_id", eventId)
+      .order("created_at", { ascending: true });
+
+    // 2. Fetch coach/owner user_ids for this team
+    const membersRes = await supabase
+      .from("team_members")
+      .select("user_id")
+      .eq("team_id", teamId)
+      .in("role", ["coach", "owner"]);
+
+    const coachUserIds = [...new Set((membersRes.data || []).map((m) => m.user_id as string))];
+
+    // 3. Collect all user_ids that need profile lookup (coaches + assigned educators)
+    const planRows = (plansRes.data || []) as { id: string; event_id: string; exercise_index: number | null; user_id: string }[];
+    const allUserIds = [...new Set([...coachUserIds, ...planRows.map((p) => p.user_id)])];
+
+    // 4. Fetch profiles for all relevant users in one call
+    let profileMap = new Map<string, CoachMember>();
+    if (allUserIds.length > 0) {
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("id, first_name, last_name")
+        .in("id", allUserIds);
+      for (const p of (profiles || []) as CoachMember[]) {
+        profileMap.set(p.id, p);
+      }
+    }
+
+    // 5. Build coach list from profiles
+    const coaches = coachUserIds
+      .map((uid) => profileMap.get(uid))
+      .filter((p): p is CoachMember => !!p);
+
+    // 6. Build educator plans with resolved profiles
+    const plans: EducatorRow[] = planRows.map((p) => ({
+      id: p.id,
+      event_id: p.event_id,
+      exercise_index: p.exercise_index,
+      educator: profileMap.get(p.user_id) ?? null,
+    }));
+
+    return { plans, coaches };
   }, [eventId, teamId]);
 
   useEffect(() => {
