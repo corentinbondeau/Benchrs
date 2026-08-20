@@ -29,7 +29,7 @@ export async function callAI(
     process.env.OLLAMA_URL ||
     "https://api.mistral.ai";
   const url = `${baseUrl}/v1/chat/completions`;
-  const apiKey = process.env.AI_API_KEY || "";
+  const apiKey = process.env.AI_API_KEY || process.env.MISTRAL_API_KEY || "";
   const model = process.env.AI_MODEL || "mistral-small-latest";
   const temperature = options?.temperature ?? 0.7;
   const timeoutMs = options?.timeout ?? 120_000;
