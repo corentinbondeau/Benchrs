@@ -77,8 +77,22 @@ Ne mentionne pas de compétition, d'adversaire ou d'effectif précis que tu ne c
     .filter(Boolean)
     .join("\n\n");
 
-  const content = await callAI(systemPrompt, userContent, { temperature: 0.5, maxTokens: 4096, responseFormat: "json" });
-  const plan = parseSeasonPlan(content);
-  if (plan.phases.length === 0) throw new Error("Plan invalide (aucun cycle)");
-  return plan;
+  const correction = `\nCorrection : la réponse précédente n'était pas un JSON valide ou était tronquée. Renvoie uniquement un objet JSON valide complet, sans texte autour. Commence par { et termine par }.`;
+
+  let lastError: Error | null = null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const content = await callAI(
+        systemPrompt,
+        attempt === 0 ? userContent : userContent + correction,
+        { temperature: 0.5, maxTokens: 8192, responseFormat: "json" }
+      );
+      const plan = parseSeasonPlan(content);
+      if (plan.phases.length === 0) throw new Error("Plan invalide (aucun cycle)");
+      return plan;
+    } catch (e) {
+      lastError = e instanceof Error ? e : new Error("Réponse IA invalide");
+    }
+  }
+  throw lastError!;
 }

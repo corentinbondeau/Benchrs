@@ -77,12 +77,23 @@ Pour CHAQUE joueur listé, rédige un bilan avec :
 
 Réponds UNIQUEMENT en JSON valide : un tableau d'objets avec les clés "playerId", "title", "progression", "assiduite", "comportement", "axes". "playerId" doit être exactement l'id fourni pour chaque joueur.`;
 
-  const content = await callAI(
-    systemPrompt,
-    `Équipe « ${ctx.teamName} », trimestre ${ctx.quarter} (${ctx.quarterStart} → ${ctx.quarterEnd}).\n\nJoueurs :\n${playersBlock}\n\nRédige les bilans trimestriels.`,
-    { temperature: 0.5, maxTokens: 4096, responseFormat: "json" }
-  );
-  const reports = parseQuarterlyReports(content);
-  if (reports.length === 0) throw new Error("Aucun bilan généré");
-  return reports;
+  const userMessage = `Équipe « ${ctx.teamName} », trimestre ${ctx.quarter} (${ctx.quarterStart} → ${ctx.quarterEnd}).\n\nJoueurs :\n${playersBlock}\n\nRédige les bilans trimestriels.`;
+  const correction = `\nCorrection : la réponse précédente n'était pas un JSON valide ou était tronquée. Renvoie uniquement un JSON valide complet, sans texte autour.`;
+
+  let lastError: Error | null = null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const content = await callAI(
+        systemPrompt,
+        attempt === 0 ? userMessage : userMessage + correction,
+        { temperature: 0.5, maxTokens: 8192, responseFormat: "json" }
+      );
+      const reports = parseQuarterlyReports(content);
+      if (reports.length === 0) throw new Error("Aucun bilan généré");
+      return reports;
+    } catch (e) {
+      lastError = e instanceof Error ? e : new Error("Réponse IA invalide");
+    }
+  }
+  throw lastError!;
 }

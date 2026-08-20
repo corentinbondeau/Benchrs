@@ -54,13 +54,20 @@ export async function POST(req: Request) {
   const prevSummary =
     (prevReport?.content as { summary?: string } | undefined)?.summary?.slice(0, 400) ?? undefined;
 
-  const plan = await generateSeasonPlan({
-    teamName,
-    season,
-    seasonStart: range.start.toISOString().slice(0, 10),
-    seasonEnd: range.end.toISOString().slice(0, 10),
-    prevSummary,
-  });
+  let plan;
+  try {
+    plan = await generateSeasonPlan({
+      teamName,
+      season,
+      seasonStart: range.start.toISOString().slice(0, 10),
+      seasonEnd: range.end.toISOString().slice(0, 10),
+      prevSummary,
+    });
+  } catch (e) {
+    console.error("[season/plan] AI generation error:", e);
+    const message = e instanceof Error ? e.message : "Erreur lors de la génération du plan";
+    return NextResponse.json({ error: `Échec de la génération IA : ${message}` }, { status: 502 });
+  }
 
   const { error } = await supabase.from("season_plans").upsert(
     { team_id: teamId, season, content: plan, created_by: user.id },

@@ -240,13 +240,20 @@ export async function POST(req: Request) {
     .sort((a, b) => a.name.localeCompare(b.name));
 
   const teamName = (team as { name?: string } | null)?.name || "équipe";
-  const reports = await generateQuarterlyReports({
-    teamName,
-    quarter,
-    quarterStart: startISO.slice(0, 10),
-    quarterEnd: endISO.slice(0, 10),
-    players: playerAggs,
-  });
+  let reports;
+  try {
+    reports = await generateQuarterlyReports({
+      teamName,
+      quarter,
+      quarterStart: startISO.slice(0, 10),
+      quarterEnd: endISO.slice(0, 10),
+      players: playerAggs,
+    });
+  } catch (e) {
+    console.error("[reports/quarterly] AI generation error:", e);
+    const message = e instanceof Error ? e.message : "Erreur lors de la génération des bilans";
+    return NextResponse.json({ error: `Échec de la génération IA : ${message}` }, { status: 502 });
+  }
 
   // Sauvegarde
   const reportByPlayer = new Map(reports.map((r) => [r.playerId, r]));

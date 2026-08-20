@@ -75,11 +75,21 @@ Tu réponds UNIQUEMENT par un objet JSON valide (aucun texte avant/après, aucun
 }
 Le champ "difficulty" doit être exactement : "${difficulty}". Tout est rédigé en français.`;
 
-  const content = await callAI(
-    systemPrompt,
-    `Génère le défi de la semaine pour une équipe de ${difficulty === "facile" ? "jeunes débutants" : difficulty === "moyen" ? "jeunes confirmés" : "jeunes très à l'aise techniquement"}.`,
-    { temperature: 0.8, maxTokens: 1024, responseFormat: "json" }
-  );
+  const userMessage = `Génère le défi de la semaine pour une équipe de ${difficulty === "facile" ? "jeunes débutants" : difficulty === "moyen" ? "jeunes confirmés" : "jeunes très à l'aise techniquement"}.`;
+  const correction = `\nCorrection : la réponse précédente n'était pas un JSON valide. Renvoie uniquement un objet JSON valide, sans texte autour.`;
 
-  return parseChallenge(content);
+  let lastError: Error | null = null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const content = await callAI(
+        systemPrompt,
+        attempt === 0 ? userMessage : userMessage + correction,
+        { temperature: 0.8, maxTokens: 1024, responseFormat: "json" }
+      );
+      return parseChallenge(content);
+    } catch (e) {
+      lastError = e instanceof Error ? e : new Error("Réponse IA invalide");
+    }
+  }
+  throw lastError!;
 }

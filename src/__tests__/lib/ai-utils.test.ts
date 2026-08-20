@@ -78,17 +78,24 @@ describe("cleanJson — texte autour du JSON", () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 4. RÉPONSE VIDE
+// 4. RÉPONSE VIDE OU TRONQUÉE — erreurs explicites
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe("cleanJson — réponse vide", () => {
-  it("retourne une chaîne vide pour une entrée vide", () => {
-    expect(cleanJson("")).toBe("");
+describe("cleanJson — réponse vide ou tronquée", () => {
+  it("lance une erreur pour une entrée vide", () => {
+    expect(() => cleanJson("")).toThrow("Réponse IA vide");
   });
 
-  it("retourne une chaîne vide pour une entrée composée uniquement d'espaces", () => {
-    // Comportement défensif : pas d'erreur sur whitespace-only
-    expect(cleanJson("   ").trim()).toBe("");
+  it("lance une erreur pour une entrée composée uniquement d'espaces", () => {
+    expect(() => cleanJson("   ")).toThrow("Réponse IA vide");
+  });
+
+  it("lance une erreur quand aucun objet JSON n'est détecté", () => {
+    expect(() => cleanJson("pas de json ici")).toThrow("aucun objet JSON détecté");
+  });
+
+  it("lance une erreur quand le JSON est tronqué (pas de } fermante)", () => {
+    expect(() => cleanJson('{"key": "val", "nested": {"a": 1')).toThrow("tronquée");
   });
 });
 

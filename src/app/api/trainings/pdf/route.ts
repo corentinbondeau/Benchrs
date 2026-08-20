@@ -8,8 +8,11 @@ export async function POST(req: Request) {
   if (!user) return unauthorized();
 
   const body = await req.json().catch(() => null);
-  const session = body?.session as AISession | ManualSession | undefined;
+  const session = body?.session;
   const source = body?.source as "ai" | "manual" | undefined;
+  const title = body?.title as string | undefined;
+  const objectives = body?.objectives as string[] | null | undefined;
+  const notes = body?.notes as string | null | undefined;
 
   if (!session || typeof session !== "object") {
     return NextResponse.json({ error: "Séance invalide" }, { status: 400 });
@@ -18,10 +21,26 @@ export async function POST(req: Request) {
   try {
     let pdfBuffer: Buffer;
     if (source === "manual") {
-      if (!Array.isArray((session as ManualSession).exercises)) {
+      // Accept both formats:
+      // 1. ManualSession object: { title, exercises: [...], objectives?, notes? }
+      // 2. Raw Exercise[] array (sent directly from the frontend)
+      let manual: ManualSession;
+      if (Array.isArray(session)) {
+        manual = {
+          title: title || "Séance d'entraînement",
+          exercises: session,
+          objectives: objectives ?? null,
+          notes: notes ?? null,
+        };
+      } else if (Array.isArray((session as ManualSession).exercises)) {
+        manual = session as ManualSession;
+      } else {
         return NextResponse.json({ error: "Séance invalide" }, { status: 400 });
       }
-      pdfBuffer = await renderManualSessionPdf(session as ManualSession);
+      if (manual.exercises.length === 0) {
+        return NextResponse.json({ error: "Séance invalide (aucun exercice)" }, { status: 400 });
+      }
+      pdfBuffer = await renderManualSessionPdf(manual);
     } else {
       const ai = session as AISession;
       if (!Array.isArray(ai.sections) || ai.sections.length === 0) {

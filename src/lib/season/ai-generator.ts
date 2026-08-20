@@ -133,53 +133,64 @@ ${ctx.results.length > 0 ? `- Derniers résultats : ${formatResults(ctx)}` : ""}
 }
 
 export async function generateNewsletter(ctx: SeasonStatsContext): Promise<NewsletterContent> {
-  const raw = cleanJson(await callAI(buildNewsletterPrompt(ctx), "Génère le contenu maintenant, en respectant strictement le format JSON demandé.", { temperature: 0.8, maxTokens: 2048, responseFormat: "json" }));
-  const parsed = JSON.parse(raw) as Partial<NewsletterContent>;
+  const userMessage = "Génère le contenu maintenant, en respectant strictement le format JSON demandé.";
+  const correction = "\nCorrection : la réponse précédente n'était pas un JSON valide. Renvoie uniquement un JSON valide, sans texte autour.";
   const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
-  const sections = Array.isArray(parsed.sections)
-    ? parsed.sections
-        .map((s) => ({
-          heading: str(s?.heading).slice(0, 100),
-          text: str(s?.text).slice(0, 2000),
-        }))
-        .filter((s) => s.heading && s.text)
-        .slice(0, 4)
-    : [];
-  const title = str(parsed.title).slice(0, 80);
-  if (!title || sections.length === 0) throw new Error("Newsletter IA invalide");
-  return {
-    title,
-    intro: str(parsed.intro),
-    sections,
-    note: str(parsed.note),
-  };
+
+  let lastError: Error | null = null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const raw = cleanJson(await callAI(buildNewsletterPrompt(ctx), attempt === 0 ? userMessage : userMessage + correction, { temperature: 0.8, maxTokens: 2048, responseFormat: "json" }));
+      const parsed = JSON.parse(raw) as Partial<NewsletterContent>;
+      const sections = Array.isArray(parsed.sections)
+        ? parsed.sections
+            .map((s) => ({
+              heading: str(s?.heading).slice(0, 100),
+              text: str(s?.text).slice(0, 2000),
+            }))
+            .filter((s) => s.heading && s.text)
+            .slice(0, 4)
+        : [];
+      const title = str(parsed.title).slice(0, 80);
+      if (!title || sections.length === 0) throw new Error("Newsletter IA invalide");
+      return { title, intro: str(parsed.intro), sections, note: str(parsed.note) };
+    } catch (e) {
+      lastError = e instanceof Error ? e : new Error("Réponse IA invalide");
+    }
+  }
+  throw lastError!;
 }
 
 export async function generateStorybook(ctx: SeasonStatsContext): Promise<StorybookContent> {
-  const raw = cleanJson(await callAI(buildStorybookPrompt(ctx), "Génère le contenu maintenant, en respectant strictement le format JSON demandé.", { temperature: 0.8, maxTokens: 2048, responseFormat: "json" }));
-  const parsed = JSON.parse(raw) as Partial<StorybookContent>;
+  const userMessage = "Génère le contenu maintenant, en respectant strictement le format JSON demandé.";
+  const correction = "\nCorrection : la réponse précédente n'était pas un JSON valide. Renvoie uniquement un JSON valide, sans texte autour.";
   const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
-  const chapters = Array.isArray(parsed.chapters)
-    ? parsed.chapters
-        .map((c) => ({ heading: str(c?.heading).slice(0, 100), text: str(c?.text).slice(0, 3000) }))
-        .filter((c) => c.heading && c.text)
-        .slice(0, 5)
-    : [];
-  const anecdotes = Array.isArray(parsed.anecdotes)
-    ? parsed.anecdotes
-        .map((a) => ({ title: str(a?.title).slice(0, 100), text: str(a?.text).slice(0, 2000) }))
-        .filter((a) => a.title && a.text)
-        .slice(0, 4)
-    : [];
-  const title = str(parsed.title).slice(0, 80);
-  if (!title || chapters.length === 0) throw new Error("Livret IA invalide");
-  return {
-    title,
-    intro: str(parsed.intro),
-    chapters,
-    anecdotes,
-    conclusion: str(parsed.conclusion),
-  };
+
+  let lastError: Error | null = null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const raw = cleanJson(await callAI(buildStorybookPrompt(ctx), attempt === 0 ? userMessage : userMessage + correction, { temperature: 0.8, maxTokens: 2048, responseFormat: "json" }));
+      const parsed = JSON.parse(raw) as Partial<StorybookContent>;
+      const chapters = Array.isArray(parsed.chapters)
+        ? parsed.chapters
+            .map((c) => ({ heading: str(c?.heading).slice(0, 100), text: str(c?.text).slice(0, 3000) }))
+            .filter((c) => c.heading && c.text)
+            .slice(0, 5)
+        : [];
+      const anecdotes = Array.isArray(parsed.anecdotes)
+        ? parsed.anecdotes
+            .map((a) => ({ title: str(a?.title).slice(0, 100), text: str(a?.text).slice(0, 2000) }))
+            .filter((a) => a.title && a.text)
+            .slice(0, 4)
+        : [];
+      const title = str(parsed.title).slice(0, 80);
+      if (!title || chapters.length === 0) throw new Error("Livret IA invalide");
+      return { title, intro: str(parsed.intro), chapters, anecdotes, conclusion: str(parsed.conclusion) };
+    } catch (e) {
+      lastError = e instanceof Error ? e : new Error("Réponse IA invalide");
+    }
+  }
+  throw lastError!;
 }
 
 export async function generateGreeting(ctx: SeasonStatsContext, playerName: string): Promise<string> {

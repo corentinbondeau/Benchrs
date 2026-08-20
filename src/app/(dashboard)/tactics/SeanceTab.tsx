@@ -231,7 +231,13 @@ export default function SeanceTab() {
       const res = await authFetch("/api/trainings/pdf", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ session: raw, source: isAi ? "ai" : "manual" }),
+        body: JSON.stringify({
+          session: raw,
+          source: isAi ? "ai" : "manual",
+          title: target.title,
+          objectives: target.objectives,
+          notes: target.notes,
+        }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => null);

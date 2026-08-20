@@ -168,6 +168,9 @@ export function SessionFiche({
         body: JSON.stringify({
           session: f.exercises,
           source: f.source || (isAISession(f.exercises) ? "ai" : "manual"),
+          title: f.title,
+          objectives: f.objectives,
+          notes: f.notes,
         }),
       });
       if (!res.ok) {
