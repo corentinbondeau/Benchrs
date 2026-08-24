@@ -15,7 +15,7 @@ Benchrs est une **Progressive Web App** (PWA) qui centralise la gestion complete
 - **Club** — Gestion multi-equipes, comite, terrains, club house, transferts inter-equipes
 - **Score live** — Suivi de match en temps reel partageable par lien
 - **Galerie** — Photos et videos organisees par albums
-- **IA** — Generation de fiches d'entrainement, bilans de saison, newsletters, voeux personnalises (Mistral AI)
+- **IA** — Generation de fiches d'entrainement, bilans de saison, newsletters, voeux personnalises (Ollama, IA locale)
 - **Page publique** — Vitrine du club avec formulaire de demande d'essai
 
 ## Stack technique
@@ -25,7 +25,7 @@ Benchrs est une **Progressive Web App** (PWA) qui centralise la gestion complete
 | Frontend | [Next.js 16](https://nextjs.org/) (App Router, React 19, TypeScript) |
 | Styling | [Tailwind CSS v4](https://tailwindcss.com/) + [shadcn/ui](https://ui.shadcn.com/) |
 | Backend / BDD | [Supabase](https://supabase.com/) (PostgreSQL + RLS + Realtime + Auth + Storage) |
-| IA | [Mistral AI](https://mistral.ai/) (generation de contenu) |
+| IA | [Ollama](https://ollama.ai/) (IA locale, generation de contenu) |
 | PDF | [@react-pdf/renderer](https://react-pdf.org/) |
 | Charts | [Recharts](https://recharts.org/) |
 | Notifications | Web Push + [nodemailer](https://nodemailer.com/) |
@@ -53,7 +53,7 @@ npm install
 
 # Configurer les variables d'environnement
 cp .env.example .env.local
-# Renseigner les cles Supabase, NextAuth, Mistral, etc.
+# Renseigner les cles Supabase, NextAuth, Ollama, etc.
 
 # Lancer en dev
 npm run dev
@@ -70,7 +70,8 @@ L'application sera accessible sur [http://localhost:3000](http://localhost:3000)
 | `SUPABASE_SERVICE_ROLE_KEY` | Cle service role Supabase (serveur uniquement) |
 | `NEXTAUTH_SECRET` | Secret NextAuth.js |
 | `NEXTAUTH_URL` | URL de l'application |
-| `MISTRAL_API_KEY` | Cle API Mistral (fonctionnalites IA) |
+| `OLLAMA_URL` | URL du serveur Ollama (défaut : `http://localhost:11434`) |
+| `AI_MODEL` | Modèle Ollama à utiliser (défaut : `llama3.1:8b`) |
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | Cles VAPID pour Web Push |
 | `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` | Configuration SMTP pour l'envoi d'emails |
 | `CRON_SECRET` | Secret pour les endpoints cron Vercel |

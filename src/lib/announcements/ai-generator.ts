@@ -1,3 +1,5 @@
+import { callAI } from "@/lib/ai";
+
 export type AnnouncementType = "convocation" | "info";
 export type AnnouncementAudience = "joueurs" | "parents";
 export type AnnouncementTone = "motivant" | "sobre" | "chaleureux";
@@ -106,33 +108,6 @@ ${ctx.points.length > 0 ? ctx.points.map((p) => `- ${POINTS_LABELS[p] ?? p}`).jo
 }
 
 export async function generateAnnouncement(ctx: AnnouncementContext): Promise<string> {
-  const apiKey = process.env.MISTRAL_API_KEY;
-  if (!apiKey) throw new Error("MISTRAL_API_KEY manquante");
-
-  const res = await fetch("https://api.mistral.ai/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: process.env.MISTRAL_MODEL || "mistral-small-latest",
-      temperature: 0.8,
-      max_tokens: 1024,
-      messages: [
-        { role: "system", content: buildAnnouncementPrompt(ctx) },
-        { role: "user", content: "Rédige l'annonce maintenant." },
-      ],
-    }),
-  });
-
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Mistral API ${res.status}: ${text.slice(0, 200)}`);
-  }
-
-  const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
-  const content = data.choices?.[0]?.message?.content ?? "";
-  if (!content) throw new Error("Réponse vide de Mistral");
+  const content = await callAI(buildAnnouncementPrompt(ctx), "Rédige l'annonce maintenant.", { temperature: 0.8, maxTokens: 1024, responseFormat: "text" });
   return content.trim();
 }

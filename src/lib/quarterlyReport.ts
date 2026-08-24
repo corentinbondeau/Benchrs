@@ -21,14 +21,7 @@ export interface QuarterlyReport {
   source?: "ai" | "manual";
 }
 
-function cleanJson(text: string): string {
-  const fence = /```(?:json)?\s*([\s\S]*?)\s*```/i.exec(text);
-  if (fence) return fence[1];
-  const first = text.indexOf("[");
-  const last = text.lastIndexOf("]");
-  if (first !== -1 && last > first) return text.slice(first, last + 1);
-  return text;
-}
+import { callAI, cleanJson } from "@/lib/ai";
 
 export function parseQuarterlyReports(content: string): QuarterlyReport[] {
   const raw = JSON.parse(cleanJson(content));
@@ -63,9 +56,6 @@ export interface QuarterlyContext {
 }
 
 export async function generateQuarterlyReports(ctx: QuarterlyContext): Promise<QuarterlyReport[]> {
-  const apiKey = process.env.MISTRAL_API_KEY;
-  if (!apiKey) throw new Error("MISTRAL_API_KEY manquante");
-
   const playersBlock = ctx.players
     .map(
       (p) =>
@@ -87,34 +77,23 @@ Pour CHAQUE joueur listé, rédige un bilan avec :
 
 Réponds UNIQUEMENT en JSON valide : un tableau d'objets avec les clés "playerId", "title", "progression", "assiduite", "comportement", "axes". "playerId" doit être exactement l'id fourni pour chaque joueur.`;
 
-  const res = await fetch("https://api.mistral.ai/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: process.env.MISTRAL_MODEL || "mistral-small-latest",
-      temperature: 0.5,
-      max_tokens: 4096,
-      response_format: { type: "json_object" },
-      messages: [
-        { role: "system", content: systemPrompt },
-        {
-          role: "user",
-          content: `Équipe « ${ctx.teamName} », trimestre ${ctx.quarter} (${ctx.quarterStart} → ${ctx.quarterEnd}).\n\nJoueurs :\n${playersBlock}\n\nRédige les bilans trimestriels.`,
-        },
-      ],
-    }),
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Mistral API ${res.status}: ${text.slice(0, 200)}`);
+  const userMessage = `Équipe « ${ctx.teamName} », trimestre ${ctx.quarter} (${ctx.quarterStart} → ${ctx.quarterEnd}).\n\nJoueurs :\n${playersBlock}\n\nRédige les bilans trimestriels.`;
+  const correction = `\nCorrection : la réponse précédente n'était pas un JSON valide ou était tronquée. Renvoie uniquement un JSON valide complet, sans texte autour.`;
+
+  let lastError: Error | null = null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const content = await callAI(
+        systemPrompt,
+        attempt === 0 ? userMessage : userMessage + correction,
+        { temperature: 0.5, maxTokens: 8192, responseFormat: "json" }
+      );
+      const reports = parseQuarterlyReports(content);
+      if (reports.length === 0) throw new Error("Aucun bilan généré");
+      return reports;
+    } catch (e) {
+      lastError = e instanceof Error ? e : new Error("Réponse IA invalide");
+    }
   }
-  const data = await res.json();
-  const content: string = data.choices?.[0]?.message?.content ?? "";
-  if (!content) throw new Error("Réponse vide de Mistral");
-  const reports = parseQuarterlyReports(content);
-  if (reports.length === 0) throw new Error("Aucun bilan généré");
-  return reports;
+  throw lastError!;
 }

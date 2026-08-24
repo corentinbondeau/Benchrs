@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useAuth } from "@/lib/auth";
 import { useTeam } from "@/lib/team";
 import { authFetch } from "@/lib/api-client";
@@ -26,7 +27,7 @@ import {
   Car,
   ListTodo,
   Swords,
-  Image,
+  Image as ImageIcon,
   Bell,
   Dumbbell,
   Medal,
@@ -66,7 +67,7 @@ import {
 } from "@/components/ui/select";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { toast } from "sonner";
-import { useState } from "react";
+import { memo, useState } from "react";
 
 /* ─── Primary nav: 5 main spaces ─── */
 const primaryNav = [
@@ -84,7 +85,7 @@ const teamItems = [
   { key: "attendance", href: "/attendance", label: "Presences", icon: Users },
   { key: "tasks", href: "/tasks", label: "Taches", icon: ListTodo },
   { key: "polls", href: "/polls", label: "Sondages", icon: Vote },
-  { key: "gallery", href: "/gallery", label: "Galerie", icon: Image },
+  { key: "gallery", href: "/gallery", label: "Galerie", icon: ImageIcon },
   { key: "meetings", href: "/meetings", label: "Reunions parents", icon: ClipboardList, coachOnly: true },
 ];
 
@@ -200,7 +201,7 @@ function NavSection({
   );
 }
 
-export function Sidebar() {
+function Sidebar() {
   const pathname = usePathname();
   const { user, signOut } = useAuth();
   const { currentTeam, teams, switchTeam, userRole, clubMemberships } = useTeam();
@@ -313,10 +314,10 @@ export function Sidebar() {
   }
 
   return (
-    <aside className="hidden lg:flex lg:w-[260px] lg:flex-col lg:shrink-0 bg-[var(--color-navy)] text-white h-screen">
+    <aside className="flex w-[260px] flex-col shrink-0 bg-[var(--color-navy)] text-white h-screen">
       {/* ─── Logo ─── */}
       <div className="flex h-14 items-center gap-2.5 px-5 border-b border-white/[0.08]">
-        <img src="/logo.svg" alt="Benchrs" className="h-8 w-8" />
+        <Image src="/logo.svg" alt="Benchrs" width={32} height={32} priority className="h-8 w-8" />
         <span className="text-xl font-bold tracking-tight">Benchrs</span>
       </div>
 
@@ -325,7 +326,7 @@ export function Sidebar() {
         <div className="px-4 py-3 border-b border-white/[0.08]">
           <div className="flex items-center gap-2.5">
             {currentTeam.logo_url ? (
-              <img src={currentTeam.logo_url} alt="" className="h-9 w-9 rounded-lg object-cover shrink-0" />
+              <Image src={currentTeam.logo_url} alt="" width={36} height={36} className="h-9 w-9 rounded-lg object-cover shrink-0" />
             ) : (
               <div className="h-9 w-9 rounded-lg bg-white/10 flex items-center justify-center shrink-0">
                 <Trophy className="h-4 w-4 text-white/50" />
@@ -473,7 +474,7 @@ export function Sidebar() {
         <div className="flex items-center gap-3 px-3 py-2.5">
           <Avatar className="h-8 w-8 shrink-0">
             {user?.profile?.avatar_url ? (
-              <img src={user.profile.avatar_url} alt="" className="h-8 w-8 rounded-full object-cover" />
+              <Image src={user.profile.avatar_url} alt="" width={32} height={32} className="h-8 w-8 rounded-full object-cover" />
             ) : (
               <AvatarFallback className="bg-[var(--color-primary-blue)] text-white text-xs font-bold">
                 {initials}
@@ -547,3 +548,5 @@ export function Sidebar() {
     </aside>
   );
 }
+
+export default memo(Sidebar);

@@ -42,26 +42,28 @@ export function ExerciseEducators({
   const fetchPlans = useCallback(async () => {
     const supabase = createClient();
 
-    const [plansRes, coachesRes] = await Promise.all([
-      supabase
-        .from("educator_plans")
-        .select("id, event_id, exercise_index, user_id")
-        .eq("event_id", eventId)
-        .order("created_at", { ascending: true }),
-      supabase
-        .from("team_members")
-        .select("user_id")
-        .eq("team_id", teamId)
-        .in("role", ["coach", "owner"]),
-    ]);
+    // 1. Fetch educator assignments for this event
+    const plansRes = await supabase
+      .from("educator_plans")
+      .select("id, event_id, exercise_index, user_id")
+      .eq("event_id", eventId)
+      .order("created_at", { ascending: true });
 
+    // 2. Fetch coach/owner user_ids for this team
+    const membersRes = await supabase
+      .from("team_members")
+      .select("user_id")
+      .eq("team_id", teamId)
+      .in("role", ["coach", "owner"]);
+
+    const coachUserIds = [...new Set((membersRes.data || []).map((m) => m.user_id as string))];
+
+    // 3. Collect all user_ids that need profile lookup (coaches + assigned educators)
     const planRows = (plansRes.data || []) as { id: string; event_id: string; exercise_index: number | null; user_id: string }[];
-    const coachUserIds = [...new Set((coachesRes.data || []).map((r) => r.user_id))];
+    const allUserIds = [...new Set([...coachUserIds, ...planRows.map((p) => p.user_id)])];
 
-    const educatorUserIds = [...new Set(planRows.map((p) => p.user_id).filter(Boolean))];
-    const allUserIds = [...new Set([...educatorUserIds, ...coachUserIds])];
-
-    const profileMap = new Map<string, CoachMember>();
+    // 4. Fetch profiles for all relevant users in one call
+    let profileMap = new Map<string, CoachMember>();
     if (allUserIds.length > 0) {
       const { data: profiles } = await supabase
         .from("profiles")
@@ -72,16 +74,18 @@ export function ExerciseEducators({
       }
     }
 
-    const plans: EducatorRow[] = planRows.map((r) => ({
-      id: r.id,
-      event_id: r.event_id,
-      exercise_index: r.exercise_index,
-      educator: profileMap.get(r.user_id) || null,
-    }));
-
+    // 5. Build coach list from profiles
     const coaches = coachUserIds
-      .map((id) => profileMap.get(id))
+      .map((uid) => profileMap.get(uid))
       .filter((p): p is CoachMember => !!p);
+
+    // 6. Build educator plans with resolved profiles
+    const plans: EducatorRow[] = planRows.map((p) => ({
+      id: p.id,
+      event_id: p.event_id,
+      exercise_index: p.exercise_index,
+      educator: profileMap.get(p.user_id) ?? null,
+    }));
 
     return { plans, coaches };
   }, [eventId, teamId]);
@@ -103,19 +107,22 @@ export function ExerciseEducators({
 
   async function assignEducator(index: number, userId: string) {
     const supabase = createClient();
-    const { error } = await supabase.from("educator_plans").upsert(
-      {
-        team_id: teamId,
-        user_id: userId,
-        event_id: eventId,
-        exercise_index: index,
-        role: "responsable",
-      },
-      { onConflict: "team_id,event_id,exercise_index" }
-    );
+    // Delete existing assignment first (partial unique index not supported by PostgREST upsert)
+    await supabase
+      .from("educator_plans")
+      .delete()
+      .eq("event_id", eventId)
+      .eq("exercise_index", index);
+    const { error } = await supabase.from("educator_plans").insert({
+      team_id: teamId,
+      user_id: userId,
+      event_id: eventId,
+      exercise_index: index,
+      role: "responsable",
+    });
     if (error) {
-      console.error("[ExerciseEducators] upsert error:", error);
-      toast.error(`Impossible d'assigner le responsable: ${error.message}`);
+      console.error("[educator_plans] insert error:", error.message, error.code, error.details);
+      toast.error("Impossible d'assigner le responsable");
       return;
     }
     toast.success("Responsable de l'exercice mis à jour");
@@ -144,62 +151,58 @@ export function ExerciseEducators({
   );
 
   return (
-    <Card>
-      <CardContent className="p-4">
-        <p className="text-sm font-semibold mb-3 flex items-center gap-1.5">
-          <Users className="h-3.5 w-3.5 text-[var(--color-royal)]" />
-          Répartition des éducateurs
-        </p>
-        {loading ? (
-          <div className="h-12 animate-pulse rounded-lg bg-muted" />
-        ) : (
-          <div className="space-y-2">
-            {exercises.map((ex) => {
-              const plan = assignmentByIndex.get(ex.index);
-              const educator = plan?.educator;
-              return (
-                <div
-                  key={ex.index}
-                  className="flex items-center gap-2 rounded-lg border px-3 py-2"
-                >
-                  <span className="flex-1 min-w-0 truncate text-sm">
-                    <span className="font-medium text-muted-foreground mr-1.5">
-                      {ex.index + 1}.
-                    </span>
-                    {ex.label || "Exercice"}
+    <div className="rounded-xl border border-[var(--color-royal)]/20 bg-[var(--color-navy)]/5 p-4">
+      <p className="text-sm font-semibold mb-3 flex items-center gap-1.5 text-[var(--color-navy)]">
+        <Users className="h-4 w-4 text-[var(--color-royal)]" />
+        Répartition des éducateurs
+      </p>
+      {loading ? (
+        <div className="h-12 animate-pulse rounded-lg bg-muted" />
+      ) : (
+        <div className="space-y-2">
+          {exercises.map((ex) => {
+            const plan = assignmentByIndex.get(ex.index);
+            const educator = plan?.educator;
+            return (
+              <div
+                key={ex.index}
+                className="flex items-center gap-2 rounded-lg border border-border/60 bg-background px-3 py-2"
+              >
+                <span className="flex-1 min-w-0 truncate text-sm">
+                  <span className="font-semibold text-[var(--color-royal)] mr-1.5">
+                    {ex.index + 1}.
                   </span>
-                  {isCoach ? (
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <select
-                        className="h-8 max-w-[180px] rounded-lg border border-input bg-transparent px-2 text-sm"
-                        value={educator?.id ?? ""}
-                        onChange={(e) => {
-                          const v = e.target.value;
-                          if (v) assignEducator(ex.index, v);
-                          else removeEducator(ex.index);
-                        }}
-                      >
-                        <option value="">Aucun responsable</option>
-                        {coaches.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.first_name} {c.last_name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  ) : (
-                    <span className="text-xs text-muted-foreground shrink-0">
-                      {educator
-                        ? `${educator.first_name} ${educator.last_name}`
-                        : "Pas de responsable"}
-                    </span>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+                  {ex.label || "Exercice"}
+                </span>
+                {isCoach ? (
+                  <select
+                    className="flex h-9 rounded-lg border border-[var(--color-royal)]/30 bg-background px-3 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-blue)]/40 max-w-[200px]"
+                    value={educator?.id ?? ""}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (v) assignEducator(ex.index, v);
+                      else removeEducator(ex.index);
+                    }}
+                  >
+                    <option value="">— Choisir —</option>
+                    {coaches.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.first_name} {c.last_name}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <span className="text-xs text-muted-foreground shrink-0">
+                    {educator
+                      ? `${educator.first_name} ${educator.last_name}`
+                      : "Pas de responsable"}
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }

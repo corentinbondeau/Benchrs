@@ -4,9 +4,9 @@ import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useTeam } from "@/lib/team";
 import { useQueryCache } from "@/lib/queryCache";
-import { NextEventCard } from "@/components/dashboard/NextEventCard";
+import NextEventCard from "@/components/dashboard/NextEventCard";
 import { PendingConvocations } from "@/components/dashboard/PendingConvocations";
-import { RecentResults } from "@/components/dashboard/RecentResults";
+import RecentResults from "@/components/dashboard/RecentResults";
 import { TrendingUp, Target, Clock, Trophy } from "lucide-react";
 
 interface PlayerStats {

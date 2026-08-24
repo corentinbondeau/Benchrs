@@ -46,7 +46,7 @@ export default function RosterPage() {
 
       const { data: profiles } = await supabase
         .from("profiles")
-        .select("*")
+        .select("id, first_name, last_name, role, position, shirt_number, date_of_birth, phone, vma, vmi, avatar_url")
         .in("id", rows.map((r) => r.user_id))
         .order("last_name", { ascending: true });
 

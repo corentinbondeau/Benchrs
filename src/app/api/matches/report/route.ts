@@ -7,6 +7,7 @@ import {
   isTeamMember,
   isTeamCoach,
 } from "@/lib/api-auth";
+import { callAI, cleanJson } from "@/lib/ai";
 
 export const dynamic = "force-dynamic";
 
@@ -18,16 +19,6 @@ export interface MatchReportContent {
   axes_progression: string[];
   note_equipe: number;
   meilleurs_joueurs: { nom: string; raison: string }[];
-}
-
-function cleanJson(text: string): string {
-  const t = text.trim();
-  const fenceMatch = t.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
-  if (fenceMatch) return fenceMatch[1];
-  const firstBrace = t.indexOf("{");
-  const lastBrace = t.lastIndexOf("}");
-  if (firstBrace >= 0 && lastBrace > firstBrace) return t.slice(firstBrace, lastBrace + 1);
-  return t;
 }
 
 function sanitizeManualReport(raw: Record<string, unknown>): MatchReportContent | null {
@@ -203,14 +194,6 @@ export async function POST(req: Request) {
       (a) => a.status === "present"
     ).length;
 
-    const apiKey = process.env.MISTRAL_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json(
-        { error: "MISTRAL_API_KEY manquante" },
-        { status: 500 }
-      );
-    }
-
     const opponent = event.opponent || "adversaire";
     const score = event.score_us != null && event.score_them != null
       ? `${event.score_us} - ${event.score_them}`
@@ -248,32 +231,7 @@ Règles :
 - "meilleurs_joueurs" : 1 à 3 joueurs, choisis d'après les buts, passes décisives, arrêts, minutes jouées ou événements marquants.
 - Tout est rédigé en français.`;
 
-    const res = await fetch("https://api.mistral.ai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: process.env.MISTRAL_MODEL || "mistral-small-latest",
-        temperature: 0.5,
-        max_tokens: 2048,
-        response_format: { type: "json_object" },
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userContent },
-        ],
-      }),
-    });
-
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`Mistral API ${res.status}: ${text.slice(0, 200)}`);
-    }
-
-    const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
-    const content = data.choices?.[0]?.message?.content ?? "";
-    if (!content) throw new Error("Réponse vide de Mistral");
+    const content = await callAI(systemPrompt, userContent, { temperature: 0.5, maxTokens: 2048, responseFormat: "json" });
 
     const parsed = JSON.parse(cleanJson(content)) as Record<string, unknown>;
     const report: MatchReportContent = {

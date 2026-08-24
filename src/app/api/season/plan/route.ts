@@ -54,21 +54,31 @@ export async function POST(req: Request) {
   const prevSummary =
     (prevReport?.content as { summary?: string } | undefined)?.summary?.slice(0, 400) ?? undefined;
 
-  const plan = await generateSeasonPlan({
-    teamName,
-    season,
-    seasonStart: range.start.toISOString().slice(0, 10),
-    seasonEnd: range.end.toISOString().slice(0, 10),
-    prevSummary,
-  });
+  let plan;
+  try {
+    plan = await generateSeasonPlan({
+      teamName,
+      season,
+      seasonStart: range.start.toISOString().slice(0, 10),
+      seasonEnd: range.end.toISOString().slice(0, 10),
+      prevSummary,
+    });
+  } catch (e) {
+    console.error("[season/plan] AI generation error:", e);
+    const message = e instanceof Error ? e.message : "Erreur lors de la génération du plan";
+    return NextResponse.json({ error: `Échec de la génération IA : ${message}` }, { status: 502 });
+  }
 
+  // Serialize to plain JSON to avoid prototype issues with PostgREST
+  const contentJson = JSON.parse(JSON.stringify(plan));
   const { error } = await supabase.from("season_plans").upsert(
-    { team_id: teamId, season, content: plan, created_by: user.id },
+    { team_id: teamId, season, content: contentJson, created_by: user.id },
     { onConflict: "team_id,season" }
   );
   if (error) {
-    console.error("[season/plan] upsert error:", error);
-    return NextResponse.json({ error: "Erreur lors de la sauvegarde" }, { status: 500 });
+    console.error("[season/plan] upsert error:", error.message, error.details, error.hint, error.code);
+    // Return the plan anyway — don't lose AI output because of a DB save error
+    return NextResponse.json({ plan, cached: false, saveError: error.message });
   }
 
   return NextResponse.json({ plan, cached: false });

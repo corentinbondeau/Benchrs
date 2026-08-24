@@ -18,7 +18,7 @@ export function NewsFeed() {
       const supabase = createClient();
       const { data } = await supabase
         .from("events")
-        .select("*")
+        .select("id, title, event_date, type, status, score_us, score_them")
         .eq("team_id", currentTeam!.id)
         .in("status", ["completed", "upcoming"])
         .order("event_date", { ascending: true })

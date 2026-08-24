@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { toPng } from "html-to-image";
 import { createClient } from "@/lib/supabase/client";
 import { useTeam } from "@/lib/team";
 import {
@@ -126,6 +125,7 @@ export function PlayerPaniniCard({
     if (!cardRef.current || !stats) return;
     setExporting(true);
     try {
+      const { toPng } = await import("html-to-image");
       const dataUrl = await toPng(cardRef.current, { pixelRatio: 2, cacheBust: true });
       const blob = await (await fetch(dataUrl)).blob();
       const file = new File([blob], `carte-${stats.firstName.toLowerCase()}-${stats.lastName.toLowerCase()}.png`, {

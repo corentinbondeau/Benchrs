@@ -12,6 +12,34 @@ const inFlight = new Map<string, Promise<unknown>>();
 const subscribers = new Map<string, Set<() => void>>();
 
 export const DEFAULT_TTL = 30_000;
+export const TTL_PROFILES = 300_000;
+export const TTL_EVENTS = 60_000;
+export const TTL_REALTIME = 30_000;
+
+const SS_PREFIX = "benchrs:qc:";
+
+function getFromSessionStorage<T>(key: string): { has: boolean; data: T | null } {
+  try {
+    const raw = sessionStorage.getItem(`${SS_PREFIX}${key}`);
+    if (!raw) return { has: false, data: null };
+    const entry = JSON.parse(raw) as CacheEntry<T>;
+    if (Date.now() > entry.expiresAt) {
+      sessionStorage.removeItem(`${SS_PREFIX}${key}`);
+      return { has: false, data: null };
+    }
+    return { has: true, data: entry.data };
+  } catch {
+    return { has: false, data: null };
+  }
+}
+
+function writeToSessionStorage<T>(key: string, data: T, expiresAt: number) {
+  try {
+    sessionStorage.setItem(`${SS_PREFIX}${key}`, JSON.stringify({ data, expiresAt }));
+  } catch {
+    // sessionStorage indisponible (SSR, private browsing quota) → on ignore
+  }
+}
 
 function subscribe(key: string, fn: () => void) {
   let set = subscribers.get(key);
@@ -43,7 +71,9 @@ export function getQueryCache<T>(key: string): { has: boolean; data: T | null } 
 }
 
 export function setQueryCache<T>(key: string, data: T, ttl: number = DEFAULT_TTL) {
-  cache.set(key, { data, expiresAt: Date.now() + ttl });
+  const expiresAt = Date.now() + ttl;
+  cache.set(key, { data, expiresAt });
+  writeToSessionStorage(key, data, expiresAt);
   publish(key);
 }
 
@@ -58,7 +88,34 @@ export function clearQueryCache(key?: string) {
 interface QueryResult<T> {
   data: T | null;
   loading: boolean;
+  isRevalidating: boolean;
   revalidate: () => Promise<void>;
+}
+
+function getInitialSnapshot<T>(key: string | null): {
+  queryKey: string | null;
+  data: T | null;
+  loading: boolean;
+  isRevalidating: boolean;
+} {
+  if (!key) {
+    return { queryKey: null, data: null, loading: true, isRevalidating: false };
+  }
+
+  // 1. Vérifier le cache mémoire
+  const memCached = getQueryCache<T>(key);
+  if (memCached.has) {
+    return { queryKey: key, data: memCached.data, loading: false, isRevalidating: true };
+  }
+
+  // 2. Vérifier sessionStorage
+  const ssCached = getFromSessionStorage<T>(key);
+  if (ssCached.has) {
+    return { queryKey: key, data: ssCached.data, loading: false, isRevalidating: true };
+  }
+
+  // 3. Rien en cache → premier fetch
+  return { queryKey: key, data: null, loading: true, isRevalidating: false };
 }
 
 export function useQueryCache<T>(
@@ -71,10 +128,8 @@ export function useQueryCache<T>(
     queryKey: string | null;
     data: T | null;
     loading: boolean;
-  }>(() => {
-    const cached = key ? getQueryCache<T>(key) : { has: false, data: null };
-    return { queryKey: key, data: cached.data, loading: !cached.has };
-  });
+    isRevalidating: boolean;
+  }>(() => getInitialSnapshot<T>(key));
 
   const fetcherRef = useRef(fetcher);
   const keyRef = useRef(key);
@@ -92,10 +147,20 @@ export function useQueryCache<T>(
   const stale = snapshot.queryKey !== key;
   const data = stale ? null : snapshot.data;
   const loading = stale || snapshot.loading;
+  const isRevalidating = stale ? false : snapshot.isRevalidating;
 
   const revalidate = useCallback(async () => {
     const k = keyRef.current;
     if (!k) return;
+
+    // Marquer la revalidation en cours si des données existent déjà
+    setSnapshot((s) => {
+      if (s.data !== null && !s.loading) {
+        return { ...s, isRevalidating: true };
+      }
+      return s;
+    });
+
     let p = inFlight.get(k);
     if (!p) {
       p = fetcherRef.current().then((result) => {
@@ -110,9 +175,9 @@ export function useQueryCache<T>(
     }
     try {
       const result = await p;
-      setSnapshot({ queryKey: k, data: result as T, loading: false });
+      setSnapshot({ queryKey: k, data: result as T, loading: false, isRevalidating: false });
     } catch {
-      setSnapshot((s) => ({ ...s, loading: false }));
+      setSnapshot((s) => ({ ...s, loading: false, isRevalidating: false }));
     }
   }, []);
 
@@ -121,12 +186,12 @@ export function useQueryCache<T>(
     const unsub = subscribe(key, () => {
       const updated = getQueryCache<T>(key);
       if (updated.has) {
-        setSnapshot({ queryKey: key, data: updated.data, loading: false });
+        setSnapshot({ queryKey: key, data: updated.data, loading: false, isRevalidating: false });
       }
     });
     revalidate();
     return unsub;
   }, [key, revalidate]);
 
-  return { data, loading, revalidate };
+  return { data, loading, isRevalidating, revalidate };
 }

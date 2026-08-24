@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useTeam } from "@/lib/team";
 import { useQueryCache } from "@/lib/queryCache";
@@ -12,7 +13,7 @@ interface QuickStatsData {
   recentWins: number;
 }
 
-export function QuickStats() {
+function QuickStats() {
   const { currentTeam } = useTeam();
   const { data: stats, loading } = useQueryCache<QuickStatsData>(
     currentTeam ? `stats:quick:${currentTeam.id}` : null,
@@ -99,3 +100,5 @@ export function QuickStats() {
     </div>
   );
 }
+
+export default memo(QuickStats);

@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useTeam } from "@/lib/team";
 import { useRouter } from "next/navigation";
@@ -7,7 +8,7 @@ import { useQueryCache } from "@/lib/queryCache";
 import type { Event } from "@/types";
 import { Calendar, MapPin, Clock, ChevronRight, Users } from "lucide-react";
 
-export function NextEventCard() {
+function NextEventCard() {
   const router = useRouter();
   const { currentTeam } = useTeam();
   const { data: event, loading } = useQueryCache<Event | null>(
@@ -16,7 +17,7 @@ export function NextEventCard() {
       const supabase = createClient();
       const { data } = await supabase
         .from("events")
-        .select("*")
+        .select("id, title, event_date, type, status, opponent, location")
         .eq("team_id", currentTeam!.id)
         .in("status", ["upcoming", "ongoing"])
         .gte("event_date", new Date().toISOString())
@@ -115,3 +116,5 @@ export function NextEventCard() {
     </button>
   );
 }
+
+export default memo(NextEventCard);
