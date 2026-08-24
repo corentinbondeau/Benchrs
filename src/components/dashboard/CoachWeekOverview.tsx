@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useTeam } from "@/lib/team";
 import { useRouter } from "next/navigation";
 import { useQueryCache } from "@/lib/queryCache";
+import { countTeamActivePlayers } from "@/lib/players";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -92,7 +93,7 @@ export function CoachWeekOverview() {
       const matchIds = weekEvents.filter((e) => e.type === "match").map((e) => e.id);
       const trainingIds = weekEvents.filter((e) => e.type === "training").map((e) => e.id);
 
-      const [availRows, rpeRows, subsRows] = await Promise.all([
+      const [availRows, rpeRows, subsRows, totalPlayers] = await Promise.all([
         matchIds.length
           ? supabase
               .from("match_availability")
@@ -113,12 +114,12 @@ export function CoachWeekOverview() {
               .select("id, status")
               .eq("challenge_id", (challenge as { id: string }).id)
           : Promise.resolve({ data: [] as never[] }),
+        countTeamActivePlayers(currentTeam.id),
       ]);
 
       const availByEvent = new Map<string, { dispo: number; total: number }>();
       for (const r of (availRows.data || []) as { event_id: string; availability: string }[]) {
-        const a = availByEvent.get(r.event_id) ?? { dispo: 0, total: 0 };
-        a.total += 1;
+        const a = availByEvent.get(r.event_id) ?? { dispo: 0, total: totalPlayers };
         if (r.availability === "dispo") a.dispo += 1;
         availByEvent.set(r.event_id, a);
       }
