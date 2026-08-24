@@ -1,0 +1,381 @@
+═══════════════════════════════════════════════════════════════════════════════
+                        BENCHRS - FILE INDEX
+═══════════════════════════════════════════════════════════════════════════════
+
+🏆 CHAMPIONNAT
+───────────────────────────────────────────────────────────────────────────────
+Frontend Page
+  /home/cb19/dev_perso/Benchrs/src/app/(dashboard)/championship/page.tsx
+
+API Routes  
+  /home/cb19/dev_perso/Benchrs/src/app/api/championships/route.ts
+  /home/cb19/dev_perso/Benchrs/src/app/api/championships/fff/route.ts
+  /home/cb19/dev_perso/Benchrs/src/app/api/championships/standings/route.ts
+
+Types
+  /home/cb19/dev_perso/Benchrs/src/types/index.ts
+    → interface Championship
+    → interface ChampionshipTeam
+
+───────────────────────────────────────────────────────────────────────────────
+📝 FEUILLE DE MATCH
+───────────────────────────────────────────────────────────────────────────────
+Frontend Page
+  /home/cb19/dev_perso/Benchrs/src/app/(dashboard)/matches/[id]/feuille/page.tsx
+
+API Routes
+  /home/cb19/dev_perso/Benchrs/src/app/api/matches/[id]/route.ts
+  /home/cb19/dev_perso/Benchrs/src/app/api/formations/route.ts
+  /home/cb19/dev_perso/Benchrs/src/app/api/matches/[id]/feuille/route.ts (si existant)
+
+Types
+  /home/cb19/dev_perso/Benchrs/src/types/index.ts
+    → interface Event
+    → interface Formation
+    → interface LineupEntry
+    → interface MatchLineup
+    → interface MatchEvent
+
+───────────────────────────────────────────────────────────────────────────────
+👥 RÉUNION PARENTS
+───────────────────────────────────────────────────────────────────────────────
+Frontend Page
+  /home/cb19/dev_perso/Benchrs/src/app/(dashboard)/meetings/page.tsx
+
+API Routes
+  /home/cb19/dev_perso/Benchrs/src/app/api/meetings/route.ts
+  /home/cb19/dev_perso/Benchrs/src/app/api/meetings/[id]/route.ts
+  /home/cb19/dev_perso/Benchrs/src/app/api/meetings/[id]/signatures/route.ts
+
+Components
+  /home/cb19/dev_perso/Benchrs/src/components/meetings/SignaturePad.tsx
+
+Types
+  /home/cb19/dev_perso/Benchrs/src/types/index.ts
+    → interface ParentMeeting
+    → interface MeetingSignature
+    → interface MeetingAgendaItem
+
+───────────────────────────────────────────────────────────────────────────────
+💰 CAGNOTTE
+───────────────────────────────────────────────────────────────────────────────
+Frontend Page
+  /home/cb19/dev_perso/Benchrs/src/app/(dashboard)/cagnotte/page.tsx
+
+API Routes
+  /home/cb19/dev_perso/Benchrs/src/app/api/treasury/route.ts
+  /home/cb19/dev_perso/Benchrs/src/app/api/treasury/[id]/route.ts
+  /home/cb19/dev_perso/Benchrs/src/app/api/treasury/[id]/contributions/route.ts
+  /home/cb19/dev_perso/Benchrs/src/app/api/treasury/relance/route.ts
+
+Types
+  /home/cb19/dev_perso/Benchrs/src/types/index.ts
+    → interface TeamPot
+    → interface PotContribution
+
+───────────────────────────────────────────────────────────────────────────────
+🤖 GÉNÉRATEURS IA - ANNONCES
+───────────────────────────────────────────────────────────────────────────────
+API Route
+  /home/cb19/dev_perso/Benchrs/src/app/api/announcements/generate/route.ts
+
+AI Logic
+  /home/cb19/dev_perso/Benchrs/src/lib/announcements/ai-generator.ts
+
+Types (dans le fichier ai-generator.ts)
+  → type AnnouncementType
+  → type AnnouncementAudience
+  → type AnnouncementTone
+  → interface AnnouncementContext
+  → interface AnnouncementEventContext
+
+Fonctions clés
+  → buildAnnouncementPrompt(ctx)
+  → generateAnnouncement(ctx)
+
+───────────────────────────────────────────────────────────────────────────────
+🎯 GÉNÉRATEURS IA - DÉFIS HEBDOMADAIRES
+───────────────────────────────────────────────────────────────────────────────
+Frontend Page
+  /home/cb19/dev_perso/Benchrs/src/app/(dashboard)/challenge/page.tsx
+
+API Route
+  /home/cb19/dev_perso/Benchrs/src/app/api/challenges/generate/route.ts
+
+AI Logic
+  /home/cb19/dev_perso/Benchrs/src/lib/challenges/ai-generator.ts
+
+Types
+  → type ChallengeDifficulty
+  → interface WeeklyChallenge
+
+Fonctions clés
+  → generateWeeklyChallenge(difficulty)
+  → parseChallenge(content)
+
+───────────────────────────────────────────────────────────────────────────────
+⚽ GÉNÉRATEURS IA - ENTRAÎNEMENTS
+───────────────────────────────────────────────────────────────────────────────
+Frontend Page
+  /home/cb19/dev_perso/Benchrs/src/app/(dashboard)/trainings/generate/page.tsx
+
+API Route
+  /home/cb19/dev_perso/Benchrs/src/app/api/trainings/generate/route.ts
+
+AI Logic
+  /home/cb19/dev_perso/Benchrs/src/lib/training/ai-generator.ts
+
+Support Files
+  /home/cb19/dev_perso/Benchrs/src/lib/training/phases.ts
+  /home/cb19/dev_perso/Benchrs/src/lib/training/pdf.tsx
+  /home/cb19/dev_perso/Benchrs/src/lib/training/exercises.ts
+
+Types
+  → type ExpertiseLevel
+  → type FootballSystem
+  → type SchematicType
+  → interface AISession
+  → interface FicheSection
+  → interface FicheBlock
+  → interface Schematic
+
+Fonctions clés
+  → buildBasePersona(expertise)
+  → generateSessionWithAI(phase, objectives, playerCount, systeme, expertise)
+  → renderSessionPdf(session)
+
+───────────────────────────────────────────────────────────────────────────────
+🔐 AUTHENTIFICATION & PERMISSIONS
+───────────────────────────────────────────────────────────────────────────────
+Auth Client Context
+  /home/cb19/dev_perso/Benchrs/src/lib/auth.tsx
+    → useAuth() hook
+    → AuthProvider component
+    → AuthContext type
+
+Auth Server/API
+  /home/cb19/dev_perso/Benchrs/src/lib/api-auth.ts
+    → getAuthUser(req)
+    → getAuthUserDetailed(req)
+    → getTeamRole(userId, teamId)
+    → isTeamCoach(userId, teamId)
+    → isTeamMember(userId, teamId)
+    → getUserTeamIds(userId)
+    → unauthorized(detail?)
+    → forbidden()
+
+Team Hook
+  /home/cb19/dev_perso/Benchrs/src/lib/team.tsx (probablement)
+    → useTeam() hook (utilisé partout)
+
+Types
+  /home/cb19/dev_perso/Benchrs/src/types/index.ts
+    → type UserRole
+    → type TeamMemberRole
+
+───────────────────────────────────────────────────────────────────────────────
+📊 CONFIGURATION ONGLETS
+───────────────────────────────────────────────────────────────────────────────
+Configuration Principale
+  /home/cb19/dev_perso/Benchrs/src/lib/tabs.ts
+    → const NAV_TABS[] (liste complète des onglets)
+    → const NAV_TAB_KEYS (clés)
+    → function useHiddenTabs(teamId) (masquage)
+
+───────────────────────────────────────────────────────────────────────────────
+🗄️ BASE DE DONNÉES - MIGRATIONS
+───────────────────────────────────────────────────────────────────────────────
+Répertoire principal
+  /home/cb19/dev_perso/Benchrs/supabase/migrations/
+
+Fichiers clés
+  000_full_schema.sql                    # Schéma initial complet
+  004_multi_team.sql                     # Support multi-équipe
+  005_rls_team_scoped.sql                # Row Level Security
+  006_team_colors.sql                    # Couleurs équipes
+  011_albums.sql                         # Galerie photos
+  012_storage_gallery.sql                # Stockage images
+  016_cotisations_payment_history.sql    # Paiements
+  017_vma_physical_prep.sql              # Prépa physique
+  020_notification_preferences.sql       # Préférences notifications
+  025_match_realtime.sql                 # Realtime matchs
+  030_security_hardening.sql             # Sécurité
+  035_training_sessions_fiche.sql        # Fiches d'entraînement
+  058_team_branding.sql                  # Branding équipes
+  061_team_tab_visibility.sql            # Visibilité onglets
+  062_vma_vmi_rpc_dedupe.sql             # RPC VMA/VMI
+  063_enrichment_feed_notebook.sql       # Feed/notebook
+
+───────────────────────────────────────────────────────────────────────────────
+📚 TYPES GLOBAUX
+───────────────────────────────────────────────────────────────────────────────
+Définitions principales
+  /home/cb19/dev_perso/Benchrs/src/types/index.ts (923 lignes)
+    → UserRole, TeamMemberRole, EventType, EventStatus
+    → Club, Team, TeamMember, Profile
+    → Event, Attendance, Formation, MatchLineup
+    → Championship, ChampionshipTeam
+    → ParentMeeting, MeetingSignature
+    → TeamPot, PotContribution
+    → PersonalGoal, Injury, Trophy
+    → etc. (923 lignes total)
+
+───────────────────────────────────────────────────────────────────────────────
+🔌 API CLIENT
+───────────────────────────────────────────────────────────────────────────────
+Client utilities
+  /home/cb19/dev_perso/Benchrs/src/lib/api-client.ts
+    → authFetch() (fetch avec auth Bearer)
+
+───────────────────────────────────────────────────────────────────────────────
+📐 COMPOSANTS UTILITAIRES
+───────────────────────────────────────────────────────────────────────────────
+UI Components
+  /home/cb19/dev_perso/Benchrs/src/components/ui/
+    → card.tsx, button.tsx, input.tsx, label.tsx, textarea.tsx
+    → dialog.tsx, badge.tsx, etc. (shadcn/ui)
+
+Layout
+  /home/cb19/dev_perso/Benchrs/src/components/layout/
+
+Dashboard
+  /home/cb19/dev_perso/Benchrs/src/components/dashboard/
+
+Match Components
+  /home/cb19/dev_perso/Benchrs/src/components/match/
+
+Training Components
+  /home/cb19/dev_perso/Benchrs/src/components/training/
+
+Stats Components
+  /home/cb19/dev_perso/Benchrs/src/components/stats/
+
+───────────────────────────────────────────────────────────────────────────────
+⚙️ CONFIGURATION & BUILD
+───────────────────────────────────────────────────────────────────────────────
+Configuration
+  /home/cb19/dev_perso/Benchrs/package.json              # Dépendances
+  /home/cb19/dev_perso/Benchrs/tsconfig.json             # TypeScript
+  /home/cb19/dev_perso/Benchrs/next.config.ts            # Next.js
+  /home/cb19/dev_perso/Benchrs/tailwind.config.ts        # Tailwind
+  /home/cb19/dev_perso/Benchrs/components.json           # shadcn/ui
+  /home/cb19/dev_perso/Benchrs/playwright.config.ts      # Tests e2e
+  /home/cb19/dev_perso/Benchrs/postcss.config.mjs        # PostCSS
+
+Scripts
+  /home/cb19/dev_perso/Benchrs/install.sh                # Installation script
+  /home/cb19/dev_perso/Benchrs/insert_ecc_u14.sql        # Données de test
+
+───────────────────────────────────────────────────────────────────────────────
+📖 DOCUMENTATION
+───────────────────────────────────────────────────────────────────────────────
+Vue d'ensemble complète
+  /home/cb19/dev_perso/Benchrs/BENCHRS_OVERVIEW.md       # Documentation complète
+
+README
+  /home/cb19/dev_perso/Benchrs/README.md                 # Informations de base
+
+CLAUDE
+  /home/cb19/dev_perso/Benchrs/CLAUDE.md                 # Instructions pour Claude/IA
+
+═══════════════════════════════════════════════════════════════════════════════
+                           STRUCTURE COMPLÈTE
+═══════════════════════════════════════════════════════════════════════════════
+
+/home/cb19/dev_perso/Benchrs/
+├── src/
+│   ├── app/
+│   │   ├── (auth)/                                  # Pages d'authentification
+│   │   │   ├── login/
+│   │   │   ├── register/
+│   │   │   └── ...
+│   │   ├── (dashboard)/                             # Pages dashboard
+│   │   │   ├── championship/page.tsx               ✅ CHAMPIONNAT
+│   │   │   ├── matches/[id]/feuille/page.tsx       ✅ FEUILLE DE MATCH
+│   │   │   ├── meetings/page.tsx                   ✅ RÉUNION PARENTS
+│   │   │   ├── cagnotte/page.tsx                   ✅ CAGNOTTE
+│   │   │   ├── challenge/page.tsx                  (Défi hebdo IA)
+│   │   │   ├── trainings/generate/page.tsx         (Génération IA)
+│   │   │   ├── stats/
+│   │   │   ├── physical/
+│   │   │   ├── medical/
+│   │   │   ├── tactics/
+│   │   │   ├── gallery/
+│   │   │   ├── trophies/
+│   │   │   └── ...
+│   │   ├── api/
+│   │   │   ├── championships/                      ✅ API CHAMPIONNAT
+│   │   │   ├── announcements/generate/             ✅ API GEN. ANNONCES
+│   │   │   ├── challenges/generate/                ✅ API GEN. DÉFIS
+│   │   │   ├── trainings/generate/                 ✅ API GEN. ENTRAÎNEMENTS
+│   │   │   ├── meetings/                           ✅ API RÉUNION PARENTS
+│   │   │   ├── treasury/                           ✅ API CAGNOTTE
+│   │   │   ├── formations/
+│   │   │   ├── matches/
+│   │   │   ├── auth/
+│   │   │   └── ...
+│   │   ├── live/                                   # Live match
+│   │   ├── c/[slug]/                               # Page publique
+│   │   └── offline/
+│   ├── components/
+│   │   ├── ui/                                     # shadcn/ui components
+│   │   ├── layout/
+│   │   ├── dashboard/
+│   │   ├── match/
+│   │   ├── meetings/                               → SignaturePad.tsx
+│   │   ├── training/
+│   │   ├── stats/
+│   │   ├── announcements/
+│   │   ├── calendar/
+│   │   ├── chat/
+│   │   └── ...
+│   ├── lib/
+│   │   ├── auth.tsx                                🔐 Context Auth
+│   │   ├── api-auth.ts                             🔐 Auth fonctions
+│   │   ├── api-client.ts                           (authFetch)
+│   │   ├── tabs.ts                                 📊 Config onglets
+│   │   ├── team.tsx                                (useTeam hook)
+│   │   ├── announcements/
+│   │   │   └── ai-generator.ts                     🤖 Gen. Annonces
+│   │   ├── challenges/
+│   │   │   └── ai-generator.ts                     🤖 Gen. Défis
+│   │   ├── training/
+│   │   │   ├── ai-generator.ts                     🤖 Gen. Entraînements
+│   │   │   ├── phases.ts
+│   │   │   ├── pdf.tsx
+│   │   │   └── exercises.ts
+│   │   ├── supabase/
+│   │   │   ├── client.ts
+│   │   │   └── admin.ts
+│   │   ├── season/
+│   │   ├── calendar/
+│   │   ├── chat.ts
+│   │   ├── players.ts
+│   │   ├── playerAlerts.ts
+│   │   ├── push.ts
+│   │   ├── notificationTypes.ts
+│   │   └── ...
+│   ├── types/
+│   │   └── index.ts                                📚 Types (923 lignes)
+│   ├── assets/
+│   │   ├── flags/
+│   │   └── i18n/
+│   └── environments/
+├── supabase/
+│   └── migrations/                                 🗄️ 77 fichiers
+│       ├── 000_full_schema.sql
+│       ├── 004_multi_team.sql
+│       └── ...
+├── e2e/                                            Tests e2e
+├── public/                                         Fichiers statiques
+├── package.json                                    Dépendances
+├── tsconfig.json                                   TypeScript config
+├── next.config.ts                                  Next.js config
+├── tailwind.config.ts                              Tailwind config
+├── components.json                                 shadcn/ui config
+├── README.md                                       Description de base
+├── BENCHRS_OVERVIEW.md                             📖 Docs complètes
+└── vercel.json                                     Deploy config
+
+═══════════════════════════════════════════════════════════════════════════════
+Dernière mise à jour: 12 Août 2026

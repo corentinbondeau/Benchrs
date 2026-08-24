@@ -1,0 +1,337 @@
+╔════════════════════════════════════════════════════════════════════════════════╗
+║                   BENCHRS - QUICK REFERENCE GUIDE                              ║
+╚════════════════════════════════════════════════════════════════════════════════╝
+
+📍 LOCALISATION PRINCIPALE
+━━━━━━━━━━━━━━━━━━━━━━━━━
+/home/cb19/dev_perso/Benchrs/
+
+🛠️ TECH STACK
+━━━━━━━━━━━━━━━━━━━━━━━━━
+• Next.js 16 (App Router) + TypeScript 5
+• Tailwind CSS 4 + shadcn/ui  
+• Supabase (PostgreSQL + Realtime)
+• NextAuth.js v5 (JWT)
+• Mistral AI (générateurs IA)
+• Vercel (deploy)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🏆 1. CHAMPIONNAT
+━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📄 Frontend
+  src/app/(dashboard)/championship/page.tsx                   [533 lignes]
+
+🔌 API  
+  src/app/api/championships/                    [route.ts + middleware]
+  src/app/api/championships/fff/                [scraping FFF]
+  src/app/api/championships/standings/         [standings détaillés]
+
+⚙️ Logic
+  src/lib/                                      [logique métier]
+  src/types/index.ts                            [interface Championship]
+
+📊 Données
+  championship {
+    id, name, season (ex: "2025-2026"), level, teams[]
+  }
+
+🔐 Permissions
+  ✅ Coach/Owner: Créer, scraper, télécharger PDF
+  📖 Player/Parent: Lecture seule
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📝 2. FEUILLE DE MATCH
+━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📄 Frontend
+  src/app/(dashboard)/matches/[id]/feuille/page.tsx          [289 lignes]
+
+🔌 API
+  src/app/api/matches/[id]/                     [détails match]
+  src/app/api/formations/                       [sauvegarder lineup]
+
+⚙️ Fonctionnalités
+  • Éditer árbitro/délégué
+  • Gérer composition (titulaires/remplaçants)
+  • Formation drag-and-drop (x, y)
+  • Désigner capitaine
+  • Sauvegarder
+
+📊 Données
+  LineupEntry {
+    id, player_id, position_label, is_starter, profile{}
+  }
+  Formation {
+    positions[], captain_id
+  }
+
+🔐 Permissions
+  ✅ Coach/Owner: Édition
+  📖 Player: Lecture seule
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+👥 3. RÉUNION PARENTS (MEETINGS)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📄 Frontend
+  src/app/(dashboard)/meetings/page.tsx                      [486 lignes]
+
+🔌 API
+  src/app/api/meetings/                         [CRUD réunions]
+  src/app/api/meetings/[id]/signatures/        [signatures numériques]
+
+⚙️ Composants
+  src/components/meetings/SignaturePad.tsx      [Canvas signature]
+
+⚙️ Fonctionnalités
+  • Créer réunion (title, desc, date, location)
+  • Ajouter ordre du jour
+  • Écrire compte-rendu (minutes)
+  • Signature numérique
+  • Notifier les parents
+
+📊 Données
+  ParentMeeting {
+    id, team_id, title, description, meeting_date, location, created_by
+  }
+  MeetingSignature {
+    id, meeting_id, user_id, signature_data (canvas), signed_at
+  }
+
+🔐 Permissions
+  ✅ Coach/Owner: Créer, éditer, noter
+  📖 Parent: Voir, signer
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+💰 4. CAGNOTTE (TREASURY)
+━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📄 Frontend
+  src/app/(dashboard)/cagnotte/page.tsx                      [414 lignes]
+
+🔌 API
+  src/app/api/treasury/                         [Créer pots]
+  src/app/api/treasury/relance/                 [Relances de paiement]
+
+⚙️ Fonctionnalités
+  • Créer cagnotte (title, description, goal)
+  • Ajouter contribution (montant, contributeur, method)
+  • Message privé
+  • Suivi total
+  • Notifications
+
+📊 Données
+  TeamPot {
+    id, team_id, title, description, goal_amount, created_by
+  }
+  PotContribution {
+    id, pot_id, contributor_name, amount, method (cash/bank/app), message
+  }
+
+🔐 Permissions
+  ✅ Coach/Owner: Créer/supprimer, valider contributions
+  📝 Player/Parent: Ajouter contributions
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🤖 5. GÉNÉRATEURS IA (Mistral API)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎯 A. ANNONCES
+───────────────
+📄 Frontend: (Intégré dans éditeur d'annonces)
+🔌 API Route: src/app/api/announcements/generate/route.ts
+⚙️ Logic: src/lib/announcements/ai-generator.ts           [138 lignes]
+
+Paramètres:
+  • Type: "convocation" | "info"
+  • Audience: "joueurs" | "parents"
+  • Tone: "motivant" | "sobre" | "chaleureux"
+  • Event: contexte événement (si convocation)
+  • Topic: sujet (si info)
+  • Points: ["horaire", "equipement", "reponse", "covoiturage", "lieu"]
+
+Output: Texte français prêt à envoyer
+
+Auth: ✅ Coach/Owner seulement
+
+🎯 B. DÉFIS HEBDOMADAIRES
+──────────────────────────
+📄 Frontend: src/app/(dashboard)/challenge/page.tsx
+🔌 API Route: src/app/api/challenges/generate/route.ts
+⚙️ Logic: src/lib/challenges/ai-generator.ts              [124 lignes]
+
+Paramètres:
+  • difficulty: "facile" | "moyen" | "difficile"
+  • weekStart: YYYY-MM-DD
+
+Output:
+  {
+    "title": "Max 5 mots",
+    "description": "3 phrases, ~250 chars",
+    "difficulty": "moyen"
+  }
+
+Stockage: weekly_challenges (upsert team_id + week_start)
+
+Auth: ✅ Coach/Owner seulement
+
+🎯 C. SÉANCES D'ENTRAÎNEMENT
+────────────────────────────
+📄 Frontend: src/app/(dashboard)/trainings/generate/page.tsx   [354 lignes]
+🔌 API Route: src/app/api/trainings/generate/route.ts
+⚙️ Logic: src/lib/training/ai-generator.ts                     [430 lignes]
+⚙️ Phases: src/lib/training/phases.ts
+📄 PDF: src/lib/training/pdf.tsx                               [29 KB]
+
+Paramètres:
+  • phase: Phase tactique (voir phases.ts)
+  • objectives: string[] (1-3)
+  • playerCount: nombre joueurs
+  • systeme: "4-3-3" | "4-2-3-1" | "4-4-2" | "3-5-2" | "5-3-2"
+  • expertise: "BMF" | "BE" | "UEFA B" | "UEFA A"
+  • team_id: string
+
+Output:
+  {
+    "title": "Nom séance",
+    "phase": "...",
+    "objective": "Objectif général",
+    "material": "Équipement",
+    "totalDuration": 90,
+    "sections": [
+      {
+        "name": "Échauffement",
+        "duration": 15,
+        "items": [...],
+        "variants": [...],
+        "schematic": {
+          "type": "pitch" | "zones" | "grid" | "circle" | "corridor" | "line" | "none",
+          "dimensions": "...",
+          "players": "...",
+          "description": "..."
+        }
+      },
+      ... 3 autres sections
+    ],
+    "conseilsCoach": [...]
+  }
+
+Niveaux:
+  BMF: Jeunes/école - simple, ludique
+  BE: Amateurs/jeunes compétiteurs - structuré
+  UEFA B: Haut niveau - détail méthodologique
+  UEFA A: Très haut niveau - concepts avancés
+
+Auth: ✅ Team members seulement
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔐 6. SYSTÈME DE PERMISSIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔐 Fichiers clés
+  src/lib/auth.tsx                              [Context Auth client]
+  src/lib/api-auth.ts                           [Auth check serveur/API]
+
+📊 Types de rôles
+  UserRole: "coach" | "player" | "parent"
+  TeamMemberRole: "owner" | "coach" | "player" | "parent"
+
+🗄️ Tables BD
+  profiles {
+    id, role, first_name, last_name, position, shirt_number, vma, vmi
+  }
+  clubs {
+    id, name, logo_url, created_by
+  }
+  teams {
+    id, club_id, name, invite_code, color_primary, color_secondary
+  }
+  team_members {
+    id, team_id, user_id, role,                 ← CLEF
+    UNIQUE(team_id, user_id)
+  }
+
+🔧 Fonctions API
+  getAuthUser(req)
+    → Extrait Bearer token
+    → Retourne User | null
+
+  getTeamRole(userId, teamId)
+    → Retourne "owner" | "coach" | "player" | "parent" | null
+
+  isTeamCoach(userId, teamId)
+    → true si role === "owner" || role === "coach"
+
+  isTeamMember(userId, teamId)
+    → true si exists in team_members
+
+  getUserTeamIds(userId)
+    → string[] de tous les teams
+
+🔐 RLS (Row Level Security)
+  Chaque table filtre: 
+    team_id IN (SELECT team_id FROM team_members WHERE user_id = auth.uid())
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📊 7. CONFIGURATION ONGLETS
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📄 Fichier: src/lib/tabs.ts
+
+Onglets disponibles:
+  stats, physical, medical, carpooling, tasks, polls, tactics, season,
+  challenge, gallery, trophies, championship, material, adversaires, compare
+
+Système de masquage:
+  • Hook: useHiddenTabs(teamId)
+  • Table: team_tab_visibility {team_id, tab_key, visible}
+  • Coachs peuvent masquer des onglets pour toute l'équipe
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🗄️ 8. BASE DE DONNÉES
+━━━━━━━━━━━━━━━━━━━━━━
+
+Migrations: supabase/migrations/                (77 fichiers)
+
+Principales:
+  000_full_schema.sql                           [Schéma initial]
+  004_multi_team.sql                            [Multi-équipe]
+  005_rls_team_scoped.sql                       [Row Level Security]
+  011_albums.sql                                [Galerie]
+  016_cotisations_payment_history.sql           [Cotisations]
+  025_match_realtime.sql                        [Realtime]
+  035_training_sessions_fiche.sql               [Séances]
+  061_team_tab_visibility.sql                   [Onglets]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🚀 QUICK START
+━━━━━━━━━━━━━━
+
+cd /home/cb19/dev_perso/Benchrs
+
+npm install
+cp .env.example .env.local          # Configure MISTRAL_API_KEY, Supabase, etc.
+npm run dev                         # http://localhost:3000
+
+npm run build && npm start          # Production
+npx playwright test                 # E2E tests
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📚 DOCUMENTATION COMPLÈTE
+━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Voir: /home/cb19/dev_perso/Benchrs/BENCHRS_OVERVIEW.md
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dernière mise à jour: 12 Août 2026

@@ -1,13 +1,15 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { ensureAttendanceRows } from "@/lib/convocations";
-import webpush from "@/lib/webpush";
+import { deliverPendingNotifications } from "@/lib/deliver-notifications";
+import { createAutoConvocations } from "@/lib/auto-convocations";
 import { currentSeasonLabel, seasonDateRange } from "@/lib/goals";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 export async function GET(req: Request) {
+  const startTime = Date.now();
+
   const cronSecret = process.env.CRON_SECRET;
   if (!cronSecret || req.headers.get("authorization") !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -16,7 +18,85 @@ export async function GET(req: Request) {
   const supabase = createAdminClient();
   const now = new Date().toISOString();
 
-  // --- Rappels la veille : planifie une notif « demain » pour chaque événement du lendemain ---
+  // --- ÉTAPE 1 : Delivery first — livre TOUTES les notifs pending existantes ---
+  // Doit être la PREMIÈRE opération après l'auth, avant toute création.
+  // Garantit que les notifications déjà en attente sont livrées même si les
+  // étapes de création suivantes échouent ou timeout.
+  const { sent, delivered, skipped } = await deliverPendingNotifications(supabase);
+
+  // --- ÉTAPE 2 : Auto-convocations — crée les convocations pour les événements
+  // dans la fenêtre lead_days. Wrappé dans un try/catch pour ne pas bloquer
+  // les étapes suivantes en cas d'erreur.
+  let autoConvocationsResult = { eventsProcessed: 0, notificationsCreated: 0 };
+  try {
+    autoConvocationsResult = await createAutoConvocations(supabase);
+  } catch (err) {
+    console.error("[notifications/cron] createAutoConvocations error:", err);
+  }
+
+  // --- ÉTAPES 3-9 : Création des notifications (indépendantes — exécutées en parallèle) ---
+  const creationResults = await Promise.allSettled([
+    // Rappels la veille
+    sendRappels(supabase, now),
+    // Digest hebdomadaire (lundi uniquement)
+    new Date().getDay() === 1 ? sendWeeklyDigest(supabase, now) : Promise.resolve(0),
+    // Alertes d'échéances
+    sendExpiryAlerts(supabase, now),
+    // Relances auto de convocation
+    sendAttendanceReminders(supabase, now),
+    // Alerte équité du temps de jeu (lundi uniquement)
+    new Date().getDay() === 1 ? sendPlayingTimeAlerts(supabase, now) : Promise.resolve(0),
+    // Relance cotisations
+    sendCotisationReminders(supabase, now),
+    // Félicitations auto
+    sendCongrats(supabase, now),
+  ]);
+
+  // Logger les erreurs individuelles des étapes parallèles
+  const labels = ["rappels", "digests", "echeances", "relances", "equite", "cotisations", "felicitations"];
+  for (let i = 0; i < creationResults.length; i++) {
+    if (creationResults[i].status === "rejected") {
+      console.error(`[notifications/cron] ${labels[i]} error:`, (creationResults[i] as PromiseRejectedResult).reason);
+    }
+  }
+
+  // Extraire les compteurs de création
+  const getCount = (idx: number): number => {
+    const r = creationResults[idx];
+    return r.status === "fulfilled" && typeof r.value === "number" ? r.value : 0;
+  };
+
+  const creation = {
+    rappels: getCount(0),
+    digests: getCount(1),
+    echeances: getCount(2),
+    relances: getCount(3),
+    equite: getCount(4),
+    cotisations: getCount(5),
+    felicitations: getCount(6),
+  };
+
+  const durationMs = Date.now() - startTime;
+
+  const result = {
+    ok: true,
+    delivery: { sent, delivered, skipped },
+    autoConvocations: autoConvocationsResult,
+    creation,
+    durationMs,
+  };
+
+  console.log("[notifications/cron]", JSON.stringify(result));
+
+  return NextResponse.json(result);
+}
+
+// ---------------------------------------------------------------------------
+// Rappels la veille (extrait de la fonction GET originale)
+// ---------------------------------------------------------------------------
+async function sendRappels(supabase: ReturnType<typeof createAdminClient>, now: string): Promise<number> {
+  let count = 0;
+
   const startTomorrow = new Date();
   startTomorrow.setHours(0, 0, 0, 0);
   startTomorrow.setDate(startTomorrow.getDate() + 1);
@@ -65,7 +145,7 @@ export async function GET(req: Request) {
     const parentIds = [...new Set((links || []).map((l) => (l as { parent_id: string }).parent_id))];
     const userIds = [...new Set([...activeIds, ...parentIds])];
 
-    const dateLabel = new Date(ev.event_date).toLocaleDateString("fr-FR", {
+    const evDateLabel = new Date(ev.event_date).toLocaleDateString("fr-FR", {
       weekday: "long",
       day: "numeric",
       month: "long",
@@ -81,7 +161,7 @@ export async function GET(req: Request) {
       team_id: ev.team_id,
       type: "rappel",
       title: isMatch ? "Match demain !" : "Entraînement demain",
-      body: `Demain ${dateLabel} à ${hour}${isMatch && ev.opponent ? ` contre ${ev.opponent}` : ""}`,
+      body: `Demain ${evDateLabel} à ${hour}${isMatch && ev.opponent ? ` contre ${ev.opponent}` : ""}`,
       reference_id: ev.id,
       url: isMatch ? `/matches/${ev.id}` : `/trainings/${ev.id}`,
       scheduled_for: now,
@@ -89,161 +169,12 @@ export async function GET(req: Request) {
     const { error: insertErr } = await supabase.from("notifications").insert(rows);
     if (insertErr) {
       console.error("[notifications/cron] rappel insert error:", insertErr);
+    } else {
+      count += rows.length;
     }
   }
 
-  // --- Digest hebdomadaire : envoyé chaque lundi (résumé résultats + prochain match + séances) ---
-  if (new Date().getDay() === 1) {
-    await sendWeeklyDigest(supabase, now);
-  }
-
-  // --- Alertes d'échéances : licences, certificats médicaux, cotisations (fenêtre 30 jours) ---
-  await sendExpiryAlerts(supabase, now);
-
-  // --- Relances auto de convocation (joueurs sans réponse) ---
-  await sendAttendanceReminders(supabase, now);
-
-  // --- Alerte équité du temps de jeu (hebdomadaire, lundi) ---
-  if (new Date().getDay() === 1) {
-    await sendPlayingTimeAlerts(supabase, now);
-  }
-
-  // --- Relance cotisations (pending/partial dues within 7 days or overdue) ---
-  await sendCotisationReminders(supabase, now);
-
-  // --- Félicitations auto : anniversaires, premier but, 50e match ---
-  await sendCongrats(supabase, now);
-
-  const { data: pending } = await supabase
-    .from("notifications")
-    .select("id, user_id, title, body, type, reference_id, team_id, url")
-    .lte("scheduled_for", now)
-    .is("delivered_at", null)
-    .limit(500);
-
-  if (!pending || pending.length === 0) {
-    return NextResponse.json({ ok: true, sent: 0, processed: 0 });
-  }
-
-  const userIds = [...new Set(pending.map((n) => n.user_id))];
-
-  const { data: prefs } = await supabase
-    .from("notification_preferences")
-    .select("user_id, team_id, type, push_enabled")
-    .in("user_id", userIds);
-
-  const prefMap = new Map<string, boolean>();
-  for (const p of (prefs || []) as { user_id: string; team_id: string; type: string; push_enabled: boolean }[]) {
-    prefMap.set(`${p.user_id}|${p.team_id}|${p.type}`, p.push_enabled);
-  }
-
-  const { data: subscriptions } = await supabase
-    .from("push_subscriptions")
-    .select("user_id, endpoint, p256dh, auth")
-    .in("user_id", userIds);
-
-  const subsByUser = new Map<string, { endpoint: string; p256dh: string; auth: string }[]>();
-  for (const s of (subscriptions || []) as { user_id: string; endpoint: string; p256dh: string; auth: string }[]) {
-    const arr = subsByUser.get(s.user_id) || [];
-    arr.push({ endpoint: s.endpoint, p256dh: s.p256dh, auth: s.auth });
-    subsByUser.set(s.user_id, arr);
-  }
-
-  // Resolve target URL for notifications without a stored one (older rows):
-  // fetch the event type so the click opens the séance/match page.
-  const refIds = [
-    ...new Set(
-      pending
-        .filter((n) => !n.url && n.reference_id)
-        .map((n) => n.reference_id as string)
-    ),
-  ];
-  const eventTypeMap = new Map<string, string>();
-  if (refIds.length > 0) {
-    const { data: events } = await supabase
-      .from("events")
-      .select("id, type")
-      .in("id", refIds);
-    for (const evt of (events || []) as { id: string; type: string }[]) {
-      eventTypeMap.set(evt.id, evt.type);
-    }
-  }
-
-  function resolveUrl(notif: { url?: string | null; type?: string | null; reference_id?: string | null }): string {
-    if (notif.url) return notif.url;
-    if (notif.reference_id) {
-      const type = eventTypeMap.get(notif.reference_id);
-      if (type === "match") return `/matches/${notif.reference_id}`;
-      if (type === "training") return `/trainings/${notif.reference_id}`;
-      if (notif.type === "convocation") return "/calendar";
-    }
-    return "/";
-  }
-
-  let sent = 0;
-  const deliveredIds: string[] = [];
-  const convokedEvents = new Map<
-    string,
-    { eventId: string; teamId: string | null; userIds: Set<string> }
-  >();
-  for (const notif of pending) {
-    if (prefMap.get(`${notif.user_id}|${notif.team_id}|${notif.type}`) === false) {
-      continue;
-    }
-    const subs = subsByUser.get(notif.user_id) || [];
-    if (subs.length === 0) {
-      continue;
-    }
-    const url = resolveUrl(notif);
-    for (const sub of subs) {
-      try {
-        await webpush.sendNotification(
-          { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-          JSON.stringify({ title: notif.title, body: notif.body, url })
-        );
-        sent++;
-      } catch (err) {
-        console.error("[notifications/cron] push failed for", sub.endpoint, err);
-        const statusCode = (err as { statusCode?: number })?.statusCode;
-        if (statusCode === 404 || statusCode === 410) {
-          await supabase
-            .from("push_subscriptions")
-            .delete()
-            .eq("endpoint", sub.endpoint);
-        }
-      }
-    }
-    deliveredIds.push(notif.id);
-    if (notif.type === "convocation" && notif.reference_id) {
-      const key = `${notif.reference_id}|${notif.team_id}`;
-      const entry = convokedEvents.get(key) || {
-        eventId: notif.reference_id,
-        teamId: notif.team_id || null,
-        userIds: new Set<string>(),
-      };
-      entry.userIds.add(notif.user_id);
-      convokedEvents.set(key, entry);
-    }
-  }
-
-  if (deliveredIds.length > 0) {
-    await supabase
-      .from("notifications")
-      .update({ delivered_at: now })
-      .in("id", deliveredIds);
-  }
-
-  for (const entry of convokedEvents.values()) {
-    if (entry.teamId) {
-      await ensureAttendanceRows(entry.eventId, entry.teamId, [...entry.userIds]);
-    }
-    await supabase
-      .from("events")
-      .update({ convocations_sent_at: now })
-      .eq("id", entry.eventId);
-  }
-
-  return NextResponse.json({ ok: true, sent, processed: deliveredIds.length });
+  return count;
 }
 
 function mondayStart(): Date {
