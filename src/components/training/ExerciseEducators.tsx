@@ -108,11 +108,16 @@ export function ExerciseEducators({
   async function assignEducator(index: number, userId: string) {
     const supabase = createClient();
     // Delete existing assignment first (partial unique index not supported by PostgREST upsert)
-    await supabase
+    const { error: deleteError } = await supabase
       .from("educator_plans")
       .delete()
+      .eq("team_id", teamId)
       .eq("event_id", eventId)
       .eq("exercise_index", index);
+    if (deleteError) {
+      // Log but continue — if there was no row to delete, INSERT may still succeed
+      console.warn("[educator_plans] delete warning:", deleteError.message, deleteError.code, deleteError.details);
+    }
     const { error } = await supabase.from("educator_plans").insert({
       team_id: teamId,
       user_id: userId,
@@ -134,9 +139,11 @@ export function ExerciseEducators({
     const { error } = await supabase
       .from("educator_plans")
       .delete()
+      .eq("team_id", teamId)
       .eq("event_id", eventId)
       .eq("exercise_index", index);
     if (error) {
+      console.error("[educator_plans] delete error:", error.message, error.code, error.details);
       toast.error("Impossible de retirer le responsable");
       return;
     }
