@@ -10,7 +10,9 @@
     "build": "next build",
     "vercel-build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:unit": "VITE_CONFIG_NATIVE_IGNORE_WARNING=true vitest",
+    "test:unit:run": "VITE_CONFIG_NATIVE_IGNORE_WARNING=true vitest run"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
@@ -47,9 +49,11 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/web-push": "^3.6.4",
+    "@vitest/coverage-v8": "^4.1.11",
     "eslint": "^9",
     "eslint-config-next": "16.2.10",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.11"
   }
 }

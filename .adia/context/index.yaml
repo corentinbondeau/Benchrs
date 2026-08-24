@@ -1,0 +1,162 @@
+# .adia/context/index.yaml
+# Genere par @init_project le 2026-08-24 — Projet Benchrs
+# Derniere mise a jour : 2026-08-24 (reconciliation fix-auto-convocations)
+
+project: benchrs
+type: pwa
+languages: [typescript, sql]
+frameworks: [nextjs, react, supabase, tailwindcss, shadcn, playwright]
+entry_points: [src/app/layout.tsx, src/app/(dashboard)/layout.tsx]
+
+modules:
+  notifications:
+    path: src/app/api/notifications/
+    description: Push notifications — cron orchestrator (delivery first, then generators), manual send, subscription management
+    fragment: fragments/notifications.md
+    entry_point: cron/route.ts
+    exports: [GET (cron), POST (send), POST/DELETE (subscribe)]
+    depends_on: [lib-notifications, deliver-notifications, auto-convocations, supabase, convocations]
+    routes: [GET /api/notifications/cron, POST /api/notifications/send, POST /api/notifications/subscribe, DELETE /api/notifications/subscribe]
+    tests: [src/app/api/notifications/__tests__/cron-order.test.ts]
+
+  deliver-notifications:
+    path: src/lib/
+    description: Delivery engine — fetches pending notifications, sends push via webpush, marks delivered_at, handles missing subscriptions
+    fragment: fragments/lib-notifications.md
+    entry_point: deliver-notifications.ts
+    exports: [deliverPendingNotifications, DeliveryResult]
+    depends_on: [supabase, lib-notifications]
+    tests: [src/lib/__tests__/deliver-notifications.test.ts]
+
+  auto-convocations:
+    path: src/lib/
+    description: Auto-convocation engine — creates convocations based on convocation_lead_days team setting, idempotent
+    fragment: fragments/lib-notifications.md
+    entry_point: auto-convocations.ts
+    exports: [createAutoConvocations, AutoConvocationResult]
+    depends_on: [supabase, lib-notifications]
+    tests: [src/lib/__tests__/auto-convocations.test.ts]
+
+  lib-notifications:
+    path: src/lib/
+    description: Notification helpers — push client, webpush server, types, convocations
+    fragment: fragments/lib-notifications.md
+    entry_point: push.ts
+    exports: [enablePushSubscription, disablePushSubscription, usePushNotifications, ensureAttendanceRows, webpush, NOTIFICATION_TYPES, defaultNotificationPrefs, notifyPhysicalTest, notifyDeparture]
+    depends_on: [supabase, api-client]
+    tests: null
+
+  auth-api:
+    path: src/app/api/auth/
+    description: Authentication endpoints — register, login, join team/club, link child, forgot password
+    fragment: fragments/auth.md
+    entry_point: register/route.ts
+    exports: [POST register, POST join-team, POST join-club, POST create-team, POST link-child, POST forgot-password]
+    depends_on: [supabase, lib-auth]
+    routes: [POST /api/auth/register, POST /api/auth/join-team, POST /api/auth/join-club, POST /api/auth/create-team, POST /api/auth/link-child, POST /api/auth/forgot-password]
+    tests: null
+
+  lib-auth:
+    path: src/lib/
+    description: Auth context, API auth helpers, team context, api-client
+    fragment: fragments/lib-auth.md
+    entry_point: auth.tsx
+    exports: [AuthProvider, useAuth, TeamProvider, useTeam, getAuthUser, getAuthUserDetailed, isTeamMember, getTeamRole, isTeamCoach, authFetch, getSessionAccessToken]
+    depends_on: [supabase]
+    tests: null
+
+  supabase:
+    path: src/lib/supabase/
+    description: Supabase client factory — browser, server (SSR), admin (service role)
+    fragment: fragments/supabase.md
+    entry_point: client.ts
+    exports: [createClient (browser), createClient (server), createAdminClient, getSessionAccessToken]
+    depends_on: []
+    tests: null
+
+  events-matches:
+    path: src/app/(dashboard)/matches/
+    description: Match pages — detail, stats, lineups, score live, report
+    fragment: fragments/events-matches.md
+    entry_point: "[id]/page.tsx"
+    exports: []
+    depends_on: [supabase, lib-auth, notifications]
+    routes: [POST /api/matches/report, POST /api/matches/live-token, POST /api/matches/availability/notify]
+    tests: null
+
+  trainings:
+    path: src/app/(dashboard)/trainings/
+    description: Training pages — sessions, fiches IA, exercices, templates
+    fragment: fragments/trainings.md
+    entry_point: "[id]/page.tsx"
+    exports: []
+    depends_on: [supabase, lib-auth, lib-training]
+    routes: [POST /api/trainings/generate, GET /api/trainings/pdf]
+    tests: null
+
+  lib-training:
+    path: src/lib/training/
+    description: Training AI generation, exercises, PDF rendering
+    fragment: fragments/lib-training.md
+    entry_point: ai-generator.ts
+    exports: [generateSessionWithAI, renderSessionPdf, renderManualSessionPdf, DRILL_TYPES, FOOTBALL_SYSTEMS]
+    depends_on: [supabase]
+    tests: null
+
+  calendar:
+    path: src/app/(dashboard)/calendar/
+    description: Calendar page — events view, ICS export
+    fragment: fragments/calendar.md
+    entry_point: page.tsx
+    exports: []
+    depends_on: [supabase, lib-auth]
+    routes: [GET /api/calendar/ics, GET /api/calendar/url]
+    tests: null
+
+  chat:
+    path: src/app/(dashboard)/chat/
+    description: Team messaging — channels, messages, Supabase Realtime
+    fragment: fragments/chat.md
+    entry_point: page.tsx
+    exports: []
+    depends_on: [supabase, lib-auth, notifications]
+    routes: [POST /api/chat/player-channel]
+    tests: null
+
+  season:
+    path: src/lib/season/
+    description: Season management — stats, IA reports, newsletter, storybook, greetings
+    fragment: fragments/season.md
+    entry_point: ai-generator.ts
+    exports: [buildSeasonStatsContext, generateNewsletter, generateStorybook, generateGreeting]
+    depends_on: [supabase]
+    routes: [POST /api/season/report, GET /api/season/report/pdf, POST /api/season/plan, POST /api/season/storybook, POST /api/season/greetings, POST /api/season/copy]
+    tests: null
+
+  club:
+    path: src/app/(dashboard)/club/
+    description: Club management — multi-team overview, committee, FFF identity
+    fragment: fragments/club.md
+    entry_point: page.tsx
+    exports: []
+    depends_on: [supabase, lib-auth]
+    routes: [GET /api/clubs/lookup, GET /api/clubs/lookup-public, POST /api/clubs/identity, POST /api/clubs/invite-code, GET /api/clubs/members, POST /api/clubs/aliases]
+    tests: null
+
+  components-ui:
+    path: src/components/ui/
+    description: shadcn/ui components — Button, Dialog, Badge, Input, etc.
+    fragment: fragments/components-ui.md
+    entry_point: button.tsx
+    exports: [Button, Dialog, Badge, Input, DropdownMenu, Sheet, Tabs, etc.]
+    depends_on: []
+    tests: null
+
+  types:
+    path: src/types/
+    description: TypeScript type definitions — all domain models
+    fragment: fragments/types.md
+    entry_point: index.ts
+    exports: [User, Team, Profile, Event, Attendance, MatchStat, ChatChannel, Notification, etc.]
+    depends_on: []
+    tests: null
