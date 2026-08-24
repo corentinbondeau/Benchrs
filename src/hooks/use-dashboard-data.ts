@@ -202,7 +202,7 @@ async function fetchWeekOverview(teamId: string): Promise<WeekOverview> {
   const matchIds = weekEvents.filter((e) => e.type === "match").map((e) => e.id);
   const trainingIds = weekEvents.filter((e) => e.type === "training").map((e) => e.id);
 
-  const [availResult, rpeResult, subsResult] = await Promise.all([
+  const [availResult, rpeResult, subsResult, totalPlayers] = await Promise.all([
     matchIds.length
       ? supabase
           .from("match_availability")
@@ -226,6 +226,7 @@ async function fetchWeekOverview(teamId: string): Promise<WeekOverview> {
           .eq("challenge_id", (challengeResult.data as { id: string }).id)
           .maybeSingle()
       : Promise.resolve({ data: null }),
+    countTeamActivePlayers(teamId),
   ]);
 
   const availRows = toArray<{ event_id: string; availability: string }>(availResult.data);
@@ -234,8 +235,7 @@ async function fetchWeekOverview(teamId: string): Promise<WeekOverview> {
 
   const availByEvent = new Map<string, { dispo: number; total: number }>();
   for (const r of availRows) {
-    const a = availByEvent.get(r.event_id) ?? { dispo: 0, total: 0 };
-    a.total += 1;
+    const a = availByEvent.get(r.event_id) ?? { dispo: 0, total: totalPlayers };
     if (r.availability === "dispo") a.dispo += 1;
     availByEvent.set(r.event_id, a);
   }
