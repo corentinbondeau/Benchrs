@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { isLegacyUserAgent } from "./lib/legacy/ua";
+import { isLegacyUserAgent } from "./lib/legacyUserAgent";
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -21,9 +21,11 @@ export function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Fallback legacy : les navigateurs/OS anciens (iPhone 7 / iOS ancien, vieux
-  // Android/WebView) ne peuvent pas exécuter le bundle Next.js moderne et
-  // obtiennent une page blanche. On les redirige vers /legacy (HTML/CSS vanilla).
+  // Bascule vers le fork legacy : les navigateurs/OS anciens (iPhone 7 / iOS
+  // ancien, vieux Android/WebView) ne peuvent pas exécuter le bundle moderne
+  // (Next 16 / React 19 / Tailwind 4) et obtiennent une page blanche. On les
+  // redirige vers le fork downgradé (legacy-app, Next 14 / React 18 / TW3),
+  // déployé séparément, dont l'URL est fournie par NEXT_PUBLIC_LEGACY_URL.
   // Opt-out : ?full=1 (pose le cookie force_full) ou cookie force_full déjà posé.
   const ua = request.headers.get("user-agent") ?? "";
   const forceFullParam = request.nextUrl.searchParams.get("full") === "1";
@@ -37,9 +39,26 @@ export function proxy(request: NextRequest) {
     return response;
   };
 
-  // Anti-boucle : on ne redirige jamais si on est déjà sous /legacy.
-  if (!isForceFull && isLegacyUserAgent(ua) && !pathname.startsWith("/legacy")) {
-    return withForceFullCookie(NextResponse.redirect(new URL("/legacy", request.url)));
+  // URL du fork legacy (déploiement séparé). Non défini ⇒ pas de bascille.
+  const legacyUrl = process.env.NEXT_PUBLIC_LEGACY_URL;
+
+  if (!isForceFull && legacyUrl && isLegacyUserAgent(ua)) {
+    // Anti-boucle : ne pas rediriger si on est déjà sur le host du fork.
+    let alreadyOnLegacy = false;
+    try {
+      const legacyHost = new URL(legacyUrl).host;
+      alreadyOnLegacy = request.nextUrl.host === legacyHost;
+    } catch {
+      alreadyOnLegacy = false;
+    }
+
+    if (!alreadyOnLegacy) {
+      // Préserver le chemin + la query pour arriver sur la même page côté fork.
+      const target = new URL(legacyUrl);
+      target.pathname = pathname;
+      target.search = request.nextUrl.search;
+      return withForceFullCookie(NextResponse.redirect(target));
+    }
   }
 
   const isAuthPage =
@@ -51,10 +70,7 @@ export function proxy(request: NextRequest) {
     pathname === "/join" ||
     pathname === "/offline" ||
     pathname.startsWith("/live/") ||
-    pathname.startsWith("/c/") ||
-    // /legacy et ses sous-routes sont publiques (login/register accessibles
-    // sans session) ; chaque handler legacy gère lui-même l'auth.
-    pathname.startsWith("/legacy");
+    pathname.startsWith("/c/");
   const isApiAuth = pathname.startsWith("/api/auth");
   // /api/notifications/cron est appelé par Vercel Cron (Bearer CRON_SECRET) sans session,
   // et /api/clubs/lookup-public est appelé depuis la page publique /register.
