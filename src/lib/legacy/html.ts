@@ -53,24 +53,6 @@ const INLINE_STYLE = `
       padding: 16px;
       box-sizing: border-box;
     }
-    .brand-header {
-      display: block;
-      background-color: #0b1220;
-      color: #ffffff;
-      padding: 16px;
-      border-radius: 10px;
-      margin-bottom: 16px;
-    }
-    .brand-header img {
-      vertical-align: middle;
-      margin-right: 8px;
-    }
-    .brand-header span {
-      vertical-align: middle;
-      font-size: 18px;
-      font-weight: bold;
-      color: #ffffff;
-    }
     .container {
       max-width: 480px;
       margin: 0 auto;
@@ -210,6 +192,117 @@ const INLINE_STYLE = `
       font-size: 13px;
       font-weight: 600;
     }
+    .topbar {
+      background-color: #0b1220;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .topbar-inner {
+      display: block;
+      max-width: 480px;
+      margin: 0 auto;
+      padding: 0 16px;
+      height: 48px;
+      line-height: 48px;
+      box-sizing: border-box;
+    }
+    .topbar-inner img {
+      vertical-align: middle;
+      border-radius: 8px;
+      margin-right: 10px;
+    }
+    .topbar-inner span {
+      vertical-align: middle;
+      font-size: 14px;
+      font-weight: 700;
+      color: #ffffff;
+    }
+    .nav-grid {
+      margin-top: 16px;
+    }
+    .nav-card {
+      display: block;
+      background-color: #ffffff;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 12px;
+      text-decoration: none;
+      box-sizing: border-box;
+    }
+    .nav-icon {
+      display: inline-block;
+      width: 36px;
+      height: 36px;
+      line-height: 36px;
+      text-align: center;
+      border-radius: 8px;
+      font-size: 18px;
+      margin-bottom: 12px;
+    }
+    .nav-card .nav-title {
+      margin: 0;
+      font-size: 15px;
+      font-weight: 700;
+      color: #111827;
+    }
+    .nav-card .nav-sub {
+      margin: 2px 0 0 0;
+      font-size: 12px;
+      color: #6b7280;
+    }
+    .hero-card {
+      background-color: #0b1220;
+      color: #ffffff;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 16px;
+      box-sizing: border-box;
+    }
+    .hero-card .hero-label {
+      margin: 0 0 6px 0;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: rgba(255, 255, 255, 0.4);
+    }
+    .hero-card .hero-title {
+      margin: 0 0 6px 0;
+      font-size: 18px;
+      font-weight: 700;
+      color: #ffffff;
+    }
+    .hero-card .hero-details {
+      margin: 0;
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.55);
+    }
+    .event-card {
+      background-color: #ffffff;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 12px;
+      box-sizing: border-box;
+    }
+    .event-card .event-title {
+      margin: 0;
+      font-size: 14px;
+      font-weight: 500;
+      color: #111827;
+    }
+    .event-card .event-date {
+      margin: 2px 0 0 0;
+      font-size: 12px;
+      color: #6b7280;
+    }
+    .event-card .event-head {
+      display: block;
+      margin-bottom: 8px;
+    }
+    .event-card .event-badge {
+      float: right;
+    }
   `;
 
 /**
@@ -251,8 +344,8 @@ ${footerBlock}
 </div>
 </div>`;
   } else {
-    innerBody = `<div class="page">
-<div class="brand-header"><img src="/favicon-32.png" width="32" height="32" alt="Benchrs"><span>Benchrs</span></div>
+    innerBody = `<div class="topbar"><div class="topbar-inner"><img src="/favicon-32.png" width="28" height="28" alt="Benchrs"><span>Benchrs</span></div></div>
+<div class="page">
 ${body}
 </div>`;
   }
@@ -285,6 +378,104 @@ export function badge(status: "present" | "absent" | "late" | "pending"): string
   const { bg, color, label } = map[status];
 
   return `<span class="badge" style="background-color:${bg};color:${color};">${label}</span>`;
+}
+
+export interface NavCardOptions {
+  href: string;
+  label: string;
+  sublabel: string;
+  icon: string;
+  tint: string;
+  iconColor: string;
+}
+
+/**
+ * Carte de navigation (menu `/legacy`) : lien-carte blanc avec pastille
+ * d'icône teintée, libellé et sous-libellé. Style aligné sur les cartes du
+ * dashboard moderne (rounded 12px, bordure #e5e7eb, pastille 36px).
+ */
+export function navCard({ href, label, sublabel, icon, tint, iconColor }: NavCardOptions): string {
+  const safeHref = escapeHtml(href);
+  const safeLabel = escapeHtml(label);
+  const safeSub = escapeHtml(sublabel);
+  const safeIcon = escapeHtml(icon);
+  const safeTint = escapeHtml(tint);
+  const safeIconColor = escapeHtml(iconColor);
+
+  return `<a class="nav-card" href="${safeHref}">
+<span class="nav-icon" style="background-color:${safeTint};color:${safeIconColor};">${safeIcon}</span>
+<p class="nav-title">${safeLabel}</p>
+<p class="nav-sub">${safeSub}</p>
+</a>`;
+}
+
+export interface HeroCardOptions {
+  label: string;
+  title: string;
+  details: string;
+}
+
+/**
+ * Carte "hero" navy du prochain événement (en-tête de la page présences),
+ * inspirée de la NextEventCard moderne.
+ */
+export function heroCard({ label, title, details }: HeroCardOptions): string {
+  return `<div class="hero-card">
+<p class="hero-label">${escapeHtml(label)}</p>
+<p class="hero-title">${escapeHtml(title)}</p>
+<p class="hero-details">${escapeHtml(details)}</p>
+</div>`;
+}
+
+export interface EventCardOptions {
+  title: string;
+  date: string;
+  status: "present" | "absent" | "late" | "pending";
+  attendanceId?: string;
+  withActions?: boolean;
+}
+
+/**
+ * Carte de convocation : titre de l'événement + date + badge de statut.
+ * Si `withActions`, affiche les 3 boutons de réponse pleins pleine largeur
+ * (Présent / Absent / En retard) dans un formulaire POST natif.
+ */
+export function eventCard({ title, date, status, attendanceId, withActions }: EventCardOptions): string {
+  const head = `<div class="event-head">${badge(status)}<p class="event-title">${escapeHtml(title)}</p><p class="event-date">${escapeHtml(date)}</p></div>`;
+
+  const actions = withActions
+    ? `<form method="POST" action="/legacy/attendance">
+<input type="hidden" name="attendanceId" value="${escapeHtml(attendanceId)}">
+<button type="submit" name="status" value="present">Présent</button>
+<button type="submit" name="status" value="absent">Absent</button>
+<button type="submit" name="status" value="late">En retard</button>
+</form>`
+    : "";
+
+  return `<div class="event-card">
+${head}
+${actions}
+</div>`;
+}
+
+/**
+ * Formate une date (ISO ou parseable) en français lisible
+ * (ex. "mardi 25 août"). Retourne "" si la date est absente/invalide.
+ * Utilise Intl (dispo côté serveur Node) — aucun JS client requis.
+ */
+export function formatDateFr(input: unknown): string {
+  if (input === null || input === undefined || input === "") return "";
+  const d = new Date(input as string | number);
+  if (isNaN(d.getTime())) return "";
+  try {
+    return d.toLocaleDateString("fr-FR", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+    });
+  } catch {
+    return "";
+  }
 }
 
 export interface FieldOptions {

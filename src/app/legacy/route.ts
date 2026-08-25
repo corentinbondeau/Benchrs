@@ -1,11 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
-import { renderPage } from "@/lib/legacy/html";
+import { renderPage, navCard } from "@/lib/legacy/html";
 
 /**
  * Page menu legacy (`/legacy`) — HTML brut, zéro React, zéro bundle Next.js.
  * Destinée aux navigateurs/OS anciens ne supportant pas le runtime moderne
- * (voir `src/lib/legacy/ua.ts` pour la détection UA, branchée sur `proxy.ts`
- * à l'étape 7).
+ * (voir `src/lib/legacy/ua.ts` pour la détection UA, branchée sur `proxy.ts`).
  */
 export async function GET() {
   // Défensif : la page legacy doit rester consultable (menu visiteur) même
@@ -22,29 +21,49 @@ export async function GET() {
     isLoggedIn = false;
   }
 
-  const body = isLoggedIn
-    ? `<div class="container" style="text-align:center;">
-  <img src="/favicon.png" width="48" height="48" alt="Benchrs" style="display:block;margin:0 auto 8px auto;">
-  <h1>Benchrs</h1>
-  <nav>
-    <ul style="list-style:none;padding:0;">
-      <li><a href="/legacy/attendance">Mes présences</a></li>
-    </ul>
-  </nav>
-</div>`
-    : `<div class="container" style="text-align:center;">
-  <img src="/favicon.png" width="48" height="48" alt="Benchrs" style="display:block;margin:0 auto 8px auto;">
-  <h1>Benchrs</h1>
-  <nav>
-    <ul style="list-style:none;padding:0;">
-      <li><a href="/legacy/login">Connexion</a></li>
-      <li><a href="/legacy/register">Inscription</a></li>
-      <li><a href="/legacy/attendance">Mes présences</a></li>
-    </ul>
-  </nav>
+  const cards = isLoggedIn
+    ? navCard({
+        href: "/legacy/attendance",
+        label: "Présences",
+        sublabel: "Répondre aux convocations",
+        icon: "✓",
+        tint: "#EFF6FF",
+        iconColor: "#2563EB",
+      })
+    : [
+        navCard({
+          href: "/legacy/login",
+          label: "Connexion",
+          sublabel: "Accéder à mon compte",
+          icon: "→",
+          tint: "#EFF6FF",
+          iconColor: "#2563EB",
+        }),
+        navCard({
+          href: "/legacy/register",
+          label: "Inscription",
+          sublabel: "Créer un compte",
+          icon: "+",
+          tint: "#ECFDF5",
+          iconColor: "#16A34A",
+        }),
+        navCard({
+          href: "/legacy/attendance",
+          label: "Présences",
+          sublabel: "Répondre aux convocations",
+          icon: "✓",
+          tint: "#FFFBEB",
+          iconColor: "#B45309",
+        }),
+      ].join("\n");
+
+  const body = `<h1>Bonjour</h1>
+<p class="help-text">Version simplifiée, compatible avec votre appareil.</p>
+<div class="nav-grid">
+${cards}
 </div>`;
 
-  const html = renderPage({ title: "Benchrs - Menu", body });
+  const html = renderPage({ title: "Benchrs - Accueil", body });
 
   return new Response(html, {
     status: 200,

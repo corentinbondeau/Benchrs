@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { escapeHtml, field, renderPage } from "./html";
+import {
+  escapeHtml,
+  field,
+  renderPage,
+  navCard,
+  heroCard,
+  eventCard,
+  formatDateFr,
+} from "./html";
 // `badge` n'existe pas encore : import dynamique dans le describe dédié pour
 // que seule cette suite soit rouge tant que le helper n'est pas livré,
 // sans faire planter l'import de tout le fichier de tests.
@@ -382,5 +390,137 @@ describe("badge (helper de statut de présence) — RED tant que non implément�
 
     const labels = new Set([present, absent, late]);
     expect(labels.size).toBe(3);
+  });
+});
+
+describe("renderPage — layout app : TopBar navy fidèle (RED tant que non implémenté)", () => {
+  it("layout app : rend une TopBar avec fond navy #0b1220 via la classe .topbar", () => {
+    const html = renderPage({ title: "Menu", body: "<p>x</p>", layout: "app" });
+    expect(html).toContain('class="topbar"');
+    // la règle CSS .topbar doit poser le fond navy
+    expect(html).toMatch(/\.topbar\s*\{[^}]*background-color:\s*#0b1220/i);
+  });
+
+  it("layout app : la TopBar affiche le wordmark Benchrs et un logo PNG (jamais .svg)", () => {
+    const html = renderPage({ title: "Menu", body: "<p>x</p>", layout: "app" });
+    expect(html).toContain("Benchrs");
+    expect(html).toMatch(/<img[^>]+src="\/favicon(-\d+)?\.png"/);
+    expect(html).not.toContain(".svg");
+  });
+
+  it("layout app : ne contient plus l'ancien bandeau .brand-header", () => {
+    const html = renderPage({ title: "Menu", body: "<p>x</p>", layout: "app" });
+    expect(html).not.toContain("brand-header");
+  });
+
+  it("garde-fou : layout app ne charge aucun _next/ ni <script", () => {
+    const html = renderPage({ title: "Menu", body: "<p>x</p>", layout: "app" });
+    expect(html).not.toContain("_next");
+    expect(html).not.toContain("<script");
+  });
+});
+
+describe("navCard (carte de navigation du menu)", () => {
+  it("rend un lien-carte avec href, libellé et sous-libellé échappés", () => {
+    const html = navCard({
+      href: "/legacy/attendance",
+      label: "Présences",
+      sublabel: "Convocations & réponses",
+      icon: "✓",
+      tint: "#EFF6FF",
+      iconColor: "#2563EB",
+    });
+    expect(html).toContain('href="/legacy/attendance"');
+    expect(html).toContain("Présences");
+    expect(html).toContain("Convocations &amp; réponses");
+    expect(html).toContain('class="nav-card"');
+  });
+
+  it("échappe le href malveillant (anti-injection d'attribut)", () => {
+    const html = navCard({
+      href: '"><script>alert(1)</script>',
+      label: "x",
+      sublabel: "y",
+      icon: "i",
+      tint: "#fff",
+      iconColor: "#000",
+    });
+    expect(html).not.toContain("<script>alert(1)");
+  });
+});
+
+describe("heroCard (carte hero prochain événement)", () => {
+  it("rend une carte navy avec label, titre et détails échappés", () => {
+    const html = heroCard({
+      label: "Prochain entraînement",
+      title: "Entraînement U15",
+      details: "mardi 26 août · 18:00",
+    });
+    expect(html).toContain('class="hero-card"');
+    expect(html).toContain("Prochain entraînement");
+    expect(html).toContain("Entraînement U15");
+    expect(html).toContain("mardi 26 août");
+  });
+
+  it("échappe un titre malveillant", () => {
+    const html = heroCard({ label: "l", title: '<script>x</script>', details: "d" });
+    expect(html).not.toContain("<script>x");
+  });
+});
+
+describe("eventCard (carte de convocation)", () => {
+  it("rend le titre, la date et un badge, avec les boutons de présence quand demandé", () => {
+    const html = eventCard({
+      title: "Match U15",
+      date: "lundi 25 août",
+      status: "pending",
+      attendanceId: "att-1",
+      withActions: true,
+    });
+    expect(html).toContain("Match U15");
+    expect(html).toContain("lundi 25 août");
+    expect(html).toContain('class="event-card"');
+    expect(html).toContain('name="attendanceId"');
+    expect(html).toContain('value="att-1"');
+    expect(html).toContain('value="present"');
+    expect(html).toContain('value="absent"');
+    expect(html).toContain('value="late"');
+  });
+
+  it("sans actions : n'affiche pas de formulaire de réponse mais montre le badge de statut", () => {
+    const html = eventCard({
+      title: "Entraînement",
+      date: "mardi 26 août",
+      status: "present",
+      withActions: false,
+    });
+    expect(html).not.toContain('name="attendanceId"');
+    expect(html).toContain("Présent"); // badge present
+  });
+
+  it("échappe le titre et l'attendanceId (anti-injection)", () => {
+    const html = eventCard({
+      title: '<script>t</script>',
+      date: "x",
+      status: "pending",
+      attendanceId: '"><script>a</script>',
+      withActions: true,
+    });
+    expect(html).not.toContain("<script>t");
+    expect(html).not.toContain("<script>a");
+  });
+});
+
+describe("formatDateFr (date lisible FR sans dépendance)", () => {
+  it("formate une date ISO en français lisible (jour + mois)", () => {
+    const out = formatDateFr("2026-08-25");
+    // doit contenir le mois d'août et l'année/jour, en français
+    expect(out.toLowerCase()).toContain("août");
+  });
+
+  it("retourne une chaîne vide pour une date absente ou invalide", () => {
+    expect(formatDateFr("")).toBe("");
+    expect(formatDateFr("pas-une-date")).toBe("");
+    expect(formatDateFr(null)).toBe("");
   });
 });

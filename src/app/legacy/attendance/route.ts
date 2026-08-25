@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { renderPage, escapeHtml, badge } from "@/lib/legacy/html";
+import { renderPage, escapeHtml, eventCard, heroCard, formatDateFr } from "@/lib/legacy/html";
 
 /**
  * Page de présence legacy (`/legacy/attendance`) — HTML brut, zéro React,
@@ -61,33 +61,33 @@ function renderAttendancePage(options: {
 
   const errorBlock = error ? `<p class="error">${escapeHtml(error)}</p>` : "";
 
+  // Carte hero : la prochaine convocation en attente met l'événement en avant.
+  const first = attendances[0];
+  const heroBlock = first
+    ? heroCard({
+        label: "Prochaine convocation",
+        title: first.event?.title || "Convocation",
+        details: formatDateFr(first.event?.event_date) || "Date à confirmer",
+      })
+    : "";
+
   const listBlock =
     attendances.length === 0
       ? `<p>Aucune convocation en attente.</p>`
       : attendances
-          .map((att) => {
-            const label = att.event?.title
-              ? escapeHtml(att.event.title)
-              : "Convocation";
-            const date = att.event?.event_date
-              ? escapeHtml(
-                  new Date(att.event.event_date).toLocaleDateString("fr-FR")
-                )
-              : "";
-
-            return `<div class="attendance-item">
-    <p>${label}${date ? ` - ${date}` : ""} ${badge("pending")}</p>
-    <form method="POST" action="/legacy/attendance">
-      <input type="hidden" name="attendanceId" value="${escapeHtml(att.id)}">
-      <button type="submit" name="status" value="present">Présent</button>
-      <button type="submit" name="status" value="absent">Absent</button>
-      <button type="submit" name="status" value="late">En retard</button>
-    </form>
-  </div>`;
-          })
+          .map((att) =>
+            eventCard({
+              title: att.event?.title || "Convocation",
+              date: formatDateFr(att.event?.event_date),
+              status: "pending",
+              attendanceId: att.id,
+              withActions: true,
+            })
+          )
           .join("\n");
 
-  const body = `<div class="container">
+  const body = `${heroBlock}
+<div class="container">
   <h1>Mes présences</h1>
   <p class="help-text">Répondez aux convocations en attente ci-dessous.</p>
   ${confirmationBlock}
