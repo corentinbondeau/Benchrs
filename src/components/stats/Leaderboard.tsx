@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useTeam } from "@/lib/team";
+import { fetchTeamActivePlayers } from "@/lib/players";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -30,25 +31,15 @@ export function Leaderboard() {
     async function fetchLeaderboard() {
       // Le roster (joueurs de l'équipe) est la source de vérité de la liste :
       // ainsi l'onglet Assiduité s'affiche même sans aucun match joué.
-      const { data: rosterData } = await supabase
-        .from("team_members")
-        .select("profile:profiles(id, first_name, last_name, shirt_number)")
-        .eq("team_id", currentTeam!.id)
-        .eq("role", "player");
-
-      const roster: RosterPlayer[] = (rosterData || [])
-        .map((row) => {
-          const raw = (row as { profile?: unknown }).profile;
-          // Supabase peut typer une relation 1-1 comme objet ou tableau : on normalise.
-          const p = (Array.isArray(raw) ? raw[0] : raw) as
-            | { id: string; first_name: string; last_name: string; shirt_number: number | null }
-            | undefined
-            | null;
-          return p
-            ? { player_id: p.id, first_name: p.first_name, last_name: p.last_name, shirt_number: p.shirt_number }
-            : null;
-        })
-        .filter((p): p is RosterPlayer => p !== null);
+      // On réutilise le helper fiable (fetch en 2 étapes team_members → profiles) ;
+      // une jointure imbriquée profiles(...) remontait vide selon la config RLS.
+      const players = await fetchTeamActivePlayers(currentTeam!.id, ["player"]);
+      const roster: RosterPlayer[] = players.map((p) => ({
+        player_id: p.id,
+        first_name: p.first_name,
+        last_name: p.last_name,
+        shirt_number: p.shirt_number ?? null,
+      }));
 
       const { data: statsData } = await supabase
         .from("match_stats")
