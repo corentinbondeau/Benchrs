@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { renderPage, escapeHtml } from "@/lib/legacy/html";
+import { renderPage, escapeHtml, pageHeader, emptyState, bottomNav } from "@/lib/legacy/html";
 import { getLegacyContext } from "@/lib/legacy/session";
 import { buildLeaderboard, type RosterPlayer, type MatchStatRow, type AttendanceRow } from "@/lib/stats/buildLeaderboard";
 
@@ -107,7 +107,7 @@ export async function GET() {
 
   let bodyContent: string;
   if (entries.length === 0) {
-    bodyContent = `<p>Aucun joueur dans l'effectif.</p>`;
+    bodyContent = emptyState({ icon: "📊", title: "Aucun joueur dans l'effectif" });
   } else {
     const rows = entries
       .map((e) => {
@@ -137,10 +137,16 @@ ${rows}
   }
 
   const body = `<div class="container">
-  <h1>Performance</h1>
+  ${pageHeader({ title: "Performance", subtitle: "Classement & assiduité" })}
   ${bodyContent}
-  <p><a href="/legacy">Retour</a></p>
 </div>`;
 
-  return htmlResponse(renderPage({ title: "Benchrs - Performance", body }), 200);
+  return htmlResponse(
+    renderPage({
+      title: "Benchrs - Performance",
+      body,
+      bottomNavHtml: bottomNav(ctx.role, "stats"),
+    }),
+    200
+  );
 }

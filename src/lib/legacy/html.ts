@@ -6,6 +6,8 @@
  * doit être échappée via `escapeHtml` avant insertion dans le HTML.
  */
 
+import { legacyNavForRole, type LegacyRole } from "./nav";
+
 /**
  * Échappe les 5 caractères HTML sensibles (& < > " ').
  * Coercition sûre : null/undefined -> "", autres non-string -> String(s).
@@ -37,6 +39,7 @@ export interface RenderPageOptions {
   layout?: "auth" | "app";
   subtitle?: string;
   footer?: { text: string; linkHref: string; linkLabel: string };
+  bottomNavHtml?: string;
 }
 
 const INLINE_STYLE = `
@@ -53,15 +56,23 @@ const INLINE_STYLE = `
       padding: 16px;
       box-sizing: border-box;
     }
+    .page.has-bottom-nav {
+      padding-bottom: 72px;
+    }
     .container {
       max-width: 480px;
       margin: 0 auto;
       padding: 16px;
       background-color: #ffffff;
-      border: 1px solid #e5e7eb;
-      border-radius: 14px;
-      box-shadow: 0 2px 6px rgba(17, 24, 39, 0.08);
+      border-radius: 12px;
+      box-shadow: 0 0 0 1px rgba(17, 24, 39, 0.1);
       box-sizing: border-box;
+    }
+    input:focus,
+    select:focus {
+      outline: 2px solid #2563eb;
+      outline-offset: 0;
+      border-color: #2563eb;
     }
     h1 {
       font-size: 20px;
@@ -127,8 +138,9 @@ const INLINE_STYLE = `
       padding: 8px 12px;
     }
     .confirmation {
-      color: #16a34a;
-      background-color: #f3f4f6;
+      color: #15803d;
+      background-color: #ecfdf5;
+      border: 1px solid #d1fae5;
       border-radius: 8px;
       padding: 8px 12px;
     }
@@ -303,7 +315,131 @@ const INLINE_STYLE = `
     .event-card .event-badge {
       float: right;
     }
+    .event-card.ec-match {
+      border-left: 3px solid #2563eb;
+    }
+    .event-card.ec-training {
+      border-left: 3px solid #9ca3af;
+    }
+    .avatar {
+      display: inline-block;
+      width: 36px;
+      height: 36px;
+      line-height: 36px;
+      text-align: center;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 700;
+      margin-right: 10px;
+      vertical-align: middle;
+    }
+    .avatar-row {
+      display: block;
+    }
+    .avatar-row .avatar-text {
+      display: inline-block;
+      vertical-align: middle;
+    }
+    .page-header {
+      display: block;
+      margin-bottom: 16px;
+    }
+    .page-header .page-title {
+      margin: 0;
+      font-size: 24px;
+      font-weight: 700;
+      color: #111827;
+    }
+    .page-header .page-subtitle {
+      margin: 4px 0 0 0;
+      font-size: 14px;
+      color: #6b7280;
+    }
+    .page-header .page-action {
+      display: inline-block;
+      margin-top: 12px;
+      padding: 8px 14px;
+      background-color: #2563eb;
+      color: #ffffff;
+      border-radius: 14px;
+      font-size: 14px;
+      font-weight: 600;
+      text-decoration: none;
+    }
+    .empty-state {
+      text-align: center;
+      padding: 40px 16px;
+      box-sizing: border-box;
+    }
+    .empty-state .empty-icon {
+      display: inline-block;
+      width: 48px;
+      height: 48px;
+      line-height: 48px;
+      text-align: center;
+      border-radius: 12px;
+      background-color: #f3f4f6;
+      font-size: 22px;
+      margin-bottom: 12px;
+    }
+    .empty-state .empty-title {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 600;
+      color: #111827;
+    }
+    .empty-state .empty-desc {
+      margin: 6px auto 0 auto;
+      max-width: 280px;
+      font-size: 14px;
+      color: #6b7280;
+    }
+    .bottom-nav {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #0b1220;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+      z-index: 50;
+      display: table;
+      width: 100%;
+      table-layout: fixed;
+    }
+    .bottom-nav a.bn-item {
+      display: table-cell;
+      text-align: center;
+      padding: 8px 2px;
+      text-decoration: none;
+      color: rgba(255, 255, 255, 0.35);
+      vertical-align: middle;
+      position: relative;
+    }
+    .bottom-nav a.bn-item .bn-icon {
+      display: block;
+      font-size: 18px;
+      line-height: 20px;
+    }
+    .bottom-nav a.bn-item .bn-label {
+      display: block;
+      font-size: 10px;
+      margin-top: 2px;
+    }
+    .bottom-nav a.bn-item.active {
+      color: #ffffff;
+    }
+    .bottom-nav a.bn-item.active .bn-bar {
+      position: absolute;
+      top: 0;
+      left: 25%;
+      right: 25%;
+      height: 2px;
+      border-radius: 2px;
+      background-color: #2563eb;
+    }
   `;
+
 
 /**
  * Génère un document HTML5 complet, ultra-compatible (pas de dépendance
@@ -318,6 +454,7 @@ export function renderPage({
   layout = "app",
   subtitle,
   footer,
+  bottomNavHtml,
 }: RenderPageOptions): string {
   const safeTitle = escapeHtml(title);
 
@@ -344,10 +481,13 @@ ${footerBlock}
 </div>
 </div>`;
   } else {
+    const nav = bottomNavHtml ?? "";
+    const pageClass = nav ? "page has-bottom-nav" : "page";
     innerBody = `<div class="topbar"><div class="topbar-inner"><img src="/favicon-32.png" width="28" height="28" alt="Benchrs"><span>Benchrs</span></div></div>
-<div class="page">
+<div class="${pageClass}">
 ${body}
-</div>`;
+</div>
+${nav}`;
   }
 
   return `<!DOCTYPE html>
@@ -393,6 +533,88 @@ export function eventTypeBadge(type: "match" | "training"): string {
 
   return `<span class="badge" style="background-color:${bg};color:${color};">${label}</span>`;
 }
+
+// Emoji d'onglet pour la bottom-nav (miroir des icônes de nav.ts).
+const NAV_ICONS: Record<string, string> = {
+  home: "🏠",
+  calendar: "📅",
+  roster: "👥",
+  stats: "📊",
+  attendance: "✓",
+  medical: "＋",
+};
+
+/**
+ * Barre de navigation persistante (fixed bottom) — miroir de la BottomNav
+ * moderne. Items filtrés par rôle via `legacyNavForRole`. L'onglet dont la
+ * `key` vaut `activeKey` est mis en évidence (texte blanc + barre bleue).
+ * Retourne "" si `role` est null (utilisateur non connecté).
+ */
+export function bottomNav(role: LegacyRole, activeKey: string): string {
+  const items = legacyNavForRole(role);
+  if (items.length === 0) return "";
+
+  const cells = items
+    .map((item) => {
+      const isActive = item.key === activeKey;
+      const icon = NAV_ICONS[item.key] ?? item.icon ?? "•";
+      const bar = isActive ? `<span class="bn-bar"></span>` : "";
+      return `<a class="bn-item${isActive ? " active" : ""}" href="${escapeHtml(item.href)}">${bar}<span class="bn-icon">${escapeHtml(icon)}</span><span class="bn-label">${escapeHtml(item.label)}</span></a>`;
+    })
+    .join("");
+
+  return `<nav class="bottom-nav">${cells}</nav>`;
+}
+
+export interface PageHeaderOptions {
+  title: string;
+  subtitle?: string;
+  actionHref?: string;
+  actionLabel?: string;
+}
+
+/**
+ * En-tête de page standard : titre (24px/700) + sous-titre gris optionnel +
+ * bouton d'action bleu optionnel. Reproduit le pattern des pages modernes.
+ */
+export function pageHeader({ title, subtitle, actionHref, actionLabel }: PageHeaderOptions): string {
+  const subtitleBlock = subtitle
+    ? `<p class="page-subtitle">${escapeHtml(subtitle)}</p>`
+    : "";
+  const actionBlock =
+    actionHref && actionLabel
+      ? `<a class="page-action" href="${escapeHtml(actionHref)}">${escapeHtml(actionLabel)}</a>`
+      : "";
+
+  return `<div class="page-header">
+<h1 class="page-title">${escapeHtml(title)}</h1>
+${subtitleBlock}
+${actionBlock}
+</div>`;
+}
+
+export interface EmptyStateOptions {
+  icon: string;
+  title: string;
+  description?: string;
+}
+
+/**
+ * État vide centré : pastille grise avec icône + titre + description.
+ * Reproduit le composant EmptyState moderne.
+ */
+export function emptyState({ icon, title, description }: EmptyStateOptions): string {
+  const descBlock = description
+    ? `<p class="empty-desc">${escapeHtml(description)}</p>`
+    : "";
+
+  return `<div class="empty-state">
+<span class="empty-icon">${escapeHtml(icon)}</span>
+<p class="empty-title">${escapeHtml(title)}</p>
+${descBlock}
+</div>`;
+}
+
 
 export interface NavCardOptions {
   href: string;

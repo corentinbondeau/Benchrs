@@ -8,6 +8,9 @@ import {
   eventCard,
   formatDateFr,
   eventTypeBadge,
+  bottomNav,
+  pageHeader,
+  emptyState,
 } from "./html";
 // `badge` n'existe pas encore : import dynamique dans le describe dédié pour
 // que seule cette suite soit rouge tant que le helper n'est pas livré,
@@ -539,5 +542,73 @@ describe("eventTypeBadge (badge type d'événement)", () => {
     expect(html).toContain("Entraînement");
     expect(html).toContain("#DCFCE7");
     expect(html).toContain("#15803D");
+  });
+});
+
+describe("bottomNav (barre de navigation persistante)", () => {
+  it("rend une barre navy avec les onglets du rôle et marque l'onglet actif", () => {
+    const html = bottomNav("player", "calendar");
+    expect(html).toContain('class="bottom-nav"');
+    expect(html).toContain('href="/legacy/calendar"');
+    expect(html).toContain('href="/legacy/stats"');
+    // l'onglet actif porte la classe active
+    expect(html).toMatch(/href="\/legacy\/calendar"[^>]*class="[^"]*active|class="[^"]*active[^"]*"[^>]*href="\/legacy\/calendar"/);
+  });
+
+  it("retourne une chaîne vide pour un rôle null (non connecté)", () => {
+    expect(bottomNav(null, "calendar")).toBe("");
+  });
+
+  it("coach voit au moins autant d'onglets que player", () => {
+    const p = (bottomNav("player", "calendar").match(/class="bn-item/g) || []).length;
+    const c = (bottomNav("coach", "calendar").match(/class="bn-item/g) || []).length;
+    expect(c).toBeGreaterThanOrEqual(p);
+  });
+});
+
+describe("pageHeader (en-tête de page)", () => {
+  it("rend un titre et un sous-titre échappés", () => {
+    const html = pageHeader({ title: "Infirmerie", subtitle: "Suivi des blessures" });
+    expect(html).toContain('class="page-header"');
+    expect(html).toContain("Infirmerie");
+    expect(html).toContain("Suivi des blessures");
+  });
+
+  it("rend un bouton d'action optionnel avec href et label échappés", () => {
+    const html = pageHeader({ title: "Agenda", actionHref: "#form", actionLabel: "Créer" });
+    expect(html).toContain('href="#form"');
+    expect(html).toContain("Créer");
+    expect(html).toContain('class="page-action"');
+  });
+
+  it("n'affiche ni sous-titre ni action si non fournis", () => {
+    const html = pageHeader({ title: "Équipe" });
+    expect(html).not.toContain("page-subtitle");
+    expect(html).not.toContain("page-action");
+  });
+
+  it("échappe un titre malveillant", () => {
+    const html = pageHeader({ title: "<script>x</script>" });
+    expect(html).not.toContain("<script>x");
+  });
+});
+
+describe("emptyState (état vide)", () => {
+  it("rend une icône, un titre et une description échappés, centrés", () => {
+    const html = emptyState({ icon: "📅", title: "Aucun événement", description: "Rien à venir." });
+    expect(html).toContain('class="empty-state"');
+    expect(html).toContain("📅");
+    expect(html).toContain("Aucun événement");
+    expect(html).toContain("Rien à venir.");
+  });
+
+  it("fonctionne sans description", () => {
+    const html = emptyState({ icon: "＋", title: "Aucune blessure" });
+    expect(html).toContain("Aucune blessure");
+  });
+
+  it("échappe le titre", () => {
+    const html = emptyState({ icon: "x", title: "<script>t</script>" });
+    expect(html).not.toContain("<script>t");
   });
 });

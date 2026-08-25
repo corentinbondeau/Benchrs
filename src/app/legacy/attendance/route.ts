@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
-import { renderPage, escapeHtml, eventCard, heroCard, formatDateFr } from "@/lib/legacy/html";
+import { renderPage, escapeHtml, eventCard, heroCard, formatDateFr, pageHeader, emptyState, bottomNav } from "@/lib/legacy/html";
+import { getLegacyContext } from "@/lib/legacy/session";
 
 /**
  * Page de présence legacy (`/legacy/attendance`) — HTML brut, zéro React,
@@ -50,10 +51,11 @@ interface AttendanceRow {
 
 function renderAttendancePage(options: {
   attendances: AttendanceRow[];
+  role?: import("@/lib/legacy/nav").LegacyRole;
   ok?: boolean;
   error?: string;
 }): string {
-  const { attendances, ok, error } = options;
+  const { attendances, role = null, ok, error } = options;
 
   const confirmationBlock = ok
     ? `<p class="confirmation">Réponse enregistrée.</p>`
@@ -73,7 +75,7 @@ function renderAttendancePage(options: {
 
   const listBlock =
     attendances.length === 0
-      ? `<p>Aucune convocation en attente.</p>`
+      ? emptyState({ icon: "✓", title: "Aucune convocation en attente" })
       : attendances
           .map((att) =>
             eventCard({
@@ -88,15 +90,13 @@ function renderAttendancePage(options: {
 
   const body = `${heroBlock}
 <div class="container">
-  <h1>Mes présences</h1>
-  <p class="help-text">Répondez aux convocations en attente ci-dessous.</p>
+  ${pageHeader({ title: "Mes présences", subtitle: "Répondez aux convocations" })}
   ${confirmationBlock}
   ${errorBlock}
   ${listBlock}
-  <p><a href="/legacy">Retour</a></p>
 </div>`;
 
-  return renderPage({ title: "Benchrs - Mes présences", body });
+  return renderPage({ title: "Benchrs - Mes présences", body, bottomNavHtml: bottomNav(role, "attendance") });
 }
 
 export async function GET(request: Request) {
@@ -120,8 +120,11 @@ export async function GET(request: Request) {
   const ok = url.searchParams.get("ok") === "1";
 
   let attendances: AttendanceRow[] = [];
+  let role: import("@/lib/legacy/nav").LegacyRole = null;
   try {
     const supabase = await createClient();
+    const ctx = await getLegacyContext(supabase);
+    role = ctx?.role ?? null;
     const { data } = await supabase
       .from("attendances")
       .select("id, event:events!attendances_event_id_fkey(title, event_date)")
@@ -132,7 +135,7 @@ export async function GET(request: Request) {
     attendances = [];
   }
 
-  return htmlResponse(renderAttendancePage({ attendances, ok }), 200);
+  return htmlResponse(renderAttendancePage({ attendances, role, ok }), 200);
 }
 
 export async function POST(request: Request) {

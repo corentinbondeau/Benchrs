@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { renderPage, escapeHtml, field, formatDateFr, eventTypeBadge } from "@/lib/legacy/html";
+import { renderPage, escapeHtml, field, formatDateFr, eventTypeBadge, pageHeader, emptyState, bottomNav } from "@/lib/legacy/html";
 import { getLegacyContext } from "@/lib/legacy/session";
 
 /**
@@ -59,7 +59,7 @@ function renderEventCard(event: EventRow): string {
   const time = formatTimeFr(event.event_date);
   const location = event.location;
 
-  return `<div class="event-card">
+  return `<div class="event-card ${type === "match" ? "ec-match" : "ec-training"}">
 <div class="event-head">${eventTypeBadge(type)}<p class="event-title">${escapeHtml(title)}</p><p class="event-date">${escapeHtml(date)}${time ? ` · ${escapeHtml(time)}` : ""}</p></div>
 ${location ? `<p class="event-date">${escapeHtml(location)}</p>` : ""}
 </div>`;
@@ -68,21 +68,22 @@ ${location ? `<p class="event-date">${escapeHtml(location)}</p>` : ""}
 function renderCalendarPage(options: {
   events: EventRow[];
   isCoach: boolean;
+  role: import("@/lib/legacy/nav").LegacyRole;
   ok?: boolean;
   error?: string;
 }): string {
-  const { events, isCoach, ok, error } = options;
+  const { events, isCoach, role, ok, error } = options;
 
   const confirmationBlock = ok ? `<p class="confirmation">Événement créé.</p>` : "";
   const errorBlock = error ? `<p class="error">${escapeHtml(error)}</p>` : "";
 
   const listBlock =
     events.length === 0
-      ? `<p>Aucun événement à venir.</p>`
+      ? emptyState({ icon: "📅", title: "Aucun événement à venir" })
       : events.map(renderEventCard).join("\n");
 
   const createFormBlock = isCoach
-    ? `<h1>Créer un événement</h1>
+    ? `<div id="form" class="page-header" style="margin-top:8px;"><h1 class="page-title">Créer un événement</h1></div>
 <form method="POST" action="/legacy/calendar">
 <label for="type">Type</label>
 <select id="type" name="type">
@@ -99,16 +100,19 @@ ${field({ name: "opponent", label: "Adversaire (si match, optionnel)", type: "te
 </form>`
     : "";
 
+  const header = isCoach
+    ? pageHeader({ title: "Agenda", subtitle: "Matchs et entraînements à venir", actionHref: "#form", actionLabel: "Créer" })
+    : pageHeader({ title: "Agenda", subtitle: "Matchs et entraînements à venir" });
+
   const body = `<div class="container">
-  <h1>Agenda</h1>
+  ${header}
   ${confirmationBlock}
   ${errorBlock}
   ${listBlock}
   ${createFormBlock}
-  <p><a href="/legacy">Retour</a></p>
 </div>`;
 
-  return renderPage({ title: "Benchrs - Agenda", body });
+  return renderPage({ title: "Benchrs - Agenda", body, bottomNavHtml: bottomNav(role, "calendar") });
 }
 
 async function fetchUpcomingEvents(teamId: string | null): Promise<EventRow[]> {
@@ -151,7 +155,7 @@ export async function GET(request: Request) {
   const isCoach = ctx.role === "coach" || ctx.role === "owner";
   const events = await fetchUpcomingEvents(ctx.teamId);
 
-  return htmlResponse(renderCalendarPage({ events, isCoach, ok }), 200);
+  return htmlResponse(renderCalendarPage({ events, isCoach, role: ctx.role, ok }), 200);
 }
 
 export async function POST(request: Request) {
@@ -173,7 +177,7 @@ export async function POST(request: Request) {
   if (!isCoach) {
     const events = await fetchUpcomingEvents(ctx.teamId);
     return htmlResponse(
-      renderCalendarPage({ events, isCoach, error: "Action réservée au staff." }),
+      renderCalendarPage({ events, isCoach, role: ctx.role, error: "Action réservée au staff." }),
       403
     );
   }
@@ -181,7 +185,7 @@ export async function POST(request: Request) {
   if (!ctx.teamId) {
     const events = await fetchUpcomingEvents(ctx.teamId);
     return htmlResponse(
-      renderCalendarPage({ events, isCoach, error: "Aucune équipe associée." }),
+      renderCalendarPage({ events, isCoach, role: ctx.role, error: "Aucune équipe associée." }),
       400
     );
   }
@@ -192,7 +196,7 @@ export async function POST(request: Request) {
   } catch {
     const events = await fetchUpcomingEvents(ctx.teamId);
     return htmlResponse(
-      renderCalendarPage({ events, isCoach, error: "Requête invalide, veuillez réessayer." }),
+      renderCalendarPage({ events, isCoach, role: ctx.role, error: "Requête invalide, veuillez réessayer." }),
       400
     );
   }
@@ -208,7 +212,7 @@ export async function POST(request: Request) {
 
   if (!title || !eventDate || (type !== "match" && type !== "training")) {
     return htmlResponse(
-      renderCalendarPage({ events, isCoach, error: "Champs obligatoires manquants." }),
+      renderCalendarPage({ events, isCoach, role: ctx.role, error: "Champs obligatoires manquants." }),
       400
     );
   }
@@ -216,7 +220,7 @@ export async function POST(request: Request) {
   const parsedDate = new Date(`${eventDate}T${eventTime || "12:00"}:00`);
   if (isNaN(parsedDate.getTime())) {
     return htmlResponse(
-      renderCalendarPage({ events, isCoach, error: "Date invalide." }),
+      renderCalendarPage({ events, isCoach, role: ctx.role, error: "Date invalide." }),
       400
     );
   }
@@ -238,13 +242,13 @@ export async function POST(request: Request) {
 
     if (error) {
       return htmlResponse(
-        renderCalendarPage({ events, isCoach, error: "Une erreur est survenue, veuillez réessayer." }),
+        renderCalendarPage({ events, isCoach, role: ctx.role, error: "Une erreur est survenue, veuillez réessayer." }),
         400
       );
     }
   } catch {
     return htmlResponse(
-      renderCalendarPage({ events, isCoach, error: "Une erreur est survenue, veuillez réessayer." }),
+      renderCalendarPage({ events, isCoach, role: ctx.role, error: "Une erreur est survenue, veuillez réessayer." }),
       400
     );
   }

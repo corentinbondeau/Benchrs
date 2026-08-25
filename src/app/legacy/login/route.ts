@@ -20,9 +20,9 @@ function renderLoginPage(options: {
   <form method="POST" action="/legacy/login">
     ${field({ name: "email", label: "Email", type: "email", value: email })}
     ${field({ name: "password", label: "Mot de passe", type: "password" })}
+    <p class="help-text"><a href="/forgot-password?full=1">Mot de passe oublié ?</a></p>
     <button type="submit">Se connecter</button>
-  </form>
-  <p><a href="/legacy">Retour</a></p>`;
+  </form>`;
 
   return renderPage({
     title: "Connexion",

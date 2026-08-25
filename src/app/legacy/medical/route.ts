@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { renderPage, escapeHtml, field, formatDateFr } from "@/lib/legacy/html";
+import { renderPage, escapeHtml, field, formatDateFr, pageHeader, emptyState, bottomNav } from "@/lib/legacy/html";
 import { getLegacyContext } from "@/lib/legacy/session";
 
 /**
@@ -79,27 +79,28 @@ function renderPlayerOption(player: RosterPlayer): string {
 function renderMedicalPage(options: {
   injuries: InjuryRow[];
   roster: RosterPlayer[];
+  role: import("@/lib/legacy/nav").LegacyRole;
   ok?: boolean;
   error?: string;
 }): string {
-  const { injuries, roster, ok, error } = options;
+  const { injuries, roster, role, ok, error } = options;
 
   const confirmationBlock = ok ? `<p class="confirmation">Enregistré.</p>` : "";
   const errorBlock = error ? `<p class="error">${escapeHtml(error)}</p>` : "";
 
   const listBlock =
     injuries.length === 0
-      ? `<p>Aucune blessure en cours.</p>`
+      ? emptyState({ icon: "＋", title: "Aucune blessure en cours", description: "Tous les joueurs sont en forme." })
       : injuries.map(renderInjuryCard).join("\n");
 
   const optionsBlock = roster.map(renderPlayerOption).join("\n");
 
   const body = `<div class="container">
-  <h1>Infirmerie</h1>
+  ${pageHeader({ title: "Infirmerie", subtitle: "Blessures en cours", actionHref: "#form", actionLabel: "Signaler" })}
   ${confirmationBlock}
   ${errorBlock}
   ${listBlock}
-  <h1>Déclarer une blessure</h1>
+  <div id="form" class="page-header" style="margin-top:8px;"><h1 class="page-title">Déclarer une blessure</h1></div>
   <form method="POST" action="/legacy/medical">
 <label for="playerId">Joueur</label>
 <select id="playerId" name="playerId">
@@ -113,10 +114,9 @@ ${field({ name: "expectedReturn", label: "Retour prévu (optionnel)", type: "dat
 <p class="help-text">Format : AAAA-MM-JJ</p>
 <button type="submit">Déclarer la blessure</button>
 </form>
-  <p><a href="/legacy">Retour</a></p>
 </div>`;
 
-  return renderPage({ title: "Benchrs - Infirmerie", body });
+  return renderPage({ title: "Benchrs - Infirmerie", body, bottomNavHtml: bottomNav(role, "medical") });
 }
 
 async function fetchRosterAndInjuries(
@@ -186,7 +186,7 @@ export async function GET(request: Request) {
 
   const { injuries, roster } = await fetchRosterAndInjuries(ctx.teamId);
 
-  return htmlResponse(renderMedicalPage({ injuries, roster, ok }), 200);
+  return htmlResponse(renderMedicalPage({ injuries, roster, role: ctx.role, ok }), 200);
 }
 
 export async function POST(request: Request) {
@@ -206,7 +206,7 @@ export async function POST(request: Request) {
   if (!ctx.teamId) {
     const { injuries, roster } = await fetchRosterAndInjuries(ctx.teamId);
     return htmlResponse(
-      renderMedicalPage({ injuries, roster, error: "Aucune équipe associée." }),
+      renderMedicalPage({ injuries, roster, role: ctx.role, error: "Aucune équipe associée." }),
       400
     );
   }
@@ -217,7 +217,7 @@ export async function POST(request: Request) {
   } catch {
     const { injuries, roster } = await fetchRosterAndInjuries(ctx.teamId);
     return htmlResponse(
-      renderMedicalPage({ injuries, roster, error: "Requête invalide, veuillez réessayer." }),
+      renderMedicalPage({ injuries, roster, role: ctx.role, error: "Requête invalide, veuillez réessayer." }),
       400
     );
   }
@@ -230,7 +230,7 @@ export async function POST(request: Request) {
     if (!injuryId) {
       const { injuries, roster } = await fetchRosterAndInjuries(ctx.teamId);
       return htmlResponse(
-        renderMedicalPage({ injuries, roster, error: "Blessure invalide." }),
+        renderMedicalPage({ injuries, roster, role: ctx.role, error: "Blessure invalide." }),
         400
       );
     }
@@ -243,7 +243,7 @@ export async function POST(request: Request) {
     } catch {
       const { injuries, roster } = await fetchRosterAndInjuries(ctx.teamId);
       return htmlResponse(
-        renderMedicalPage({ injuries, roster, error: "Une erreur est survenue, veuillez réessayer." }),
+        renderMedicalPage({ injuries, roster, role: ctx.role, error: "Une erreur est survenue, veuillez réessayer." }),
         400
       );
     }
@@ -261,7 +261,7 @@ export async function POST(request: Request) {
 
   if (!playerId || !description || !injuryDate) {
     return htmlResponse(
-      renderMedicalPage({ injuries, roster, error: "Champs obligatoires manquants." }),
+      renderMedicalPage({ injuries, roster, role: ctx.role, error: "Champs obligatoires manquants." }),
       400
     );
   }
@@ -270,7 +270,7 @@ export async function POST(request: Request) {
   // l'équipe courante (empêche d'injecter une blessure hors équipe).
   if (!playerIds.includes(playerId)) {
     return htmlResponse(
-      renderMedicalPage({ injuries, roster, error: "Joueur invalide." }),
+      renderMedicalPage({ injuries, roster, role: ctx.role, error: "Joueur invalide." }),
       400
     );
   }
@@ -290,13 +290,13 @@ export async function POST(request: Request) {
 
     if (error) {
       return htmlResponse(
-        renderMedicalPage({ injuries, roster, error: "Une erreur est survenue, veuillez réessayer." }),
+        renderMedicalPage({ injuries, roster, role: ctx.role, error: "Une erreur est survenue, veuillez réessayer." }),
         400
       );
     }
   } catch {
     return htmlResponse(
-      renderMedicalPage({ injuries, roster, error: "Une erreur est survenue, veuillez réessayer." }),
+      renderMedicalPage({ injuries, roster, role: ctx.role, error: "Une erreur est survenue, veuillez réessayer." }),
       400
     );
   }

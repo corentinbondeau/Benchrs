@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { renderPage, navCard } from "@/lib/legacy/html";
+import { renderPage, navCard, pageHeader, bottomNav } from "@/lib/legacy/html";
 import { getLegacyContext } from "@/lib/legacy/session";
 import { legacyNavForRole } from "@/lib/legacy/nav";
 
@@ -81,13 +81,16 @@ export async function GET() {
         }),
       ].join("\n");
 
-  const body = `<h1>Bonjour</h1>
-<p class="help-text">Version simplifiée, compatible avec votre appareil.</p>
+  const body = `${pageHeader({ title: "Accueil", subtitle: "Bonjour" })}
 <div class="nav-grid">
 ${cards}
 </div>`;
 
-  const html = renderPage({ title: "Benchrs - Accueil", body });
+  const html = renderPage({
+    title: "Benchrs - Accueil",
+    body,
+    bottomNavHtml: isLoggedIn ? bottomNav(role, "home") : "",
+  });
 
   return new Response(html, {
     status: 200,

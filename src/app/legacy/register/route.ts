@@ -43,8 +43,7 @@ function renderRegisterPage(options: {
       <option value="parent" ${selectedParent}>Parent</option>
     </select>
     <button type="submit">S'inscrire</button>
-  </form>
-  <p><a href="/legacy">Retour</a></p>`;
+  </form>`;
 
   return renderPage({
     title: "Créer un compte",

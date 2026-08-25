@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { renderPage, escapeHtml } from "@/lib/legacy/html";
+import { renderPage, escapeHtml, pageHeader, emptyState, bottomNav } from "@/lib/legacy/html";
 import { getLegacyContext } from "@/lib/legacy/session";
 
 /**
@@ -36,6 +36,20 @@ const ROLE_LABELS: Record<string, string> = {
   parent: "Parent",
 };
 
+// Teinte d'avatar par rôle (miroir du roster moderne).
+const ROLE_AVATAR: Record<string, { bg: string; color: string }> = {
+  owner: { bg: "#FEF3C7", color: "#B45309" },
+  coach: { bg: "#FEF3C7", color: "#B45309" },
+  player: { bg: "#DBEAFE", color: "#1D4ED8" },
+  parent: { bg: "#DCFCE7", color: "#15803D" },
+};
+
+function initials(first: string | null, last: string | null): string {
+  const a = (first ?? "").trim().charAt(0).toUpperCase();
+  const b = (last ?? "").trim().charAt(0).toUpperCase();
+  return (a + b) || "—";
+}
+
 function renderMemberRow(member: MemberRow): string {
   const name = `${member.first_name ?? ""} ${member.last_name ?? ""}`.trim() || "—";
   const number =
@@ -43,10 +57,14 @@ function renderMemberRow(member: MemberRow): string {
       ? `#${member.shirt_number}`
       : "";
   const roleLabel = ROLE_LABELS[member.role] ?? member.role;
+  const av = ROLE_AVATAR[member.role] ?? ROLE_AVATAR.player;
 
-  return `<div class="event-card">
-<p class="event-title">${escapeHtml(number ? `${number} ` : "")}${escapeHtml(name)}</p>
+  return `<div class="event-card avatar-row">
+<span class="avatar" style="background-color:${av.bg};color:${av.color};">${escapeHtml(initials(member.first_name, member.last_name))}</span>
+<span class="avatar-text">
+<p class="event-title" style="margin:0;">${escapeHtml(number ? `${number} ` : "")}${escapeHtml(name)}</p>
 <p class="event-date">${escapeHtml(roleLabel)}</p>
+</span>
 </div>`;
 }
 
@@ -112,14 +130,22 @@ export async function GET() {
 
   const listBlock =
     members.length === 0
-      ? `<p>Aucun joueur dans l'effectif.</p>`
+      ? emptyState({ icon: "👥", title: "Aucun joueur dans l'effectif" })
       : members.map(renderMemberRow).join("\n");
 
+  const subtitle = members.length > 0 ? `${members.length} membre${members.length > 1 ? "s" : ""}` : "L'effectif";
+
   const body = `<div class="container">
-  <h1>Équipe</h1>
+  ${pageHeader({ title: "Équipe", subtitle })}
   ${listBlock}
-  <p><a href="/legacy">Retour</a></p>
 </div>`;
 
-  return htmlResponse(renderPage({ title: "Benchrs - Équipe", body }), 200);
+  return htmlResponse(
+    renderPage({
+      title: "Benchrs - Équipe",
+      body,
+      bottomNavHtml: bottomNav(ctx.role, "roster"),
+    }),
+    200
+  );
 }
