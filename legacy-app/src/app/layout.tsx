@@ -12,6 +12,11 @@ import "./globals.css";
 const geistSans = { variable: "font-legacy-sans" };
 const geistMono = { variable: "font-legacy-mono" };
 
+// Fork legacy : l'app est entièrement client-side + Supabase runtime. On
+// désactive le prérendu statique (qui échoue au build faute de vraies clés
+// Supabase et n'apporte aucun bénéfice ici) en forçant le rendu dynamique.
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "Benchrs",
   description: "Gestion d'équipe de football amateur",
