@@ -45,6 +45,7 @@ export default function ChatPage() {
   const [channels, setChannels] = useState<ChatChannel[]>([]);
   const [selectedChannel, setSelectedChannel] = useState<string | null>(null);
   const [messages, setMessages] = useState<MessageWithSender[]>([]);
+  const [visibleMessageCount, setVisibleMessageCount] = useState(30);
   const [newMessage, setNewMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -209,6 +210,7 @@ export default function ChatPage() {
       .limit(100)
       .then(({ data }) => {
         setMessages((data as MessageWithSender[]) || []);
+        setVisibleMessageCount(30);
         setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
       });
 
@@ -502,10 +504,24 @@ export default function ChatPage() {
     </div>
   );
 
+  const visibleMessages = messages.slice(Math.max(0, messages.length - visibleMessageCount));
+  const hasHiddenOlderMessages = messages.length > visibleMessages.length;
+
   const messageThread = (
     <>
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
-        {messages.map((msg) => {
+        {hasHiddenOlderMessages && (
+          <div className="flex justify-center pb-1">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setVisibleMessageCount((c) => c + 30)}
+            >
+              Charger les messages précédents
+            </Button>
+          </div>
+        )}
+        {visibleMessages.map((msg) => {
           const isMe = msg.sender_id === user?.id;
           return (
             <div key={msg.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
