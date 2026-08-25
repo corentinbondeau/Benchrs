@@ -3,6 +3,7 @@
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { authFetch } from "@/lib/api-client";
 import { normalizeFffNumber } from "@/lib/clubs";
 import { Button } from "@/components/ui/button";
@@ -313,7 +314,7 @@ function RegisterForm() {
     return (
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <img src="/favicon.png" alt="Benchrs" className="h-12 w-12 mx-auto mb-2" />
+          <Image src="/favicon.png" alt="Benchrs" width={48} height={48} className="h-12 w-12 mx-auto mb-2" />
           <CardTitle className="text-2xl">
             {teamMode === "comite" ? "Comité du club" : "Votre équipe"}
           </CardTitle>
@@ -328,7 +329,7 @@ function RegisterForm() {
         <form onSubmit={handleSubmitTeam}>
           <CardContent className="space-y-4">
             {error && (
-              <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive text-center">
+              <div role="alert" aria-live="polite" className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive text-center">
                 {error}
               </div>
             )}
@@ -568,7 +569,7 @@ function RegisterForm() {
   return (
     <Card className="w-full max-w-md">
       <CardHeader className="text-center">
-        <img src="/favicon.png" alt="Benchrs" className="h-12 w-12 mx-auto mb-2" />
+        <Image src="/favicon.png" alt="Benchrs" width={48} height={48} className="h-12 w-12 mx-auto mb-2" />
         <CardTitle className="text-2xl">Créer un compte</CardTitle>
         <CardDescription>
           Rejoignez Benchrs en quelques clics
@@ -577,7 +578,7 @@ function RegisterForm() {
       <form onSubmit={handleSubmitInfo}>
         <CardContent className="space-y-4">
           {error && (
-            <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive text-center">
+            <div role="alert" aria-live="polite" className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive text-center">
               {error}
             </div>
           )}

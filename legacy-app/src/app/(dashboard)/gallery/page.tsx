@@ -32,6 +32,8 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { toast } from "sonner";
 import type { GalleryMedia, Event, Album } from "@/types";
 
+const MEDIA_PAGE_SIZE = 24;
+
 export default function GalleryPage() {
   const { user } = useAuth();
   const { currentTeam, userRole } = useTeam();
@@ -39,6 +41,9 @@ export default function GalleryPage() {
   const [media, setMedia] = useState<GalleryMedia[]>([]);
   const [albums, setAlbums] = useState<Album[]>([]);
   const [loading, setLoading] = useState(true);
+  const [mediaPage, setMediaPage] = useState(0);
+  const [hasMoreMedia, setHasMoreMedia] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [selectedAlbum, setSelectedAlbum] = useState<Album | null>(null);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [albumOpen, setAlbumOpen] = useState(false);
@@ -74,11 +79,13 @@ export default function GalleryPage() {
 
   function fetchMedia() {
     const supabase = createClient();
+    setLoading(true);
     supabase
       .from("gallery_media")
       .select("*")
       .eq("team_id", currentTeam!.id)
       .order("created_at", { ascending: false })
+      .range(0, MEDIA_PAGE_SIZE - 1)
       .then(async ({ data }) => {
         const rows = (data as GalleryMedia[]) || [];
         const signed = await signList(supabase, "gallery", rows, (m) => ({
@@ -86,7 +93,35 @@ export default function GalleryPage() {
           urlField: "url",
         }));
         setMedia(signed);
+        setMediaPage(0);
+        setHasMoreMedia(rows.length === MEDIA_PAGE_SIZE);
         setLoading(false);
+      });
+  }
+
+  function loadMoreMedia() {
+    if (loadingMore || !hasMoreMedia) return;
+    setLoadingMore(true);
+    const supabase = createClient();
+    const nextPage = mediaPage + 1;
+    const from = nextPage * MEDIA_PAGE_SIZE;
+    const to = from + MEDIA_PAGE_SIZE - 1;
+    supabase
+      .from("gallery_media")
+      .select("*")
+      .eq("team_id", currentTeam!.id)
+      .order("created_at", { ascending: false })
+      .range(from, to)
+      .then(async ({ data }) => {
+        const rows = (data as GalleryMedia[]) || [];
+        const signed = await signList(supabase, "gallery", rows, (m) => ({
+          path: m.storage_path || m.url,
+          urlField: "url",
+        }));
+        setMedia((prev) => [...prev, ...signed]);
+        setMediaPage(nextPage);
+        setHasMoreMedia(rows.length === MEDIA_PAGE_SIZE);
+        setLoadingMore(false);
       });
   }
 
@@ -742,11 +777,23 @@ export default function GalleryPage() {
                     </Button>
                   )}
                 </Card>
-              );
-            })}
-          </div>
-        )}
+                );
+              })}
+            </div>
+          )}
+          {!selectedEvent && hasMoreMedia && (
+            <div className="flex justify-center mt-4">
+              <Button
+                variant="outline"
+                onClick={loadMoreMedia}
+                disabled={loadingMore}
+              >
+                {loadingMore ? "Chargement..." : "Charger plus"}
+              </Button>
+            </div>
+          )}
       </div>
+
 
       <Dialog open={!!lightbox} onOpenChange={(open) => {
         if (open && lightbox) {

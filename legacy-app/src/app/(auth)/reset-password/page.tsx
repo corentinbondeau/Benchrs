@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -84,7 +85,7 @@ export default function ResetPasswordPage() {
   return (
     <Card className="w-full max-w-md">
       <CardHeader className="text-center">
-        <img src="/favicon.png" alt="Benchrs" className="h-12 w-12 mx-auto mb-2" />
+        <Image src="/favicon.png" alt="Benchrs" width={48} height={48} className="h-12 w-12 mx-auto mb-2" />
         <CardTitle className="text-2xl">Nouveau mot de passe</CardTitle>
         <CardDescription>
           Choisissez un nouveau mot de passe pour votre compte
@@ -104,7 +105,7 @@ export default function ResetPasswordPage() {
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
             {error && (
-              <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive text-center">
+              <div role="alert" aria-live="polite" className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive text-center">
                 {error}
               </div>
             )}

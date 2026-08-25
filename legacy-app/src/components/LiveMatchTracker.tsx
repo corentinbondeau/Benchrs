@@ -348,9 +348,30 @@ export function LiveMatchTracker({
         () => onStatsChangeRef.current()
       )
       .subscribe();
-    const pollEvents = setInterval(fetchEvents, 20000);
-    const pollMatch = setInterval(refreshMatch, 20000);
-    const pollStats = setInterval(() => onStatsChangeRef.current(), 20000);
+    const pollEvents = setInterval(() => {
+      if (document.visibilityState === "hidden") return;
+      fetchEvents();
+    }, 20000);
+    const pollMatch = setInterval(() => {
+      if (document.visibilityState === "hidden") return;
+      refreshMatch();
+    }, 20000);
+    const pollStats = setInterval(() => {
+      if (document.visibilityState === "hidden") return;
+      onStatsChangeRef.current();
+    }, 20000);
+
+    function handleVisibilityChange() {
+      // Au retour au premier plan, on rafraîchit immédiatement pour éviter
+      // d'attendre jusqu'à 20s de données périmées après une pause.
+      if (document.visibilityState === "visible") {
+        fetchEvents();
+        refreshMatch();
+        onStatsChangeRef.current();
+      }
+    }
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
     return () => {
       supabase.removeChannel(eventsCh);
       supabase.removeChannel(matchCh);
@@ -358,13 +379,44 @@ export function LiveMatchTracker({
       clearInterval(pollEvents);
       clearInterval(pollMatch);
       clearInterval(pollStats);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [eventId, fetchEvents, refreshMatch]);
 
   useEffect(() => {
     if (phase !== "playing") return;
-    const t = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(t);
+    let t: ReturnType<typeof setInterval> | null = null;
+
+    function startTick() {
+      if (t !== null) return;
+      t = setInterval(() => setNow(Date.now()), 1000);
+    }
+    function stopTick() {
+      if (t !== null) {
+        clearInterval(t);
+        t = null;
+      }
+    }
+    function handleVisibilityChange() {
+      if (document.visibilityState === "hidden") {
+        stopTick();
+      } else {
+        // Resynchronise immédiatement le chrono à la reprise, plutôt
+        // d'attendre le prochain tick de la seconde.
+        setNow(Date.now());
+        startTick();
+      }
+    }
+
+    if (document.visibilityState !== "hidden") {
+      startTick();
+    }
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      stopTick();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
   }, [phase]);
 
   async function syncScore() {

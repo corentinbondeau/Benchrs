@@ -3,6 +3,7 @@
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -115,7 +116,7 @@ function JoinTeamForm() {
     return (
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <img src="/favicon.png" alt="Benchrs" className="h-12 w-12 mx-auto mb-2" />
+          <Image src="/favicon.png" alt="Benchrs" width={48} height={48} className="h-12 w-12 mx-auto mb-2" />
           <CardTitle className="text-2xl">Rejoindre une équipe</CardTitle>
           <CardDescription>
             Vous avez été invité à rejoindre une équipe. Connectez-vous ou créez un
@@ -146,7 +147,7 @@ function JoinTeamForm() {
   return (
     <Card className="w-full max-w-md">
       <CardHeader className="text-center">
-        <img src="/favicon.png" alt="Benchrs" className="h-12 w-12 mx-auto mb-2" />
+        <Image src="/favicon.png" alt="Benchrs" width={48} height={48} className="h-12 w-12 mx-auto mb-2" />
         <CardTitle className="text-2xl">Rejoindre une équipe</CardTitle>
         <CardDescription>
           Entrez le code d&apos;invitation partagé par votre coach
@@ -155,7 +156,7 @@ function JoinTeamForm() {
       <form onSubmit={handleSubmit}>
         <CardContent className="space-y-4">
           {error && (
-            <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive text-center">
+            <div role="alert" aria-live="polite" className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive text-center">
               {error}
             </div>
           )}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useTeam } from "@/lib/team";
@@ -242,7 +243,7 @@ export default function CarpoolingPage() {
                     {/* Driver avatar */}
                     <Avatar className="h-10 w-10 shrink-0">
                       {trip.driver?.avatar_url ? (
-                        <img src={trip.driver.avatar_url} alt="" className="h-10 w-10 rounded-full object-cover" />
+                        <Image src={trip.driver.avatar_url} alt="" width={40} height={40} className="h-10 w-10 rounded-full object-cover" />
                       ) : (
                         <AvatarFallback className="bg-[var(--color-primary-blue)]/10 text-[var(--color-primary-blue)] text-sm font-bold">
                           {trip.driver ? `${trip.driver.first_name?.[0] || ""}${trip.driver.last_name?.[0] || ""}` : "?"}
@@ -372,7 +373,7 @@ export default function CarpoolingPage() {
                       <div key={b.id} className="flex items-center gap-3">
                         <Avatar className="h-7 w-7">
                           {b.passenger?.avatar_url ? (
-                            <img src={b.passenger.avatar_url} alt="" className="h-7 w-7 rounded-full object-cover" />
+                            <Image src={b.passenger.avatar_url} alt="" width={28} height={28} className="h-7 w-7 rounded-full object-cover" />
                           ) : (
                             <AvatarFallback className="bg-muted text-[10px] font-bold">
                               {b.passenger ? `${b.passenger.first_name?.[0] || ""}${b.passenger.last_name?.[0] || ""}` : "?"}

@@ -173,7 +173,7 @@ function SheetContentInner({ close }: { close: () => void }) {
           <Image src="/logo.svg" alt="Benchrs" width={28} height={28} className="h-7 w-7" />
           <span className="text-lg font-bold text-white tracking-tight">Benchrs</span>
         </div>
-        <SheetClose className="text-white/40 hover:text-white p-1">
+        <SheetClose className="text-white/40 hover:text-white p-3 -mr-3">
           <X className="h-5 w-5" />
         </SheetClose>
       </div>
