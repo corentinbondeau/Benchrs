@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -44,7 +45,7 @@ export default function ForgotPasswordPage() {
   return (
     <Card className="w-full max-w-md">
       <CardHeader className="text-center">
-        <img src="/favicon.png" alt="Benchrs" className="h-12 w-12 mx-auto mb-2" />
+        <Image src="/favicon.png" alt="Benchrs" width={48} height={48} className="h-12 w-12 mx-auto mb-2" />
         <CardTitle className="text-2xl">Mot de passe oublié</CardTitle>
         <CardDescription>
           Entrez votre email pour recevoir un lien de réinitialisation
@@ -63,7 +64,7 @@ export default function ForgotPasswordPage() {
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
             {error && (
-              <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive text-center">
+              <div role="alert" aria-live="polite" className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive text-center">
                 {error}
               </div>
             )}
