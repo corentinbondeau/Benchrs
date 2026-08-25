@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { rateLimit, AUTH_LIMIT, clientKey } from "@/lib/rateLimit";
-
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+import { registerUser } from "@/lib/auth/register";
 
 export async function POST(req: Request) {
   try {
@@ -12,81 +10,28 @@ export async function POST(req: Request) {
         { status: 429 }
       );
     }
+
     const { email, password, firstName, lastName, role, phone } =
       await req.json();
 
-    if (!email || !password || !firstName || !lastName) {
-      return NextResponse.json(
-        { error: "Champs obligatoires manquants" },
-        { status: 400 }
-      );
-    }
-
-    if (typeof email !== "string" || !EMAIL_RE.test(email.trim())) {
-      return NextResponse.json({ error: "Email invalide" }, { status: 400 });
-    }
-
-    if (typeof password !== "string" || password.length < 8) {
-      return NextResponse.json(
-        { error: "Le mot de passe doit contenir au moins 8 caractères" },
-        { status: 400 }
-      );
-    }
-
-    if (
-      typeof firstName !== "string" ||
-      typeof lastName !== "string" ||
-      !firstName.trim() ||
-      !lastName.trim() ||
-      firstName.trim().length > 100 ||
-      lastName.trim().length > 100
-    ) {
-      return NextResponse.json({ error: "Nom invalide" }, { status: 400 });
-    }
-
-    if (phone && (typeof phone !== "string" || phone.length > 30)) {
-      return NextResponse.json({ error: "Téléphone invalide" }, { status: 400 });
-    }
-
-    const supabase = createAdminClient();
-
-    const { data: authData, error: authError } =
-      await supabase.auth.admin.createUser({
-        email: email.trim().toLowerCase(),
-        password,
-        email_confirm: true,
-      });
-
-    if (authError) {
-      return NextResponse.json({ error: authError.message }, { status: 400 });
-    }
-
-    // Le rôle est per-équipe : il est demandé à la rejoint d'une équipe,
-    // pas à l'inscription. On garde un défaut "player" pour le profil.
-    // Le rôle client est borné à player/parent — jamais coach/owner (per-team).
-    const requestedRole = typeof role === "string" ? role : "";
-    const profileRole: "player" | "parent" =
-      requestedRole === "parent" ? "parent" : "player";
-
-    const { error: profileError } = await supabase.from("profiles").insert({
-      id: authData.user.id,
-      role: profileRole,
-      first_name: firstName.trim(),
-      last_name: lastName.trim(),
-      phone: phone || null,
-      is_active: true,
+    const result = await registerUser({
+      email,
+      password,
+      firstName,
+      lastName,
+      role,
+      phone,
     });
 
-    if (profileError) {
-      await supabase.auth.admin.deleteUser(authData.user.id);
+    if (!result.ok) {
       return NextResponse.json(
-        { error: profileError.message },
-        { status: 400 }
+        { error: result.error ?? "Inscription invalide" },
+        { status: result.status ?? 400 }
       );
     }
 
     return NextResponse.json({
-      user: authData.user,
+      user: result.user,
       message: "Compte cree avec succes",
     });
   } catch {
