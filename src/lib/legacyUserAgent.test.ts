@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isLegacyUserAgent } from "./ua";
+import { isLegacyUserAgent } from "./legacyUserAgent";
 
 /**
  * Fixtures UA — chaque famille est nommée pour l'anti-régression.
