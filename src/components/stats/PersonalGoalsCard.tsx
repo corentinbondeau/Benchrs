@@ -20,6 +20,7 @@ import {
   seasonDateRange,
 } from "@/lib/goals";
 import type { GoalCategory, PersonalGoal } from "@/types";
+import { computeAttendanceRate } from "@/lib/attendance/computeAttendanceRate";
 
 interface Props {
   playerId: string;
@@ -99,20 +100,33 @@ export function PersonalGoalsCard({ playerId }: Props) {
           .lte("event_date", range.end.toISOString());
         const eventIds = (events || []).map((e) => e.id);
 
-        if (eventIds.length > 0) {
+        const { data: trainingEvents } = await supabase
+          .from("events")
+          .select("id")
+          .eq("team_id", teamId)
+          .eq("type", "training")
+          .gte("event_date", range.start.toISOString())
+          .lte("event_date", range.end.toISOString());
+        const trainingIds = (trainingEvents || []).map((e) => e.id as string);
+
+        if (eventIds.length > 0 || trainingIds.length > 0) {
           const [{ data: stats }, { data: atts }] = await Promise.all([
-            supabase
-              .from("match_stats")
-              .select("event_id, goals, assists, minutes_played")
-              .eq("player_id", pid)
-              .eq("team_id", teamId)
-              .in("event_id", eventIds),
-            supabase
-              .from("attendances")
-              .select("status")
-              .eq("user_id", pid)
-              .eq("team_id", teamId)
-              .in("event_id", eventIds),
+            eventIds.length > 0
+              ? supabase
+                  .from("match_stats")
+                  .select("event_id, goals, assists, minutes_played")
+                  .eq("player_id", pid)
+                  .eq("team_id", teamId)
+                  .in("event_id", eventIds)
+              : Promise.resolve({ data: [] as unknown[] }),
+            trainingIds.length > 0
+              ? supabase
+                  .from("attendances")
+                  .select("status, event_id")
+                  .eq("user_id", pid)
+                  .eq("team_id", teamId)
+                  .in("event_id", trainingIds)
+              : Promise.resolve({ data: [] as unknown[] }),
           ]);
 
           let goals = 0;
@@ -126,16 +140,14 @@ export function PersonalGoalsCard({ playerId }: Props) {
             minutes += row.minutes_played || 0;
             matchEvents.add(row.event_id);
           }
-          const present = (atts || []).filter(
-            (a) => (a as { status: string }).status === "present" || (a as { status: string }).status === "late"
-          ).length;
-          const total = (atts || []).length;
+          const attendanceRows = (atts || []) as { status: string; event_id: string }[];
+          const attendanceRate = computeAttendanceRate(attendanceRows, trainingIds);
           progress = {
             goals,
             assists,
             matches: matchEvents.size,
             minutes,
-            assiduite: total > 0 ? Math.round((present / total) * 100) : 0,
+            assiduite: attendanceRate ?? 0,
           };
         }
       }

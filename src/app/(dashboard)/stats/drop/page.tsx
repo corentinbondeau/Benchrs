@@ -53,12 +53,14 @@ export default function FormDropPage() {
     const events = (eventsRes.data || []).map((e) => ({
       id: (e as { id: string }).id,
       date: new Date((e as { event_date: string }).event_date).getTime(),
+      type: (e as { type: string }).type,
     }));
     const eventDateById = new Map(events.map((e) => [e.id, e.date]));
     const attendances = (attendRes.data || []) as Attendance[];
     const rpes = (rpeRes.data || []) as SessionRpe[];
 
-    const latest6 = events.slice(0, 6);
+    const trainingEvents = events.filter((e) => e.type === "training");
+    const latest6 = trainingEvents.slice(0, 6);
     const latest6Ids = new Set(latest6.map((e) => e.id));
 
     const byPlayer = new Map<string, { attend: Attendance[]; rpe: SessionRpe[] }>();

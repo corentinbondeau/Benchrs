@@ -115,11 +115,20 @@ export async function fetchSeasonData(
   const matchIds = matches.map((m) => m.id);
   const emptyRows = { data: [] as unknown[] };
 
+  const { data: trainingEvents } = await supabase
+    .from("events")
+    .select("id")
+    .eq("team_id", teamId)
+    .eq("type", "training")
+    .gte("event_date", startISO)
+    .lte("event_date", endISO);
+  const trainingIds = ((trainingEvents as { id: string }[] | null) || []).map((e) => e.id);
+
   const { data: statsRaw } = matchIds.length
     ? await supabase.from("match_stats").select("event_id, player_id, goals, assists, yellow_cards, red_cards, minutes_played").in("event_id", matchIds)
     : emptyRows;
-  const { data: attRaw } = matchIds.length
-    ? await supabase.from("attendances").select("event_id, user_id, status").in("event_id", matchIds)
+  const { data: attRaw } = trainingIds.length
+    ? await supabase.from("attendances").select("event_id, user_id, status").in("event_id", trainingIds)
     : emptyRows;
   const { data: ratingsRaw } = matchIds.length
     ? await supabase.from("match_ratings").select("player_id, rating").in("event_id", matchIds)

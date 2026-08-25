@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Flame, Trophy, Medal, Star, Target, CalendarCheck, Gauge } from "lucide-react";
+import { computeAttendanceRate } from "@/lib/attendance/computeAttendanceRate";
 
 interface BadgeRow {
   id: string;
@@ -16,6 +17,7 @@ interface BadgeRow {
 
 interface RawAttendance {
   status: "present" | "absent" | "late" | "excused" | "pending";
+  event_id: string;
 }
 
 interface RawMatchStat {
@@ -37,17 +39,27 @@ export function PlayerBadgesCard({
     let cancelled = false;
 
     async function load() {
+      const { data: trainingEvents } = await supabase
+        .from("events")
+        .select("id")
+        .eq("team_id", teamId)
+        .eq("type", "training");
+      const trainingIds = (trainingEvents || []).map((e) => (e as { id: string }).id);
+
       const [statsRes, attRes] = await Promise.all([
         supabase
           .from("match_stats")
           .select("goals, minutes_played")
           .eq("player_id", playerId)
           .eq("team_id", teamId),
-        supabase
-          .from("attendances")
-          .select("status")
-          .eq("user_id", playerId)
-          .eq("team_id", teamId),
+        trainingIds.length > 0
+          ? supabase
+              .from("attendances")
+              .select("status, event_id")
+              .eq("user_id", playerId)
+              .eq("team_id", teamId)
+              .in("event_id", trainingIds)
+          : Promise.resolve({ data: [] as RawAttendance[] }),
       ]);
 
       const stats = (statsRes.data || []) as RawMatchStat[];
@@ -67,9 +79,7 @@ export function PlayerBadgesCard({
           cur = 0;
         }
       }
-      const attendanceRate = atts.length > 0
-        ? Math.round((atts.filter((a) => a.status === "present" || a.status === "late").length / atts.length) * 100)
-        : 0;
+      const attendanceRate = computeAttendanceRate(atts, trainingIds) ?? 0;
 
       const gold = "bg-amber-50 text-amber-600";
       const gray = "bg-muted text-muted-foreground";
