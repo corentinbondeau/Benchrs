@@ -1,0 +1,419 @@
+"use client";
+
+import { useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+import { useAuth } from "@/lib/auth";
+import { useTeam } from "@/lib/team";
+import { useRouter } from "next/navigation";
+import { useQueryCache, clearQueryCache } from "@/lib/queryCache";
+import RecentResults from "@/components/dashboard/RecentResults";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Calendar,
+  MapPin,
+  Clock,
+  User,
+  Check,
+  X,
+  TrendingUp,
+} from "lucide-react";
+import type { Profile, Event, Attendance } from "@/types";
+
+interface ChildProfile extends Profile {
+  shirt_number: number | null;
+  position: string | null;
+}
+
+interface ParentData {
+  child: ChildProfile | null;
+  nextEvent: Event | null;
+  attendanceRate: number | null;
+  pendingConvs: (Attendance & { event: Event })[];
+  noChild: boolean;
+}
+
+export function ParentDashboard() {
+  const { user } = useAuth();
+  const { currentTeam } = useTeam();
+  const router = useRouter();
+  const [absenceReason, setAbsenceReason] = useState("");
+  const [pendingAbsentId, setPendingAbsentId] = useState<string | null>(null);
+
+  const key = user?.id && currentTeam ? `parent:data:${user.id}:${currentTeam.id}` : null;
+
+  const { data, loading, revalidate } = useQueryCache<ParentData>(
+    key,
+    async () => {
+      const supabase = createClient();
+      const empty: ParentData = {
+        child: null,
+        nextEvent: null,
+        attendanceRate: null,
+        pendingConvs: [],
+        noChild: false,
+      };
+
+      const { data: link } = await supabase
+        .from("parent_student")
+        .select("student_id")
+        .eq("parent_id", user!.id)
+        .eq("team_id", currentTeam!.id)
+        .maybeSingle();
+
+      if (!link) {
+        return { ...empty, noChild: true };
+      }
+
+      const { data: childProfile } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", link.student_id)
+        .single();
+
+      const { data: trainingEvents } = await supabase
+        .from("events")
+        .select("id")
+        .eq("team_id", currentTeam!.id)
+        .eq("type", "training");
+      const trainingIds = (trainingEvents || []).map((e) => e.id);
+
+      const [nextEventRes, attRes, convsRes] = await Promise.all([
+        supabase
+          .from("events")
+          .select("*")
+          .eq("team_id", currentTeam!.id)
+          .in("status", ["upcoming", "ongoing"])
+          .gte("event_date", new Date().toISOString())
+          .order("event_date", { ascending: true })
+          .limit(1)
+          .maybeSingle(),
+        trainingIds.length > 0
+          ? supabase
+              .from("attendances")
+              .select("status")
+              .eq("user_id", link.student_id)
+              .eq("team_id", currentTeam!.id)
+              .in("event_id", trainingIds)
+          : Promise.resolve({ data: [] }),
+        supabase
+          .from("attendances")
+          .select("*, event:events!attendances_event_id_fkey(*)")
+          .eq("user_id", link.student_id)
+          .eq("team_id", currentTeam!.id)
+          .eq("status", "pending")
+          .order("created_at", { ascending: false }),
+      ]);
+
+      const attendances = attRes.data || [];
+      const total = attendances.length;
+      const present = attendances.filter(
+        (a) => a.status === "present" || a.status === "late"
+      ).length;
+
+      return {
+        child: (childProfile as ChildProfile | null) || null,
+        nextEvent: (nextEventRes.data as Event | null) || null,
+        attendanceRate: total > 0 ? Math.round((present / total) * 100) : 0,
+        pendingConvs: (convsRes.data as (Attendance & { event: Event })[]) || [],
+        noChild: false,
+      };
+    },
+    { ttl: 30_000 }
+  );
+
+  const child = data?.child ?? null;
+  const nextEvent = data?.nextEvent ?? null;
+  const attendanceRate = data?.attendanceRate ?? null;
+  const pendingConvs = data?.pendingConvs ?? [];
+  const noChild = data?.noChild ?? false;
+
+  if (!currentTeam) return null;
+
+  async function respond(
+    attendanceId: string,
+    status: "present" | "absent" | "late",
+    reason?: string
+  ) {
+    if (status === "absent" && !reason) {
+      setPendingAbsentId(attendanceId);
+      return;
+    }
+
+    const supabase = createClient();
+    await supabase
+      .from("attendances")
+      .update({
+        status,
+        responded_at: new Date().toISOString(),
+        absence_reason: status === "absent" ? reason || null : null,
+      })
+      .eq("id", attendanceId);
+
+    clearQueryCache();
+    revalidate();
+    setPendingAbsentId(null);
+    setAbsenceReason("");
+  }
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <h2 className="text-2xl font-bold">Bonjour 👋</h2>
+        <div className="h-48 animate-pulse rounded-lg bg-muted" />
+      </div>
+    );
+  }
+
+  if (noChild) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-2xl font-bold">
+            Bonjour, {user?.profile?.first_name} 👋
+          </h2>
+          <p className="text-muted-foreground mt-1">
+            Espace parent
+          </p>
+        </div>
+        <div className="flex h-48 items-center justify-center rounded-lg border border-dashed text-muted-foreground">
+          <div className="text-center">
+            <User className="h-8 w-8 mx-auto mb-2 opacity-50" />
+            <p className="text-sm">
+              Aucun joueur associé à votre compte
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Liez le compte de votre enfant pour suivre ses convocations,
+              résultats et notifications.
+            </p>
+          </div>
+        </div>
+        <Button
+          className="w-full bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold"
+          onClick={() => router.push(`/link-child?teamId=${currentTeam.id}`)}
+        >
+          <User className="h-4 w-4" />
+          Lier mon enfant
+        </Button>
+      </div>
+    );
+  }
+
+  const eventDate = nextEvent ? new Date(nextEvent.event_date) : null;
+  let countdown = "";
+  if (eventDate) {
+    const diffMs = eventDate.getTime() - Date.now();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    const diffHours = Math.floor(
+      (diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)
+    );
+    if (diffDays > 0) countdown = `${diffDays}j ${diffHours}h`;
+    else if (diffHours > 0) countdown = `${diffHours}h`;
+    else countdown = "Bientôt";
+  }
+
+  const now = new Date();
+  const dateStr = now.toLocaleDateString("fr-FR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+
+  return (
+    <div className="section-gap">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-foreground">
+          Bonjour {user?.profile?.first_name}
+        </h1>
+        <p className="text-sm text-muted-foreground mt-1 capitalize">{dateStr}</p>
+      </div>
+
+      {child && (
+        <div className="rounded-xl bg-[var(--color-navy)] text-white p-5">
+          <div className="flex items-center gap-4">
+            <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-white/10 text-xl font-bold shrink-0">
+              {child.shirt_number != null ? `#${child.shirt_number}` : "?"}
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-lg font-bold truncate">
+                {child.first_name} {child.last_name}
+              </h3>
+              <p className="text-white/50 text-sm">
+                {child.position || "Joueur"}
+              </p>
+            </div>
+            {attendanceRate !== null && (
+              <div className="text-right shrink-0">
+                <p className="text-2xl font-bold tabular-nums">{attendanceRate}%</p>
+                <p className="text-white/40 text-xs">Assiduite</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {nextEvent && eventDate && (
+        <button
+          className="w-full text-left rounded-xl bg-[var(--color-navy)] text-white p-5 hover:bg-[var(--color-navy-light)] transition-colors"
+          onClick={() => router.push(nextEvent.type === "match" ? `/matches/${nextEvent.id}` : `/trainings/${nextEvent.id}`)}
+        >
+            <div className="flex items-start justify-between gap-3">
+              <div className="space-y-2 min-w-0">
+                <p className="text-xs font-semibold uppercase tracking-widest text-white/40">
+                  {nextEvent.type === "match"
+                    ? "Prochain match"
+                    : "Prochain entrainement"}
+                </p>
+                <h3 className="text-lg font-bold truncate">{nextEvent.title}</h3>
+                {nextEvent.opponent && (
+                  <p className="text-white/60 truncate">
+                    vs {nextEvent.opponent}
+                  </p>
+                )}
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[13px] text-white/55">
+                  <span className="flex items-center gap-1.5">
+                    <Calendar className="h-3.5 w-3.5 shrink-0" />
+                    <span className="truncate capitalize">{eventDate.toLocaleDateString("fr-FR", {
+                      weekday: "long",
+                      day: "numeric",
+                      month: "long",
+                    })}</span>
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <Clock className="h-3.5 w-3.5" />
+                    {eventDate.toLocaleTimeString("fr-FR", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </span>
+                  {nextEvent.location && (
+                    <span className="flex items-center gap-1.5">
+                      <MapPin className="h-3.5 w-3.5 shrink-0" />
+                      <span className="truncate">{nextEvent.location}</span>
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div className="text-right shrink-0">
+                <span className="inline-flex items-center rounded-md bg-[var(--color-primary-blue)] px-2.5 py-1 text-xs font-bold text-white">
+                  {countdown}
+                </span>
+              </div>
+            </div>
+        </button>
+      )}
+
+      {pendingConvs.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Clock className="h-4 w-4 text-amber-500" />
+              Convocations de {child?.first_name}
+              <Badge className="bg-[var(--color-gold)] text-[var(--color-navy)]">
+                {pendingConvs.length}
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {pendingConvs.map((att) => (
+                <div key={att.id} className="rounded-lg border p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p
+                        className="font-medium text-sm cursor-pointer hover:underline"
+                        onClick={() => router.push(att.event?.type === "match" ? `/matches/${att.event?.id}` : `/trainings/${att.event?.id}`)}
+                      >
+                        {att.event?.title}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(att.event?.event_date).toLocaleDateString(
+                          "fr-FR",
+                          {
+                            weekday: "long",
+                            day: "numeric",
+                            month: "long",
+                          }
+                        )}
+                      </p>
+                    </div>
+                    {pendingAbsentId !== att.id && (
+                      <div className="flex gap-1.5">
+                        <Button
+                          size="icon"
+                          variant="outline"
+                          className="h-8 w-8 text-green-600 hover:bg-green-50"
+                          onClick={() => respond(att.id, "present")}
+                        >
+                          <Check className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="outline"
+                          className="h-8 w-8 text-amber-600 hover:bg-amber-50"
+                          onClick={() => respond(att.id, "late")}
+                        >
+                          <Clock className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="outline"
+                          className="h-8 w-8 text-red-600 hover:bg-red-50"
+                          onClick={() => respond(att.id, "absent")}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                  {pendingAbsentId === att.id && (
+                    <div className="space-y-2 pt-1">
+                      <Label className="text-xs">
+                        Motif d&apos;absence (obligatoire)
+                      </Label>
+                      <Input
+                        placeholder="Ex: Blessure, travail..."
+                        value={absenceReason}
+                        onChange={(e) => setAbsenceReason(e.target.value)}
+                        className="text-sm h-8"
+                        autoFocus
+                      />
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          className="h-7 text-xs"
+                          disabled={!absenceReason.trim()}
+                          onClick={() =>
+                            respond(att.id, "absent", absenceReason.trim())
+                          }
+                        >
+                          Confirmer
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 text-xs"
+                          onClick={() => {
+                            setPendingAbsentId(null);
+                            setAbsenceReason("");
+                          }}
+                        >
+                          Annuler
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <RecentResults />
+    </div>
+  );
+}

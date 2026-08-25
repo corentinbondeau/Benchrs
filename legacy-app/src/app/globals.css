@@ -1,0 +1,222 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Fork legacy : polices système (pas de téléchargement Google Fonts au build). */
+.font-legacy-sans {
+  --font-geist-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+.font-legacy-mono {
+  --font-geist-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+}
+
+/* ============================================================
+   BENCHRS DESIGN SYSTEM — Design Tokens (fork legacy, Tailwind 3)
+   ============================================================ */
+
+/* ============================================================
+   LIGHT THEME
+   ============================================================ */
+:root {
+  --radius: 0.625rem;
+
+  /* Backgrounds */
+  --background: #F6F8FB;
+  --foreground: #111827;
+
+  /* Cards & Surfaces */
+  --card: #FFFFFF;
+  --card-foreground: #111827;
+  --popover: #FFFFFF;
+  --popover-foreground: #111827;
+
+  /* Primary — Navy/Blue */
+  --primary: #2563EB;
+  --primary-foreground: #FFFFFF;
+
+  /* Secondary */
+  --secondary: #F3F4F6;
+  --secondary-foreground: #111827;
+
+  /* Muted */
+  --muted: #F3F4F6;
+  --muted-foreground: #6B7280;
+
+  /* Accent */
+  --accent: #F3F4F6;
+  --accent-foreground: #111827;
+
+  /* Destructive */
+  --destructive: #DC2626;
+
+  /* Borders & inputs */
+  --border: #E5E7EB;
+  --input: #E5E7EB;
+  --ring: #2563EB;
+
+  /* Charts — Benchrs cohesive palette */
+  --chart-1: #2563EB;
+  --chart-2: #16A34A;
+  --chart-3: #F59E0B;
+  --chart-4: #8B5CF6;
+  --chart-5: #EC4899;
+
+  /* Sidebar */
+  --sidebar: #0B1220;
+  --sidebar-foreground: #FFFFFF;
+  --sidebar-primary: #2563EB;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: rgba(255, 255, 255, 0.1);
+  --sidebar-accent-foreground: #FFFFFF;
+  --sidebar-border: rgba(255, 255, 255, 0.1);
+  --sidebar-ring: #2563EB;
+
+  /* ── Benchrs Brand Colors (référencées par le code via var(--color-*)) ── */
+  --color-navy: #0B1220;
+  --color-navy-light: #0F172A;
+  --color-royal: #1E40AF;
+  --color-primary-blue: #2563EB;
+  --color-gold: #F4C430;
+  --color-gold-light: #FACC15;
+  --color-success: #16A34A;
+  --color-warning: #F59E0B;
+  --color-danger: #DC2626;
+  --color-info: #2563EB;
+}
+
+/* ============================================================
+   DARK THEME
+   ============================================================ */
+.dark {
+  --background: #0B1220;
+  --foreground: #F3F4F6;
+
+  --card: #111827;
+  --card-foreground: #F3F4F6;
+  --popover: #111827;
+  --popover-foreground: #F3F4F6;
+
+  --primary: #3B82F6;
+  --primary-foreground: #FFFFFF;
+
+  --secondary: #1F2937;
+  --secondary-foreground: #F3F4F6;
+
+  --muted: #1F2937;
+  --muted-foreground: #9CA3AF;
+
+  --accent: #1F2937;
+  --accent-foreground: #F3F4F6;
+
+  --destructive: #DC2626;
+
+  --border: #1F2937;
+  --input: #1F2937;
+  --ring: #3B82F6;
+
+  --chart-1: #3B82F6;
+  --chart-2: #22C55E;
+  --chart-3: #FBBF24;
+  --chart-4: #A78BFA;
+  --chart-5: #F472B6;
+
+  --sidebar: #070D18;
+  --sidebar-foreground: #F3F4F6;
+  --sidebar-primary: #3B82F6;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: rgba(255, 255, 255, 0.08);
+  --sidebar-accent-foreground: #F3F4F6;
+  --sidebar-border: rgba(255, 255, 255, 0.08);
+  --sidebar-ring: #3B82F6;
+}
+
+/* ============================================================
+   BASE STYLES
+   ============================================================ */
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  /* Typography scale */
+  h1 {
+    font-size: 2rem;       /* 32px */
+    line-height: 2.375rem; /* 38px */
+    font-weight: 700;
+  }
+  h2 {
+    font-size: 1.5rem;     /* 24px */
+    line-height: 1.875rem; /* 30px */
+    font-weight: 700;
+  }
+  h3 {
+    font-size: 1.125rem;   /* 18px */
+    line-height: 1.5rem;   /* 24px */
+    font-weight: 600;
+  }
+}
+
+/* ============================================================
+   UTILITY CLASSES
+   ============================================================ */
+@layer utilities {
+  /* Page container with max-width */
+  .page-container {
+    @apply mx-auto w-full max-w-[1440px];
+  }
+
+  /* Section spacing */
+  .section-gap {
+    @apply space-y-8;
+  }
+
+  /* Card gap */
+  .card-gap {
+    @apply gap-4;
+  }
+
+  /* Status dot utility */
+  .status-dot {
+    @apply inline-block h-2 w-2 rounded-full;
+  }
+  .status-dot-available { @apply bg-[var(--color-success)]; }
+  .status-dot-absent { @apply bg-[var(--color-danger)]; }
+  .status-dot-pending { @apply bg-[var(--color-warning)]; }
+}
+
+/* ============================================================
+   HIDE SCROLLBAR GLOBALLY
+   ============================================================ */
+main {
+  scrollbar-width: none;           /* Firefox */
+  -ms-overflow-style: none;        /* IE / old Edge */
+}
+main::-webkit-scrollbar {
+  display: none;                   /* Chrome, Safari, new Edge */
+}
+
+/* ============================================================
+   REDUCED MOTION — ACCESSIBILITY
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ============================================================
+   SONNER TOAST POSITIONING
+   ============================================================ */
+@media (max-width: 768px) {
+  .sonner-toaster {
+    top: calc(env(safe-area-inset-top, 0px) + 3rem) !important;
+  }
+}

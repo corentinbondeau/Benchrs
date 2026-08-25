@@ -1,0 +1,147 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+
+export default function ResetPasswordPage() {
+  const router = useRouter();
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [done, setDone] = useState(false);
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    const supabase = createClient();
+    const params = new URLSearchParams(window.location.search);
+    const hash = window.location.hash.substring(1);
+    const hashParams = new URLSearchParams(hash);
+
+    const code = params.get("code");
+    const accessToken = hashParams.get("access_token");
+    const refreshToken = hashParams.get("refresh_token");
+
+    async function handleSession() {
+      if (code) {
+        const { error } = await supabase.auth.exchangeCodeForSession(code);
+        if (error) setError("Lien de réinitialisation invalide ou expiré.");
+      } else if (accessToken && refreshToken) {
+        const { error } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        });
+        if (error) setError("Lien de réinitialisation invalide ou expiré.");
+      } else {
+        setError("Lien de réinitialisation invalide.");
+      }
+      setReady(true);
+      window.history.replaceState({}, "", "/reset-password");
+    }
+
+    handleSession();
+  }, []);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+
+    if (password.length < 6) {
+      setError("Le mot de passe doit faire au moins 6 caractères");
+      return;
+    }
+    if (password !== confirm) {
+      setError("Les mots de passe ne correspondent pas");
+      return;
+    }
+
+    setLoading(true);
+    const supabase = createClient();
+    const { error: authError } = await supabase.auth.updateUser({ password });
+
+    setLoading(false);
+
+    if (authError) {
+      setError("Erreur lors de la mise à jour. Le lien a peut-être expiré.");
+    } else {
+      setDone(true);
+      setTimeout(() => router.push("/"), 2000);
+    }
+  }
+
+  return (
+    <Card className="w-full max-w-md">
+      <CardHeader className="text-center">
+        <img src="/favicon.png" alt="Benchrs" className="h-12 w-12 mx-auto mb-2" />
+        <CardTitle className="text-2xl">Nouveau mot de passe</CardTitle>
+        <CardDescription>
+          Choisissez un nouveau mot de passe pour votre compte
+        </CardDescription>
+      </CardHeader>
+      {done ? (
+        <CardContent className="text-center">
+          <div className="rounded-lg bg-green-50 p-3 text-sm text-green-700">
+            Mot de passe mis à jour ! Redirection...
+          </div>
+        </CardContent>
+      ) : !ready ? (
+        <CardContent className="text-center">
+          <div className="text-sm text-muted-foreground">Vérification...</div>
+        </CardContent>
+      ) : (
+        <form onSubmit={handleSubmit}>
+          <CardContent className="space-y-4">
+            {error && (
+              <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive text-center">
+                {error}
+              </div>
+            )}
+            <div className="space-y-2">
+              <Label htmlFor="password">Nouveau mot de passe</Label>
+              <Input
+                id="password"
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="confirm">Confirmer le mot de passe</Label>
+              <Input
+                id="confirm"
+                type="password"
+                placeholder="••••••••"
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
+                required
+              />
+            </div>
+          </CardContent>
+          <CardFooter>
+            <Button
+              type="submit"
+              className="w-full bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold"
+              disabled={loading}
+            >
+              {loading ? "Mise à jour..." : "Mettre à jour"}
+            </Button>
+          </CardFooter>
+        </form>
+      )}
+    </Card>
+  );
+}
