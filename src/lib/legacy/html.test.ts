@@ -7,6 +7,7 @@ import {
   heroCard,
   eventCard,
   formatDateFr,
+  eventTypeBadge,
 } from "./html";
 // `badge` n'existe pas encore : import dynamique dans le describe dédié pour
 // que seule cette suite soit rouge tant que le helper n'est pas livré,
@@ -522,5 +523,21 @@ describe("formatDateFr (date lisible FR sans dépendance)", () => {
     expect(formatDateFr("")).toBe("");
     expect(formatDateFr("pas-une-date")).toBe("");
     expect(formatDateFr(null)).toBe("");
+  });
+});
+
+describe("eventTypeBadge (badge type d'événement)", () => {
+  it("rend un badge bleu 'Match' pour type match", () => {
+    const html = eventTypeBadge("match");
+    expect(html).toContain("Match");
+    expect(html).toContain("#DBEAFE");
+    expect(html).toContain("#1D4ED8");
+  });
+
+  it("rend un badge vert 'Entraînement' pour type training", () => {
+    const html = eventTypeBadge("training");
+    expect(html).toContain("Entraînement");
+    expect(html).toContain("#DCFCE7");
+    expect(html).toContain("#15803D");
   });
 });

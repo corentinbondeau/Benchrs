@@ -380,6 +380,20 @@ export function badge(status: "present" | "absent" | "late" | "pending"): string
   return `<span class="badge" style="background-color:${bg};color:${color};">${label}</span>`;
 }
 
+/**
+ * Rend un badge "pilule" pour un type d'événement (Match / Entraînement).
+ */
+export function eventTypeBadge(type: "match" | "training"): string {
+  const map: Record<"match" | "training", { bg: string; color: string; label: string }> = {
+    match: { bg: "#DBEAFE", color: "#1D4ED8", label: "Match" },
+    training: { bg: "#DCFCE7", color: "#15803D", label: "Entraînement" },
+  };
+
+  const { bg, color, label } = map[type];
+
+  return `<span class="badge" style="background-color:${bg};color:${color};">${label}</span>`;
+}
+
 export interface NavCardOptions {
   href: string;
   label: string;
