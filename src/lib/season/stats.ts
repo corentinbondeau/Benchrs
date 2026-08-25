@@ -10,33 +10,51 @@ export async function buildSeasonStatsContext(
 
   const season = currentSeasonLabel();
 
-  const [{ data: team }, { data: events }, { data: stats }, { data: attendance }, { data: players }, { data: photos }] =
-    await Promise.all([
-      supabase.from("teams").select("name").eq("id", teamId).maybeSingle(),
-      supabase
-        .from("events")
-        .select("id, opponent, home_score, away_score, event_date, status")
-        .eq("team_id", teamId)
-        .eq("type", "match")
-        .gte("event_date", monthStart ? monthStart.toISOString() : "1900-01-01")
-        .lt("event_date", monthEnd ? monthEnd.toISOString() : "9999-12-31")
-        .order("event_date", { ascending: true }),
-      supabase
-        .from("match_stats")
-        .select("player_id, goals, profiles(first_name, last_name)")
-        .eq("team_id", teamId),
-      supabase
-        .from("attendances")
-        .select("status")
-        .eq("team_id", teamId)
-        .in("status", ["present", "absent", "late", "excused"]),
-      supabase
-        .from("team_members")
-        .select("profile:profiles(id)")
-        .eq("team_id", teamId)
-        .eq("role", "player"),
-      supabase.from("gallery_media").select("id").eq("team_id", teamId),
-    ]);
+  const { data: trainingEventsPre } = await supabase
+    .from("events")
+    .select("id")
+    .eq("team_id", teamId)
+    .eq("type", "training")
+    .gte("event_date", monthStart ? monthStart.toISOString() : "1900-01-01")
+    .lt("event_date", monthEnd ? monthEnd.toISOString() : "9999-12-31");
+  const trainingIds = (trainingEventsPre || []).map((e) => e.id as string);
+
+  const [
+    { data: team },
+    { data: events },
+    { data: stats },
+    { data: attendance },
+    { data: players },
+    { data: photos },
+  ] = await Promise.all([
+    supabase.from("teams").select("name").eq("id", teamId).maybeSingle(),
+    supabase
+      .from("events")
+      .select("id, opponent, home_score, away_score, event_date, status")
+      .eq("team_id", teamId)
+      .eq("type", "match")
+      .gte("event_date", monthStart ? monthStart.toISOString() : "1900-01-01")
+      .lt("event_date", monthEnd ? monthEnd.toISOString() : "9999-12-31")
+      .order("event_date", { ascending: true }),
+    supabase
+      .from("match_stats")
+      .select("player_id, goals, profiles(first_name, last_name)")
+      .eq("team_id", teamId),
+    trainingIds.length > 0
+      ? supabase
+          .from("attendances")
+          .select("status, event_id")
+          .eq("team_id", teamId)
+          .in("status", ["present", "absent", "late", "excused"])
+          .in("event_id", trainingIds)
+      : Promise.resolve({ data: [] as { status: string; event_id: string }[] }),
+    supabase
+      .from("team_members")
+      .select("profile:profiles(id)")
+      .eq("team_id", teamId)
+      .eq("role", "player"),
+    supabase.from("gallery_media").select("id").eq("team_id", teamId),
+  ]);
 
   const completed = (events || []).filter((e) => e.status === "completed");
   const results = completed
@@ -71,8 +89,15 @@ export async function buildSeasonStatsContext(
     }
   }
 
-  const presentCount = (attendance || []).filter((a) => a.status === "present" || a.status === "late").length;
-  const attendanceRate = attendance && attendance.length > 0 ? (presentCount / attendance.length) * 100 : null;
+  const attendanceForTraining = (attendance || []) as { status: string; event_id?: string }[];
+  const attendanceRate =
+    attendanceForTraining.length > 0
+      ? Math.round(
+          (attendanceForTraining.filter((a) => a.status === "present" || a.status === "late").length /
+            attendanceForTraining.length) *
+            100
+        )
+      : null;
 
   const upcomingCount = completed.length === 0 ? (events || []).length : 0;
 

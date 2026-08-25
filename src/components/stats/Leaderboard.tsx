@@ -3,24 +3,18 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useTeam } from "@/lib/team";
+import { fetchTeamActivePlayers } from "@/lib/players";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Trophy, Medal, Shield, Clock, Target, Users } from "lucide-react";
-
-interface LeaderboardEntry {
-  player_id: string;
-  first_name: string;
-  last_name: string;
-  shirt_number: number | null;
-  goals: number;
-  assists: number;
-  yellow_cards: number;
-  red_cards: number;
-  minutes_played: number;
-  matches_played: number;
-  attendance_rate: number;
-}
+import {
+  buildLeaderboard,
+  type LeaderboardEntry,
+  type RosterPlayer,
+  type MatchStatRow,
+  type AttendanceRow,
+} from "@/lib/stats/buildLeaderboard";
 
 type SortKey = "goals" | "assists" | "yellow_cards" | "red_cards" | "minutes_played" | "attendance_rate";
 
@@ -35,65 +29,46 @@ export function Leaderboard() {
     const supabase = createClient();
 
     async function fetchLeaderboard() {
-      const { data: statsData } = await supabase.from("match_stats").select(`
-        player_id, goals, assists, yellow_cards, red_cards, minutes_played,
-        player:profiles!match_stats_player_id_fkey(id, first_name, last_name, shirt_number)
-      `).eq("team_id", currentTeam!.id);
+      // Le roster (joueurs de l'équipe) est la source de vérité de la liste :
+      // ainsi l'onglet Assiduité s'affiche même sans aucun match joué.
+      // On réutilise le helper fiable (fetch en 2 étapes team_members → profiles) ;
+      // une jointure imbriquée profiles(...) remontait vide selon la config RLS.
+      const players = await fetchTeamActivePlayers(currentTeam!.id, ["player"]);
+      const roster: RosterPlayer[] = players.map((p) => ({
+        player_id: p.id,
+        first_name: p.first_name,
+        last_name: p.last_name,
+        shirt_number: p.shirt_number ?? null,
+      }));
 
-      if (!statsData) {
-        setLoading(false);
-        return;
-      }
+      const { data: statsData } = await supabase
+        .from("match_stats")
+        .select("player_id, goals, assists, yellow_cards, red_cards, minutes_played")
+        .eq("team_id", currentTeam!.id);
 
-      const playerMap = new Map<string, LeaderboardEntry>();
-
-      for (const stat of statsData) {
-        const pid = stat.player_id as string;
-        const player = stat.player as unknown as { id: string; first_name: string; last_name: string; shirt_number: number | null };
-        if (!player) continue;
-
-        if (!playerMap.has(pid)) {
-          playerMap.set(pid, {
-            player_id: pid,
-            first_name: player.first_name,
-            last_name: player.last_name,
-            shirt_number: player.shirt_number,
-            goals: 0, assists: 0, yellow_cards: 0, red_cards: 0,
-            minutes_played: 0, matches_played: 0, attendance_rate: 0,
-          });
-        }
-
-        const entry = playerMap.get(pid)!;
-        entry.goals += (stat.goals as number) || 0;
-        entry.assists += (stat.assists as number) || 0;
-        entry.yellow_cards += (stat.yellow_cards as number) || 0;
-        entry.red_cards += (stat.red_cards as number) || 0;
-        entry.minutes_played += (stat.minutes_played as number) || 0;
-        entry.matches_played += 1;
-      }
-
-      // Fetch attendance rates (trainings only)
-      const { data: trainingEvents } = await supabase.from("events").select("id").eq("team_id", currentTeam!.id).eq("type", "training");
-      const trainingIds = (trainingEvents || []).map((e) => e.id);
+      // Assiduité : présence aux entraînements uniquement (events.type='training').
+      const { data: trainingEvents } = await supabase
+        .from("events")
+        .select("id")
+        .eq("team_id", currentTeam!.id)
+        .eq("type", "training");
+      const trainingIds = (trainingEvents || []).map((e) => e.id as string);
       const { data: attendanceData } = trainingIds.length > 0
-        ? await supabase.from("attendances").select("user_id, status").eq("team_id", currentTeam!.id).in("event_id", trainingIds)
+        ? await supabase
+            .from("attendances")
+            .select("user_id, event_id, status")
+            .eq("team_id", currentTeam!.id)
+            .in("event_id", trainingIds)
         : { data: [] };
-      if (attendanceData) {
-        const playerAtt = new Map<string, { total: number; present: number }>();
-        for (const att of attendanceData) {
-          const uid = att.user_id as string;
-          if (!playerAtt.has(uid)) playerAtt.set(uid, { total: 0, present: 0 });
-          const pa = playerAtt.get(uid)!;
-          pa.total += 1;
-          if (att.status === "present" || att.status === "late") pa.present += 1;
-        }
-        for (const [, entry] of playerMap) {
-          const pa = playerAtt.get(entry.player_id);
-          if (pa && pa.total > 0) entry.attendance_rate = Math.round((pa.present / pa.total) * 100);
-        }
-      }
 
-      setData(Array.from(playerMap.values()));
+      setData(
+        buildLeaderboard(
+          roster,
+          (statsData || []) as MatchStatRow[],
+          (attendanceData || []) as AttendanceRow[],
+          trainingIds
+        )
+      );
       setLoading(false);
     }
 
@@ -103,6 +78,13 @@ export function Leaderboard() {
   if (!currentTeam) return null;
 
   const sorted = [...data].sort((a, b) => b[sortKey] - a[sortKey]);
+
+  const emptyMessage =
+    data.length === 0
+      ? "Aucun joueur dans l'effectif."
+      : sortKey === "attendance_rate"
+        ? "Aucun entraînement enregistré."
+        : "Aucune statistique de match. Les données apparaissent après les premiers matchs.";
 
   const rankIcon = (index: number) => {
     if (index === 0) return <Trophy className="h-5 w-5 text-[var(--color-gold)]" />;
@@ -172,7 +154,9 @@ export function Leaderboard() {
                 <div className="min-w-0">
                   <p className="font-medium text-sm truncate">{player.first_name} {player.last_name}</p>
                   <p className="text-xs text-muted-foreground">
-                    {player.matches_played} match{player.matches_played > 1 ? "s" : ""}
+                    {sortKey === "attendance_rate"
+                      ? `${player.trainings_count} entraînement${player.trainings_count > 1 ? "s" : ""}`
+                      : `${player.matches_played} match${player.matches_played > 1 ? "s" : ""}`}
                     {player.shirt_number && ` · #${player.shirt_number}`}
                   </p>
                 </div>
@@ -189,7 +173,7 @@ export function Leaderboard() {
         })}
         {sorted.length === 0 && (
           <p className="text-center py-8 text-muted-foreground">
-            Aucune statistique disponible.
+            {emptyMessage}
           </p>
         )}
       </div>
@@ -207,7 +191,7 @@ export function Leaderboard() {
               {sortKey === "red_cards" && <TableHead className="text-right">Rouges</TableHead>}
               {sortKey === "minutes_played" && <TableHead className="text-right">Minutes</TableHead>}
               {sortKey === "attendance_rate" && <TableHead className="text-right">Présence</TableHead>}
-              <TableHead className="text-right">Matchs</TableHead>
+              <TableHead className="text-right">{sortKey === "attendance_rate" ? "Entraînements" : "Matchs"}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -270,14 +254,14 @@ export function Leaderboard() {
                   </TableCell>
                 )}
                 <TableCell className="text-right text-muted-foreground">
-                  {player.matches_played}
+                  {sortKey === "attendance_rate" ? player.trainings_count : player.matches_played}
                 </TableCell>
               </TableRow>
             ))}
             {sorted.length === 0 && (
               <TableRow>
                 <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                  Aucune statistique disponible. Les données apparaissent après les premiers matchs.
+                  {emptyMessage}
                 </TableCell>
               </TableRow>
             )}
