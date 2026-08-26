@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Loader2, Check, Smile } from "lucide-react";
 import { toast } from "sonner";
+import { isCheckInOpen } from "@/lib/sessionSelection";
 import type { Profile } from "@/types";
 
 const FORM_OPTIONS = [1, 2, 3, 4, 5];
@@ -35,7 +36,7 @@ interface SessionFormCheckInProps {
   userId?: string;
   userRole: string | null;
   childId: string | null;
-  trainingOver: boolean;
+  eventDate: string;
 }
 
 export function SessionFormCheckIn({
@@ -45,7 +46,7 @@ export function SessionFormCheckIn({
   userId,
   userRole,
   childId,
-  trainingOver,
+  eventDate,
 }: SessionFormCheckInProps) {
   const [enabled, setEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -132,15 +133,21 @@ export function SessionFormCheckIn({
     });
   }
 
-  if (trainingOver) {
-    return null;
-  }
-
   if (loading) {
     return null;
   }
 
   if (!enabled) {
+    return null;
+  }
+
+  // Asymétrie intentionnelle : la fenêtre de 12h ne limite que la saisie
+  // joueur/parent. Le coach voit les états de forme déclarés à tout moment
+  // (avant, pendant, après la séance) pour ajuster l'intensité et recouper avec le RPE.
+  const checkInWindowOpen = isCheckInOpen(eventDate);
+  const showPlayerForm = !isCoach && checkInWindowOpen;
+
+  if (!isCoach && !checkInWindowOpen) {
     return null;
   }
 
@@ -156,7 +163,7 @@ export function SessionFormCheckIn({
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {myPlayerId && !isCoach && (
+        {myPlayerId && showPlayerForm && (
           <div className="space-y-3 rounded-lg border border-dashed p-3">
             <p className="flex items-center gap-2 text-sm font-medium">
               <Smile className="h-4 w-4 text-green-600" />

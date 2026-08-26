@@ -83,6 +83,19 @@ export function selectLastSession({
 
 export const CHECK_IN_WINDOW_MS = 12 * 60 * 60 * 1000;
 
+// Fonction pure réutilisée à la fois par selectNextSession (accueil joueur)
+// et par SessionFormCheckIn.tsx (fiche d'entraînement) pour appliquer la
+// même règle de fenêtre de check-in (12h avant la séance).
+export function isCheckInOpen(
+  eventDate: string | null | undefined,
+  now: number = Date.now()
+): boolean {
+  if (!eventDate) return false;
+  const time = new Date(eventDate).getTime();
+  if (Number.isNaN(time)) return false;
+  return time > now && time - now <= CHECK_IN_WINDOW_MS;
+}
+
 const EXCLUDED_ATTENDANCE_STATUSES = new Set(["absent", "excused"]);
 
 export interface SelectNextSessionParams {
@@ -101,11 +114,7 @@ export function selectNextSession({
   const eligible = events
     .filter((e) => e.type === "training")
     .filter((e) => e.status !== "cancelled")
-    .filter((e) => {
-      const time = new Date(e.event_date).getTime();
-      if (Number.isNaN(time)) return false;
-      return time > now && time - now <= CHECK_IN_WINDOW_MS;
-    })
+    .filter((e) => isCheckInOpen(e.event_date, now))
     .sort(
       (a, b) => new Date(a.event_date).getTime() - new Date(b.event_date).getTime()
     );

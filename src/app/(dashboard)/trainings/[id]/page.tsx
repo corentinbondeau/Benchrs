@@ -386,7 +386,7 @@ export default function TrainingDetailPage() {
         userId={user?.id}
         userRole={userRole}
         childId={childId}
-        trainingOver={event.status === "completed" || eventDate.getTime() < now}
+        eventDate={event.event_date}
       />
 
       {/* Suivi de charge (RPE) */}

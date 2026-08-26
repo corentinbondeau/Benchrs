@@ -307,7 +307,11 @@ describe("selectLastSession", () => {
  *   - Liste d'events vide => null.
  */
 
-import { selectNextSession, CHECK_IN_WINDOW_MS } from "@/lib/sessionSelection";
+import {
+  selectNextSession,
+  CHECK_IN_WINDOW_MS,
+  isCheckInOpen,
+} from "@/lib/sessionSelection";
 
 describe("selectNextSession", () => {
   // ==== CAS 1 — NOMINAL : une séance training dans 3h et pending => proposée ====
@@ -555,5 +559,65 @@ describe("selectNextSession", () => {
       now: NOW,
     });
     expect(result).toBeNull();
+  });
+});
+
+/**
+ * Tests TDD — isCheckInOpen (Phase RED)
+ *
+ * Feature cible : fonction pure extraite pour réutiliser la même règle de
+ * fenêtre de check-in (12h avant la séance) à la fois sur l'accueil joueur
+ * (via selectNextSession) et sur la fiche d'entraînement
+ * (SessionFormCheckIn.tsx), qui aujourd'hui n'applique aucune limite.
+ *
+ * Règles métier couvertes :
+ *   - Ouvert dans les CHECK_IN_WINDOW_MS précédant la séance (12h).
+ *   - Fermé une fois la séance commencée (date passée).
+ *   - Borne exactement à CHECK_IN_WINDOW_MS => inclusive (cohérent avec le
+ *     `<=` utilisé dans selectNextSession).
+ *   - Entrée absente ou invalide => false, sans exception (cf. isEventLocked
+ *     dans event-lock.ts).
+ */
+
+describe("isCheckInOpen", () => {
+  // ==== CAS 1 — NOMINAL : séance dans 3h => ouvert ====
+  it("retourne true quand la séance a lieu dans 3h", () => {
+    const eventDate = new Date(NOW + 3 * 60 * 60 * 1000).toISOString();
+    expect(isCheckInOpen(eventDate, NOW)).toBe(true);
+  });
+
+  // ==== CAS 2 — LIMITE : séance dans 18h (au-delà de la fenêtre de 12h) => fermé ====
+  it("retourne false quand la séance a lieu dans 18h (hors fenêtre de 12h)", () => {
+    const eventDate = new Date(NOW + 18 * 60 * 60 * 1000).toISOString();
+    expect(isCheckInOpen(eventDate, NOW)).toBe(false);
+  });
+
+  // ==== CAS 3 — TRANSITION MÉTIER : séance déjà commencée (date passée) => fermé ====
+  // Le check-in porte sur l'avant-séance : une fois la séance commencée, il
+  // n'a plus de sens de déclarer sa forme "avant" de jouer.
+  it("retourne false quand la séance est déjà commencée (date passée)", () => {
+    const eventDate = new Date(NOW - 60 * 60 * 1000).toISOString();
+    expect(isCheckInOpen(eventDate, NOW)).toBe(false);
+  });
+
+  // ==== CAS 4 — LIMITE : eventDate exactement à now + CHECK_IN_WINDOW_MS => borne inclusive ====
+  // Cohérent avec selectNextSession qui utilise `time - now <= CHECK_IN_WINDOW_MS`.
+  it("retourne true quand la séance est exactement à la borne des 12h (inclusive)", () => {
+    const eventDate = new Date(NOW + CHECK_IN_WINDOW_MS).toISOString();
+    expect(isCheckInOpen(eventDate, NOW)).toBe(true);
+  });
+
+  // ==== CAS 5 — ROBUSTESSE : eventDate null/undefined => false sans exception ====
+  it("retourne false sans lever d'exception quand eventDate est null ou undefined", () => {
+    expect(() => isCheckInOpen(null, NOW)).not.toThrow();
+    expect(isCheckInOpen(null, NOW)).toBe(false);
+    expect(() => isCheckInOpen(undefined, NOW)).not.toThrow();
+    expect(isCheckInOpen(undefined, NOW)).toBe(false);
+  });
+
+  // ==== CAS 6 — ROBUSTESSE : chaîne de date invalide => false sans exception ====
+  it("retourne false sans lever d'exception quand eventDate est une chaîne invalide", () => {
+    expect(() => isCheckInOpen("pas-une-date", NOW)).not.toThrow();
+    expect(isCheckInOpen("pas-une-date", NOW)).toBe(false);
   });
 });

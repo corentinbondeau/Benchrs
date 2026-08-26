@@ -79,7 +79,7 @@ export function NextSessionCheckIn() {
         userId={user.id}
         userRole={userRole}
         childId={null}
-        trainingOver={false}
+        eventDate={event.event_date}
       />
     </div>
   );
