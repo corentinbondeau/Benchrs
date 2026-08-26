@@ -100,11 +100,16 @@ export async function sendSessionReminders(
 ): Promise<number> {
   const nowDate = new Date(now);
 
-  const { data: eventsData } = await supabase
+  const { data: eventsData, error: eventsError } = await supabase
     .from("events")
     .select("id, team_id, type, event_date")
     .eq("type", "training")
     .lt("event_date", now);
+
+  if (eventsError) {
+    console.error("[session-reminders] events error:", eventsError);
+    return 0;
+  }
 
   const events = ((eventsData || []) as EventRow[]).filter(
     (e) => e.type === "training" && new Date(e.event_date) < nowDate
@@ -114,10 +119,14 @@ export async function sendSessionReminders(
 
   const teamIds = [...new Set(events.map((e) => e.team_id).filter(Boolean) as string[])];
 
-  const { data: settingsData } = await supabase
+  const { data: settingsData, error: settingsError } = await supabase
     .from("team_settings")
     .select("team_id, rpe_reminders_enabled")
     .in("team_id", teamIds);
+
+  if (settingsError) {
+    console.error("[session-reminders] team_settings error:", settingsError);
+  }
 
   const disabledTeams = new Set(
     ((settingsData || []) as { team_id: string; rpe_reminders_enabled: boolean }[])
@@ -131,32 +140,52 @@ export async function sendSessionReminders(
     if (!ev.team_id) continue;
     if (disabledTeams.has(ev.team_id)) continue;
 
-    const { data: attendancesData } = await supabase
+    const { data: attendancesData, error: attendancesError } = await supabase
       .from("attendances")
       .select("user_id, status")
       .eq("event_id", ev.id)
       .in("status", ["present", "late"]);
 
+    if (attendancesError) {
+      console.error("[session-reminders] attendances error:", attendancesError);
+      continue;
+    }
+
     const attendances = (attendancesData || []) as AttendanceRow[];
     if (attendances.length === 0) continue;
 
-    const { data: rpeData } = await supabase
+    const { data: rpeData, error: rpeError } = await supabase
       .from("session_rpe")
       .select("player_id, rpe")
       .eq("event_id", ev.id);
 
-    const { data: feedbackData } = await supabase
+    if (rpeError) {
+      console.error("[session-reminders] session_rpe error:", rpeError);
+      continue;
+    }
+
+    const { data: feedbackData, error: feedbackError } = await supabase
       .from("session_feedback")
       .select("player_id, rating")
       .eq("event_id", ev.id);
 
+    if (feedbackError) {
+      console.error("[session-reminders] session_feedback error:", feedbackError);
+      continue;
+    }
+
     const candidateIds = [...new Set(attendances.map((a) => a.user_id))];
 
-    const { data: profilesData } = await supabase
+    const { data: profilesData, error: profilesError } = await supabase
       .from("profiles")
       .select("id")
       .in("id", candidateIds)
       .eq("is_active", true);
+
+    if (profilesError) {
+      console.error("[session-reminders] profiles error:", profilesError);
+      continue;
+    }
 
     const activePlayerIds = ((profilesData || []) as { id: string }[]).map((p) => p.id);
 
@@ -171,11 +200,16 @@ export async function sendSessionReminders(
 
     const missingIds = missing.map((m) => m.userId);
 
-    const { data: parentLinksData } = await supabase
+    const { data: parentLinksData, error: parentLinksError } = await supabase
       .from("parent_student")
       .select("parent_id, student_id")
       .eq("team_id", ev.team_id)
       .in("student_id", missingIds);
+
+    if (parentLinksError) {
+      console.error("[session-reminders] parent_student error:", parentLinksError);
+      continue;
+    }
 
     const parentsByStudent = new Map<string, string[]>();
     for (const link of (parentLinksData || []) as { parent_id: string; student_id: string }[]) {
@@ -194,11 +228,16 @@ export async function sendSessionReminders(
 
     const refIds = [...recipientIds].map((uid) => `seance-relance:${ev.id}:${uid}`);
 
-    const { data: existingData } = await supabase
+    const { data: existingData, error: existingError } = await supabase
       .from("notifications")
       .select("reference_id")
       .eq("type", "relance_seance")
       .in("reference_id", refIds);
+
+    if (existingError) {
+      console.error("[session-reminders] notifications error:", existingError);
+      continue;
+    }
 
     const existingRefs = new Set(
       ((existingData || []) as { reference_id: string }[]).map((n) => n.reference_id)
