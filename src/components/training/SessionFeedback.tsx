@@ -6,7 +6,7 @@ import { ClipboardCheck, Loader2, Star, Activity, Smile, TrendingUp } from "luci
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import type { SessionFeedback as SessionFeedbackRow } from "@/types";
+import type { SessionFeedback as SessionFeedbackRow, Profile } from "@/types";
 
 const RATING_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 const LEVEL_OPTIONS = [1, 2, 3, 4, 5];
@@ -21,6 +21,17 @@ function Stars({ value }: { value: number }) {
         />
       ))}
     </span>
+  );
+}
+
+function playerLabel(playerId: string, players: Record<string, Profile>) {
+  const profile = players[playerId];
+  return profile ? `${profile.first_name} ${profile.last_name}` : "Joueur";
+}
+
+function sortByPlayerName(rows: SessionFeedbackRow[], players: Record<string, Profile>) {
+  return [...rows].sort((a, b) =>
+    playerLabel(a.player_id, players).localeCompare(playerLabel(b.player_id, players))
   );
 }
 
@@ -43,6 +54,7 @@ export function SessionFeedback({
 }) {
   const myPlayerId = userRole === "player" ? (userId ?? null) : childId;
   const [rows, setRows] = useState<SessionFeedbackRow[]>([]);
+  const [players, setPlayers] = useState<Record<string, Profile>>({});
   const [mine, setMine] = useState<SessionFeedbackRow | null>(null);
   const [rating, setRating] = useState<number | null>(null);
   const [intensity, setIntensity] = useState<number | null>(null);
@@ -52,14 +64,27 @@ export function SessionFeedback({
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (): Promise<{
+    rows: SessionFeedbackRow[];
+    players: Record<string, Profile>;
+  }> => {
     const supabase = createClient();
     const { data } = await supabase
       .from("session_feedback")
       .select("*")
       .eq("event_id", eventId)
       .eq("team_id", teamId);
-    return (data || []) as SessionFeedbackRow[];
+    const rows = (data || []) as SessionFeedbackRow[];
+    const playerIds = Array.from(new Set(rows.map((r) => r.player_id)));
+    let players: Record<string, Profile> = {};
+    if (playerIds.length > 0) {
+      const profRes = await supabase.from("profiles").select("*").in("id", playerIds);
+      players = ((profRes.data as Profile[]) || []).reduce<Record<string, Profile>>(
+        (acc, p) => ({ ...acc, [p.id]: p }),
+        {}
+      );
+    }
+    return { rows, players };
   }, [eventId, teamId]);
 
   const loadHistory = useCallback(async () => {
@@ -97,8 +122,9 @@ export function SessionFeedback({
 
   useEffect(() => {
     if (!trainingOver) return;
-    loadData().then((res) => {
-      setRows(res);
+    loadData().then(({ rows: res, players: profiles }) => {
+      setRows(sortByPlayerName(res, profiles));
+      setPlayers(profiles);
       const mineRow = myPlayerId ? res.find((r) => r.player_id === myPlayerId) ?? null : null;
       setMine(mineRow);
       setRating(mineRow?.rating ?? null);
@@ -157,7 +183,7 @@ export function SessionFeedback({
       setMine(data as SessionFeedbackRow);
       setRows((prev) => {
         const next = prev.filter((r) => r.player_id !== myPlayerId);
-        return [...next, data as SessionFeedbackRow];
+        return sortByPlayerName([...next, data as SessionFeedbackRow], players);
       });
       toast.success("Merci pour ton retour !");
     } catch (e) {
@@ -197,12 +223,36 @@ export function SessionFeedback({
               <p className="text-xs text-muted-foreground">Aucun retour pour l&apos;instant.</p>
             )}
             {rows.length > 0 && (
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 {rows.map((r) => (
-                  <div key={r.id} className="flex items-center gap-2 rounded-lg bg-muted/40 px-3 py-2">
-                    <span className="text-sm font-medium flex-1 truncate">{r.player_id.slice(0, 8)}</span>
-                    {r.rating != null && <Stars value={r.rating} />}
-                    {r.comment && <span className="text-xs text-muted-foreground truncate max-w-[160px]">{r.comment}</span>}
+                  <div key={r.id} className="rounded-lg bg-muted/40 p-3 space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-sm font-medium">{playerLabel(r.player_id, players)}</span>
+                      {r.rating != null && <Stars value={r.rating} />}
+                    </div>
+                    <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+                      <span>
+                        Note globale :{" "}
+                        <span className="font-semibold text-foreground">
+                          {r.rating != null ? `${r.rating}/10` : "—"}
+                        </span>
+                      </span>
+                      <span>
+                        Intensité :{" "}
+                        <span className="font-semibold text-foreground">
+                          {r.intensity != null ? `${r.intensity}/5` : "—"}
+                        </span>
+                      </span>
+                      <span>
+                        Moral :{" "}
+                        <span className="font-semibold text-foreground">
+                          {r.morale != null ? `${r.morale}/5` : "—"}
+                        </span>
+                      </span>
+                    </div>
+                    {r.comment && (
+                      <p className="text-xs text-muted-foreground whitespace-pre-wrap">{r.comment}</p>
+                    )}
                   </div>
                 ))}
               </div>
