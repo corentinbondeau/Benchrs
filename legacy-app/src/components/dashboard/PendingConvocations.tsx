@@ -271,9 +271,23 @@ export function PendingConvocations() {
                         })}
                       </p>
                     </div>
-                    <Badge variant="secondary" className="text-xs">
-                      {items.length} en attente
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary" className="text-xs">
+                        {items.length} en attente
+                      </Badge>
+                      {currentTeam && (
+                        <RemindAllButton
+                          targets={reminderTargets.filter((t) => t.event.id === eventId)}
+                          pendingCount={countPendingPlayers(
+                            reminderTargets.filter((t) => t.event.id === eventId),
+                            reminderAttendances
+                          )}
+                          teamId={currentTeam.id}
+                          onDone={revalidate}
+                          compact
+                        />
+                      )}
+                    </div>
                   </div>
                   <div className="space-y-1">
                     {items.map((item) => {
