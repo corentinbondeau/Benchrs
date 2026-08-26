@@ -141,8 +141,8 @@ function buildSupabaseMock({
         }
       });
       // Permet await : la chaîne elle-même est une promesse
-      (proxy as unknown as Promise<unknown>).then = (resolve: (v: unknown) => unknown) =>
-        Promise.resolve(resolvedValue).then(resolve);
+      (proxy as unknown as Promise<unknown>).then = ((resolve: (v: unknown) => unknown) =>
+        Promise.resolve(resolvedValue).then(resolve)) as Promise<unknown>["then"];
       return proxy;
     };
 
@@ -452,8 +452,11 @@ describe("useDashboardData — rôle coach", () => {
               return vi.fn().mockReturnValue(chain);
             }
           });
-          (chain as unknown as Promise<{ data: unknown; error: null }>).then = (resolve: (v: unknown) => unknown) =>
-            Promise.resolve({ data: MOCK_NEXT_EVENT, error: null }).then(resolve);
+          (chain as unknown as Promise<{ data: unknown; error: null }>).then = ((resolve: (v: unknown) => unknown) =>
+            Promise.resolve({ data: MOCK_NEXT_EVENT, error: null }).then(resolve)) as Promise<{
+            data: unknown;
+            error: null;
+          }>["then"];
           return chain;
         }
         if (originalFrom) return originalFrom(table);

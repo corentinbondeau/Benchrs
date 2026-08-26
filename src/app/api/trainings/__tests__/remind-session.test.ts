@@ -59,7 +59,15 @@ import { createAdminClient } from "@/lib/supabase/admin";
 // ---------------------------------------------------------------------------
 
 function makeUser(overrides: Partial<{ id: string }> = {}) {
-  return { id: "coach-1", email: "coach@test.fr", ...overrides };
+  return {
+    id: "coach-1",
+    email: "coach@test.fr",
+    app_metadata: {},
+    user_metadata: {},
+    aud: "authenticated",
+    created_at: new Date().toISOString(),
+    ...overrides,
+  };
 }
 
 function makeEvent(overrides: Partial<{
