@@ -31,6 +31,11 @@ function toDatetimeLocalValue(iso: string): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+function toDatetimeLocalValueOrEmpty(iso: string | null | undefined): string {
+  if (!iso) return "";
+  return toDatetimeLocalValue(iso);
+}
+
 async function notifyPlayers(
   eventId: string,
   teamId: string,
@@ -117,10 +122,12 @@ export function EventCoachActions({
   const [groupCount, setGroupCount] = useState(1);
 
   const [reportDate, setReportDate] = useState(() => toDatetimeLocalValue(event.event_date));
+  const [reportEndDate, setReportEndDate] = useState(() => toDatetimeLocalValueOrEmpty(event.end_date));
   const [reportMeeting, setReportMeeting] = useState(event.meeting_time?.slice(0, 5) || "");
 
   const [editTitle, setEditTitle] = useState(event.title);
   const [editDate, setEditDate] = useState(() => toDatetimeLocalValue(event.event_date));
+  const [editEndDate, setEditEndDate] = useState(() => toDatetimeLocalValueOrEmpty(event.end_date));
   const [editMeeting, setEditMeeting] = useState(event.meeting_time?.slice(0, 5) || "");
   const [editLocation, setEditLocation] = useState(event.location || "");
   const [editOpponent, setEditOpponent] = useState(event.opponent || "");
@@ -144,6 +151,7 @@ export function EventCoachActions({
     setScope("single");
     setEditTitle(event.title);
     setEditDate(toDatetimeLocalValue(event.event_date));
+    setEditEndDate(toDatetimeLocalValueOrEmpty(event.end_date));
     setEditMeeting(event.meeting_time?.slice(0, 5) || "");
     setEditLocation(event.location || "");
     setEditOpponent(event.opponent || "");
@@ -152,6 +160,7 @@ export function EventCoachActions({
 
   function openReport() {
     setReportDate(toDatetimeLocalValue(event.event_date));
+    setReportEndDate(toDatetimeLocalValueOrEmpty(event.end_date));
     setReportMeeting(event.meeting_time?.slice(0, 5) || "");
     setReportOpen(true);
   }
@@ -164,6 +173,7 @@ export function EventCoachActions({
       .from("events")
       .update({
         event_date: new Date(reportDate).toISOString(),
+        end_date: reportEndDate ? new Date(reportEndDate).toISOString() : null,
         meeting_time: reportMeeting || null,
       })
       .eq("id", event.id)
@@ -178,6 +188,7 @@ export function EventCoachActions({
     const updated = {
       ...event,
       event_date: new Date(reportDate).toISOString(),
+      end_date: reportEndDate ? new Date(reportEndDate).toISOString() : null,
       meeting_time: reportMeeting || null,
     };
     onSaved(updated);
@@ -212,15 +223,18 @@ export function EventCoachActions({
       if (deltaMs !== 0) {
         const { data: groupRows } = await supabase
           .from("events")
-          .select("id, event_date")
+          .select("id, event_date, end_date")
           .eq("recurrence_group_id", event.recurrence_group_id)
           .eq("team_id", event.team_id);
         if (groupRows) {
           for (const row of groupRows) {
             const shifted = new Date(new Date(row.event_date).getTime() + deltaMs).toISOString();
+            const shiftedEnd = row.end_date
+              ? new Date(new Date(row.end_date).getTime() + deltaMs).toISOString()
+              : null;
             const { error } = await supabase
               .from("events")
-              .update({ ...patch, event_date: shifted })
+              .update({ ...patch, event_date: shifted, end_date: shiftedEnd })
               .eq("id", row.id)
               .eq("team_id", event.team_id);
             if (error) {
@@ -233,7 +247,7 @@ export function EventCoachActions({
       } else {
         const { error } = await supabase
           .from("events")
-          .update(patch)
+          .update({ ...patch, end_date: editEndDate ? new Date(editEndDate).toISOString() : null })
           .eq("recurrence_group_id", event.recurrence_group_id)
           .eq("team_id", event.team_id);
         if (error) {
@@ -244,6 +258,7 @@ export function EventCoachActions({
       }
     } else {
       patch.event_date = new Date(editDate).toISOString();
+      patch.end_date = editEndDate ? new Date(editEndDate).toISOString() : null;
       const { error } = await supabase
         .from("events")
         .update(patch)
@@ -260,6 +275,7 @@ export function EventCoachActions({
       ...event,
       title: editTitle.trim(),
       event_date: new Date(editDate).toISOString(),
+      end_date: editEndDate ? new Date(editEndDate).toISOString() : null,
       meeting_time: editMeeting || null,
       location: editLocation.trim() || null,
       opponent: isMatch && editOpponent.trim() ? editOpponent.trim() : null,
@@ -323,7 +339,7 @@ export function EventCoachActions({
   }
 
   const isCancelled = event.status === "cancelled";
-  const locked = isEventLocked(event.event_date);
+  const locked = isEventLocked(event.event_date, event.end_date);
 
   async function saveDelete() {
     setSaving(true);
@@ -424,6 +440,14 @@ export function EventCoachActions({
               />
             </div>
             <div className="space-y-2">
+              <Label>Heure de fin</Label>
+              <Input
+                type="datetime-local"
+                value={reportEndDate}
+                onChange={(e) => setReportEndDate(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
               <Label>Heure de RDV</Label>
               <Input
                 type="time"
@@ -476,6 +500,19 @@ export function EventCoachActions({
               {hasRecurrences && scope === "all" && (
                 <p className="text-xs text-muted-foreground">
                   Le décalage est appliqué à toutes les occurrences (la première prend cette date).
+                </p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label>Heure de fin</Label>
+              <Input
+                type="datetime-local"
+                value={editEndDate}
+                onChange={(e) => setEditEndDate(e.target.value)}
+              />
+              {hasRecurrences && scope === "all" && (
+                <p className="text-xs text-muted-foreground">
+                  Si la date est décalée, la durée de chaque occurrence est conservée.
                 </p>
               )}
             </div>

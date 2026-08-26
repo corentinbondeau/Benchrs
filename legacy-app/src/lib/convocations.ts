@@ -17,11 +17,16 @@ export async function ensureAttendanceRows(
   // et on remonte un message métier clair.
   const { data: event } = await supabase
     .from("events")
-    .select("event_date")
+    .select("event_date, end_date")
     .eq("id", eventId)
     .maybeSingle();
 
-  if (isEventLocked((event as { event_date: string } | null)?.event_date)) {
+  if (
+    isEventLocked(
+      (event as { event_date: string; end_date: string | null } | null)?.event_date,
+      (event as { event_date: string; end_date: string | null } | null)?.end_date
+    )
+  ) {
     throw new Error(CONVOCATION_LOCKED_MESSAGE);
   }
 

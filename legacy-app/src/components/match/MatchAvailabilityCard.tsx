@@ -52,12 +52,14 @@ export function MatchAvailabilityCard({
   isCoach,
   childPlayerId,
   eventDate,
+  endDate,
 }: {
   eventId: string;
   teamId: string;
   isCoach: boolean;
   childPlayerId?: string | null;
   eventDate?: string | null;
+  endDate?: string | null;
 }) {
   const { user } = useAuth();
   const { userRole } = useTeam();
@@ -66,7 +68,7 @@ export function MatchAvailabilityCard({
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [saving, setSaving] = useState(false);
-  const locked = isEventLocked(eventDate);
+  const locked = isEventLocked(eventDate, endDate);
 
   const loadData = useCallback(async () => {
     const supabase = createClient();

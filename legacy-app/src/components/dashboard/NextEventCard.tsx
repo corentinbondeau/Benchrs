@@ -17,7 +17,7 @@ function NextEventCard() {
       const supabase = createClient();
       const { data } = await supabase
         .from("events")
-        .select("id, title, event_date, type, status, opponent, location")
+        .select("id, title, event_date, end_date, type, status, opponent, location")
         .eq("team_id", currentTeam!.id)
         .in("status", ["upcoming", "ongoing"])
         .gte("event_date", new Date().toISOString())
@@ -99,6 +99,8 @@ function NextEventCard() {
         <span className="flex items-center gap-1.5">
           <Clock className="h-3.5 w-3.5 shrink-0" />
           {eventDate.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+          {event.end_date &&
+            ` - ${new Date(event.end_date).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`}
         </span>
         {event.location && (
           <span className="flex items-center gap-1.5">

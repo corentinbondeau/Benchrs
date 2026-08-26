@@ -5,6 +5,7 @@ import { useAuth } from "@/lib/auth";
 import { useTeam } from "@/lib/team";
 import { useQueryCache } from "@/lib/queryCache";
 import { selectLastSession } from "@/lib/sessionSelection";
+import { getEventDurationMinutes } from "@/lib/event-lock";
 import { SessionRpe } from "@/components/training/SessionRpe";
 import { SessionFeedback } from "@/components/training/SessionFeedback";
 import type { Event } from "@/types";
@@ -81,7 +82,7 @@ export function LastSessionFeedback() {
         userRole={userRole}
         childId={null}
         trainingOver={true}
-        durationHint={90}
+        durationHint={getEventDurationMinutes(event.event_date, event.end_date) ?? 90}
       />
       <SessionFeedback
         eventId={event.id}

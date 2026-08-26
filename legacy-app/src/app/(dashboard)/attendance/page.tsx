@@ -42,8 +42,8 @@ export default function AttendancePage() {
     return <div className="flex items-center justify-center h-64"><p className="text-muted-foreground">Chargement de l&apos;équipe...</p></div>;
   }
 
-  async function updateStatus(attendanceId: string, status: "present" | "absent" | "late", eventDate?: string | null) {
-    if (isEventLocked(eventDate)) {
+  async function updateStatus(attendanceId: string, status: "present" | "absent" | "late", eventDate?: string | null, endDate?: string | null) {
+    if (isEventLocked(eventDate, endDate)) {
       toast.error(CONVOCATION_LOCKED_MESSAGE);
       return;
     }
@@ -123,13 +123,13 @@ export default function AttendancePage() {
                         </Badge>
                         {isCoach && att.status === "pending" && (
                           <div className="flex gap-1">
-                            <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => updateStatus(att.id, "present", att.event?.event_date)} disabled={isEventLocked(att.event?.event_date)}>
+                            <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => updateStatus(att.id, "present", att.event?.event_date, att.event?.end_date)} disabled={isEventLocked(att.event?.event_date, att.event?.end_date)}>
                               <Check className="h-3 w-3 text-green-600" />
                             </Button>
-                            <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => updateStatus(att.id, "late", att.event?.event_date)} disabled={isEventLocked(att.event?.event_date)}>
+                            <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => updateStatus(att.id, "late", att.event?.event_date, att.event?.end_date)} disabled={isEventLocked(att.event?.event_date, att.event?.end_date)}>
                               <Clock className="h-3 w-3 text-amber-600" />
                             </Button>
-                            <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => updateStatus(att.id, "absent", att.event?.event_date)} disabled={isEventLocked(att.event?.event_date)}>
+                            <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => updateStatus(att.id, "absent", att.event?.event_date, att.event?.end_date)} disabled={isEventLocked(att.event?.event_date, att.event?.end_date)}>
                               <X className="h-3 w-3 text-red-600" />
                             </Button>
                           </div>

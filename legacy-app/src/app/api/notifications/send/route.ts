@@ -125,14 +125,19 @@ export async function POST(req: Request) {
       }
       const { data: ev } = await supabase
         .from("events")
-        .select("id, event_date")
+        .select("id, event_date, end_date")
         .eq("id", reference_id)
         .eq("team_id", team_id)
         .maybeSingle();
       if (!ev) {
         return NextResponse.json({ error: "Événement invalide" }, { status: 400 });
       }
-      if (isEventLocked((ev as { event_date: string }).event_date)) {
+      if (
+        isEventLocked(
+          (ev as { event_date: string; end_date: string | null }).event_date,
+          (ev as { event_date: string; end_date: string | null }).end_date
+        )
+      ) {
         return NextResponse.json({ error: CONVOCATION_LOCKED_MESSAGE }, { status: 409 });
       }
     }

@@ -427,7 +427,7 @@ export default function MatchDetailPage() {
   }
 
   async function updateMatchAttendance(userId: string, status: AttendanceStatus, reason?: string) {
-    if (isEventLocked(match?.event_date)) {
+    if (isEventLocked(match?.event_date, match?.end_date)) {
       toast.error(CONVOCATION_LOCKED_MESSAGE);
       return;
     }
@@ -705,6 +705,7 @@ export default function MatchDetailPage() {
       {/* Partie 1 — Informations globales */}
       <EventInfoCard
         date={matchDate}
+        endDate={match.end_date ? new Date(match.end_date) : null}
         meetingTime={match.meeting_time}
         location={match.location}
         isCoach={isCoach}
@@ -739,6 +740,7 @@ export default function MatchDetailPage() {
           isCoach={isCoach}
           childPlayerId={childId ?? undefined}
           eventDate={match.event_date}
+          endDate={match.end_date}
         />
       )}
 

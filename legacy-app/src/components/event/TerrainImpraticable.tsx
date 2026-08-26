@@ -92,6 +92,16 @@ export function TerrainImpraticable({
       const source = sourceRes.data as Record<string, unknown> | null;
 
       const dateTime = new Date(`${newDate}T${newTime || "19:00"}:00`);
+      const sourceEventDate = source?.event_date ? new Date(source.event_date as string) : null;
+      const sourceEndDate = source?.end_date ? new Date(source.end_date as string) : null;
+      const durationMs =
+        sourceEventDate && sourceEndDate
+          ? sourceEndDate.getTime() - sourceEventDate.getTime()
+          : null;
+      const newEndDate =
+        durationMs !== null && durationMs > 0
+          ? new Date(dateTime.getTime() + durationMs).toISOString()
+          : null;
       const { data: newEvent, error } = await supabase
         .from("events")
         .insert({
@@ -99,7 +109,7 @@ export function TerrainImpraticable({
           title: source?.title ?? event.title,
           description: source?.description ?? null,
           event_date: dateTime.toISOString(),
-          end_date: null,
+          end_date: newEndDate,
           location: newLocation.trim() || source?.location || null,
           map_url: source?.map_url ?? null,
           status: "upcoming",

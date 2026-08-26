@@ -91,11 +91,13 @@ export function SessionFiche({
   eventId,
   isCoach,
   eventDate,
+  eventEndDate,
   eventTitle,
 }: {
   eventId: string;
   isCoach: boolean;
   eventDate: string;
+  eventEndDate?: string | null;
   eventTitle: string;
 }) {
   const { currentTeam } = useTeam();
@@ -896,6 +898,7 @@ export function SessionFiche({
         <TrainingSeriesDialog
           teamId={currentTeam.id}
           eventDate={eventDate}
+          eventEndDate={eventEndDate}
           eventTitle={eventTitle}
           fiche={
             fiche

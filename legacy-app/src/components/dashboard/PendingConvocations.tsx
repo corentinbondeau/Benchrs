@@ -112,9 +112,10 @@ export function PendingConvocations() {
     attendanceId: string,
     status: "present" | "absent" | "late",
     reason?: string,
-    eventDate?: string | null
+    eventDate?: string | null,
+    endDate?: string | null
   ) {
-    if (isEventLocked(eventDate)) {
+    if (isEventLocked(eventDate, endDate)) {
       toast.error(CONVOCATION_LOCKED_MESSAGE);
       return;
     }
@@ -140,7 +141,7 @@ export function PendingConvocations() {
   }
 
   async function sendReminder(item: CoachPendingItem, target: "player" | "parent", parentProfile?: Profile) {
-    if (isEventLocked(item.event.event_date)) {
+    if (isEventLocked(item.event.event_date, item.event.end_date)) {
       toast.error(CONVOCATION_LOCKED_MESSAGE);
       return;
     }
@@ -242,7 +243,7 @@ export function PendingConvocations() {
                   </div>
                   <div className="space-y-1">
                     {items.map((item) => {
-                      const locked = isEventLocked(item.event.event_date);
+                      const locked = isEventLocked(item.event.event_date, item.event.end_date);
                       return (
                       <div key={item.attendance.id} className="rounded-md bg-muted/50 px-3 py-1.5 space-y-1.5">
                         <div className="flex items-center justify-between">
@@ -314,7 +315,7 @@ export function PendingConvocations() {
         ) : (
           <div className="space-y-3">
             {playerAttendances.map((att) => {
-              const locked = isEventLocked(att.event?.event_date);
+              const locked = isEventLocked(att.event?.event_date, att.event?.end_date);
               return (
               <div key={att.id} className="rounded-lg border p-3 space-y-2">
                 <div className="flex items-center justify-between">
@@ -335,13 +336,13 @@ export function PendingConvocations() {
                   </div>
                   {pendingAbsentId !== att.id && (
                     <div className="flex gap-1.5">
-                      <Button size="icon" variant="outline" className="h-8 w-8 text-green-600 hover:bg-green-50" onClick={() => respond(att.id, "present", undefined, att.event?.event_date)} disabled={locked}>
+                      <Button size="icon" variant="outline" className="h-8 w-8 text-green-600 hover:bg-green-50" onClick={() => respond(att.id, "present", undefined, att.event?.event_date, att.event?.end_date)} disabled={locked}>
                         <Check className="h-4 w-4" />
                       </Button>
-                      <Button size="icon" variant="outline" className="h-8 w-8 text-amber-600 hover:bg-amber-50" onClick={() => respond(att.id, "late", undefined, att.event?.event_date)} disabled={locked}>
+                      <Button size="icon" variant="outline" className="h-8 w-8 text-amber-600 hover:bg-amber-50" onClick={() => respond(att.id, "late", undefined, att.event?.event_date, att.event?.end_date)} disabled={locked}>
                         <Clock className="h-4 w-4" />
                       </Button>
-                      <Button size="icon" variant="outline" className="h-8 w-8 text-red-600 hover:bg-red-50" onClick={() => respond(att.id, "absent", undefined, att.event?.event_date)} disabled={locked}>
+                      <Button size="icon" variant="outline" className="h-8 w-8 text-red-600 hover:bg-red-50" onClick={() => respond(att.id, "absent", undefined, att.event?.event_date, att.event?.end_date)} disabled={locked}>
                         <X className="h-4 w-4" />
                       </Button>
                     </div>
@@ -358,7 +359,7 @@ export function PendingConvocations() {
                       autoFocus
                     />
                     <div className="flex gap-2">
-                      <Button size="sm" className="h-7 text-xs" disabled={!absenceReason.trim()} onClick={() => respond(att.id, "absent", absenceReason.trim(), att.event?.event_date)}>
+                      <Button size="sm" className="h-7 text-xs" disabled={!absenceReason.trim()} onClick={() => respond(att.id, "absent", absenceReason.trim(), att.event?.event_date, att.event?.end_date)}>
                         Confirmer
                       </Button>
                       <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => { setPendingAbsentId(null); setAbsenceReason(""); }}>

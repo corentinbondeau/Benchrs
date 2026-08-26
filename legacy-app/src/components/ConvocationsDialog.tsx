@@ -61,7 +61,7 @@ export function ConvocationsDialog({ event, open, onOpenChange }: ConvocationsDi
   const [loading, setLoading] = useState(true);
   const [addPlayerOpen, setAddPlayerOpen] = useState(false);
   const [selectedNewPlayerIds, setSelectedNewPlayerIds] = useState<string[]>([]);
-  const locked = isEventLocked(event.event_date);
+  const locked = isEventLocked(event.event_date, event.end_date);
 
   const fetchData = useCallback(async () => {
     if (!currentTeam || !event) return;
