@@ -19,6 +19,7 @@ import type { Exercise } from "@/types";
 export function TrainingSeriesDialog({
   teamId,
   eventDate,
+  eventEndDate,
   eventTitle,
   fiche,
   open,
@@ -27,6 +28,7 @@ export function TrainingSeriesDialog({
 }: {
   teamId: string;
   eventDate: string;
+  eventEndDate?: string | null;
   eventTitle: string;
   fiche: { title: string; source: "manual" | "ai"; exercises: AISession | Exercise[] | null; objectives: string[] | null; notes: string | null; visibility: "coach" | "team" } | null;
   open: boolean;
@@ -37,6 +39,10 @@ export function TrainingSeriesDialog({
   const [saving, setSaving] = useState(false);
 
   const sourceDate = new Date(eventDate);
+  // Durée du modèle : propagée sur chaque occurrence de la série.
+  const durationMs = eventEndDate
+    ? new Date(eventEndDate).getTime() - sourceDate.getTime()
+    : null;
 
   async function handleCreate() {
     if (weeks < 1 || weeks > 12) {
@@ -62,6 +68,10 @@ export function TrainingSeriesDialog({
         title: eventTitle,
         type: "training" as const,
         event_date: d.toISOString(),
+        end_date:
+          durationMs !== null && durationMs > 0
+            ? new Date(d.getTime() + durationMs).toISOString()
+            : null,
         meeting_time: null,
         location: null,
         status: "upcoming" as const,

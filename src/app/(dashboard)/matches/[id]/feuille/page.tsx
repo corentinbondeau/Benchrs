@@ -132,6 +132,9 @@ export default function FeuilleMatchPage() {
   const eventDate = new Date(match.event_date);
   const dateStr = eventDate.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
   const timeStr = eventDate.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+  const endTimeStr = match.end_date
+    ? new Date(match.end_date).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })
+    : null;
 
   const compose = (row: LineupEntry) => {
     const isCapt = row.player_id === captainId;
@@ -141,7 +144,7 @@ export default function FeuilleMatchPage() {
   const text = [
     `📋 Feuille de match — ${currentTeam.name}`,
     match.opponent ? `⚽ ${currentTeam.name} vs ${match.opponent}` : `⚽ ${match.title}`,
-    `📅 ${dateStr} à ${timeStr}`,
+    `📅 ${dateStr} à ${timeStr}${endTimeStr ? ` - ${endTimeStr}` : ""}`,
     match.location ? `📍 ${match.location}` : "",
     match.meeting_time ? `⏰ Rendez-vous : ${match.meeting_time.slice(0, 5)}` : "",
     referee ? `👨‍⚖️ Arbitre : ${referee}` : "",

@@ -34,7 +34,7 @@ import { fetchTeamActivePlayers } from "@/lib/players";
 import { computeMissingResponders } from "@/lib/session-reminders";
 import { SessionRemindersCard } from "@/components/training/SessionRemindersCard";
 import { logActivity } from "@/lib/activity";
-import { isEventLocked, CONVOCATION_LOCKED_MESSAGE } from "@/lib/event-lock";
+import { isEventLocked, CONVOCATION_LOCKED_MESSAGE, getEventDurationMinutes } from "@/lib/event-lock";
 import type { AttendanceStatus, Event } from "@/types";
 
 type TrainingEvent = Event & {
@@ -303,7 +303,7 @@ export default function TrainingDetailPage() {
       />
 
       {/* Fiche de séance */}
-      <SessionFiche eventId={trainingId} isCoach={isCoach} eventDate={event.event_date} eventTitle={event.title} />
+      <SessionFiche eventId={trainingId} isCoach={isCoach} eventDate={event.event_date} eventEndDate={event.end_date} eventTitle={event.title} />
 
       {/* Commutateur d'enfant (parents multi-enfants) */}
       {userRole === "parent" && (
@@ -344,6 +344,7 @@ export default function TrainingDetailPage() {
       {/* Partie 1 — Informations globales */}
       <EventInfoCard
         date={eventDate}
+        endDate={event.end_date ? new Date(event.end_date) : null}
         meetingTime={event.meeting_time}
         location={event.location}
         isCoach={isCoach}
@@ -398,7 +399,7 @@ export default function TrainingDetailPage() {
         userRole={userRole}
         childId={childId}
         trainingOver={event.status === "completed" || eventDate.getTime() < now}
-        durationHint={90}
+        durationHint={getEventDurationMinutes(event.event_date, event.end_date) ?? 90}
       />
 
       {/* Analyse de séance post-entraînement */}

@@ -111,6 +111,7 @@ function ResponseButton({
 // Part 1 — Informations globales (RDV, début, lieu + présence du joueur)
 export function EventInfoCard({
   date,
+  endDate,
   meetingTime,
   location,
   isCoach,
@@ -119,6 +120,7 @@ export function EventInfoCard({
   onRespond,
 }: {
   date: Date;
+  endDate?: Date | null;
   meetingTime: string | null;
   location: string | null;
   isCoach?: boolean;
@@ -143,6 +145,9 @@ export function EventInfoCard({
     hour: "2-digit",
     minute: "2-digit",
   });
+  const endStr = endDate
+    ? endDate.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })
+    : null;
 
   function startRespond(status: "present" | "late" | "absent") {
     if (!onRespond) return;
@@ -174,6 +179,7 @@ export function EventInfoCard({
           <InfoRow icon={Clock} label="Rendez-vous" value={formatMeetingTime(meetingTime)} />
         )}
         <InfoRow icon={Clock} label="Début" value={startStr} />
+        {endStr && <InfoRow icon={Clock} label="Fin" value={endStr} />}
         {location && (
           <div className="flex items-center justify-between gap-2">
             <InfoRow icon={MapPin} label="Lieu" value={location} />

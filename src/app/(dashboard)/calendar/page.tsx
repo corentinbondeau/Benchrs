@@ -93,6 +93,21 @@ function toLocalDateStr(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
+function toDatetimeLocalValue(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+// Pré-remplissage de la fin par défaut : +2h pour un match, +1h30 pour un
+// entraînement (mêmes durées codées en dur dans l'export ICS).
+function computeDefaultEndDate(eventDateLocal: string, type: "match" | "training"): string {
+  if (!eventDateLocal) return "";
+  const start = new Date(eventDateLocal);
+  if (Number.isNaN(start.getTime())) return "";
+  const durationMs = type === "match" ? 2 * 60 * 60 * 1000 : 90 * 60 * 1000;
+  return toDatetimeLocalValue(new Date(start.getTime() + durationMs));
+}
+
 export default function CalendarPage() {
   const { user } = useAuth();
   const { currentTeam, userRole, switchTeam } = useTeam();
@@ -115,6 +130,7 @@ export default function CalendarPage() {
     type: "training" as "match" | "training",
     event_date: "",
     end_date: "",
+    recurrence_until: "",
     meeting_time: "",
     location: "",
     opponent: "",
@@ -168,7 +184,7 @@ export default function CalendarPage() {
     Promise.all([
       supabase
         .from("events")
-        .select("id, title, event_date, type, status, location, opponent, score_us, score_them, match_result, team_id, meeting_time")
+        .select("id, title, event_date, end_date, type, status, location, opponent, score_us, score_them, match_result, team_id, meeting_time")
         .in("team_id", ids)
         .order("event_date", { ascending: true }),
       supabase
@@ -330,14 +346,19 @@ export default function CalendarPage() {
     e.preventDefault();
     const supabase = createClient();
     const eventDate = new Date(form.event_date);
-    const dates = computeRecurrenceDates(eventDate, form.recurrence, form.end_date);
+    const dates = computeRecurrenceDates(eventDate, form.recurrence, form.recurrence_until);
 
     const recurrenceGroupId = dates.length > 1 ? crypto.randomUUID() : null;
+
+    // Chaque occurrence conserve la même durée que la première.
+    const endDate = form.end_date ? new Date(form.end_date) : null;
+    const durationMs = endDate ? endDate.getTime() - eventDate.getTime() : null;
 
     const rows = dates.map((d) => ({
       title: form.title,
       type: form.type,
       event_date: toUTCISOString(d),
+      end_date: durationMs !== null ? toUTCISOString(new Date(d.getTime() + durationMs)) : null,
       meeting_time: form.meeting_time || null,
       location: form.location || null,
       opponent: form.type === "match" ? form.opponent || null : null,
@@ -372,6 +393,7 @@ export default function CalendarPage() {
       type: "training",
       event_date: "",
       end_date: "",
+      recurrence_until: "",
       meeting_time: "",
       location: "",
       opponent: "",
@@ -486,9 +508,11 @@ export default function CalendarPage() {
   function EventTimeDisplay({ event }: { event: EventWithMeeting }) {
     const start = formatTimeDisplay(event.event_date);
     const rdv = event.meeting_time;
+    const end = event.end_date ? formatTimeDisplay(event.end_date) : null;
+    const range = end ? `${start} - ${end}` : start;
     return (
       <span className="text-xs text-muted-foreground">
-        {rdv ? `RDV: ${rdv} | Début: ${start}` : start}
+        {rdv ? `RDV: ${rdv} | Début: ${range}` : range}
       </span>
     );
   }
@@ -531,7 +555,18 @@ export default function CalendarPage() {
                 </div>
                 <div className="space-y-2">
                   <Label>Type *</Label>
-                  <Select value={form.type} onValueChange={(v) => v && setForm({ ...form, type: v as "match" | "training" })}>
+                  <Select
+                    value={form.type}
+                    onValueChange={(v) => {
+                      if (!v) return;
+                      const type = v as "match" | "training";
+                      setForm((prev) => ({
+                        ...prev,
+                        type,
+                        end_date: computeDefaultEndDate(prev.event_date, type) || prev.end_date,
+                      }));
+                    }}
+                  >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -543,7 +578,27 @@ export default function CalendarPage() {
                 </div>
                 <div className="space-y-2">
                   <Label>Date et heure *</Label>
-                  <Input type="datetime-local" value={form.event_date} onChange={(e) => setForm({ ...form, event_date: e.target.value })} required />
+                  <Input
+                    type="datetime-local"
+                    value={form.event_date}
+                    onChange={(e) => {
+                      const event_date = e.target.value;
+                      setForm((prev) => ({
+                        ...prev,
+                        event_date,
+                        end_date: computeDefaultEndDate(event_date, prev.type),
+                      }));
+                    }}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Heure de fin</Label>
+                  <Input
+                    type="datetime-local"
+                    value={form.end_date}
+                    onChange={(e) => setForm({ ...form, end_date: e.target.value })}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>Heure de RDV</Label>
@@ -580,7 +635,7 @@ export default function CalendarPage() {
                 {form.recurrence !== "Aucun" && (
                   <div className="space-y-2">
                     <Label>Date de fin *</Label>
-                    <Input type="date" value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} required />
+                    <Input type="date" value={form.recurrence_until} onChange={(e) => setForm({ ...form, recurrence_until: e.target.value })} required />
                   </div>
                 )}
                 {cycles.length > 0 && (

@@ -705,6 +705,7 @@ export default function MatchDetailPage() {
       {/* Partie 1 — Informations globales */}
       <EventInfoCard
         date={matchDate}
+        endDate={match.end_date ? new Date(match.end_date) : null}
         meetingTime={match.meeting_time}
         location={match.location}
         isCoach={isCoach}
