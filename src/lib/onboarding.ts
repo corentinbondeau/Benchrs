@@ -10,10 +10,16 @@ export type OnboardingRole = "player" | "parent" | "coach" | "owner" | "comite";
 
 export type OnboardingStep =
   | "welcome"
+  | "install_app"
   | "identity"
   | "player_profile"
   | "link_child"
+  | "convocations"
+  | "session_feedback"
+  | "carpooling"
   | "coach_tools"
+  | "coach_performance"
+  | "coach_admin"
   | "notifications"
   | "done";
 
@@ -44,28 +50,35 @@ export function resolveOnboardingRole({
   return "player";
 }
 
-const COMMON_STEPS_BEFORE: OnboardingStep[] = ["welcome", "identity"];
+const COMMON_STEPS_BEFORE: OnboardingStep[] = ["welcome", "install_app", "identity"];
 const COMMON_STEPS_AFTER: OnboardingStep[] = ["notifications", "done"];
 
 /**
  * Retourne la liste ordonnée des étapes d'onboarding pour un rôle donné.
- * Les étapes communes (welcome, identity, notifications, done) sont
- * toujours présentes ; les étapes spécifiques (player_profile, link_child,
- * coach_tools) sont strictement réservées au rôle concerné.
+ * Les étapes communes (welcome, install_app, identity, notifications, done)
+ * sont toujours présentes ; les étapes spécifiques (player_profile,
+ * link_child, convocations, session_feedback, carpooling, coach_tools,
+ * coach_performance, coach_admin) sont strictement réservées au rôle
+ * concerné.
  */
 export function getOnboardingSteps(role: OnboardingRole): OnboardingStep[] {
   const specific: OnboardingStep[] = [];
 
   switch (role) {
     case "player":
-      specific.push("player_profile");
+      specific.push("player_profile", "convocations", "session_feedback");
       break;
     case "parent":
-      specific.push("link_child");
+      specific.push(
+        "link_child",
+        "convocations",
+        "session_feedback",
+        "carpooling"
+      );
       break;
     case "coach":
     case "owner":
-      specific.push("coach_tools");
+      specific.push("coach_tools", "coach_performance", "coach_admin");
       break;
     case "comite":
       break;

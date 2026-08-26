@@ -1,38 +1,28 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useInstallPrompt } from "@/lib/useInstallPrompt";
 
 export function InstallPrompt() {
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const { canInstall, isStandalone, promptInstall } = useInstallPrompt();
   const [show, setShow] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("/sw.js");
     }
-
-    const handler = (e: Event) => {
-      e.preventDefault();
-      setDeferredPrompt(e);
-      setShow(true);
-    };
-    window.addEventListener("beforeinstallprompt", handler);
-
-    if (window.matchMedia("(display-mode: standalone)").matches) {
-      setShow(false);
-    }
-
-    return () => window.removeEventListener("beforeinstallprompt", handler);
   }, []);
 
+  useEffect(() => {
+    setShow(canInstall && !isStandalone && !dismissed);
+  }, [canInstall, isStandalone, dismissed]);
+
   const handleInstall = async () => {
-    if (!deferredPrompt) return;
-    deferredPrompt.prompt();
-    const result = await deferredPrompt.userChoice;
-    if (result.outcome === "accepted") {
+    const accepted = await promptInstall();
+    if (accepted) {
       setShow(false);
     }
-    setDeferredPrompt(null);
   };
 
   if (!show) return null;
@@ -50,7 +40,7 @@ export function InstallPrompt() {
           Installer
         </button>
         <button
-          onClick={() => setShow(false)}
+          onClick={() => setDismissed(true)}
           className="rounded-lg px-4 py-2 text-sm text-gray-400 transition-colors hover:text-white"
         >
           Plus tard

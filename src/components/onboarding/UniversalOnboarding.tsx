@@ -7,6 +7,7 @@ import { useTeam } from "@/lib/team";
 import { createClient } from "@/lib/supabase/client";
 import { authFetch } from "@/lib/api-client";
 import { enablePushSubscription } from "@/lib/push";
+import { useInstallPrompt } from "@/lib/useInstallPrompt";
 import { POSITIONS } from "@/lib/positions";
 import {
   resolveOnboardingRole,
@@ -35,6 +36,12 @@ import {
   ChevronRight,
   ChevronLeft,
   Loader2,
+  Download,
+  CalendarCheck,
+  Activity,
+  Car,
+  BarChart3,
+  UserCog,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -43,10 +50,16 @@ const STEP_META: Record<
   { icon: typeof Sparkles; title: string }
 > = {
   welcome: { icon: Sparkles, title: "Bienvenue sur Benchrs !" },
+  install_app: { icon: Download, title: "Installez l'application" },
   identity: { icon: UserCircle2, title: "Vos informations" },
   player_profile: { icon: ShirtIcon, title: "Votre profil joueur" },
   link_child: { icon: Users2, title: "Lier un enfant" },
-  coach_tools: { icon: Wrench, title: "Vos outils coach" },
+  convocations: { icon: CalendarCheck, title: "Répondre aux convocations" },
+  session_feedback: { icon: Activity, title: "Après la séance" },
+  carpooling: { icon: Car, title: "Covoiturage" },
+  coach_tools: { icon: Wrench, title: "Organiser les matchs et séances" },
+  coach_performance: { icon: BarChart3, title: "Suivre la performance" },
+  coach_admin: { icon: UserCog, title: "Gérer l'équipe au quotidien" },
   notifications: { icon: BellRing, title: "Notifications" },
   done: { icon: Sparkles, title: "C'est prêt !" },
 };
@@ -72,6 +85,9 @@ export function UniversalOnboarding() {
     user?.profile?.preferred_foot || ""
   );
   const [enablingPush, setEnablingPush] = useState(false);
+  const { canInstall, isIOS, isStandalone, promptInstall } =
+    useInstallPrompt();
+  const [installing, setInstalling] = useState(false);
 
   const role = useMemo(
     () =>
@@ -172,6 +188,15 @@ export function UniversalOnboarding() {
     setEnablingPush(false);
   }
 
+  async function handleInstallClick() {
+    setInstalling(true);
+    const accepted = await promptInstall();
+    if (!accepted) {
+      toast.error("Installation annulée");
+    }
+    setInstalling(false);
+  }
+
   async function handleNext() {
     if (currentStep === "identity") {
       await saveIdentity();
@@ -186,8 +211,8 @@ export function UniversalOnboarding() {
   }
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-[var(--color-navy)] p-5">
-      <div className="w-full max-w-md rounded-2xl bg-card p-6 shadow-2xl">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center overflow-y-auto bg-[var(--color-navy)] p-5">
+      <div className="w-full max-w-md rounded-2xl bg-card p-6 shadow-2xl my-auto max-h-[90vh] overflow-y-auto">
         <div className="flex justify-center">
           <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[var(--color-gold)]/15">
             <Icon className="h-8 w-8 text-[var(--color-gold)]" />
@@ -203,6 +228,57 @@ export function UniversalOnboarding() {
               entraînements, matches, statistiques et échanges avec votre
               équipe. Prenons quelques instants pour finaliser votre profil.
             </p>
+          )}
+
+          {currentStep === "install_app" && (
+            <div className="space-y-3 text-center">
+              {isStandalone ? (
+                <p className="text-sm text-muted-foreground">
+                  C&apos;est déjà fait : vous utilisez Benchrs depuis
+                  l&apos;écran d&apos;accueil.
+                </p>
+              ) : isIOS ? (
+                <div className="space-y-1 text-left text-sm text-muted-foreground">
+                  <p>Sur iPhone/iPad :</p>
+                  <ol className="list-decimal space-y-1 pl-5">
+                    <li>
+                      Appuyez sur <strong>Partager</strong>.
+                    </li>
+                    <li>
+                      Choisissez <strong>Sur l&apos;écran d&apos;accueil</strong>.
+                    </li>
+                    <li>
+                      Confirmez avec <strong>Ajouter</strong>.
+                    </li>
+                  </ol>
+                </div>
+              ) : canInstall ? (
+                <>
+                  <p className="text-sm text-muted-foreground">
+                    Installez Benchrs sur votre écran d&apos;accueil pour un
+                    accès rapide, même hors ligne.
+                  </p>
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={handleInstallClick}
+                    disabled={installing}
+                  >
+                    {installing ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      "Installer l'application"
+                    )}
+                  </Button>
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Ouvrez le menu de votre navigateur et choisissez
+                  &laquo; Installer l&apos;application &raquo; (ou &laquo;
+                  Ajouter à l&apos;écran d&apos;accueil &raquo;).
+                </p>
+              )}
+            </div>
           )}
 
           {currentStep === "identity" && (
@@ -314,6 +390,107 @@ export function UniversalOnboarding() {
             </p>
           )}
 
+          {currentStep === "convocations" && (
+            <div className="space-y-2 text-left text-sm text-muted-foreground">
+              {role === "parent" ? (
+                <>
+                  <p>
+                    Depuis l&apos;<strong>Accueil</strong>, la carte
+                    « Convocations de votre enfant » (ou un sélecteur si vous
+                    avez plusieurs enfants) affiche trois boutons : présent,
+                    en retard, absent.
+                  </p>
+                  <p>
+                    Un refus demande un motif d&apos;absence obligatoire, un
+                    retard demande une explication. Vous pouvez aussi répondre
+                    depuis la fiche du match ou de l&apos;entraînement, bloc
+                    « Présence de votre enfant ».
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p>
+                    Depuis l&apos;<strong>Accueil</strong>, la carte
+                    « Convocations en attente » affiche trois boutons :
+                    présent, en retard, absent.
+                  </p>
+                  <p>
+                    Un refus demande un motif d&apos;absence obligatoire, un
+                    retard demande une explication. Vous pouvez aussi répondre
+                    depuis la fiche du match ou de l&apos;entraînement, bloc
+                    « Ma présence ».
+                  </p>
+                </>
+              )}
+            </div>
+          )}
+
+          {currentStep === "session_feedback" && (
+            <div className="space-y-2 text-left text-sm text-muted-foreground">
+              <p>
+                Sur la fiche de l&apos;entraînement, deux cartes distinctes :
+              </p>
+              <p>
+                <strong>Suivi de charge (RPE)</strong> — avant la séance,
+                « Comment te sens-tu aujourd&apos;hui ? » sur une échelle de 1
+                à 5 (Épuisé, Fatigué, Correct, En forme, Excellent) ; après la
+                séance, l&apos;intensité perçue de 1 à 10 et la durée en
+                minutes. Cette carte n&apos;apparaît que si le coach a activé
+                le suivi RPE.
+              </p>
+              <p>
+                <strong>Analyse de la séance</strong> — après la séance
+                uniquement : note globale sur 10, intensité ressentie sur 5,
+                moral sur 5, et un commentaire libre.
+              </p>
+            </div>
+          )}
+
+          {currentStep === "carpooling" && (
+            <div className="space-y-2 text-left text-sm text-muted-foreground">
+              <p>
+                Sur la page <strong>Covoiturage</strong>, le bouton
+                « Proposer un trajet » permet d&apos;indiquer l&apos;évènement,
+                le nombre de places disponibles, le lieu et l&apos;heure de
+                départ, et des notes.
+              </p>
+              <p>
+                Sur les trajets existants, utilisez « S&apos;inscrire » ou
+                « Se désinscrire ».
+              </p>
+            </div>
+          )}
+
+          {currentStep === "coach_performance" && (
+            <div className="space-y-2 text-left text-sm text-muted-foreground">
+              <p>
+                <strong>Performance</strong> : statistiques d&apos;équipe,
+                comparaison de joueurs et détection des baisses de forme.
+              </p>
+              <p>
+                <strong>Préparation physique</strong> : tests VMA/VMI et suivi
+                physique.
+              </p>
+              <p>
+                <strong>Suivi de charge (RPE)</strong> et retours de séance :
+                relancez les joueurs qui n&apos;ont pas répondu.
+              </p>
+            </div>
+          )}
+
+          {currentStep === "coach_admin" && (
+            <div className="space-y-2 text-left text-sm text-muted-foreground">
+              <p>
+                <strong>Effectif</strong> et gestion des joueurs, échéances
+                licences et certificats médicaux, présences et infirmerie.
+              </p>
+              <p>
+                <strong>Matériel</strong> et <strong>cagnottes</strong> pour
+                gérer la vie de l&apos;équipe au quotidien.
+              </p>
+            </div>
+          )}
+
           {currentStep === "notifications" && (
             <div className="space-y-3 text-center">
               <p className="text-sm text-muted-foreground">
@@ -342,7 +519,7 @@ export function UniversalOnboarding() {
           )}
         </div>
 
-        <div className="mt-5 flex items-center justify-center gap-1.5">
+        <div className="mt-5 flex flex-wrap items-center justify-center gap-1.5">
           {steps.map((_, i) => (
             <div
               key={i}

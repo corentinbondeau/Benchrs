@@ -90,39 +90,67 @@ describe("resolveOnboardingRole", () => {
 });
 
 describe("getOnboardingSteps", () => {
-  // ==== CAS 6 — étapes spécifiques au joueur ====
-  it("inclut player_profile pour le rôle player, sans link_child ni coach_tools", () => {
+  // ==== CAS 6 — séquence exacte pour le rôle player ====
+  it("retourne la séquence exacte d'étapes pour le rôle player", () => {
     const steps = getOnboardingSteps("player");
-    expect(steps).toContain("player_profile");
-    expect(steps).not.toContain("link_child");
-    expect(steps).not.toContain("coach_tools");
+    expect(steps).toEqual([
+      "welcome",
+      "install_app",
+      "identity",
+      "player_profile",
+      "convocations",
+      "session_feedback",
+      "notifications",
+      "done",
+    ]);
   });
 
-  // ==== CAS 7 — étapes spécifiques au parent ====
-  it("inclut link_child pour le rôle parent, sans player_profile", () => {
+  // ==== CAS 7 — séquence exacte pour le rôle parent ====
+  it("retourne la séquence exacte d'étapes pour le rôle parent", () => {
     const steps = getOnboardingSteps("parent");
-    expect(steps).toContain("link_child");
-    expect(steps).not.toContain("player_profile");
+    expect(steps).toEqual([
+      "welcome",
+      "install_app",
+      "identity",
+      "link_child",
+      "convocations",
+      "session_feedback",
+      "carpooling",
+      "notifications",
+      "done",
+    ]);
   });
 
-  // ==== CAS 8 — étapes spécifiques coach/owner ====
-  it("inclut coach_tools pour coach et owner, sans player_profile", () => {
-    const coachSteps = getOnboardingSteps("coach");
-    const ownerSteps = getOnboardingSteps("owner");
-    expect(coachSteps).toContain("coach_tools");
-    expect(ownerSteps).toContain("coach_tools");
-    expect(coachSteps).not.toContain("player_profile");
-    expect(ownerSteps).not.toContain("player_profile");
+  // ==== CAS 8 — séquence exacte pour coach et owner ====
+  it("retourne la séquence exacte d'étapes pour coach et owner", () => {
+    const expected = [
+      "welcome",
+      "install_app",
+      "identity",
+      "coach_tools",
+      "coach_performance",
+      "coach_admin",
+      "notifications",
+      "done",
+    ];
+    expect(getOnboardingSteps("coach")).toEqual(expected);
+    expect(getOnboardingSteps("owner")).toEqual(expected);
   });
 
-  // ==== CAS 9 — comite : uniquement les étapes communes ====
-  it("ne propose que les étapes communes pour le rôle comite", () => {
+  // ==== CAS 9 — séquence exacte pour le rôle comite ====
+  it("retourne la séquence exacte d'étapes pour le rôle comite", () => {
     const steps = getOnboardingSteps("comite");
-    expect(steps).toEqual(["welcome", "identity", "notifications", "done"]);
+    expect(steps).toEqual([
+      "welcome",
+      "install_app",
+      "identity",
+      "notifications",
+      "done",
+    ]);
   });
 
   // ==== CAS 10 — invariants communs à tous les rôles ====
-  it("commence par welcome, finit par done, et contient toujours identity/notifications", () => {
+  it("commence par welcome, finit par done, et contient toujours identity/install_app/notifications", () => {
     const roles: Array<"player" | "parent" | "coach" | "owner" | "comite"> = [
       "player",
       "parent",
@@ -135,8 +163,38 @@ describe("getOnboardingSteps", () => {
       expect(steps[0]).toBe("welcome");
       expect(steps[steps.length - 1]).toBe("done");
       expect(steps).toContain("identity");
+      expect(steps).toContain("install_app");
       expect(steps).toContain("notifications");
     }
+  });
+
+  // ==== CAS 10bis — étanchéité : un joueur ne voit aucune étape hors de son périmètre ====
+  it("n'expose jamais d'étape coach_* ni link_child ni carpooling pour le rôle player", () => {
+    const steps = getOnboardingSteps("player");
+    expect(steps).not.toContain("coach_tools");
+    expect(steps).not.toContain("coach_performance");
+    expect(steps).not.toContain("coach_admin");
+    expect(steps).not.toContain("link_child");
+    expect(steps).not.toContain("carpooling");
+  });
+
+  // ==== CAS 10ter — étanchéité : un parent ne voit ni player_profile ni étape coach_* ====
+  it("n'expose jamais player_profile ni d'étape coach_* pour le rôle parent", () => {
+    const steps = getOnboardingSteps("parent");
+    expect(steps).not.toContain("player_profile");
+    expect(steps).not.toContain("coach_tools");
+    expect(steps).not.toContain("coach_performance");
+    expect(steps).not.toContain("coach_admin");
+  });
+
+  // ==== CAS 10quater — étanchéité : un coach ne voit pas les étapes réservées player/parent ====
+  it("n'expose jamais player_profile, convocations, session_feedback, link_child ni carpooling pour le rôle coach", () => {
+    const steps = getOnboardingSteps("coach");
+    expect(steps).not.toContain("player_profile");
+    expect(steps).not.toContain("convocations");
+    expect(steps).not.toContain("session_feedback");
+    expect(steps).not.toContain("link_child");
+    expect(steps).not.toContain("carpooling");
   });
 });
 
