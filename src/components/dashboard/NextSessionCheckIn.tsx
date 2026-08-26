@@ -4,22 +4,21 @@ import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useTeam } from "@/lib/team";
 import { useQueryCache } from "@/lib/queryCache";
-import { selectLastSession } from "@/lib/sessionSelection";
-import { SessionRpe } from "@/components/training/SessionRpe";
-import { SessionFeedback } from "@/components/training/SessionFeedback";
+import { selectNextSession } from "@/lib/sessionSelection";
+import { SessionFormCheckIn } from "@/components/training/SessionFormCheckIn";
 import type { Event } from "@/types";
 
-interface LastSessionData {
+interface NextSessionData {
   event: Event;
 }
 
-export function LastSessionFeedback() {
+export function NextSessionCheckIn() {
   const { user } = useAuth();
   const { currentTeam, userRole } = useTeam();
 
-  const key = currentTeam && user?.id ? `last-session:${currentTeam.id}:${user.id}` : null;
+  const key = currentTeam && user?.id ? `next-session:${currentTeam.id}:${user.id}` : null;
 
-  const { data } = useQueryCache<LastSessionData | null>(
+  const { data } = useQueryCache<NextSessionData | null>(
     key,
     async () => {
       const supabase = createClient();
@@ -28,8 +27,8 @@ export function LastSessionFeedback() {
         .select("*")
         .eq("team_id", currentTeam!.id)
         .eq("type", "training")
-        .lt("event_date", new Date().toISOString())
-        .order("event_date", { ascending: false })
+        .gt("event_date", new Date().toISOString())
+        .order("event_date", { ascending: true })
         .limit(10);
 
       const eventRows = (events as Event[]) || [];
@@ -42,7 +41,7 @@ export function LastSessionFeedback() {
         .eq("user_id", user!.id)
         .in("event_id", eventIds);
 
-      const selectedId = selectLastSession({
+      const selectedId = selectNextSession({
         events: eventRows,
         attendances: attendances || [],
         playerId: user!.id,
@@ -69,28 +68,18 @@ export function LastSessionFeedback() {
     <div className="space-y-3">
       <div>
         <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-          Dernière séance : {event.title}
+          Prochaine séance : {event.title}
         </h3>
         <p className="text-xs text-muted-foreground mt-0.5 capitalize">{dateStr}</p>
       </div>
-      <SessionRpe
+      <SessionFormCheckIn
         eventId={event.id}
         teamId={currentTeam.id}
         isCoach={false}
         userId={user.id}
         userRole={userRole}
         childId={null}
-        trainingOver={true}
-        durationHint={90}
-      />
-      <SessionFeedback
-        eventId={event.id}
-        teamId={currentTeam.id}
-        isCoach={false}
-        userId={user.id}
-        userRole={userRole}
-        childId={null}
-        trainingOver={true}
+        trainingOver={false}
       />
     </div>
   );

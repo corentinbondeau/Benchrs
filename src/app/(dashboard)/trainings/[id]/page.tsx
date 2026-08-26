@@ -16,6 +16,7 @@ import { AnnouncementDialog } from "@/components/announcements/AnnouncementDialo
 import { DepartureNotifier } from "@/components/event/DepartureNotifier";
 import { EventCoachActions } from "@/components/EventCoachActions";
 import { SessionFiche } from "@/components/training/SessionFiche";
+import { SessionFormCheckIn } from "@/components/training/SessionFormCheckIn";
 import { SessionRpe } from "@/components/training/SessionRpe";
 import { WeatherWidget } from "@/components/event/WeatherWidget";
 import { TerrainImpraticable } from "@/components/event/TerrainImpraticable";
@@ -375,6 +376,17 @@ export default function TrainingDetailPage() {
         isCoach={isCoach}
         convocationsSent={!!event.convocations_sent_at}
         onUpdate={updateAttendance}
+      />
+
+      {/* État de forme (avant séance) */}
+      <SessionFormCheckIn
+        eventId={trainingId}
+        teamId={currentTeam.id}
+        isCoach={isCoach}
+        userId={user?.id}
+        userRole={userRole}
+        childId={childId}
+        trainingOver={event.status === "completed" || eventDate.getTime() < now}
       />
 
       {/* Suivi de charge (RPE) */}

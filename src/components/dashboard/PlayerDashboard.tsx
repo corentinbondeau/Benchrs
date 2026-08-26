@@ -6,6 +6,7 @@ import { useTeam } from "@/lib/team";
 import { useQueryCache } from "@/lib/queryCache";
 import NextEventCard from "@/components/dashboard/NextEventCard";
 import { PendingConvocations } from "@/components/dashboard/PendingConvocations";
+import { NextSessionCheckIn } from "@/components/dashboard/NextSessionCheckIn";
 import { LastSessionFeedback } from "@/components/dashboard/LastSessionFeedback";
 import RecentResults from "@/components/dashboard/RecentResults";
 import { TrendingUp, Target, Clock, Trophy } from "lucide-react";
@@ -97,6 +98,9 @@ export function PlayerDashboard() {
 
       {/* P0: Pending convocations */}
       <PendingConvocations />
+
+      {/* P1: Check-in de forme pour la prochaine séance */}
+      <NextSessionCheckIn />
 
       {/* P1: RPE + feedback of the last past training session */}
       <LastSessionFeedback />

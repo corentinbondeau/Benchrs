@@ -28,8 +28,7 @@
 
 import { describe, it, expect } from "vitest";
 
-// Module non-existant : les tests doivent échouer ici (RED)
-import { selectLastSession } from "@/lib/lastSession";
+import { selectLastSession } from "@/lib/sessionSelection";
 import { EVENT_LOCK_GRACE_MS } from "@/lib/event-lock";
 
 // ---------------------------------------------------------------------------
@@ -276,6 +275,280 @@ describe("selectLastSession", () => {
         makeAttendance({ event_id: "e-recent-absent", status: "absent" }),
         makeAttendance({ event_id: "e-older-present", status: "present" }),
       ],
+      playerId: PLAYER_ID,
+      now: NOW,
+    });
+    expect(result).toBeNull();
+  });
+});
+
+/**
+ * Tests TDD — selectNextSession (Phase RED)
+ *
+ * Feature cible : sur l'accueil joueur, proposer le check-in de forme
+ * (« Comment te sens-tu aujourd'hui ? ») pour la PROCHAINE séance
+ * d'entraînement à venir, dans une fenêtre de 24h avant celle-ci.
+ * Contrairement au RPE (après séance), le check-in se remplit AVANT.
+ *
+ * Règles métier couvertes :
+ *   - Seuls les events `type: "training"` sont éligibles (un match plus
+ *     proche est ignoré).
+ *   - Seules les séances à venir comptent : `event_date > now`.
+ *   - Fenêtre de 24h : la séance n'est proposée que si elle a lieu dans les
+ *     24h (CHECK_IN_WINDOW_MS). Dans 3h => proposée ; dans 48h => null.
+ *   - Parmi les séances éligibles, on retient la PLUS PROCHE dans le temps.
+ *   - Une séance annulée (`status: "cancelled"`) est ignorée.
+ *   - Présence : contrairement à selectLastSession, le statut "pending" est
+ *     ÉLIGIBLE ici (avant la séance, le joueur peut ne pas avoir encore
+ *     répondu à la convocation tout en devant déclarer sa forme). Seuls
+ *     "absent" et "excused" excluent la séance.
+ *   - Absence de ligne attendances pour ce joueur => permissif, proposée.
+ *   - Les lignes attendances d'un autre joueur n'ont aucune influence.
+ *   - Liste d'events vide => null.
+ */
+
+import { selectNextSession, CHECK_IN_WINDOW_MS } from "@/lib/sessionSelection";
+
+describe("selectNextSession", () => {
+  // ==== CAS 1 — NOMINAL : une séance training dans 3h et pending => proposée ====
+  it("retourne l'id de la prochaine séance training dans la fenêtre de 24h", () => {
+    const result = selectNextSession({
+      events: [
+        makeEvent({
+          id: "e1",
+          event_date: new Date(NOW + 3 * 60 * 60 * 1000).toISOString(),
+        }),
+      ],
+      attendances: [makeAttendance({ event_id: "e1", status: "pending" })],
+      playerId: PLAYER_ID,
+      now: NOW,
+    });
+    expect(result).toBe("e1");
+  });
+
+  // ==== CAS 2 — ERREUR MÉTIER : un match plus proche est ignoré au profit du training ====
+  it("ignore un match même plus proche et retient l'entraînement", () => {
+    const result = selectNextSession({
+      events: [
+        makeEvent({
+          id: "training-in-6h",
+          event_date: new Date(NOW + 6 * 60 * 60 * 1000).toISOString(),
+        }),
+        makeEvent({
+          id: "match-in-2h",
+          type: "match",
+          event_date: new Date(NOW + 2 * 60 * 60 * 1000).toISOString(),
+        }),
+      ],
+      attendances: [makeAttendance({ event_id: "training-in-6h", status: "present" })],
+      playerId: PLAYER_ID,
+      now: NOW,
+    });
+    expect(result).toBe("training-in-6h");
+  });
+
+  // ==== CAS 3 — LIMITE : séance dans 3h (dans la fenêtre de 24h) => proposée ====
+  it("propose une séance ayant lieu dans 3h (dans la fenêtre de 24h)", () => {
+    expect(CHECK_IN_WINDOW_MS).toBe(24 * 60 * 60 * 1000);
+    const result = selectNextSession({
+      events: [
+        makeEvent({
+          id: "e1",
+          event_date: new Date(NOW + 3 * 60 * 60 * 1000).toISOString(),
+        }),
+      ],
+      attendances: [],
+      playerId: PLAYER_ID,
+      now: NOW,
+    });
+    expect(result).toBe("e1");
+  });
+
+  // ==== CAS 4 — LIMITE : séance dans 48h (hors fenêtre de 24h) => null ====
+  it("ne propose pas une séance ayant lieu dans 48h (hors fenêtre de 24h)", () => {
+    const result = selectNextSession({
+      events: [
+        makeEvent({
+          id: "e1",
+          event_date: new Date(NOW + 48 * 60 * 60 * 1000).toISOString(),
+        }),
+      ],
+      attendances: [],
+      playerId: PLAYER_ID,
+      now: NOW,
+    });
+    expect(result).toBeNull();
+  });
+
+  // ==== CAS 5 — NOMINAL : plusieurs séances éligibles => on retient la plus proche ====
+  it("retient la séance à venir la plus proche parmi plusieurs éligibles", () => {
+    const result = selectNextSession({
+      events: [
+        makeEvent({
+          id: "e-far",
+          event_date: new Date(NOW + 20 * 60 * 60 * 1000).toISOString(),
+        }),
+        makeEvent({
+          id: "e-close",
+          event_date: new Date(NOW + 4 * 60 * 60 * 1000).toISOString(),
+        }),
+      ],
+      attendances: [
+        makeAttendance({ event_id: "e-far", status: "present" }),
+        makeAttendance({ event_id: "e-close", status: "present" }),
+      ],
+      playerId: PLAYER_ID,
+      now: NOW,
+    });
+    expect(result).toBe("e-close");
+  });
+
+  // ==== CAS 6 — ERREUR MÉTIER : séance annulée ignorée ====
+  it("ignore une séance annulée (status cancelled)", () => {
+    const result = selectNextSession({
+      events: [
+        makeEvent({
+          id: "e-cancelled",
+          status: "cancelled",
+          event_date: new Date(NOW + 2 * 60 * 60 * 1000).toISOString(),
+        }),
+        makeEvent({
+          id: "e-valid",
+          event_date: new Date(NOW + 10 * 60 * 60 * 1000).toISOString(),
+        }),
+      ],
+      attendances: [
+        makeAttendance({ event_id: "e-cancelled", status: "present" }),
+        makeAttendance({ event_id: "e-valid", status: "present" }),
+      ],
+      playerId: PLAYER_ID,
+      now: NOW,
+    });
+    expect(result).toBe("e-valid");
+  });
+
+  // ==== CAS 7 — PIÈGE ANTI-FACTORISATION : "pending" est ÉLIGIBLE ici, contrairement
+  // à selectLastSession où "pending" retourne null. Avant la séance, le joueur peut
+  // ne pas avoir encore répondu à sa convocation tout en devant pouvoir déclarer son
+  // état de forme : les deux fonctions NE sont PAS factorisables sur cette règle. ====
+  it("propose la séance quand la présence est encore en attente (pending) — inverse de selectLastSession", () => {
+    const result = selectNextSession({
+      events: [
+        makeEvent({
+          id: "e1",
+          event_date: new Date(NOW + 5 * 60 * 60 * 1000).toISOString(),
+        }),
+      ],
+      attendances: [makeAttendance({ event_id: "e1", status: "pending" })],
+      playerId: PLAYER_ID,
+      now: NOW,
+    });
+    expect(result).toBe("e1");
+  });
+
+  // ==== CAS 8 — TRANSITION MÉTIER : présence "absent" => null ====
+  it("retourne null quand le joueur est marqué absent sur la séance", () => {
+    const result = selectNextSession({
+      events: [
+        makeEvent({
+          id: "e1",
+          event_date: new Date(NOW + 5 * 60 * 60 * 1000).toISOString(),
+        }),
+      ],
+      attendances: [makeAttendance({ event_id: "e1", status: "absent" })],
+      playerId: PLAYER_ID,
+      now: NOW,
+    });
+    expect(result).toBeNull();
+  });
+
+  // ==== CAS 9 — TRANSITION MÉTIER : présence "excused" => null ====
+  it("retourne null quand le joueur est excusé sur la séance", () => {
+    const result = selectNextSession({
+      events: [
+        makeEvent({
+          id: "e1",
+          event_date: new Date(NOW + 5 * 60 * 60 * 1000).toISOString(),
+        }),
+      ],
+      attendances: [makeAttendance({ event_id: "e1", status: "excused" })],
+      playerId: PLAYER_ID,
+      now: NOW,
+    });
+    expect(result).toBeNull();
+  });
+
+  // ==== CAS 10 — LIMITE : présence "late" => proposée ====
+  it("propose la séance quand le joueur est marqué en retard (late)", () => {
+    const result = selectNextSession({
+      events: [
+        makeEvent({
+          id: "e1",
+          event_date: new Date(NOW + 5 * 60 * 60 * 1000).toISOString(),
+        }),
+      ],
+      attendances: [makeAttendance({ event_id: "e1", status: "late" })],
+      playerId: PLAYER_ID,
+      now: NOW,
+    });
+    expect(result).toBe("e1");
+  });
+
+  // ==== CAS 11 — LIMITE : aucune ligne attendances pour ce joueur => permissif, proposée ====
+  it("propose la séance quand aucune ligne attendances n'existe pour ce joueur", () => {
+    const result = selectNextSession({
+      events: [
+        makeEvent({
+          id: "e1",
+          event_date: new Date(NOW + 5 * 60 * 60 * 1000).toISOString(),
+        }),
+      ],
+      attendances: [],
+      playerId: PLAYER_ID,
+      now: NOW,
+    });
+    expect(result).toBe("e1");
+  });
+
+  // ==== CAS 12 — ROBUSTESSE : la ligne attendances d'un AUTRE joueur n'influence pas le résultat ====
+  it("ignore les lignes attendances appartenant à un autre joueur", () => {
+    const result = selectNextSession({
+      events: [
+        makeEvent({
+          id: "e1",
+          event_date: new Date(NOW + 5 * 60 * 60 * 1000).toISOString(),
+        }),
+      ],
+      attendances: [
+        makeAttendance({ event_id: "e1", user_id: "autre-joueur", status: "absent" }),
+      ],
+      playerId: PLAYER_ID,
+      now: NOW,
+    });
+    expect(result).toBe("e1");
+  });
+
+  // ==== CAS 13 — LIMITE : liste d'events vide => null ====
+  it("retourne null quand la liste d'events est vide", () => {
+    const result = selectNextSession({
+      events: [],
+      attendances: [],
+      playerId: PLAYER_ID,
+      now: NOW,
+    });
+    expect(result).toBeNull();
+  });
+
+  // ==== CAS 14 — LIMITE : séance déjà passée (event_date <= now) => ignorée ====
+  it("ignore une séance déjà passée (event_date <= now)", () => {
+    const result = selectNextSession({
+      events: [
+        makeEvent({
+          id: "e-past",
+          event_date: new Date(NOW - 60 * 60 * 1000).toISOString(),
+        }),
+      ],
+      attendances: [],
       playerId: PLAYER_ID,
       now: NOW,
     });
