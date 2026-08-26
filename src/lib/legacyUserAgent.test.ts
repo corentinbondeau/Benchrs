@@ -71,6 +71,38 @@ const MODERN_UA_FIXTURES: Array<{ label: string; ua: string }> = [
   },
 ];
 
+// --- Bug 3 : agents de prévisualisation de liens (bots de partage) ---
+// La liste actuelle n'exclut que /bot|crawler|spider/i. Certains agents de
+// preview (facebookexternalhit, WhatsApp) ne contiennent aucun de ces mots
+// et sont donc, à tort, traités comme des UA "normaux" à analyser plus loin
+// (et potentiellement basculés vers le legacy s'ils matchent un motif ancien),
+// ce qui dégrade les aperçus de liens partagés.
+// NB : Slackbot / TelegramBot / Discordbot contiennent déjà "bot" et sont
+// donc déjà exclus par BOT_RE — ils sont inclus ici pour documenter le
+// contrat complet, mais ne sont pas des cas en échec.
+const LINK_PREVIEW_BOT_FIXTURES: Array<{ label: string; ua: string }> = [
+  {
+    label: "facebookexternalhit (preview Facebook/Messenger) — échoue aujourd'hui",
+    ua: "facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)",
+  },
+  {
+    label: "WhatsApp (preview de lien) — échoue aujourd'hui",
+    ua: "WhatsApp/2.23.20.0 A",
+  },
+  {
+    label: "Slackbot-LinkExpanding (contient déjà 'bot' → déjà vert)",
+    ua: "Slackbot-LinkExpanding 1.0 (+https://api.slack.com/robots)",
+  },
+  {
+    label: "TelegramBot (contient déjà 'bot' → déjà vert)",
+    ua: "TelegramBot (like TwitterBot)",
+  },
+  {
+    label: "Discordbot (contient déjà 'bot' → déjà vert)",
+    ua: "Mozilla/5.0 (compatible; Discordbot/2.0; +https://discordapp.com)",
+  },
+];
+
 describe("isLegacyUserAgent", () => {
   describe("UA legacy connus → true", () => {
     for (const { label, ua } of LEGACY_UA_FIXTURES) {
@@ -82,6 +114,14 @@ describe("isLegacyUserAgent", () => {
 
   describe("UA modernes / non pertinents → false (anti-faux-positif)", () => {
     for (const { label, ua } of MODERN_UA_FIXTURES) {
+      it(`ne détecte PAS : ${label}`, () => {
+        expect(isLegacyUserAgent(ua)).toBe(false);
+      });
+    }
+  });
+
+  describe("Bug 3 — agents de prévisualisation de liens → false", () => {
+    for (const { label, ua } of LINK_PREVIEW_BOT_FIXTURES) {
       it(`ne détecte PAS : ${label}`, () => {
         expect(isLegacyUserAgent(ua)).toBe(false);
       });

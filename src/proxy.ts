@@ -34,15 +34,34 @@ export function proxy(request: NextRequest) {
 
   const withForceFullCookie = (response: NextResponse) => {
     if (forceFullParam) {
-      response.cookies.set("force_full", "1", { path: "/" });
+      // maxAge : 1 an. L'utilisateur a fait un choix explicite et délibéré
+      // (?full=1) ; ce choix doit survivre bien au-delà d'une simple session
+      // de navigateur, sans pour autant être "éternel" (permet de reproposer
+      // le fork legacy après une longue absence, ex. suite à une amélioration
+      // de compatibilité du bundle moderne).
+      // sameSite: "lax" : compatible avec une arrivée depuis un lien externe
+      // (le cookie est envoyé sur une navigation top-level GET initiée par un
+      // lien tiers), tout en bloquant les requêtes cross-site plus risquées.
+      // secure : le site est servi en HTTPS en production ; on ne le force
+      // que si la requête elle-même est en HTTPS, pour ne pas casser le
+      // développement local en HTTP (où le navigateur rejetterait un cookie
+      // secure). On se base sur le protocole de la requête, pas sur NODE_ENV.
+      response.cookies.set("force_full", "1", {
+        path: "/",
+        maxAge: 60 * 60 * 24 * 365,
+        sameSite: "lax",
+        secure: request.nextUrl.protocol === "https:",
+      });
     }
     return response;
   };
 
+  const isApiRoute = pathname.startsWith("/api/");
+
   // URL du fork legacy (déploiement séparé). Non défini ⇒ pas de bascille.
   const legacyUrl = process.env.NEXT_PUBLIC_LEGACY_URL;
 
-  if (!isForceFull && legacyUrl && isLegacyUserAgent(ua)) {
+  if (!isApiRoute && !isForceFull && legacyUrl && isLegacyUserAgent(ua)) {
     // Anti-boucle : ne pas rediriger si on est déjà sur le host du fork.
     let alreadyOnLegacy = false;
     try {
