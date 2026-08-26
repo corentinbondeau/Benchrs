@@ -18,7 +18,7 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { clearQueryCache } from "@/lib/queryCache";
 import { LocationPicker } from "@/components/calendar/LocationPicker";
-import { isEventLocked } from "@/lib/event-lock";
+import { isEventLocked, shiftEndDate, applyDurationToStart, getEventDurationMinutes } from "@/lib/event-lock";
 import type { Event } from "@/types";
 
 export type EventWithMeeting = Event & { meeting_time: string | null };
@@ -34,6 +34,24 @@ function toDatetimeLocalValue(iso: string): string {
 function toDatetimeLocalValueOrEmpty(iso: string | null | undefined): string {
   if (!iso) return "";
   return toDatetimeLocalValue(iso);
+}
+
+/**
+ * Recalcule la valeur d'un champ "heure de fin" (datetime-local) quand le
+ * champ "début" change, en conservant la durée d'origine. Ne fabrique
+ * jamais de fin si aucune n'était renseignée.
+ */
+function shiftEndDateLocalValue(
+  previousStartLocal: string,
+  previousEndLocal: string,
+  newStartLocal: string
+): string {
+  if (!previousEndLocal) return previousEndLocal;
+  const previousStartIso = previousStartLocal ? new Date(previousStartLocal).toISOString() : null;
+  const previousEndIso = new Date(previousEndLocal).toISOString();
+  const newStartIso = newStartLocal ? new Date(newStartLocal).toISOString() : null;
+  const shifted = shiftEndDate(previousStartIso, previousEndIso, newStartIso);
+  return shifted ? toDatetimeLocalValue(shifted) : previousEndLocal;
 }
 
 async function notifyPlayers(
@@ -167,6 +185,10 @@ export function EventCoachActions({
 
   async function saveReport() {
     if (!reportDate) return;
+    if (reportEndDate && new Date(reportEndDate).getTime() <= new Date(reportDate).getTime()) {
+      toast.error("L'heure de fin doit être postérieure à l'heure de début.");
+      return;
+    }
     setSaving(true);
     const supabase = createClient();
     const { error } = await supabase
@@ -208,6 +230,10 @@ export function EventCoachActions({
 
   async function saveEdit() {
     if (!editTitle.trim() || !editDate) return;
+    if (editEndDate && new Date(editEndDate).getTime() <= new Date(editDate).getTime()) {
+      toast.error("L'heure de fin doit être postérieure à l'heure de début.");
+      return;
+    }
     setSaving(true);
     const supabase = createClient();
 
@@ -245,15 +271,28 @@ export function EventCoachActions({
           }
         }
       } else {
-        const { error } = await supabase
+        const durationMinutes = getEventDurationMinutes(editDate, editEndDate || null);
+        const { data: groupRows } = await supabase
           .from("events")
-          .update({ ...patch, end_date: editEndDate ? new Date(editEndDate).toISOString() : null })
+          .select("id, event_date")
           .eq("recurrence_group_id", event.recurrence_group_id)
           .eq("team_id", event.team_id);
-        if (error) {
-          toast.error(`Erreur lors de la modification : ${error.message}`);
-          setSaving(false);
-          return;
+        if (groupRows) {
+          for (const row of groupRows) {
+            const rowEndDate = editEndDate
+              ? applyDurationToStart(row.event_date, durationMinutes)
+              : null;
+            const { error } = await supabase
+              .from("events")
+              .update({ ...patch, end_date: rowEndDate })
+              .eq("id", row.id)
+              .eq("team_id", event.team_id);
+            if (error) {
+              toast.error(`Erreur lors de la modification : ${error.message}`);
+              setSaving(false);
+              return;
+            }
+          }
         }
       }
     } else {
@@ -435,7 +474,13 @@ export function EventCoachActions({
               <Input
                 type="datetime-local"
                 value={reportDate}
-                onChange={(e) => setReportDate(e.target.value)}
+                onChange={(e) => {
+                  const newValue = e.target.value;
+                  setReportEndDate((prevEnd) =>
+                    shiftEndDateLocalValue(reportDate, prevEnd, newValue)
+                  );
+                  setReportDate(newValue);
+                }}
                 required
               />
             </div>
@@ -494,7 +539,13 @@ export function EventCoachActions({
               <Input
                 type="datetime-local"
                 value={editDate}
-                onChange={(e) => setEditDate(e.target.value)}
+                onChange={(e) => {
+                  const newValue = e.target.value;
+                  setEditEndDate((prevEnd) =>
+                    shiftEndDateLocalValue(editDate, prevEnd, newValue)
+                  );
+                  setEditDate(newValue);
+                }}
                 required
               />
               {hasRecurrences && scope === "all" && (
