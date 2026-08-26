@@ -7,7 +7,7 @@ import Sidebar from "@/components/layout/Sidebar";
 import TopBar from "@/components/layout/TopBar";
 import BottomNav from "@/components/layout/BottomNav";
 import { PushNotificationInit } from "@/components/PushNotificationInit";
-import { ParentOnboarding } from "@/components/onboarding/ParentOnboarding";
+import { UniversalOnboarding } from "@/components/onboarding/UniversalOnboarding";
 import { useIsMobile } from "@/hooks/useIsMobile";
 
 export default function DashboardLayout({
@@ -20,9 +20,9 @@ export default function DashboardLayout({
   return (
     <AuthProvider>
       <TeamProvider>
+        <UniversalOnboarding />
         <TeamGuard>
           <PushNotificationInit />
-          <ParentOnboarding />
           <div className="flex h-screen overflow-hidden bg-background">
             {!isMobile && <Sidebar />}
             <div className="flex flex-1 flex-col overflow-hidden min-w-0">

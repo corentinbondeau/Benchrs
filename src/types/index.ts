@@ -75,6 +75,7 @@ export interface Profile {
   emergency_contacts?: EmergencyContact[] | null;
   team_id: string | null;
   parent_onboarding_done?: boolean;
+  onboarding_completed_at?: string | null;
   created_at: string;
   updated_at: string;
 }

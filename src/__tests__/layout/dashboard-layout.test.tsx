@@ -59,8 +59,8 @@ vi.mock("@/components/PushNotificationInit", () => ({
   PushNotificationInit: () => null,
 }));
 
-vi.mock("@/components/onboarding/ParentOnboarding", () => ({
-  ParentOnboarding: () => null,
+vi.mock("@/components/onboarding/UniversalOnboarding", () => ({
+  UniversalOnboarding: () => null,
 }));
 
 // ─── Import SUT (après les mocks) ───────────────────────────────────────────

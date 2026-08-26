@@ -167,7 +167,7 @@ function RegisterForm() {
           if (!existingProfile) {
             await supabase.from("profiles").insert({
               id: user.id,
-              role: "player",
+              role: formData.joinRole,
               first_name: formData.firstName,
               last_name: formData.lastName,
               phone: formData.phone || null,
