@@ -66,6 +66,11 @@ export const NOTIFICATION_TYPES: NotificationTypeConfig[] = [
     description: "Rappel quand tu n'as pas répondu à une convocation",
   },
   {
+    type: "relance_seance",
+    label: "Relance analyse de séance",
+    description: "Rappel pour compléter ton RPE et/ou ton analyse de séance",
+  },
+  {
     type: "equite_temps_jeu",
     label: "Équité du temps de jeu",
     description: "Alerte aux coachs sur les joueurs sous leur objectif de minutes",

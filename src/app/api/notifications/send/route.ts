@@ -32,6 +32,7 @@ const SEND_TYPES = new Set([
   "on_est_parti",
   "match_live",
   "voeux",
+  "relance_seance",
 ]);
 
 function isInternalUrl(url: string): boolean {

@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { deliverPendingNotifications } from "@/lib/deliver-notifications";
 import { createAutoConvocations } from "@/lib/auto-convocations";
 import { currentSeasonLabel, seasonDateRange } from "@/lib/goals";
+import { sendSessionReminders } from "@/lib/session-reminders";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -50,10 +51,12 @@ export async function GET(req: Request) {
     sendCotisationReminders(supabase, now),
     // Félicitations auto
     sendCongrats(supabase, now),
+    // Relance combinée RPE / analyse de séance
+    sendSessionReminders(supabase, now),
   ]);
 
   // Logger les erreurs individuelles des étapes parallèles
-  const labels = ["rappels", "digests", "echeances", "relances", "equite", "cotisations", "felicitations"];
+  const labels = ["rappels", "digests", "echeances", "relances", "equite", "cotisations", "felicitations", "relances_seance"];
   for (let i = 0; i < creationResults.length; i++) {
     if (creationResults[i].status === "rejected") {
       console.error(`[notifications/cron] ${labels[i]} error:`, (creationResults[i] as PromiseRejectedResult).reason);
@@ -74,6 +77,7 @@ export async function GET(req: Request) {
     equite: getCount(4),
     cotisations: getCount(5),
     felicitations: getCount(6),
+    relances_seance: getCount(7),
   };
 
   const durationMs = Date.now() - startTime;

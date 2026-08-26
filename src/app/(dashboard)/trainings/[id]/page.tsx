@@ -30,6 +30,8 @@ import {
 import { ChildSwitcher } from "@/components/ChildSwitcher";
 import { useSelectedChild } from "@/lib/useSelectedChild";
 import { fetchTeamActivePlayers } from "@/lib/players";
+import { computeMissingResponders } from "@/lib/session-reminders";
+import { SessionRemindersCard } from "@/components/training/SessionRemindersCard";
 import { logActivity } from "@/lib/activity";
 import { isEventLocked, CONVOCATION_LOCKED_MESSAGE } from "@/lib/event-lock";
 import type { AttendanceStatus, Event } from "@/types";
@@ -49,6 +51,7 @@ export default function TrainingDetailPage() {
 
   const [event, setEvent] = useState<TrainingEvent | null>(null);
   const [players, setPlayers] = useState<PlayerAttendanceRow[]>([]);
+  const [missingResponderCount, setMissingResponderCount] = useState(0);
   const { children: myChildren, selectedChildId: childId, setChild: setChildId } = useSelectedChild(currentTeam?.id);
   const [loading, setLoading] = useState(true);
   const [convDialogOpen, setConvDialogOpen] = useState(false);
@@ -61,7 +64,7 @@ export default function TrainingDetailPage() {
     const team = currentTeam;
 
     async function fetchData() {
-      const [eventRes, attRes, allPlayers] = await Promise.all([
+      const [eventRes, attRes, allPlayers, rpeRes, feedbackRes] = await Promise.all([
         supabase
           .from("events")
           .select("*")
@@ -74,6 +77,8 @@ export default function TrainingDetailPage() {
           .eq("event_id", trainingId)
           .eq("team_id", team.id),
         fetchTeamActivePlayers(team.id),
+        supabase.from("session_rpe").select("player_id, rpe").eq("event_id", trainingId),
+        supabase.from("session_feedback").select("player_id, rating").eq("event_id", trainingId),
       ]);
 
       setEvent(eventRes.data as TrainingEvent | null);
@@ -91,6 +96,15 @@ export default function TrainingDetailPage() {
       });
 
       setPlayers(merged);
+
+      const missing = computeMissingResponders({
+        attendances: atts.map((a) => ({ user_id: a.user_id, status: a.status })),
+        rpeRows: (rpeRes.data || []) as { player_id: string; rpe: number | null }[],
+        feedbackRows: (feedbackRes.data || []) as { player_id: string; rating: number | null }[],
+        activePlayerIds: allPlayers.map((p) => p.id),
+      });
+      setMissingResponderCount(missing.length);
+
       setLoading(false);
     }
 
@@ -385,6 +399,11 @@ export default function TrainingDetailPage() {
         childId={childId}
         trainingOver={event.status === "completed" || eventDate.getTime() < now}
       />
+
+      {/* Relance combinée RPE / analyse de séance (coach uniquement, séance passée) */}
+      {isCoach && eventDate.getTime() < now && missingResponderCount > 0 && (
+        <SessionRemindersCard trainingId={trainingId} missingCount={missingResponderCount} />
+      )}
 
       <ConvocationsDialog
         event={event}
