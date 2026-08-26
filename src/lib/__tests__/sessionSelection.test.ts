@@ -287,15 +287,15 @@ describe("selectLastSession", () => {
  *
  * Feature cible : sur l'accueil joueur, proposer le check-in de forme
  * (« Comment te sens-tu aujourd'hui ? ») pour la PROCHAINE séance
- * d'entraînement à venir, dans une fenêtre de 24h avant celle-ci.
+ * d'entraînement à venir, dans une fenêtre de 12h avant celle-ci.
  * Contrairement au RPE (après séance), le check-in se remplit AVANT.
  *
  * Règles métier couvertes :
  *   - Seuls les events `type: "training"` sont éligibles (un match plus
  *     proche est ignoré).
  *   - Seules les séances à venir comptent : `event_date > now`.
- *   - Fenêtre de 24h : la séance n'est proposée que si elle a lieu dans les
- *     24h (CHECK_IN_WINDOW_MS). Dans 3h => proposée ; dans 48h => null.
+ *   - Fenêtre de 12h : la séance n'est proposée que si elle a lieu dans les
+ *     12h (CHECK_IN_WINDOW_MS). Dans 3h => proposée ; dans 18h => null.
  *   - Parmi les séances éligibles, on retient la PLUS PROCHE dans le temps.
  *   - Une séance annulée (`status: "cancelled"`) est ignorée.
  *   - Présence : contrairement à selectLastSession, le statut "pending" est
@@ -311,7 +311,7 @@ import { selectNextSession, CHECK_IN_WINDOW_MS } from "@/lib/sessionSelection";
 
 describe("selectNextSession", () => {
   // ==== CAS 1 — NOMINAL : une séance training dans 3h et pending => proposée ====
-  it("retourne l'id de la prochaine séance training dans la fenêtre de 24h", () => {
+  it("retourne l'id de la prochaine séance training dans la fenêtre de 12h", () => {
     const result = selectNextSession({
       events: [
         makeEvent({
@@ -347,9 +347,9 @@ describe("selectNextSession", () => {
     expect(result).toBe("training-in-6h");
   });
 
-  // ==== CAS 3 — LIMITE : séance dans 3h (dans la fenêtre de 24h) => proposée ====
-  it("propose une séance ayant lieu dans 3h (dans la fenêtre de 24h)", () => {
-    expect(CHECK_IN_WINDOW_MS).toBe(24 * 60 * 60 * 1000);
+  // ==== CAS 3 — LIMITE : séance dans 3h (dans la fenêtre de 12h) => proposée ====
+  it("propose une séance ayant lieu dans 3h (dans la fenêtre de 12h)", () => {
+    expect(CHECK_IN_WINDOW_MS).toBe(12 * 60 * 60 * 1000);
     const result = selectNextSession({
       events: [
         makeEvent({
@@ -364,13 +364,15 @@ describe("selectNextSession", () => {
     expect(result).toBe("e1");
   });
 
-  // ==== CAS 4 — LIMITE : séance dans 48h (hors fenêtre de 24h) => null ====
-  it("ne propose pas une séance ayant lieu dans 48h (hors fenêtre de 24h)", () => {
+  // ==== CAS 4 — LIMITE : séance dans 18h (hors fenêtre de 12h) => null ====
+  // 18h est volontairement choisi juste au-delà de la fenêtre : la borne est
+  // ainsi réellement testée, ce qu'un cas à 48h ne ferait pas.
+  it("ne propose pas une séance ayant lieu dans 18h (hors fenêtre de 12h)", () => {
     const result = selectNextSession({
       events: [
         makeEvent({
           id: "e1",
-          event_date: new Date(NOW + 48 * 60 * 60 * 1000).toISOString(),
+          event_date: new Date(NOW + 18 * 60 * 60 * 1000).toISOString(),
         }),
       ],
       attendances: [],

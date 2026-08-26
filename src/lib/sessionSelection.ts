@@ -74,14 +74,14 @@ export function selectLastSession({
 // Règles métier (voir src/lib/__tests__/sessionSelection.test.ts) :
 //   - Seuls les events `type: "training"` sont éligibles.
 //   - Seules les séances à venir comptent : `event_date > now`.
-//   - Fenêtre de 24h : la séance doit avoir lieu dans les CHECK_IN_WINDOW_MS.
+//   - Fenêtre de 12h : la séance doit avoir lieu dans les CHECK_IN_WINDOW_MS.
 //   - Une séance `status: "cancelled"` est ignorée.
 //   - Parmi les séances éligibles, on retient la plus proche (event_date).
 //   - Présence : contrairement à selectLastSession, "pending" est ÉLIGIBLE.
 //     Seuls "absent" et "excused" excluent la séance.
 //   - Absence de ligne attendances pour ce joueur => comportement permissif.
 
-export const CHECK_IN_WINDOW_MS = 24 * 60 * 60 * 1000;
+export const CHECK_IN_WINDOW_MS = 12 * 60 * 60 * 1000;
 
 const EXCLUDED_ATTENDANCE_STATUSES = new Set(["absent", "excused"]);
 
