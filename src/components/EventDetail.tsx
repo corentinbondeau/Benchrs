@@ -19,6 +19,13 @@ import {
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import type { AttendanceStatus, Profile } from "@/types";
+import {
+  groupRemindersByEvent,
+  countPendingPlayers,
+  type ReminderEvent,
+  type ReminderParentLink,
+} from "@/lib/convocation-reminders";
+import { RemindAllButton } from "@/components/RemindAllButton";
 
 export interface PlayerAttendanceRow {
   profile: Profile;
@@ -321,11 +328,19 @@ export function AttendanceLists({
   isCoach,
   convocationsSent,
   onUpdate,
+  event,
+  teamId,
+  parentLinks,
+  onRemindDone,
 }: {
   players: PlayerAttendanceRow[];
   isCoach: boolean;
   convocationsSent: boolean;
   onUpdate: (userId: string, status: AttendanceStatus) => void;
+  event?: ReminderEvent;
+  teamId?: string;
+  parentLinks?: ReminderParentLink[];
+  onRemindDone?: () => void;
 }) {
   const present = players.filter((p) => p.status === "present");
   const late = players.filter((p) => p.status === "late");
@@ -335,6 +350,25 @@ export function AttendanceLists({
     (p) => p.attendanceId !== null && (p.status === null || p.status === "pending")
   );
   const total = players.length;
+
+  const canRemindAll = isCoach && !!event && !!teamId;
+  const reminderTargets = canRemindAll
+    ? groupRemindersByEvent({
+        events: [event!],
+        attendances: waiting.map((p) => ({
+          event_id: event!.id,
+          user_id: p.profile.id,
+          status: p.status,
+        })),
+        parentLinks: parentLinks || [],
+      })
+    : [];
+  const pendingPlayerCount = canRemindAll
+    ? countPendingPlayers(
+        reminderTargets,
+        waiting.map((p) => ({ event_id: event!.id, user_id: p.profile.id, status: p.status }))
+      )
+    : 0;
 
   return (
     <Card>
@@ -346,6 +380,16 @@ export function AttendanceLists({
             <span className="text-sm font-normal text-muted-foreground">
               — {present.length + late.length}/{total}
             </span>
+          )}
+          {canRemindAll && (
+            <div className="ml-auto">
+              <RemindAllButton
+                targets={reminderTargets}
+                pendingCount={pendingPlayerCount}
+                teamId={teamId!}
+                onDone={onRemindDone}
+              />
+            </div>
           )}
         </CardTitle>
       </CardHeader>

@@ -163,6 +163,7 @@ export default function MatchDetailPage() {
   const [scoreThem, setScoreThem] = useState<string>("");
   const [matchResult, setMatchResult] = useState<string>("");
   const [matchPlayers, setMatchPlayers] = useState<PlayerAttendanceRow[]>([]);
+  const [parentLinks, setParentLinks] = useState<{ parent_id: string; student_id: string }[]>([]);
   const { children: myChildren, selectedChildId: childId, setChild: setChildId } = useSelectedChild(currentTeam?.id);
   const [convDialogOpen, setConvDialogOpen] = useState(false);
   const [announcementOpen, setAnnouncementOpen] = useState(false);
@@ -212,7 +213,7 @@ export default function MatchDetailPage() {
     const team = currentTeam;
 
     async function fetchMatchData() {
-      const [matchRes, statsRes, formRes, lineupsRes, playersRes, attRes] = await Promise.all([
+      const [matchRes, statsRes, formRes, lineupsRes, playersRes, attRes, parentLinksRes] = await Promise.all([
         supabase
           .from("events")
           .select("*")
@@ -243,6 +244,10 @@ export default function MatchDetailPage() {
           .select("id, user_id, status, absence_reason")
           .eq("event_id", matchId)
           .eq("team_id", team.id),
+        supabase
+          .from("parent_student")
+          .select("parent_id, student_id")
+          .eq("team_id", team.id),
       ]);
 
       setMatch(matchRes.data as MatchEvent | null);
@@ -250,6 +255,7 @@ export default function MatchDetailPage() {
       setFormation(formRes.data as Formation | null);
       setLineups((lineupsRes.data as LineupEntry[]) || []);
       setAllPlayers(playersRes);
+      setParentLinks((parentLinksRes.data as { parent_id: string; student_id: string }[]) || []);
 
       const atts = (attRes.data || []) as { id: string; user_id: string; status: string; absence_reason: string | null }[];
       const allP = playersRes;
@@ -1222,6 +1228,15 @@ export default function MatchDetailPage() {
         isCoach={isCoach}
         convocationsSent={!!match?.convocations_sent_at}
         onUpdate={updateMatchAttendance}
+        event={{
+          id: match.id,
+          title: match.title,
+          type: match.type,
+          event_date: match.event_date,
+          end_date: match.end_date,
+        }}
+        teamId={currentTeam.id}
+        parentLinks={parentLinks}
       />
 
       {match && (
