@@ -346,6 +346,12 @@ export default function CalendarPage() {
     e.preventDefault();
     const supabase = createClient();
     const eventDate = new Date(form.event_date);
+
+    if (form.end_date && new Date(form.end_date).getTime() <= eventDate.getTime()) {
+      toast.error("L'heure de fin doit être postérieure à l'heure de début.");
+      return;
+    }
+
     const dates = computeRecurrenceDates(eventDate, form.recurrence, form.recurrence_until);
 
     const recurrenceGroupId = dates.length > 1 ? crypto.randomUUID() : null;
