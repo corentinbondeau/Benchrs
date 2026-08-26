@@ -44,6 +44,7 @@ function makeEvent(
     type: string;
     event_date: string;
     status: string | null;
+    end_date: string | null;
   }> = {}
 ) {
   return {
@@ -279,6 +280,55 @@ describe("selectLastSession", () => {
       now: NOW,
     });
     expect(result).toBeNull();
+  });
+
+  // ==== CAS 15 — ERREUR MÉTIER : end_date dépassée depuis 10 min, event_date + 3h non atteint => proposée ====
+  // Séance longue (ex: stage) : le début seul ne suffit plus à juger la fin
+  // réelle. end_date fait foi dès qu'elle est renseignée.
+  it("propose une séance dont end_date est dépassée depuis 10 min, même si event_date + 3h n'est pas atteint", () => {
+    const result = selectLastSession({
+      events: [
+        makeEvent({
+          id: "e-long",
+          event_date: new Date(NOW - 1 * 60 * 60 * 1000).toISOString(), // commencée il y a 1h
+          end_date: new Date(NOW - 10 * 60 * 1000).toISOString(), // finie il y a 10 min
+        }),
+      ],
+      attendances: [makeAttendance({ event_id: "e-long" })],
+      playerId: PLAYER_ID,
+      now: NOW,
+    });
+    expect(result).toBe("e-long");
+  });
+
+  // ==== CAS 16 — ERREUR MÉTIER : end_date dans le futur, event_date + 3h dépassé => non proposée ====
+  // Tournoi de 6h en cours : la règle historique des 3h la considérerait à
+  // tort comme terminée, alors qu'elle ne l'est pas.
+  it("ne propose pas une séance dont end_date est dans le futur, même si event_date + 3h est dépassé", () => {
+    const result = selectLastSession({
+      events: [
+        makeEvent({
+          id: "e-tournament",
+          event_date: new Date(NOW - 4 * 60 * 60 * 1000).toISOString(), // commencée il y a 4h
+          end_date: new Date(NOW + 2 * 60 * 60 * 1000).toISOString(), // finit dans 2h
+        }),
+      ],
+      attendances: [makeAttendance({ event_id: "e-tournament" })],
+      playerId: PLAYER_ID,
+      now: NOW,
+    });
+    expect(result).toBeNull();
+  });
+
+  // ==== CAS 17 — NON-RÉGRESSION : séance sans end_date => comportement strictement inchangé ====
+  it("conserve le comportement historique (règle des 3h) quand end_date est absente", () => {
+    const result = selectLastSession({
+      events: [makeEvent({ id: "e1" })], // pas de end_date, hier par défaut
+      attendances: [makeAttendance({ event_id: "e1" })],
+      playerId: PLAYER_ID,
+      now: NOW,
+    });
+    expect(result).toBe("e1");
   });
 });
 
@@ -619,5 +669,18 @@ describe("isCheckInOpen", () => {
   it("retourne false sans lever d'exception quand eventDate est une chaîne invalide", () => {
     expect(() => isCheckInOpen("pas-une-date", NOW)).not.toThrow();
     expect(isCheckInOpen("pas-une-date", NOW)).toBe(false);
+  });
+
+  // ==== CAS 7 — CHOIX PRODUIT FIGÉ : isCheckInOpen reste basé sur event_date, PAS end_date ====
+  // Le check-in porte sur l'AVANT-séance : contrairement à selectLastSession
+  // (qui bascule sur end_date quand elle existe pour juger la FIN réelle),
+  // isCheckInOpen ne doit jamais tenir compte d'une éventuelle end_date. On
+  // fige explicitement ce choix pour ne pas le "corriger" par erreur plus
+  // tard en pensant à un oubli de factorisation avec isEventLocked.
+  it("ignore toute notion de end_date : reste basé uniquement sur event_date (avant-séance)", () => {
+    // Signature de isCheckInOpen : (eventDate, now) — pas de paramètre end_date,
+    // ce test fige ce choix de conception au niveau du comportement observable.
+    const eventDate = new Date(NOW + 3 * 60 * 60 * 1000).toISOString();
+    expect(isCheckInOpen(eventDate, NOW)).toBe(true);
   });
 });

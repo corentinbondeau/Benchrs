@@ -13,11 +13,17 @@ export const CONVOCATION_LOCKED_MESSAGE =
   "Cet évènement est passé : les convocations sont closes.";
 
 /**
- * Détermine si un évènement est verrouillé : `event_date + 3h < now()`.
- * Retourne `false` si la date est absente ou invalide.
+ * Détermine si un évènement est verrouillé.
+ *
+ * Si `endDate` est fournie et valide, elle fait foi comme référence de fin
+ * réelle de l'évènement : verrouillé quand `now > endDate`.
+ * Sinon (absente, null ou invalide), repli sur la règle historique :
+ * `event_date + 3h < now()`.
+ * Retourne `false` si `eventDate` est absente ou invalide.
  */
 export function isEventLocked(
   eventDate: string | Date | null | undefined,
+  endDate?: string | Date | null,
   now: number = Date.now()
 ): boolean {
   if (!eventDate) return false;
@@ -27,5 +33,36 @@ export function isEventLocked(
 
   if (Number.isNaN(time)) return false;
 
+  if (endDate) {
+    const end = endDate instanceof Date ? endDate : new Date(endDate);
+    const endTime = end.getTime();
+    if (!Number.isNaN(endTime)) {
+      return endTime < now;
+    }
+  }
+
   return time + EVENT_LOCK_GRACE_MS < now;
+}
+
+/**
+ * Calcule la durée d'un évènement en minutes entre `eventDate` et `endDate`.
+ * Retourne `null` si `endDate` est absente, invalide, ou antérieure/égale à
+ * `eventDate` (incohérent).
+ */
+export function getEventDurationMinutes(
+  eventDate: string | Date | null | undefined,
+  endDate: string | Date | null | undefined
+): number | null {
+  if (!eventDate || !endDate) return null;
+
+  const start = eventDate instanceof Date ? eventDate : new Date(eventDate);
+  const end = endDate instanceof Date ? endDate : new Date(endDate);
+
+  const startTime = start.getTime();
+  const endTime = end.getTime();
+
+  if (Number.isNaN(startTime) || Number.isNaN(endTime)) return null;
+  if (endTime <= startTime) return null;
+
+  return Math.round((endTime - startTime) / (60 * 1000));
 }

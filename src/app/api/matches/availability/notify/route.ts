@@ -29,14 +29,19 @@ export async function POST(req: Request) {
 
     const { data: event } = await supabase
       .from("events")
-      .select("title, opponent, event_date, type")
+      .select("title, opponent, event_date, end_date, type")
       .eq("id", eventId)
       .eq("team_id", teamId)
       .maybeSingle();
     if (!event) {
       return NextResponse.json({ error: "Événement introuvable" }, { status: 404 });
     }
-    if (isEventLocked((event as { event_date: string }).event_date)) {
+    if (
+      isEventLocked(
+        (event as { event_date: string; end_date: string | null }).event_date,
+        (event as { event_date: string; end_date: string | null }).end_date
+      )
+    ) {
       return NextResponse.json({ error: CONVOCATION_LOCKED_MESSAGE }, { status: 409 });
     }
 

@@ -19,6 +19,7 @@ export interface LastSessionEvent {
   id: string;
   type: string;
   event_date: string;
+  end_date?: string | null;
   status?: string | null;
 }
 
@@ -49,6 +50,12 @@ export function selectLastSession({
     .filter((e) => {
       const time = new Date(e.event_date).getTime();
       if (Number.isNaN(time)) return false;
+      if (e.end_date) {
+        const endTime = new Date(e.end_date).getTime();
+        if (!Number.isNaN(endTime)) {
+          return endTime < now;
+        }
+      }
       return time + EVENT_LOCK_GRACE_MS < now;
     })
     .sort(

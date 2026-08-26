@@ -31,6 +31,11 @@ function toDatetimeLocalValue(iso: string): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+function toDatetimeLocalValueOrEmpty(iso: string | null | undefined): string {
+  if (!iso) return "";
+  return toDatetimeLocalValue(iso);
+}
+
 async function notifyPlayers(
   eventId: string,
   teamId: string,
@@ -117,10 +122,12 @@ export function EventCoachActions({
   const [groupCount, setGroupCount] = useState(1);
 
   const [reportDate, setReportDate] = useState(() => toDatetimeLocalValue(event.event_date));
+  const [reportEndDate, setReportEndDate] = useState(() => toDatetimeLocalValueOrEmpty(event.end_date));
   const [reportMeeting, setReportMeeting] = useState(event.meeting_time?.slice(0, 5) || "");
 
   const [editTitle, setEditTitle] = useState(event.title);
   const [editDate, setEditDate] = useState(() => toDatetimeLocalValue(event.event_date));
+  const [editEndDate, setEditEndDate] = useState(() => toDatetimeLocalValueOrEmpty(event.end_date));
   const [editMeeting, setEditMeeting] = useState(event.meeting_time?.slice(0, 5) || "");
   const [editLocation, setEditLocation] = useState(event.location || "");
   const [editOpponent, setEditOpponent] = useState(event.opponent || "");

@@ -113,7 +113,7 @@ export default function TrainingDetailPage() {
   }, [trainingId, currentTeam, isCoach, user?.id, userRole]);
 
   async function updateAttendance(userId: string, status: AttendanceStatus, reason?: string) {
-    if (isEventLocked(event?.event_date)) {
+    if (isEventLocked(event?.event_date, event?.end_date)) {
       toast.error(CONVOCATION_LOCKED_MESSAGE);
       return;
     }

@@ -210,10 +210,14 @@ export async function deliverPendingNotifications(
   if (convokedEvents.size > 0) {
     const { data: convokedEventRows } = await supabase
       .from("events")
-      .select("id, event_date")
+      .select("id, event_date, end_date")
       .in("id", [...convokedEvents.values()].map((e) => e.eventId));
-    for (const row of (convokedEventRows || []) as { id: string; event_date: string }[]) {
-      if (isEventLocked(row.event_date)) {
+    for (const row of (convokedEventRows || []) as {
+      id: string;
+      event_date: string;
+      end_date: string | null;
+    }[]) {
+      if (isEventLocked(row.event_date, row.end_date)) {
         lockedEventIds.add(row.id);
       }
     }
