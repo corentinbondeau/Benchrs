@@ -61,6 +61,7 @@ import { WeatherWidget } from "@/components/event/WeatherWidget";
 import { TerrainImpraticable } from "@/components/event/TerrainImpraticable";
 import { LockerPlaylist } from "@/components/event/LockerPlaylist";
 import { RecoveryProtocolCard } from "@/components/match/RecoveryProtocolCard";
+import { isEventLocked, CONVOCATION_LOCKED_MESSAGE } from "@/lib/event-lock";
 import type {
   AttendanceStatus,
   Event,
@@ -426,6 +427,10 @@ export default function MatchDetailPage() {
   }
 
   async function updateMatchAttendance(userId: string, status: AttendanceStatus, reason?: string) {
+    if (isEventLocked(match?.event_date)) {
+      toast.error(CONVOCATION_LOCKED_MESSAGE);
+      return;
+    }
     const supabase = createClient();
     const existing = matchPlayers.find((p) => p.profile.id === userId);
 
@@ -733,6 +738,7 @@ export default function MatchDetailPage() {
           teamId={currentTeam.id}
           isCoach={isCoach}
           childPlayerId={childId ?? undefined}
+          eventDate={match.event_date}
         />
       )}
 

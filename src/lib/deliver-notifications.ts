@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { ensureAttendanceRows } from "@/lib/convocations";
+import { isEventLocked } from "@/lib/event-lock";
 import webpush from "@/lib/webpush";
 
 export interface DeliveryResult {
@@ -205,7 +206,24 @@ export async function deliverPendingNotifications(
   }
 
   // 5. Traiter les convocations livrées (ensureAttendanceRows + convocations_sent_at)
+  const lockedEventIds = new Set<string>();
+  if (convokedEvents.size > 0) {
+    const { data: convokedEventRows } = await supabase
+      .from("events")
+      .select("id, event_date")
+      .in("id", [...convokedEvents.values()].map((e) => e.eventId));
+    for (const row of (convokedEventRows || []) as { id: string; event_date: string }[]) {
+      if (isEventLocked(row.event_date)) {
+        lockedEventIds.add(row.id);
+      }
+    }
+  }
+
   for (const entry of convokedEvents.values()) {
+    // Évènement passé : on n'écrit plus les convocations, on ignore silencieusement.
+    if (lockedEventIds.has(entry.eventId)) {
+      continue;
+    }
     if (entry.teamId) {
       await ensureAttendanceRows(entry.eventId, entry.teamId, [...entry.userIds]);
     }

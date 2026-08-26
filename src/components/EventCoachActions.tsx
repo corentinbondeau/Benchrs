@@ -13,11 +13,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { CalendarClock, Pencil, RotateCcw, Trash2, XCircle } from "lucide-react";
+import { CalendarClock, Info, Pencil, RotateCcw, Trash2, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { clearQueryCache } from "@/lib/queryCache";
 import { LocationPicker } from "@/components/calendar/LocationPicker";
+import { isEventLocked } from "@/lib/event-lock";
 import type { Event } from "@/types";
 
 export type EventWithMeeting = Event & { meeting_time: string | null };
@@ -322,6 +323,7 @@ export function EventCoachActions({
   }
 
   const isCancelled = event.status === "cancelled";
+  const locked = isEventLocked(event.event_date);
 
   async function saveDelete() {
     setSaving(true);
@@ -355,11 +357,18 @@ export function EventCoachActions({
 
   return (
     <>
+      {locked && (
+        <div className="flex w-full items-center gap-2 rounded-md bg-white/10 border border-white/20 px-3 py-2 text-xs text-white">
+          <Info className="h-3.5 w-3.5 shrink-0" />
+          Évènement passé — planification verrouillée
+        </div>
+      )}
       <Button
         size="sm"
         variant="outline"
-        className="bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white"
+        className="bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
         onClick={openReport}
+        disabled={locked}
       >
         <CalendarClock className="h-3.5 w-3.5 mr-1" />
         Reporter
@@ -367,8 +376,9 @@ export function EventCoachActions({
       <Button
         size="sm"
         variant="outline"
-        className="bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white"
+        className="bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
         onClick={openEdit}
+        disabled={locked}
       >
         <Pencil className="h-3.5 w-3.5 mr-1" />
         Modifier
@@ -376,8 +386,9 @@ export function EventCoachActions({
       <Button
         size="sm"
         variant="outline"
-        className={`${isCancelled ? "bg-green-500/80 border-green-400/30 text-white hover:bg-green-500" : "bg-red-500/80 border-red-400/30 text-white hover:bg-red-500"}`}
+        className={`disabled:opacity-50 disabled:cursor-not-allowed ${isCancelled ? "bg-green-500/80 border-green-400/30 text-white hover:bg-green-500" : "bg-red-500/80 border-red-400/30 text-white hover:bg-red-500"}`}
         onClick={() => { setScope("single"); setCancelOpen(true); }}
+        disabled={locked}
       >
         {isCancelled ? (
           <><RotateCcw className="h-3.5 w-3.5 mr-1" />Réactiver</>
@@ -388,8 +399,9 @@ export function EventCoachActions({
       <Button
         size="sm"
         variant="outline"
-        className="bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white"
+        className="bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
         onClick={() => { setScope("single"); setDeleteOpen(true); }}
+        disabled={locked}
       >
         <Trash2 className="h-3.5 w-3.5 mr-1" />
         Supprimer

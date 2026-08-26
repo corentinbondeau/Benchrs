@@ -31,6 +31,7 @@ import { ChildSwitcher } from "@/components/ChildSwitcher";
 import { useSelectedChild } from "@/lib/useSelectedChild";
 import { fetchTeamActivePlayers } from "@/lib/players";
 import { logActivity } from "@/lib/activity";
+import { isEventLocked, CONVOCATION_LOCKED_MESSAGE } from "@/lib/event-lock";
 import type { AttendanceStatus, Event } from "@/types";
 
 type TrainingEvent = Event & {
@@ -97,6 +98,10 @@ export default function TrainingDetailPage() {
   }, [trainingId, currentTeam, isCoach, user?.id, userRole]);
 
   async function updateAttendance(userId: string, status: AttendanceStatus, reason?: string) {
+    if (isEventLocked(event?.event_date)) {
+      toast.error(CONVOCATION_LOCKED_MESSAGE);
+      return;
+    }
     const supabase = createClient();
     const existing = players.find((p) => p.profile.id === userId);
 

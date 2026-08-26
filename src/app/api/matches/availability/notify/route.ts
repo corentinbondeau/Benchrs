@@ -7,6 +7,7 @@ import {
   forbidden,
   isTeamCoach,
 } from "@/lib/api-auth";
+import { isEventLocked, CONVOCATION_LOCKED_MESSAGE } from "@/lib/event-lock";
 
 export const dynamic = "force-dynamic";
 
@@ -34,6 +35,9 @@ export async function POST(req: Request) {
       .maybeSingle();
     if (!event) {
       return NextResponse.json({ error: "Événement introuvable" }, { status: 404 });
+    }
+    if (isEventLocked((event as { event_date: string }).event_date)) {
+      return NextResponse.json({ error: CONVOCATION_LOCKED_MESSAGE }, { status: 409 });
     }
 
     // Destinataires : joueurs actifs + parents liés (infra convocations)

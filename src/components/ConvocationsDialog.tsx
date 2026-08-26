@@ -20,9 +20,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Users, Check, X, ChevronDown, UserPlus, Trash2, Calendar, Bell, Send } from "lucide-react";
+import { Users, Check, X, ChevronDown, UserPlus, Trash2, Calendar, Bell, Send, Info } from "lucide-react";
 import { toast } from "sonner";
 import { fetchTeamActivePlayers } from "@/lib/players";
+import { isEventLocked, CONVOCATION_LOCKED_MESSAGE } from "@/lib/event-lock";
 import type { Event, Attendance, Profile } from "@/types";
 
 interface EventWithAttendances extends Event {
@@ -60,6 +61,7 @@ export function ConvocationsDialog({ event, open, onOpenChange }: ConvocationsDi
   const [loading, setLoading] = useState(true);
   const [addPlayerOpen, setAddPlayerOpen] = useState(false);
   const [selectedNewPlayerIds, setSelectedNewPlayerIds] = useState<string[]>([]);
+  const locked = isEventLocked(event.event_date);
 
   const fetchData = useCallback(async () => {
     if (!currentTeam || !event) return;
@@ -93,6 +95,10 @@ export function ConvocationsDialog({ event, open, onOpenChange }: ConvocationsDi
 
   async function notifyConvocation(userIds: string[]) {
     if (userIds.length === 0) return;
+    if (locked) {
+      toast.error(CONVOCATION_LOCKED_MESSAGE);
+      return;
+    }
     const res = await authFetch("/api/notifications/send", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -117,6 +123,10 @@ export function ConvocationsDialog({ event, open, onOpenChange }: ConvocationsDi
   }
 
   async function convocateSelected() {
+    if (locked) {
+      toast.error(CONVOCATION_LOCKED_MESSAGE);
+      return;
+    }
     const supabase = createClient();
     const ids = selectedNewPlayerIds;
     if (ids.length === 0) return;
@@ -139,6 +149,10 @@ export function ConvocationsDialog({ event, open, onOpenChange }: ConvocationsDi
   }
 
   async function convocateAll() {
+    if (locked) {
+      toast.error(CONVOCATION_LOCKED_MESSAGE);
+      return;
+    }
     const supabase = createClient();
     if (!eventData) return;
     const convokedIds = new Set(eventData.attendances.map((a) => a.user_id));
@@ -160,6 +174,10 @@ export function ConvocationsDialog({ event, open, onOpenChange }: ConvocationsDi
   }
 
   async function updateAttendanceStatus(attendanceId: string, status: string) {
+    if (locked) {
+      toast.error(CONVOCATION_LOCKED_MESSAGE);
+      return;
+    }
     const supabase = createClient();
     const { error } = await supabase.from("attendances").update({ status }).eq("id", attendanceId);
     if (error) {
@@ -171,6 +189,10 @@ export function ConvocationsDialog({ event, open, onOpenChange }: ConvocationsDi
   }
 
   async function removeConvocation(attendanceId: string) {
+    if (locked) {
+      toast.error(CONVOCATION_LOCKED_MESSAGE);
+      return;
+    }
     const supabase = createClient();
     await supabase.from("attendances").delete().eq("id", attendanceId);
     toast.success("Convocation supprimée");
@@ -178,6 +200,10 @@ export function ConvocationsDialog({ event, open, onOpenChange }: ConvocationsDi
   }
 
   async function respondToConvocation(attendanceId: string, status: "present" | "absent", reason?: string) {
+    if (locked) {
+      toast.error(CONVOCATION_LOCKED_MESSAGE);
+      return;
+    }
     const supabase = createClient();
     const update: Record<string, unknown> = { status, responded_at: new Date().toISOString() };
     if (status === "absent" && reason) update.absence_reason = reason;
@@ -192,6 +218,10 @@ export function ConvocationsDialog({ event, open, onOpenChange }: ConvocationsDi
 
   async function sendConvocationPush() {
     if (!eventData) return;
+    if (locked) {
+      toast.error(CONVOCATION_LOCKED_MESSAGE);
+      return;
+    }
     const pendingAtts = eventData.attendances.filter((a) => a.status === "pending");
     if (pendingAtts.length === 0) {
       toast.info("Aucune convocation en attente à envoyer");
@@ -221,20 +251,26 @@ export function ConvocationsDialog({ event, open, onOpenChange }: ConvocationsDi
           <div className="h-32 animate-pulse rounded-lg bg-muted" />
         ) : isCoach ? (
           <div className="space-y-4">
+            {locked && (
+              <div className="flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                <Info className="h-3.5 w-3.5 shrink-0" />
+                Évènement passé — convocations en lecture seule
+              </div>
+            )}
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-sm text-muted-foreground">
                 {eventData?.attendances.length || 0} convoqué(s)
               </p>
               <div className="flex flex-wrap gap-2">
-                <Button size="sm" variant="outline" onClick={sendConvocationPush}>
+                <Button size="sm" variant="outline" onClick={sendConvocationPush} disabled={locked}>
                   <Send className="h-3 w-3 mr-1" />
                   Envoyer
                 </Button>
-                <Button size="sm" variant="outline" onClick={convocateAll}>
+                <Button size="sm" variant="outline" onClick={convocateAll} disabled={locked}>
                   <Users className="h-3 w-3 mr-1" />
                   Tout convoquer
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => setAddPlayerOpen(true)}>
+                <Button size="sm" variant="outline" onClick={() => setAddPlayerOpen(true)} disabled={locked}>
                   <UserPlus className="h-3 w-3 mr-1" />
                   Ajouter
                 </Button>
@@ -299,7 +335,7 @@ export function ConvocationsDialog({ event, open, onOpenChange }: ConvocationsDi
                   size="sm"
                   className="w-full bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold"
                   onClick={convocateSelected}
-                  disabled={selectedNewPlayerIds.length === 0}
+                  disabled={selectedNewPlayerIds.length === 0 || locked}
                 >
                   Convoquer ({selectedNewPlayerIds.length})
                 </Button>
@@ -321,7 +357,10 @@ export function ConvocationsDialog({ event, open, onOpenChange }: ConvocationsDi
                     <div className="flex items-center gap-2">
                       <DropdownMenu>
                         <DropdownMenuTrigger render={
-                          <button className={`inline-flex items-center gap-1 h-7 px-2.5 text-xs font-medium rounded-full border-0 ${statusColors[att.status || "pending"]}`}>
+                          <button
+                            className={`inline-flex items-center gap-1 h-7 px-2.5 text-xs font-medium rounded-full border-0 disabled:opacity-50 ${statusColors[att.status || "pending"]}`}
+                            disabled={locked}
+                          >
                             {statusLabels[att.status || "pending"]}
                             <ChevronDown className="h-3 w-3 opacity-60" />
                           </button>
@@ -334,7 +373,7 @@ export function ConvocationsDialog({ event, open, onOpenChange }: ConvocationsDi
                           <DropdownMenuItem onClick={() => updateAttendanceStatus(att.id, "pending")}>En attente</DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
-                      <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive shrink-0" onClick={() => removeConvocation(att.id)}>
+                      <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive shrink-0" onClick={() => removeConvocation(att.id)} disabled={locked}>
                         <Trash2 className="h-3 w-3" />
                       </Button>
                     </div>
@@ -360,12 +399,18 @@ export function ConvocationsDialog({ event, open, onOpenChange }: ConvocationsDi
             </div>
             {myAttendance.status === "pending" && (
               <div className="flex flex-col gap-3">
+                {locked && (
+                  <div className="flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                    <Info className="h-3.5 w-3.5 shrink-0" />
+                    Évènement passé — réponse impossible
+                  </div>
+                )}
                 <div className="flex gap-2">
-                  <Button className="bg-green-600 text-white hover:bg-green-700 flex-1" onClick={() => respondToConvocation(myAttendance.id, "present")}>
+                  <Button className="bg-green-600 text-white hover:bg-green-700 flex-1" onClick={() => respondToConvocation(myAttendance.id, "present")} disabled={locked}>
                     <Check className="h-4 w-4 mr-1" />
                     Présent
                   </Button>
-                  <Button variant="outline" className="border-red-300 text-red-600 hover:bg-red-50 flex-1" onClick={() => respondToConvocation(myAttendance.id, "absent")}>
+                  <Button variant="outline" className="border-red-300 text-red-600 hover:bg-red-50 flex-1" onClick={() => respondToConvocation(myAttendance.id, "absent")} disabled={locked}>
                     <X className="h-4 w-4 mr-1" />
                     Absent
                   </Button>
