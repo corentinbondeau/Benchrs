@@ -12,15 +12,24 @@ interface RemindAllButtonProps {
   pendingCount: number;
   teamId: string;
   onDone?: () => void;
+  /**
+   * Libellé compact ("Relancer tous") plutôt que le libellé détaillé avec le
+   * nombre de joueurs. Utile dans les emplacements contraints en largeur
+   * (ex: en-tête de bloc évènement dans une carte de tableau de bord).
+   */
+  compact?: boolean;
 }
 
-export function RemindAllButton({ targets, pendingCount, teamId, onDone }: RemindAllButtonProps) {
+export function RemindAllButton({ targets, pendingCount, teamId, onDone, compact }: RemindAllButtonProps) {
   const [sending, setSending] = useState(false);
 
   if (pendingCount === 0 || targets.length === 0) return null;
 
-  const label =
-    pendingCount === 1 ? "Relancer le joueur" : `Relancer les ${pendingCount} joueurs`;
+  const label = compact
+    ? "Relancer tous"
+    : pendingCount === 1
+      ? "Relancer le joueur"
+      : `Relancer les ${pendingCount} joueurs`;
 
   async function handleRemindAll() {
     setSending(true);
