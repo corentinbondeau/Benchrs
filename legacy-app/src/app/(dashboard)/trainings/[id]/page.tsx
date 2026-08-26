@@ -52,6 +52,7 @@ export default function TrainingDetailPage() {
 
   const [event, setEvent] = useState<TrainingEvent | null>(null);
   const [players, setPlayers] = useState<PlayerAttendanceRow[]>([]);
+  const [parentLinks, setParentLinks] = useState<{ parent_id: string; student_id: string }[]>([]);
   const [missingResponderCount, setMissingResponderCount] = useState(0);
   const { children: myChildren, selectedChildId: childId, setChild: setChildId } = useSelectedChild(currentTeam?.id);
   const [loading, setLoading] = useState(true);
@@ -65,7 +66,7 @@ export default function TrainingDetailPage() {
     const team = currentTeam;
 
     async function fetchData() {
-      const [eventRes, attRes, allPlayers, rpeRes, feedbackRes] = await Promise.all([
+      const [eventRes, attRes, allPlayers, rpeRes, feedbackRes, parentLinksRes] = await Promise.all([
         supabase
           .from("events")
           .select("*")
@@ -80,9 +81,14 @@ export default function TrainingDetailPage() {
         fetchTeamActivePlayers(team.id),
         supabase.from("session_rpe").select("player_id, rpe").eq("event_id", trainingId),
         supabase.from("session_feedback").select("player_id, rating").eq("event_id", trainingId),
+        supabase
+          .from("parent_student")
+          .select("parent_id, student_id")
+          .eq("team_id", team.id),
       ]);
 
       setEvent(eventRes.data as TrainingEvent | null);
+      setParentLinks((parentLinksRes.data as { parent_id: string; student_id: string }[]) || []);
 
       const atts = (attRes.data || []) as { id: string; user_id: string; status: string; absence_reason: string | null }[];
 
@@ -377,6 +383,15 @@ export default function TrainingDetailPage() {
         isCoach={isCoach}
         convocationsSent={!!event.convocations_sent_at}
         onUpdate={updateAttendance}
+        event={{
+          id: event.id,
+          title: event.title,
+          type: event.type,
+          event_date: event.event_date,
+          end_date: event.end_date,
+        }}
+        teamId={currentTeam.id}
+        parentLinks={parentLinks}
       />
 
       {/* État de forme (avant séance) */}

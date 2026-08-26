@@ -15,6 +15,8 @@ import { Label } from "@/components/ui/label";
 import { Check, X, Clock, Bell } from "lucide-react";
 import { toast } from "sonner";
 import { isEventLocked, CONVOCATION_LOCKED_MESSAGE } from "@/lib/event-lock";
+import { groupRemindersByEvent, countPendingPlayers } from "@/lib/convocation-reminders";
+import { RemindAllButton } from "@/components/RemindAllButton";
 import type { Attendance, Event, Profile } from "@/types";
 
 interface CoachPendingItem {
@@ -199,6 +201,28 @@ export function PendingConvocations() {
       }
     }
 
+    const reminderEvents = Array.from(groupedByEvent.values()).map(({ event }) => ({
+      id: event.id,
+      title: event.title,
+      type: event.type,
+      event_date: event.event_date,
+      end_date: event.end_date,
+    }));
+    const reminderAttendances = coachItems.map((item) => ({
+      event_id: item.event.id,
+      user_id: item.player.id,
+      status: item.attendance.status,
+    }));
+    const parentLinksForReminders = coachItems.flatMap((item) =>
+      item.parents.map((parent) => ({ parent_id: parent.id, student_id: item.player.id }))
+    );
+    const reminderTargets = groupRemindersByEvent({
+      events: reminderEvents,
+      attendances: reminderAttendances,
+      parentLinks: parentLinksForReminders,
+    });
+    const pendingPlayerCount = countPendingPlayers(reminderTargets, reminderAttendances);
+
     return (
       <Card>
         <CardHeader className="pb-3">
@@ -210,6 +234,16 @@ export function PendingConvocations() {
                 {coachItems.length}
               </Badge>
             )}
+            <div className="ml-auto">
+              {currentTeam && (
+                <RemindAllButton
+                  targets={reminderTargets}
+                  pendingCount={pendingPlayerCount}
+                  teamId={currentTeam.id}
+                  onDone={revalidate}
+                />
+              )}
+            </div>
           </CardTitle>
         </CardHeader>
         <CardContent>
