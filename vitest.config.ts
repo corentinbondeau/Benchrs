@@ -26,18 +26,6 @@ export default defineConfig({
     // Activer les globals (describe, it, expect) sans import explicite
     globals: true,
 
-    // Résolution des alias pour require() CJS (nécessaire pour les tests qui utilisent require("@/..."))
-    alias: {
-      "@": path.resolve(__dirname, "./src"),
-    },
-
-    // Force Vitest à transformer les modules du bridge @/ pour que les mocks s'appliquent
-    server: {
-      deps: {
-        inline: [/@\/hooks\/useDashboardData/],
-      },
-    },
-
     // Coverage (héritée de main)
     coverage: {
       provider: "v8",
@@ -49,8 +37,6 @@ export default defineConfig({
   resolve: {
     alias: [
       // Alias général @/ → src/ (identique à tsconfig.json)
-      // Note: le bridge CJS useDashboardData-cjs-bridge.js est utilisé
-      // uniquement par test_require.test.cjs via node_modules/@/
       {
         find: "@",
         replacement: path.resolve(__dirname, "./src"),
