@@ -20,10 +20,17 @@ interface ParentDashboardData {
   noChild?: boolean;
 }
 
-type DashboardData = PlayerDashboardData | ParentDashboardData;
+// Le hook retourne une forme différente selon le rôle demandé. On modélise ça
+// avec un type générique piloté par le littéral de rôle, ce qui permet à TS de
+// narrower correctement `data` au site d'appel (data.convocations n'existe que
+// pour role === "parent", data.attendances/matchStats que pour role === "player"),
+// sans avoir à répliquer une union stricte que l'appelant devrait re-discriminer.
+type DashboardDataFor<R extends "player" | "parent"> = R extends "player"
+  ? PlayerDashboardData
+  : ParentDashboardData;
 
-interface UseDashboardDataResult {
-  data: DashboardData | null;
+interface UseDashboardDataResult<R extends "player" | "parent" = "player" | "parent"> {
+  data: DashboardDataFor<R> | null;
   loading: boolean;
   error: { message: string } | null;
 }
@@ -152,13 +159,15 @@ async function fetchParentData(
 
 // ─── Hook useDashboardData (rôles player / parent) ───────────────────────────
 
-export function useDashboardData(role: "player" | "parent"): UseDashboardDataResult {
+export function useDashboardData<R extends "player" | "parent">(
+  role: R
+): UseDashboardDataResult<R> {
   const { currentTeam } = useTeam();
   const { user } = useAuth();
   const teamId = currentTeam?.id ?? null;
   const userId = user?.id ?? null;
 
-  const [state, setState] = useState<UseDashboardDataResult>({
+  const [state, setState] = useState<UseDashboardDataResult<R>>({
     data: null,
     loading: teamId !== null,
     error: null,
@@ -183,10 +192,10 @@ export function useDashboardData(role: "player" | "parent"): UseDashboardDataRes
     const currentTeamId = teamId;
     const currentUserId = userId;
 
-    const fetcher =
+    const fetcher: Promise<DashboardDataFor<R>> =
       role === "player"
-        ? fetchPlayerData(currentTeamId, currentUserId)
-        : fetchParentData(currentTeamId, currentUserId);
+        ? (fetchPlayerData(currentTeamId, currentUserId) as Promise<DashboardDataFor<R>>)
+        : (fetchParentData(currentTeamId, currentUserId) as Promise<DashboardDataFor<R>>);
 
     fetcher
       .then((data) => {

@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Check, X, Clock, Bell } from "lucide-react";
 import { toast } from "sonner";
+import { isEventLocked, CONVOCATION_LOCKED_MESSAGE } from "@/lib/event-lock";
 import type { Attendance, Event, Profile } from "@/types";
 
 interface CoachPendingItem {
@@ -107,7 +108,16 @@ export function PendingConvocations() {
 
   if (!currentTeam) return null;
 
-  async function respond(attendanceId: string, status: "present" | "absent" | "late", reason?: string) {
+  async function respond(
+    attendanceId: string,
+    status: "present" | "absent" | "late",
+    reason?: string,
+    eventDate?: string | null
+  ) {
+    if (isEventLocked(eventDate)) {
+      toast.error(CONVOCATION_LOCKED_MESSAGE);
+      return;
+    }
     if (status === "absent" && !reason) {
       setPendingAbsentId(attendanceId);
       return;
@@ -130,6 +140,10 @@ export function PendingConvocations() {
   }
 
   async function sendReminder(item: CoachPendingItem, target: "player" | "parent", parentProfile?: Profile) {
+    if (isEventLocked(item.event.event_date)) {
+      toast.error(CONVOCATION_LOCKED_MESSAGE);
+      return;
+    }
     const key = `${item.attendance.id}-${target}`;
     setRemindingKey(key);
 
@@ -227,7 +241,9 @@ export function PendingConvocations() {
                     </Badge>
                   </div>
                   <div className="space-y-1">
-                    {items.map((item) => (
+                    {items.map((item) => {
+                      const locked = isEventLocked(item.event.event_date);
+                      return (
                       <div key={item.attendance.id} className="rounded-md bg-muted/50 px-3 py-1.5 space-y-1.5">
                         <div className="flex items-center justify-between">
                           <span className="text-sm">
@@ -237,7 +253,7 @@ export function PendingConvocations() {
                             size="sm"
                             variant="outline"
                             className="h-7 text-xs gap-1"
-                            disabled={remindingKey === `${item.attendance.id}-player`}
+                            disabled={remindingKey === `${item.attendance.id}-player` || locked}
                             onClick={() => sendReminder(item, "player")}
                           >
                             <Bell className="h-3 w-3" />
@@ -252,7 +268,7 @@ export function PendingConvocations() {
                                 size="sm"
                                 variant="outline"
                                 className="h-6 text-[10px] gap-1 text-muted-foreground"
-                                disabled={remindingKey === `${item.attendance.id}-parent`}
+                                disabled={remindingKey === `${item.attendance.id}-parent` || locked}
                                 onClick={() => sendReminder(item, "parent", parent)}
                               >
                                 <Bell className="h-2.5 w-2.5" />
@@ -264,7 +280,8 @@ export function PendingConvocations() {
                           </div>
                         )}
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               ))}
@@ -296,7 +313,9 @@ export function PendingConvocations() {
           </p>
         ) : (
           <div className="space-y-3">
-            {playerAttendances.map((att) => (
+            {playerAttendances.map((att) => {
+              const locked = isEventLocked(att.event?.event_date);
+              return (
               <div key={att.id} className="rounded-lg border p-3 space-y-2">
                 <div className="flex items-center justify-between">
                   <div>
@@ -316,13 +335,13 @@ export function PendingConvocations() {
                   </div>
                   {pendingAbsentId !== att.id && (
                     <div className="flex gap-1.5">
-                      <Button size="icon" variant="outline" className="h-8 w-8 text-green-600 hover:bg-green-50" onClick={() => respond(att.id, "present")}>
+                      <Button size="icon" variant="outline" className="h-8 w-8 text-green-600 hover:bg-green-50" onClick={() => respond(att.id, "present", undefined, att.event?.event_date)} disabled={locked}>
                         <Check className="h-4 w-4" />
                       </Button>
-                      <Button size="icon" variant="outline" className="h-8 w-8 text-amber-600 hover:bg-amber-50" onClick={() => respond(att.id, "late")}>
+                      <Button size="icon" variant="outline" className="h-8 w-8 text-amber-600 hover:bg-amber-50" onClick={() => respond(att.id, "late", undefined, att.event?.event_date)} disabled={locked}>
                         <Clock className="h-4 w-4" />
                       </Button>
-                      <Button size="icon" variant="outline" className="h-8 w-8 text-red-600 hover:bg-red-50" onClick={() => respond(att.id, "absent")}>
+                      <Button size="icon" variant="outline" className="h-8 w-8 text-red-600 hover:bg-red-50" onClick={() => respond(att.id, "absent", undefined, att.event?.event_date)} disabled={locked}>
                         <X className="h-4 w-4" />
                       </Button>
                     </div>
@@ -339,7 +358,7 @@ export function PendingConvocations() {
                       autoFocus
                     />
                     <div className="flex gap-2">
-                      <Button size="sm" className="h-7 text-xs" disabled={!absenceReason.trim()} onClick={() => respond(att.id, "absent", absenceReason.trim())}>
+                      <Button size="sm" className="h-7 text-xs" disabled={!absenceReason.trim()} onClick={() => respond(att.id, "absent", absenceReason.trim(), att.event?.event_date)}>
                         Confirmer
                       </Button>
                       <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => { setPendingAbsentId(null); setAbsenceReason(""); }}>
@@ -349,7 +368,8 @@ export function PendingConvocations() {
                   </div>
                 )}
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </CardContent>

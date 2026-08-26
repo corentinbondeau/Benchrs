@@ -9,8 +9,11 @@ Safari, Android ≤8).
 - **Tailwind CSS** 3.4 (vs 4) — c'est le changement clé : Tailwind 4 émettait
   du CSS non supporté par iOS ≤14 (`color-mix`, `oklch`, `@layer`, `:has`).
 
-Le code applicatif (`src/`) est identique à l'app principale ; seuls le build
-et les versions changent.
+Le fork suit l'app principale avec un décalage : il n'est pas mis à jour en
+continu, seulement lors de portages ponctuels. Les deux apps partagent la
+**même base Supabase** — toute migration ajoutant une contrainte (trigger,
+colonne obligatoire, RLS) doit être répercutée dans les deux apps. Ce fork
+n'a **ni tests ni CI**.
 
 ---
 
@@ -48,8 +51,9 @@ Dans **Project → Settings → Environment Variables**, ajouter (cf. `.env.exam
 - Le fichier `.env.production` versionné ne contient que des **placeholders**
   (pour que le build passe sans réseau) ; Vercel utilisera les variables
   définies dans l'UI, qui ont priorité.
-- Les crons (`vercel.json`) sont identiques à l'app principale — désactive-les
-  ici si tu ne veux pas de double exécution (supprime le bloc `crons`).
+- Les crons ne sont **pas** déclarés ici (`vercel.json` n'a pas de bloc
+  `crons`) : ils tournent uniquement sur l'app principale, pour éviter les
+  notifications en double.
 
 ---
 

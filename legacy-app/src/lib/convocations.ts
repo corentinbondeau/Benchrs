@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { isEventLocked, CONVOCATION_LOCKED_MESSAGE } from "@/lib/event-lock";
 
 // Crée les lignes de convocation (attendances) pour un événement UNIQUEMENT
 // quand la notification de convocation est réellement envoyée.
@@ -10,6 +11,19 @@ export async function ensureAttendanceRows(
 ): Promise<void> {
   if (!userIds || userIds.length === 0) return;
   const supabase = createAdminClient();
+
+  // Défense en profondeur : ce module utilise createAdminClient() (bypass RLS),
+  // le trigger SQL bloque déjà l'écriture mais on évite l'appel réseau inutile
+  // et on remonte un message métier clair.
+  const { data: event } = await supabase
+    .from("events")
+    .select("event_date")
+    .eq("id", eventId)
+    .maybeSingle();
+
+  if (isEventLocked((event as { event_date: string } | null)?.event_date)) {
+    throw new Error(CONVOCATION_LOCKED_MESSAGE);
+  }
 
   const { data: existing } = await supabase
     .from("attendances")

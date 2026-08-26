@@ -159,7 +159,13 @@ vi.mock("@/lib/auth", () => ({
   useAuth: () => mockUseAuth(),
 }));
 
-let mockUseAuth = vi.fn(() => ({
+type MockAuthUser = {
+  id: string;
+  email: string;
+  profile: { team_id: string };
+} | null;
+
+let mockUseAuth = vi.fn<() => { user: MockAuthUser; loading: boolean }>(() => ({
   user: {
     id: MOCK_USER_ID,
     email: "coach@benchrs.fr",
@@ -184,7 +190,7 @@ beforeEach(() => {
   // Réinitialiser les CSS custom properties (jsdom)
   document.documentElement.removeAttribute("style");
   resetSupabaseMocks();
-  mockUseAuth = vi.fn(() => ({
+  mockUseAuth = vi.fn<() => { user: MockAuthUser; loading: boolean }>(() => ({
     user: {
       id: MOCK_USER_ID,
       email: "coach@benchrs.fr",

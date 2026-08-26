@@ -93,8 +93,8 @@ function makeFluentChain(resolvedValue: { data: unknown; error: null | { message
     },
   });
   // Rend la chaîne awaitable directement (pour les cas sans terminal explicite)
-  (proxy as unknown as Promise<unknown>).then = (resolve: (v: unknown) => unknown) =>
-    Promise.resolve(resolvedValue).then(resolve);
+  (proxy as unknown as Promise<unknown>).then = ((resolve: (v: unknown) => unknown) =>
+    Promise.resolve(resolvedValue).then(resolve)) as Promise<unknown>["then"];
   return proxy;
 }
 

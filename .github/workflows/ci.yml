@@ -29,6 +29,39 @@ jobs:
       - name: Build
         run: npm run build
 
+  legacy-app:
+    name: Legacy App (Typecheck + Test + Build)
+    runs-on: ubuntu-latest
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      OLLAMA_URL: ${{ secrets.OLLAMA_URL || 'http://localhost:11434' }}
+      AI_MODEL: ${{ secrets.AI_MODEL || 'llama3.1:8b' }}
+    defaults:
+      run:
+        working-directory: legacy-app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: legacy-app/package-lock.json
+      - run: npm ci
+      - name: Typecheck
+        run: npx tsc --noEmit
+      # NOTE: pas d'étape "Lint" ici. `npm run lint` (next lint) fait remonter des
+      # dizaines d'erreurs react-hooks/rules-of-hooks et react/no-unescaped-entities
+      # préexistantes dans le code applicatif du fork (hors périmètre de ce lot,
+      # qui ne portait que sur le typage du ref et le filet de tests). Ajouter le
+      # lint maintenant rendrait ce job rouge en permanence, ce qui est justement
+      # le problème qu'on corrige avec cette CI. À traiter dans un lot dédié.
+      - name: Test
+        run: npm run test
+      - name: Build
+        run: npm run build
+
   e2e:
     name: Tests E2E (Playwright)
     runs-on: ubuntu-latest

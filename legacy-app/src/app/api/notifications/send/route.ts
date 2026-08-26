@@ -10,6 +10,7 @@ import {
   isTeamMember,
   getTeamRole,
 } from "@/lib/api-auth";
+import { isEventLocked, CONVOCATION_LOCKED_MESSAGE } from "@/lib/event-lock";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +32,7 @@ const SEND_TYPES = new Set([
   "on_est_parti",
   "match_live",
   "voeux",
+  "relance_seance",
 ]);
 
 function isInternalUrl(url: string): boolean {
@@ -123,12 +125,15 @@ export async function POST(req: Request) {
       }
       const { data: ev } = await supabase
         .from("events")
-        .select("id")
+        .select("id, event_date")
         .eq("id", reference_id)
         .eq("team_id", team_id)
         .maybeSingle();
       if (!ev) {
         return NextResponse.json({ error: "Événement invalide" }, { status: 400 });
+      }
+      if (isEventLocked((ev as { event_date: string }).event_date)) {
+        return NextResponse.json({ error: CONVOCATION_LOCKED_MESSAGE }, { status: 409 });
       }
     }
 

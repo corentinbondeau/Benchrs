@@ -332,8 +332,8 @@ vi.mock("@/components/PushNotificationInit", () => ({
   PushNotificationInit: () => null,
 }));
 
-vi.mock("@/components/onboarding/ParentOnboarding", () => ({
-  ParentOnboarding: () => null,
+vi.mock("@/components/onboarding/UniversalOnboarding", () => ({
+  UniversalOnboarding: () => null,
 }));
 
 describe("P3.3 — Intégration DOM : montage conditionnel des navs selon useIsMobile", () => {

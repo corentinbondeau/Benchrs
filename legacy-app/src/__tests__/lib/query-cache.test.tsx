@@ -435,14 +435,12 @@ describe("useQueryCache — stale-while-revalidate [RED]", () => {
     // Pendant le refetch : data stale disponible + isRevalidating=true
     // ÉCHOUE en phase Red : isRevalidating n'est pas dans l'API actuelle
     expect(result.current.data).toEqual(STALE_DATA);
-    // @ts-expect-error — isRevalidating pas encore dans QueryResult
     expect(result.current.isRevalidating).toBe(true);
 
     // Après résolution
     await act(async () => { resolveRefetch!(FRESH_DATA); });
 
     await waitFor(() => expect(result.current.data).toEqual(FRESH_DATA));
-    // @ts-expect-error — isRevalidating pas encore dans QueryResult
     expect(result.current.isRevalidating).toBe(false);
   });
 
@@ -460,7 +458,6 @@ describe("useQueryCache — stale-while-revalidate [RED]", () => {
     // COMPORTEMENT ATTENDU APRÈS OPTIMISATION :
     // Après fetch initial réussi, plus de revalidation en cours
     // ÉCHOUE en phase Red : isRevalidating n'existe pas
-    // @ts-expect-error — isRevalidating pas encore dans QueryResult
     expect(result.current.isRevalidating).toBe(false);
   });
 
@@ -488,7 +485,6 @@ describe("useQueryCache — stale-while-revalidate [RED]", () => {
     // - isRevalidating=true : refetch en background lancé
     // ÉCHOUE en phase Red (deux raisons : pas de SS + pas de isRevalidating)
     expect(result.current.loading).toBe(false);
-    // @ts-expect-error — isRevalidating pas encore dans QueryResult
     expect(result.current.isRevalidating).toBe(true);
     expect(result.current.data).toEqual(STALE_DATA);
 
@@ -522,13 +518,11 @@ describe("useQueryCache — stale-while-revalidate [RED]", () => {
     // COMPORTEMENT ATTENDU APRÈS OPTIMISATION :
     // isRevalidating=true immédiatement après appel de revalidate()
     // ÉCHOUE en phase Red
-    // @ts-expect-error — isRevalidating pas encore dans QueryResult
     expect(result.current.isRevalidating).toBe(true);
 
     await act(async () => { resolveSecondFetch!(UPDATED); });
 
     await waitFor(() => expect(result.current.data).toEqual(UPDATED));
-    // @ts-expect-error — isRevalidating pas encore dans QueryResult
     expect(result.current.isRevalidating).toBe(false);
   });
 });

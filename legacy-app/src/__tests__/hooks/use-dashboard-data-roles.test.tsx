@@ -10,15 +10,12 @@
  *   - Rendu DOM des composants dashboard
  *   - Cache interne (queryCache) — testé séparément
  *   - Rôle coach (déjà couvert ou hors-périmètre US)
- *
- * Phase "Red" attendue :
- *   - Tous les tests DOIVENT ÉCHOUER — le hook useDashboardData
- *     n'existe pas encore (ou ne gère pas ces rôles)
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
 import React from "react";
+import { useDashboardData } from "@/hooks/useDashboardData";
 
 // ─── Données de test ──────────────────────────────────────────────────────────
 
@@ -137,6 +134,50 @@ vi.mock("@/lib/team", () => ({
 // ─── Helpers de configuration des mocks ──────────────────────────────────────
 
 /**
+ * Construit un query builder Supabase générique et chaînable.
+ *
+ * Toutes les méthodes intermédiaires (select, eq, in, gte, lte, order, limit,
+ * is, neq, single, maybeSingle, ...) renvoient le builder lui-même, et le
+ * builder est thenable : il résout vers `{ data, error }` quel que soit le
+ * nombre de maillons de la chaîne appelés par le code de production.
+ *
+ * Ce découplage évite de devoir répliquer l'ordre exact des filtres du hook
+ * dans le mock : seul le résultat final par table compte pour les tests.
+ */
+function createChainableQuery(result: { data: unknown; error: unknown }) {
+  const builder: Record<string, unknown> = {};
+  const chainMethods = [
+    "select",
+    "eq",
+    "neq",
+    "in",
+    "is",
+    "gte",
+    "lte",
+    "order",
+    "limit",
+    "single",
+    "maybeSingle",
+    "match",
+    "filter",
+    "or",
+  ] as const;
+
+  chainMethods.forEach((method) => {
+    builder[method] = vi.fn(() => builder);
+  });
+
+  builder.then = (
+    onFulfilled?: (value: { data: unknown; error: unknown }) => unknown,
+    onRejected?: (reason: unknown) => unknown
+  ) => Promise.resolve(result).then(onFulfilled, onRejected);
+  builder.catch = (onRejected?: (reason: unknown) => unknown) =>
+    Promise.resolve(result).catch(onRejected);
+
+  return builder;
+}
+
+/**
  * Configure les mocks Supabase pour le cas Player.
  * Simule les queries : events (trainings) → attendances → match_stats
  */
@@ -150,49 +191,15 @@ function setupPlayerMocks({
 } = {}) {
   mockFrom.mockImplementation((table: string) => {
     if (table === "events") {
-      return {
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              gte: vi.fn().mockReturnValue({
-                order: vi.fn().mockReturnValue({
-                  limit: vi.fn().mockReturnValue({
-                    maybeSingle: vi.fn().mockResolvedValue({ data: eventsData[0], error: eventsError }),
-                  }),
-                }),
-              }),
-              // Pour le fetch "training events ids"
-              in: vi.fn().mockReturnValue({
-                order: vi.fn().mockReturnValue({
-                  limit: vi.fn().mockResolvedValue({ data: eventsData, error: eventsError }),
-                }),
-              }),
-            }),
-          }),
-        }),
-      };
+      return createChainableQuery({ data: eventsData, error: eventsError });
     }
     if (table === "attendances") {
-      return {
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              in: vi.fn().mockResolvedValue({ data: attendancesData, error: attendancesError }),
-            }),
-          }),
-        }),
-      };
+      return createChainableQuery({ data: attendancesData, error: attendancesError });
     }
     if (table === "match_stats") {
-      return {
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            eq: vi.fn().mockResolvedValue({ data: matchStatsData, error: matchStatsError }),
-          }),
-        }),
-      };
+      return createChainableQuery({ data: matchStatsData, error: matchStatsError });
     }
-    return { select: vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ data: [], error: null }) }) };
+    return createChainableQuery({ data: [], error: null });
   });
 }
 
@@ -210,92 +217,22 @@ function setupParentMocks({
 } = {}) {
   mockFrom.mockImplementation((table: string) => {
     if (table === "parent_student") {
-      return {
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              maybeSingle: vi.fn().mockResolvedValue({
-                data: linkFound ? { student_id: MOCK_CHILD_ID } : null,
-                error: null,
-              }),
-            }),
-          }),
-        }),
-      };
+      return createChainableQuery({
+        data: linkFound ? { student_id: MOCK_CHILD_ID } : null,
+        error: null,
+      });
     }
     if (table === "profiles") {
-      return {
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            single: vi.fn().mockResolvedValue({ data: childData, error: childError }),
-          }),
-        }),
-      };
+      return createChainableQuery({ data: childData, error: childError });
     }
     if (table === "events") {
-      return {
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              gte: vi.fn().mockReturnValue({
-                order: vi.fn().mockReturnValue({
-                  limit: vi.fn().mockReturnValue({
-                    maybeSingle: vi.fn().mockResolvedValue({ data: eventsData[0], error: null }),
-                  }),
-                }),
-              }),
-              in: vi.fn().mockReturnValue({
-                order: vi.fn().mockReturnValue({
-                  limit: vi.fn().mockResolvedValue({ data: eventsData, error: null }),
-                }),
-              }),
-            }),
-          }),
-        }),
-      };
+      return createChainableQuery({ data: eventsData, error: null });
     }
     if (table === "attendances") {
-      return {
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              eq: vi.fn().mockReturnValue({
-                order: vi.fn().mockResolvedValue({ data: convocationsData, error: convocationsError }),
-              }),
-              in: vi.fn().mockResolvedValue({ data: [], error: null }),
-            }),
-          }),
-        }),
-      };
+      return createChainableQuery({ data: convocationsData, error: convocationsError });
     }
-    return { select: vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ data: [], error: null }) }) };
+    return createChainableQuery({ data: [], error: null });
   });
-}
-
-// ─── Import SUT (après les mocks) ────────────────────────────────────────────
-// Le hook n'existe pas encore → les tests DOIVENT ÉCHOUER en phase Red.
-// On utilise un import dynamique conditionnel pour que Vitest puisse collecter
-// et exécuter les tests individuellement plutôt que crasher au niveau du module.
-
-type UseDashboardDataFn = (role: "player" | "parent") => {
-  data: Record<string, unknown> | null;
-  loading: boolean;
-  error: { message: string } | null;
-};
-
-let useDashboardData: UseDashboardDataFn;
-
-try {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const mod = require("@/hooks/useDashboardData");
-  useDashboardData = mod.useDashboardData;
-} catch {
-  // Hook absent : stub qui fait systématiquement échouer les assertions
-  useDashboardData = (_role: "player" | "parent") => {
-    throw new Error(
-      "[RED] useDashboardData not found — hook does not exist yet. Create src/hooks/useDashboardData.ts"
-    );
-  };
 }
 
 // ─── Tests ────────────────────────────────────────────────────────────────────

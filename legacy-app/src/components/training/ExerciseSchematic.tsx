@@ -239,7 +239,7 @@ function SchematicPitch({
   onPointerMove,
   onPointerUp,
 }: {
-  svgRef?: React.RefObject<SVGSVGElement | null>;
+  svgRef?: React.Ref<SVGSVGElement>;
   view?: SchematicView;
   children?: React.ReactNode;
   onPointerDown?: (e: React.PointerEvent<SVGSVGElement>) => void;

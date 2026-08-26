@@ -18,6 +18,7 @@ import {
 import { toast } from "sonner";
 import { authFetch } from "@/lib/api-client";
 import { fetchTeamActivePlayers } from "@/lib/players";
+import { isEventLocked, CONVOCATION_LOCKED_MESSAGE } from "@/lib/event-lock";
 import type { Profile } from "@/types";
 
 interface AvailabilityRow {
@@ -50,11 +51,13 @@ export function MatchAvailabilityCard({
   teamId,
   isCoach,
   childPlayerId,
+  eventDate,
 }: {
   eventId: string;
   teamId: string;
   isCoach: boolean;
   childPlayerId?: string | null;
+  eventDate?: string | null;
 }) {
   const { user } = useAuth();
   const { userRole } = useTeam();
@@ -63,6 +66,7 @@ export function MatchAvailabilityCard({
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [saving, setSaving] = useState(false);
+  const locked = isEventLocked(eventDate);
 
   const loadData = useCallback(async () => {
     const supabase = createClient();
@@ -110,6 +114,10 @@ export function MatchAvailabilityCard({
       : undefined;
 
   async function notifyPoll() {
+    if (locked) {
+      toast.error(CONVOCATION_LOCKED_MESSAGE);
+      return;
+    }
     setSending(true);
     try {
       const res = await authFetch("/api/matches/availability/notify", {
@@ -129,6 +137,10 @@ export function MatchAvailabilityCard({
 
   async function respond(value: AvailabilityValue) {
     if (!targetPlayerId) return;
+    if (locked) {
+      toast.error(CONVOCATION_LOCKED_MESSAGE);
+      return;
+    }
     setSaving(true);
     const supabase = createClient();
     const { error } = await supabase.from("match_availability").upsert(
@@ -199,7 +211,7 @@ export function MatchAvailabilityCard({
               size="sm"
               className="bg-[var(--color-primary-blue)] text-white font-semibold"
               onClick={notifyPoll}
-              disabled={sending}
+              disabled={sending || locked}
             >
               {sending ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
@@ -295,6 +307,11 @@ export function MatchAvailabilityCard({
           </>
         ) : targetPlayerId ? (
           <>
+            {locked && (
+              <p className="text-xs text-muted-foreground rounded-lg border border-amber-200 bg-amber-50 p-2">
+                Évènement passé — sondage clos
+              </p>
+            )}
             <p className="text-sm text-muted-foreground">
               {isParent ? "Seras-tu disponible ?" : "Sera-tu disponible pour ce match ?"}
             </p>
@@ -302,11 +319,11 @@ export function MatchAvailabilityCard({
               {(["dispo", "incertain", "pas_dispo"] as AvailabilityValue[]).map((v) => (
                 <button
                   key={v}
-                  disabled={saving}
+                  disabled={saving || locked}
                   onClick={() => respond(v)}
                   className={`rounded-lg border p-3 text-center text-sm font-medium transition-all ${
                     myValue === v ? ACTIVE_BTN[v] : STYLES[v]
-                  } ${saving ? "opacity-60" : ""}`}
+                  } ${saving || locked ? "opacity-60" : ""}`}
                 >
                   {myValue === v ? <Check className="h-3.5 w-3.5 mx-auto mb-0.5" /> : null}
                   {LABELS[v]}
