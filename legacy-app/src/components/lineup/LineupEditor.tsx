@@ -23,6 +23,7 @@ import { toast } from "sonner";
 import type { Profile, Event, Formation, FormationData } from "@/types";
 import { FORMATIONS } from "@/lib/lineup/formations";
 import { autoCompose as autoComposePure } from "@/lib/lineup/autoCompose";
+import { toMatchLineupRows } from "@/lib/lineup/toMatchLineups";
 import { PitchSVG } from "./PitchSVG";
 
 const BENCH_SLOTS = ["R1", "R2", "R3", "R4", "R5"];
@@ -307,6 +308,36 @@ export function LineupEditor({
     });
   }, [selectedEventId, currentTeam]);
 
+  // Double écriture (§7.2) : match_lineups n'est qu'une projection dénormalisée de
+  // formations.formation_data, reconstructible via DELETE+INSERT. Aucune contrainte
+  // UNIQUE(event_id, player_id) en base => .upsert() est impossible.
+  async function syncMatchLineups(formationData: FormationData) {
+    const { error: deleteError } = await supabase
+      .from("match_lineups")
+      .delete()
+      .eq("event_id", selectedEventId)
+      .eq("team_id", teamId);
+
+    if (deleteError) {
+      console.error("Erreur lors de la synchronisation de match_lineups (delete):", deleteError);
+      toast.error(
+        "Composition enregistrée, mais l'affichage de la feuille de match n'a pas pu être mis à jour — réessayez"
+      );
+      return;
+    }
+
+    const rows = toMatchLineupRows(formationData, selectedEventId, teamId);
+    if (rows.length === 0) return;
+
+    const { error: insertError } = await supabase.from("match_lineups").insert(rows);
+    if (insertError) {
+      console.error("Erreur lors de la synchronisation de match_lineups (insert):", insertError);
+      toast.error(
+        "Composition enregistrée, mais l'affichage de la feuille de match n'a pas pu être mis à jour — réessayez"
+      );
+    }
+  }
+
   async function handleSave() {
     if (!selectedEventId || !currentTeam) return;
     setSaving(true);
@@ -337,6 +368,7 @@ export function LineupEditor({
         toast.error("Erreur lors de la mise à jour");
       } else {
         toast.success("Feuillet mis à jour");
+        await syncMatchLineups(formationData as FormationData);
         onSaved?.(data as unknown as Formation);
       }
     } else {
@@ -357,6 +389,7 @@ export function LineupEditor({
       } else {
         setLoadedFormationId((data as any)?.id || null);
         toast.success("Feuillet enregistré");
+        await syncMatchLineups(formationData as FormationData);
         onSaved?.(data as unknown as Formation);
       }
     }

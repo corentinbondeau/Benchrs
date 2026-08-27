@@ -62,6 +62,7 @@ import { TerrainImpraticable } from "@/components/event/TerrainImpraticable";
 import { LockerPlaylist } from "@/components/event/LockerPlaylist";
 import { RecoveryProtocolCard } from "@/components/match/RecoveryProtocolCard";
 import { isEventLocked, CONVOCATION_LOCKED_MESSAGE } from "@/lib/event-lock";
+import { LineupEditor } from "@/components/lineup/LineupEditor";
 import type {
   AttendanceStatus,
   Event,
@@ -271,6 +272,31 @@ export default function MatchDetailPage() {
 
     fetchMatchData();
   }, [matchId, currentTeam, isCoach, user?.id, userRole]);
+
+  // Rechargement ciblé de formation + match_lineups après une sauvegarde depuis
+  // <LineupEditor> (carte « Composition »), pour garder la carte read-only et les
+  // dérivés starters/subs cohérents (§7D du lot 7).
+  async function reloadLineupData() {
+    if (!currentTeam) return;
+    const supabase = createClient();
+    const [formRes, lineupsRes] = await Promise.all([
+      supabase
+        .from("formations")
+        .select("*")
+        .eq("event_id", matchId)
+        .eq("team_id", currentTeam.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from("match_lineups")
+        .select("*, profile:profiles!match_lineups_player_id_fkey(id, first_name, last_name, shirt_number, position)")
+        .eq("event_id", matchId)
+        .eq("team_id", currentTeam.id),
+    ]);
+    setFormation(formRes.data as Formation | null);
+    setLineups((lineupsRes.data as LineupEntry[]) || []);
+  }
 
   if (!currentTeam) {
     return (
@@ -895,58 +921,81 @@ export default function MatchDetailPage() {
         </Card>
       )}
 
-      {positions.length > 0 && (
+      {isCoach ? (
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
               <Shield className="h-4 w-4 text-[var(--color-royal)]" />
-              Composition — {formation?.name}
+              Composition
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="mx-auto max-w-xs">
-              <div className="relative aspect-[2/3] rounded-lg bg-green-700 overflow-hidden">
-                <div
-                  className="absolute inset-0 pointer-events-none overflow-hidden"
-                  style={{
-                    backgroundImage: "repeating-linear-gradient(180deg, rgba(255,255,255,0.04) 0px, rgba(255,255,255,0.04) 40px, transparent 40px, transparent 80px)",
-                  }}
-                />
-                <svg viewBox="0 0 300 450" className="absolute inset-0 h-full w-full pointer-events-none" preserveAspectRatio="none">
-                  <rect x="8" y="8" width="284" height="434" fill="none" stroke="rgba(255,255,255,0.45)" strokeWidth="2" rx="2" />
-                  <line x1="8" y1="225" x2="292" y2="225" stroke="rgba(255,255,255,0.45)" strokeWidth="1.5" />
-                  <circle cx="150" cy="225" r="50" fill="none" stroke="rgba(255,255,255,0.45)" strokeWidth="1.5" />
-                  <circle cx="150" cy="225" r="3" fill="rgba(255,255,255,0.5)" />
-                  <rect x="75" y="8" width="150" height="80" fill="none" stroke="rgba(255,255,255,0.45)" strokeWidth="1.5" />
-                  <rect x="75" y="362" width="150" height="80" fill="none" stroke="rgba(255,255,255,0.45)" strokeWidth="1.5" />
-                </svg>
-                {positions.map((pos, i) => {
-                  const pid = pos.player_id;
-                  const player = lineups.find((l) => l.player_id === pid)?.profile;
-                  const isCapt = captainId === pid;
-                  return (
-                    <div
-                      key={i}
-                      className="absolute z-10 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center"
-                      style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
-                    >
-                      <div className={`flex h-9 w-9 items-center justify-center rounded-full text-[10px] font-bold shadow-lg ${
-                        isCapt
-                          ? "bg-yellow-400 text-black ring-2 ring-yellow-300"
-                          : "bg-[var(--color-royal)] text-white"
-                      }`}>
-                        {player?.shirt_number ?? "?"}
-                      </div>
-                      <span className="mt-0.5 text-[8px] font-medium text-white/80 text-center max-w-[60px] truncate drop-shadow">
-                        {player ? `${player.first_name.charAt(0)}. ${player.last_name}` : pos.label}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+            <LineupEditor
+              eventId={matchId}
+              teamId={currentTeam.id}
+              userId={user?.id ?? ""}
+              isCoach
+              showEventPicker={false}
+              onSaved={() => {
+                reloadLineupData();
+              }}
+            />
           </CardContent>
         </Card>
+      ) : (
+        positions.length > 0 && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Shield className="h-4 w-4 text-[var(--color-royal)]" />
+                Composition — {formation?.name}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="mx-auto max-w-xs">
+                <div className="relative aspect-[2/3] rounded-lg bg-green-700 overflow-hidden">
+                  <div
+                    className="absolute inset-0 pointer-events-none overflow-hidden"
+                    style={{
+                      backgroundImage: "repeating-linear-gradient(180deg, rgba(255,255,255,0.04) 0px, rgba(255,255,255,0.04) 40px, transparent 40px, transparent 80px)",
+                    }}
+                  />
+                  <svg viewBox="0 0 300 450" className="absolute inset-0 h-full w-full pointer-events-none" preserveAspectRatio="none">
+                    <rect x="8" y="8" width="284" height="434" fill="none" stroke="rgba(255,255,255,0.45)" strokeWidth="2" rx="2" />
+                    <line x1="8" y1="225" x2="292" y2="225" stroke="rgba(255,255,255,0.45)" strokeWidth="1.5" />
+                    <circle cx="150" cy="225" r="50" fill="none" stroke="rgba(255,255,255,0.45)" strokeWidth="1.5" />
+                    <circle cx="150" cy="225" r="3" fill="rgba(255,255,255,0.5)" />
+                    <rect x="75" y="8" width="150" height="80" fill="none" stroke="rgba(255,255,255,0.45)" strokeWidth="1.5" />
+                    <rect x="75" y="362" width="150" height="80" fill="none" stroke="rgba(255,255,255,0.45)" strokeWidth="1.5" />
+                  </svg>
+                  {positions.map((pos, i) => {
+                    const pid = pos.player_id;
+                    const player = lineups.find((l) => l.player_id === pid)?.profile;
+                    const isCapt = captainId === pid;
+                    return (
+                      <div
+                        key={i}
+                        className="absolute z-10 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center"
+                        style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
+                      >
+                        <div className={`flex h-9 w-9 items-center justify-center rounded-full text-[10px] font-bold shadow-lg ${
+                          isCapt
+                            ? "bg-yellow-400 text-black ring-2 ring-yellow-300"
+                            : "bg-[var(--color-royal)] text-white"
+                        }`}>
+                          {player?.shirt_number ?? "?"}
+                        </div>
+                        <span className="mt-0.5 text-[8px] font-medium text-white/80 text-center max-w-[60px] truncate drop-shadow">
+                          {player ? `${player.first_name.charAt(0)}. ${player.last_name}` : pos.label}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )
       )}
 
       {/* Player Stats — full width */}
