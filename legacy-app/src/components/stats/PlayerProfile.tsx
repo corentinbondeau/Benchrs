@@ -73,6 +73,8 @@ import { CoachNotesCard } from "@/components/stats/CoachNotesCard";
 import { EmergencyInfoCard } from "@/components/stats/EmergencyInfoCard";
 import { DisciplineCard } from "@/components/stats/DisciplineCard";
 import { MedicalRecordCard } from "@/components/stats/MedicalRecordCard";
+import { POSITIONS } from "@/lib/positions";
+import { buildProfileAttributesPayload } from "@/lib/profile/buildProfileAttributesPayload";
 interface PlayerStats {
   player_id: string;
   first_name: string;
@@ -266,6 +268,10 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
   const [vmiInput, setVmiInput] = useState("");
   const [editingShirt, setEditingShirt] = useState(false);
   const [shirtInput, setShirtInput] = useState("");
+  const [editingAttributes, setEditingAttributes] = useState(false);
+  const [preferredFootInput, setPreferredFootInput] = useState("");
+  const [positionInput, setPositionInput] = useState("");
+  const [secondaryPositionsInput, setSecondaryPositionsInput] = useState<string[]>([]);
   const [physicalTests, setPhysicalTests] = useState<PlayerPhysicalTest[]>([]);
   const [matchRows, setMatchRows] = useState<MatchRow[]>([]);
   const [currentSeason, setCurrentSeason] = useState("");
@@ -632,6 +638,52 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
     toast.success("Numéro de maillot mis à jour");
   }
 
+  async function handleSaveAttributes() {
+    const payload = buildProfileAttributesPayload({
+      preferredFoot: preferredFootInput,
+      position: positionInput,
+      secondaryPositions: secondaryPositionsInput,
+    });
+    const supabase = createClient();
+    // 🚨 Garde anti-échec silencieux (RLS `profiles` UPDATE) : `is_global_coach()`
+    // teste `profiles.role = 'coach'` (rôle GLOBAL), alors que `isCoach` ici est
+    // dérivé de `team_members` (coach OU owner). Un owner non-coach-global verrait
+    // l'UPDATE filtré par la RLS et affecter 0 ligne, sans erreur retournée par
+    // Supabase. On vérifie donc explicitement que des lignes sont revenues.
+    const { data, error } = await supabase
+      .from("profiles")
+      .update({
+        preferred_foot: payload.preferred_foot,
+        position: positionInput || null,
+        secondary_positions: payload.secondary_positions,
+      })
+      .eq("id", playerId)
+      .select();
+
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    if (!data || data.length === 0) {
+      toast.error("Vous n'avez pas les droits pour modifier ce profil");
+      return;
+    }
+
+    setProfile((prev) =>
+      prev
+        ? {
+            ...prev,
+            preferred_foot: payload.preferred_foot,
+            position: positionInput || null,
+            secondary_positions: payload.secondary_positions,
+          }
+        : prev
+    );
+    setStats((prev) => (prev ? { ...prev, position: positionInput || null } : prev));
+    setEditingAttributes(false);
+    toast.success("Profil mis à jour");
+  }
+
   async function handleSaveVmi() {
     const val = parseFloat(vmiInput);
     if (isNaN(val) || val <= 0 || val > 30) {
@@ -809,31 +861,118 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
             </div>
             <div>
               <h2 className="text-2xl font-bold">{stats.first_name} {stats.last_name}</h2>
-              <p className="text-white/50 text-sm mt-0.5">{stats.position || "Joueur"}</p>
-              {(profile.preferred_foot || profile.height_cm || profile.weight_kg || (profile.secondary_positions?.length ?? 0) > 0) && (
-                <p className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-white/60">
-                  {profile.preferred_foot && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2 py-0.5">
-                      <span className="h-2 w-2 rounded-full bg-white/70" />
-                      Pied {profile.preferred_foot.toLowerCase()}
-                    </span>
+              {editingAttributes ? (
+                <div className="mt-1 space-y-2">
+                  <select
+                    value={positionInput}
+                    onChange={(e) => setPositionInput(e.target.value)}
+                    aria-label="Poste principal"
+                    className="h-8 w-full max-w-xs rounded-md border border-white/30 bg-white/10 px-2 text-sm text-white"
+                  >
+                    <option value="" className="text-black">Poste non renseigné</option>
+                    {POSITIONS.map((pos) => (
+                      <option key={pos} value={pos} className="text-black">
+                        {pos}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    value={preferredFootInput}
+                    onChange={(e) => setPreferredFootInput(e.target.value)}
+                    aria-label="Pied fort"
+                    className="h-8 w-full max-w-xs rounded-md border border-white/30 bg-white/10 px-2 text-sm text-white"
+                  >
+                    <option value="" className="text-black">Non renseigné</option>
+                    <option value="Droit" className="text-black">Droit</option>
+                    <option value="Gauche" className="text-black">Gauche</option>
+                    <option value="Ambidextre" className="text-black">Ambidextre</option>
+                  </select>
+                  <div className="flex flex-wrap gap-1.5">
+                    {POSITIONS.map((pos) => {
+                      const active = secondaryPositionsInput.includes(pos);
+                      return (
+                        <button
+                          key={pos}
+                          type="button"
+                          onClick={() =>
+                            setSecondaryPositionsInput((prev) =>
+                              active ? prev.filter((p) => p !== pos) : [...prev, pos]
+                            )
+                          }
+                          className={`rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
+                            active
+                              ? "border-white bg-white/25 text-white"
+                              : "border-white/30 text-white/60 hover:text-white"
+                          }`}
+                        >
+                          {pos}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      className="flex h-7 w-7 items-center justify-center rounded-full bg-green-500 text-white"
+                      onClick={handleSaveAttributes}
+                      aria-label="Valider"
+                    >
+                      <Check className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      className="flex h-7 w-7 items-center justify-center rounded-full bg-red-500 text-white"
+                      onClick={() => setEditingAttributes(false)}
+                      aria-label="Annuler"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <p className="text-white/50 text-sm mt-0.5 flex items-center gap-1.5">
+                    {stats.position || "Joueur"}
+                    {isCoach && (
+                      <button
+                        className="flex h-5 w-5 items-center justify-center rounded-full bg-white/15 text-white/80 hover:text-white"
+                        onClick={() => {
+                          setPositionInput(profile.position ?? "");
+                          setPreferredFootInput(profile.preferred_foot ?? "");
+                          setSecondaryPositionsInput(profile.secondary_positions ?? []);
+                          setEditingAttributes(true);
+                        }}
+                        title="Modifier le pied fort et les postes"
+                        aria-label="Modifier le pied fort et les postes"
+                      >
+                        <Pencil className="h-3 w-3" />
+                      </button>
+                    )}
+                  </p>
+                  {(profile.preferred_foot || profile.height_cm || profile.weight_kg || (profile.secondary_positions?.length ?? 0) > 0) && (
+                    <p className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-white/60">
+                      {profile.preferred_foot && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2 py-0.5">
+                          <span className="h-2 w-2 rounded-full bg-white/70" />
+                          Pied {profile.preferred_foot.toLowerCase()}
+                        </span>
+                      )}
+                      {profile.height_cm && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2 py-0.5">
+                          {profile.height_cm} cm
+                        </span>
+                      )}
+                      {profile.weight_kg && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2 py-0.5">
+                          {profile.weight_kg} kg
+                        </span>
+                      )}
+                    </p>
                   )}
-                  {profile.height_cm && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2 py-0.5">
-                      {profile.height_cm} cm
-                    </span>
+                  {(profile.secondary_positions?.length ?? 0) > 0 && (
+                    <p className="mt-1 text-[11px] text-white/50">
+                      Aussi : {profile.secondary_positions!.join(" · ")}
+                    </p>
                   )}
-                  {profile.weight_kg && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2 py-0.5">
-                      {profile.weight_kg} kg
-                    </span>
-                  )}
-                </p>
-              )}
-              {(profile.secondary_positions?.length ?? 0) > 0 && (
-                <p className="mt-1 text-[11px] text-white/50">
-                  Aussi : {profile.secondary_positions!.join(" · ")}
-                </p>
+                </>
               )}
               <div className="flex gap-2 mt-2">
                 {stats.yellow_cards > 0 && <Badge className="bg-yellow-400 text-yellow-900">{stats.yellow_cards} jaunes</Badge>}
