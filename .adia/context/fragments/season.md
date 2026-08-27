@@ -1,6 +1,6 @@
 # Fragment — season
 > Genere par @init_project le 2026-08-24
-> Derniere mise a jour : 2026-08-24
+> Derniere mise a jour : 2026-08-25 (fix-assiduite-training-only)
 > Module path : src/lib/season/ + src/app/api/season/
 
 ## Responsabilite
@@ -24,3 +24,4 @@ Gestion de saison : statistiques aggregees, rapports IA (bilan, newsletter, stor
 ## Points d'attention
 - Saison = annee scolaire (aout a juillet) : `currentSeasonLabel()` dans goals.ts
 - Toutes les generations IA utilisent Mistral API
+- **Assiduite** : `stats.ts` (attendanceRate) et `seasonReport.ts` (attendancePct) calculent l'assiduite **UNIQUEMENT sur les entrainements** (`events.type='training'`) via le helper `computeAttendanceRate` (src/lib/attendance/, voir fragment lib-attendance.md). Les stats de match restent calculees sur les matchs. `seasonReport.ts` calculait AVANT (a tort) l'assiduite sur les matchIds — corrige.

@@ -1,6 +1,6 @@
 # .adia/context/index.yaml
 # Genere par @init_project le 2026-08-24 — Projet Benchrs
-# Derniere mise a jour : 2026-08-24 (reconciliation fix-auto-convocations)
+# Derniere mise a jour : 2026-08-27 (reconciliation fiche-joueur-composition)
 
 project: benchrs
 type: pwa
@@ -76,11 +76,11 @@ modules:
 
   events-matches:
     path: src/app/(dashboard)/matches/
-    description: Match pages — detail, stats, lineups, score live, report
+    description: "Match pages — detail, stats, lineups, score live, report. La carte « Composition » est editable en place par un coach via LineupEditor ; version read-only conservee pour les autres roles"
     fragment: fragments/events-matches.md
     entry_point: "[id]/page.tsx"
     exports: []
-    depends_on: [supabase, lib-auth, notifications]
+    depends_on: [supabase, lib-auth, notifications, components-lineup, lib-lineup, types]
     routes: [POST /api/matches/report, POST /api/matches/live-token, POST /api/matches/availability/notify]
     tests: null
 
@@ -123,13 +123,22 @@ modules:
     routes: [POST /api/chat/player-channel]
     tests: null
 
+  lib-attendance:
+    path: src/lib/attendance/
+    description: "Regle metier assiduite — helper pur : l'assiduite ne compte QUE la presence aux entrainements (events.type='training'), jamais les matchs. present = status present|late"
+    fragment: fragments/lib-attendance.md
+    entry_point: computeAttendanceRate.ts
+    exports: [computeAttendanceRate]
+    depends_on: []
+    tests: [src/lib/attendance/computeAttendanceRate.test.ts]
+
   season:
     path: src/lib/season/
     description: Season management — stats, IA reports, newsletter, storybook, greetings
     fragment: fragments/season.md
     entry_point: ai-generator.ts
     exports: [buildSeasonStatsContext, generateNewsletter, generateStorybook, generateGreeting]
-    depends_on: [supabase]
+    depends_on: [supabase, lib-attendance]
     routes: [POST /api/season/report, GET /api/season/report/pdf, POST /api/season/plan, POST /api/season/storybook, POST /api/season/greetings, POST /api/season/copy]
     tests: null
 
@@ -154,9 +163,90 @@ modules:
 
   types:
     path: src/types/
-    description: TypeScript type definitions — all domain models
+    description: "TypeScript type definitions — all domain models. FormationData unifie (positions + bench? + captain_id?) : source de verite unique, plus aucune redeclaration locale"
     fragment: fragments/types.md
     entry_point: index.ts
-    exports: [User, Team, Profile, Event, Attendance, MatchStat, ChatChannel, Notification, etc.]
+    exports: [User, Team, Profile, Event, Attendance, MatchStat, MatchLineup, Formation, FormationData, PlayerPosition, ChatChannel, Notification, etc.]
     depends_on: []
     tests: null
+
+  lib-lineup:
+    path: src/lib/lineup/
+    description: "Vocabulaire de postes + formations + composition automatique + projection match_lineups. Fonctions PURES (aucune I/O, aucun React) — source de verite unique des libelles de postes persistes en base"
+    fragment: fragments/lib-lineup.md
+    entry_point: positions.ts
+    exports: [POSITION_KEYS, PositionKey, POSITION_LABELS, POSITIONS, labelToKey, POSITION_FAMILY, SlotPos, FORMATIONS, ComposablePlayer, ComposableSlot, AutoComposeInput, AutoComposeResult, autoCompose, MatchLineupRow, toMatchLineupRows]
+    depends_on: [types]
+    tests: [src/lib/lineup/positions.test.ts, src/lib/lineup/formations.test.ts, src/lib/lineup/autoCompose.test.ts, src/lib/lineup/toMatchLineups.test.ts]
+
+  components-lineup:
+    path: src/components/lineup/
+    description: "Editeur de composition reutilisable. LineupEditor est le SEUL point d'edition d'une compo — consomme par l'onglet Tactiques et par la fiche match, pilote par LineupEditorProps (showEventPicker)"
+    fragment: fragments/components-lineup.md
+    entry_point: LineupEditor.tsx
+    exports: [LineupEditor, LineupEditorProps, MatchEventOption, PitchSVG]
+    depends_on: [lib-lineup, supabase, lib-auth, components-ui, types]
+    tests: [src/__tests__/pages/lineup-extraction.test.ts, src/__tests__/pages/tactics-split.test.ts]
+
+  lib-profile:
+    path: src/lib/profile/
+    description: "Helpers purs d'edition du profil joueur. buildProfileAttributesPayload normalise pied fort + postes secondaires et n'emet JAMAIS la cle role (trigger SQL prevent_self_role_change)"
+    fragment: fragments/lib-profile.md
+    entry_point: buildProfileAttributesPayload.ts
+    exports: [buildProfileAttributesPayload, BuildProfileAttributesInput, ProfileAttributesPayload]
+    depends_on: [lib-lineup]
+    tests: [src/lib/profile/buildProfileAttributesPayload.test.ts]
+
+  tactics:
+    path: src/app/(dashboard)/tactics/
+    description: "Espace tactique — onglet Seance (creation IA/manuelle) et onglet Feuille de match (composition). FeuilletMatchTab est desormais un simple wrapper (54 l.) autour de LineupEditor ; son chemin est fige par tactics-split.test.ts"
+    fragment: fragments/tactics.md
+    entry_point: page.tsx
+    exports: []
+    depends_on: [components-lineup, lib-lineup, supabase, lib-auth, lib-training, types]
+    tests: [src/__tests__/pages/tactics-split.test.ts, src/__tests__/pages/lineup-extraction.test.ts]
+
+  roster:
+    path: src/app/(dashboard)/roster/
+    description: Effectif de l'equipe — liste des joueurs, acces aux fiches joueur (PlayerProfile)
+    fragment: fragments/app-dashboard.md
+    entry_point: page.tsx
+    exports: []
+    depends_on: [supabase, lib-auth, components-stats]
+    tests: null
+
+  settings:
+    path: src/app/(dashboard)/settings/
+    description: "Reglages compte et equipe — page.tsx (profil utilisateur, consomme POSITIONS via src/lib/positions.ts) et settings/team/ decoupe en sections (ColorsSection, DangerZoneSection, LogoBannerSection, MembersSection, TeamInfoSection)"
+    fragment: fragments/app-dashboard.md
+    entry_point: page.tsx
+    exports: []
+    depends_on: [supabase, lib-auth, lib-lineup, components-ui]
+    tests: [src/__tests__/pages/settings-team-split.test.ts]
+
+  championship:
+    path: src/app/(dashboard)/championship/
+    description: Championnat — classement, calendrier et resultats de la competition (donnees DOFA/FFF)
+    fragment: fragments/app-dashboard.md
+    entry_point: page.tsx
+    exports: []
+    depends_on: [supabase, lib-auth]
+    tests: [src/__tests__/lib/dofa-client.test.ts]
+
+  components-stats:
+    path: src/components/stats/
+    description: "Visualisation des stats joueur/coach. PlayerProfile porte desormais l'edition inline coach du pied fort, du poste principal et des postes secondaires"
+    fragment: fragments/components-stats.md
+    entry_point: PlayerProfile.tsx
+    exports: [PlayerProfile, CoachStats, PersonalGoalsCard, PlayerBadgesCard, SeasonReportCard, PlayerPaniniCard, EmergencyInfoCard]
+    depends_on: [supabase, lib-auth, lib-profile, lib-lineup, lib-attendance, components-ui]
+    tests: null
+
+  legacy-parity:
+    path: scripts/
+    description: "Garde-fous de parite entre l'app principale (src/) et le fork legacy-app/src/. check-legacy-parity.mjs compare les arbres, sync-legacy.sh replique src/ vers legacy-app/src/"
+    fragment: fragments/app-legacy.md
+    entry_point: check-legacy-parity.mjs
+    exports: [npm run check:legacy-parity, npm run sync:legacy]
+    depends_on: []
+    tests: [src/__tests__/legacy/parity.test.ts, src/__tests__/legacy/vercel-crons.test.ts]
