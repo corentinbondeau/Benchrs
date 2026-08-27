@@ -1,4 +1,21 @@
-const DOFA_BASE_URL = "https://api-dofa.prd-aws.fff.fr";
+const DOFA_BASE_URL = process.env.DOFA_BASE_URL || "https://api-dofa.fff.fr";
+
+/**
+ * Erreur typée levée lorsque la source DOFA est injoignable ou refuse la
+ * requête. Permet de distinguer une vraie panne d'infrastructure (réseau,
+ * blocage Akamai, autre erreur HTTP) d'une absence de résultat métier.
+ */
+export class DofaUnavailableError extends Error {
+  readonly reason: "network" | "blocked" | "http";
+  readonly status?: number;
+
+  constructor(reason: "network" | "blocked" | "http", status?: number, message?: string) {
+    super(message ?? `DOFA unavailable (${reason}${status ? `, HTTP ${status}` : ""})`);
+    this.name = "DofaUnavailableError";
+    this.reason = reason;
+    this.status = status;
+  }
+}
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────
 
@@ -130,16 +147,29 @@ export function parseMatches(data: unknown): ParsedMatch[] {
 async function fetchDOFA(path: string): Promise<unknown> {
   const url = `${DOFA_BASE_URL}${path}`;
 
-  const res = await fetch(url, {
-    method: "GET",
-    headers: {
-      "User-Agent": "Mozilla/5.0 (Benchrs) AppleWebKit/537.36",
-      Accept: "application/json",
-    },
-  });
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: "GET",
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Benchrs) AppleWebKit/537.36",
+        Accept: "application/json",
+      },
+    });
+  } catch (err) {
+    const originalMessage = err instanceof Error ? err.message : String(err);
+    throw new DofaUnavailableError("network", undefined, originalMessage);
+  }
 
-  if (!res.ok) {
-    throw new Error(`DOFA HTTP ${res.status}`);
+  if (!res || !res.ok) {
+    const status = res?.status;
+    if (status === 403) {
+      throw new DofaUnavailableError("blocked", 403, `DOFA HTTP 403`);
+    }
+    if (status !== undefined) {
+      throw new DofaUnavailableError("http", status, `DOFA HTTP ${status}`);
+    }
+    throw new DofaUnavailableError("network");
   }
 
   try {

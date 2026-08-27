@@ -10,7 +10,7 @@
  *   6. Erreurs HTTP      : 404 → throw Error, 500 → throw Error
  *
  * Hors-scope :
- *   - Tests d'intégration réseau réels contre api-dofa.prd-aws.fff.fr
+ *   - Tests d'intégration réseau réels contre l'API DOFA de production
  *   - Logique d'authentification Supabase (testée dans la route)
  *   - Fusion calendrier/résultats (logique de la route, pas du client)
  *
@@ -30,7 +30,7 @@ import {
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 
-const BASE_URL = "https://api-dofa.prd-aws.fff.fr";
+const BASE_URL = "https://api-dofa.fff.fr";
 const FFF_NUMBER = "525816";
 const EQ_NO = "525816A";
 
@@ -392,7 +392,7 @@ describe("Construction des URLs DOFA", () => {
 
     for (const call of fetchSpy.mock.calls) {
       const [url] = call;
-      expect(url as string).toMatch(/^https:\/\/api-dofa\.prd-aws\.fff\.fr\//);
+      expect(url as string).toMatch(/^https:\/\/api-dofa\.fff\.fr\//);
     }
   });
 });

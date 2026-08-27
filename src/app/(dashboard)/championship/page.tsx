@@ -159,7 +159,10 @@ export default function ChampionshipPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        const errorMsg = data.error || "Impossible de récupérer les équipes";
+        const errorMsg =
+          res.status === 502 || res.status === 503
+            ? "L'import automatique FFF est actuellement indisponible. Utilisez l'import manuel en attendant."
+            : data.error || "Impossible de récupérer les équipes";
         setSearchError(errorMsg);
         console.error("[Team Search Error]", data);
         return;
@@ -247,7 +250,7 @@ export default function ChampionshipPage() {
         } else if (res.status === 404) {
           errorMsg = "Club non trouvé avec ce numéro FFF";
         } else if (res.status === 502 || res.status === 503) {
-          errorMsg = "Service FFF indisponible. Réessayez plus tard";
+          errorMsg = "L'import automatique FFF est actuellement indisponible. Utilisez l'import manuel ci-dessous en attendant.";
         } else if (data.error) {
           errorMsg = data.error;
         }
@@ -376,7 +379,7 @@ export default function ChampionshipPage() {
         } else if (res.status === 404) {
           toast.error("Club ou équipe non trouvée");
         } else if (res.status === 502 || res.status === 503) {
-          toast.error("API FFF indisponible. Veuillez réessayer plus tard");
+          toast.error("L'import automatique FFF est actuellement indisponible. Utilisez l'import manuel en attendant.");
         } else {
           toast.error(data.error || "Erreur lors de la récupération des données");
         }

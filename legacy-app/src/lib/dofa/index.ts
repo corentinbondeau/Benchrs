@@ -5,6 +5,7 @@ export {
   fetchClassement,
   parseTeams,
   parseMatches,
+  DofaUnavailableError,
 } from "./client";
 
 export type {
