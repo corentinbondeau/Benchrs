@@ -38,7 +38,6 @@ import path from "node:path";
 
 // ─── Import du SUT ────────────────────────────────────────────────────────────
 import {
-  fetchClubEquipes,
   DofaUnavailableError,
   fetchPouleResultats,
   fetchPouleCalendrier,
@@ -48,10 +47,11 @@ import {
   fetchPoule,
 } from "@/lib/dofa/client";
 
-const FFF_NUMBER = "525816";
-
 /**
- * Triplet de test pour les nouvelles fonctions orientées poule (lot 4).
+ * Triplet de test pour les fonctions orientées poule (lot 4). Les cas de
+ * classification d'erreur historiquement verrouillés sur `fetchClubEquipes`
+ * (code mort, supprimé) sont désormais portés par `fetchPouleResultats`,
+ * fonction réellement utilisée par la route `/api/championships/dofa`.
  * cp_no = 457587, phase = 1, poule = 4 (cf. URLs réelles district Flandres).
  */
 const POULE_REF = { cpNo: 457587, phase: 1, poule: 4 };
@@ -73,12 +73,12 @@ describe("Client DOFA — classification explicite des erreurs", () => {
       new TypeError("fetch failed: getaddrinfo ENOTFOUND api-dofa.prd-aws.fff.fr")
     );
 
-    await expect(fetchClubEquipes(FFF_NUMBER)).rejects.toMatchObject({
+    await expect(fetchPouleResultats(POULE_REF)).rejects.toMatchObject({
       reason: "network",
     });
 
     try {
-      await fetchClubEquipes(FFF_NUMBER);
+      await fetchPouleResultats(POULE_REF);
     } catch (err) {
       expect(err, "l'erreur doit être une instance de DofaUnavailableError").toBeInstanceOf(
         DofaUnavailableError
@@ -93,7 +93,7 @@ describe("Client DOFA — classification explicite des erreurs", () => {
       json: async () => ({}),
     } as Response);
 
-    await expect(fetchClubEquipes(FFF_NUMBER)).rejects.toMatchObject({
+    await expect(fetchPouleResultats(POULE_REF)).rejects.toMatchObject({
       reason: "blocked",
       status: 403,
     });
@@ -106,21 +106,20 @@ describe("Client DOFA — classification explicite des erreurs", () => {
       json: async () => ({}),
     } as Response);
 
-    await expect(fetchClubEquipes(FFF_NUMBER)).rejects.toMatchObject({
+    await expect(fetchPouleResultats(POULE_REF)).rejects.toMatchObject({
       reason: "http",
       status: 500,
     });
   });
 
   it("ne lève aucune erreur et retourne les données parsées si la réponse est OK", async () => {
-    const equipes = [{ eqNo: "525816A", libelle: "Equipe Senior A" }];
     vi.mocked(global.fetch).mockResolvedValueOnce({
       ok: true,
       status: 200,
-      json: async () => equipes,
+      json: async () => [],
     } as Response);
 
-    await expect(fetchClubEquipes(FFF_NUMBER)).resolves.toEqual(equipes);
+    await expect(fetchPouleResultats(POULE_REF)).resolves.toEqual([]);
   });
 
   it("un 403 et un 500 sont distinguables via `reason` (403 = blocage, pas une absence de résultat métier)", async () => {
@@ -131,7 +130,7 @@ describe("Client DOFA — classification explicite des erreurs", () => {
     } as Response);
     let reason403: string | undefined;
     try {
-      await fetchClubEquipes(FFF_NUMBER);
+      await fetchPouleResultats(POULE_REF);
     } catch (err) {
       reason403 = (err as DofaUnavailableError).reason;
     }
@@ -143,7 +142,7 @@ describe("Client DOFA — classification explicite des erreurs", () => {
     } as Response);
     let reason500: string | undefined;
     try {
-      await fetchClubEquipes(FFF_NUMBER);
+      await fetchPouleResultats(POULE_REF);
     } catch (err) {
       reason500 = (err as DofaUnavailableError).reason;
     }
@@ -178,14 +177,14 @@ describe("Client DOFA — base URL configurable (garde-fou anti-régression)", (
     vi.resetModules();
 
     try {
-      const { fetchClubEquipes: fetchClubEquipesFresh } = await import("@/lib/dofa/client");
+      const { fetchPouleResultats: fetchPouleResultatsFresh } = await import("@/lib/dofa/client");
       global.fetch = vi.fn().mockResolvedValueOnce({
         ok: true,
         status: 200,
         json: async () => [],
       } as Response);
 
-      await fetchClubEquipesFresh(FFF_NUMBER);
+      await fetchPouleResultatsFresh(POULE_REF);
 
       const calledUrl = vi.mocked(global.fetch).mock.calls[0][0] as string;
       expect(calledUrl.startsWith("https://dofa-test.example.test")).toBe(true);
@@ -217,7 +216,7 @@ describe("Client DOFA — base URL configurable (garde-fou anti-régression)", (
  *
  * ⚠️ Anti-régression capitale : la classification DofaUnavailableError
  * (network / blocked 403 / http) doit être IDENTIQUE à celle déjà verrouillée
- * ci-dessus pour fetchClubEquipes. Ces tests le reverrouillent explicitement
+ * ci-dessus pour fetchPouleResultats. Ces tests le reverrouillent explicitement
  * sur les nouvelles fonctions, pour qu'un futur refactor du client ne puisse
  * jamais faire regresser une vraie panne en "aucun résultat" silencieux.
  *

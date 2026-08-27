@@ -1,5 +1,4 @@
 export {
-  fetchClubEquipes,
   fetchPouleResultats,
   fetchPouleCalendrier,
   fetchPouleClassement,
@@ -9,7 +8,7 @@ export {
   DofaUnavailableError,
 } from "./client";
 
-export type { DOFAEquipe, DofaPouleRef as DofaPouleRefClient } from "./client";
+export type { DofaPouleRef as DofaPouleRefClient } from "./client";
 
 export { parsePouleUrl } from "./poule-url";
 

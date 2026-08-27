@@ -22,20 +22,6 @@ export class DofaUnavailableError extends Error {
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────
 
-/**
- * Modèle club historique (une seule équipe interrogée par numéro FFF de
- * club). Conservé uniquement pour `fetchClubEquipes`, dont la classification
- * d'erreur reste verrouillée par les tests existants — pas de nouvel usage
- * prévu au-delà du modèle compétition (poule).
- */
-export interface DOFAEquipe {
-  eqNo: string;
-  libelle: string;
-  competition?: {
-    libelle: string;
-  };
-}
-
 /** Référence d'une poule dans le modèle orienté compétition. */
 export interface DofaPouleRef {
   cpNo: number;
@@ -93,14 +79,6 @@ function poulePath(ref: DofaPouleRef, resource?: string): string {
 async function fetchPouleMatchesResource(ref: DofaPouleRef, resource: string): Promise<DofaMatch[]> {
   const data = await fetchDOFA(poulePath(ref, resource));
   return parseDofaMatches(normalizeDofaCollection(data));
-}
-
-// ─── API publique — modèle club (historique, conservé pour fetchClubEquipes) ──
-
-/** Retourne la liste des équipes d'un club. */
-export async function fetchClubEquipes(fffNumber: string): Promise<DOFAEquipe[]> {
-  const data = await fetchDOFA(`/api/clubs/${fffNumber}/equipes.json`);
-  return Array.isArray(data) ? (data as DOFAEquipe[]) : [];
 }
 
 // ─── API publique — modèle compétition (compets/phases/poules) ───────────────

@@ -53,6 +53,14 @@ interface ScrapedMatch {
   location?: string;
 }
 
+// La recherche automatique par club/nom/numéro FFF ne fonctionne plus : la
+// FFF a changé son API DOFA (nouveau modèle par compétition/phase/poule, qui
+// ne connaît ni la recherche par nom, ni la notion d'équipe de club). Ce flux
+// ne reviendra pas — inutile d'inviter à réessayer plus tard. L'import manuel
+// (dialog « Import manuel » ci-dessous) reste disponible et fonctionnel.
+const DOFA_CLUB_SEARCH_DEAD_MESSAGE =
+  "La recherche automatique par club n'est plus possible : la FFF a changé son API. Utilisez l'import manuel ci-dessous, qui fonctionne toujours.";
+
 export default function ChampionshipPage() {
   const { currentTeam, userRole } = useTeam();
   const isCoach = userRole === "coach" || userRole === "owner";
@@ -101,6 +109,7 @@ export default function ChampionshipPage() {
       if (!res.ok) {
         console.error("[Club Search Error]", res.status, data);
         setClubSuggestions([]);
+        setSearchError(DOFA_CLUB_SEARCH_DEAD_MESSAGE);
         return;
       }
 
@@ -160,8 +169,8 @@ export default function ChampionshipPage() {
 
       if (!res.ok) {
         const errorMsg =
-          res.status === 502 || res.status === 503
-            ? "L'import automatique FFF est actuellement indisponible. Utilisez l'import manuel en attendant."
+          res.status === 400 || res.status === 502 || res.status === 503
+            ? DOFA_CLUB_SEARCH_DEAD_MESSAGE
             : data.error || "Impossible de récupérer les équipes";
         setSearchError(errorMsg);
         console.error("[Team Search Error]", data);
@@ -246,11 +255,11 @@ export default function ChampionshipPage() {
       if (!res.ok) {
         let errorMsg = "Erreur lors de la recherche";
         if (res.status === 400) {
-          errorMsg = "Numéro FFF non valide";
+          errorMsg = DOFA_CLUB_SEARCH_DEAD_MESSAGE;
         } else if (res.status === 404) {
           errorMsg = "Club non trouvé avec ce numéro FFF";
         } else if (res.status === 502 || res.status === 503) {
-          errorMsg = "L'import automatique FFF est actuellement indisponible. Utilisez l'import manuel ci-dessous en attendant.";
+          errorMsg = DOFA_CLUB_SEARCH_DEAD_MESSAGE;
         } else if (data.error) {
           errorMsg = data.error;
         }
@@ -375,11 +384,11 @@ export default function ChampionshipPage() {
       // Gestion des erreurs API
       if (!res.ok) {
         if (res.status === 400) {
-          toast.error(data.error || "Numéro FFF ou équipe invalide");
+          toast.error(DOFA_CLUB_SEARCH_DEAD_MESSAGE);
         } else if (res.status === 404) {
           toast.error("Club ou équipe non trouvée");
         } else if (res.status === 502 || res.status === 503) {
-          toast.error("L'import automatique FFF est actuellement indisponible. Utilisez l'import manuel en attendant.");
+          toast.error(DOFA_CLUB_SEARCH_DEAD_MESSAGE);
         } else {
           toast.error(data.error || "Erreur lors de la récupération des données");
         }
