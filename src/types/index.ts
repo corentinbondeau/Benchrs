@@ -272,6 +272,8 @@ export interface Formation {
 
 export interface FormationData {
   positions: PlayerPosition[];
+  bench?: (string | null)[];
+  captain_id?: string | null;
 }
 
 export interface PlayerPosition {

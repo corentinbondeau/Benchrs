@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ArrowLeft, Save, Share2, Shield, User, ClipboardList, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import type { Event, Formation } from "@/types";
+import type { Event, Formation, FormationData } from "@/types";
 
 interface LineupEntry {
   id: string;
@@ -19,11 +19,6 @@ interface LineupEntry {
   position_label: string | null;
   is_starter: boolean;
   profile?: { id: string; first_name: string; last_name: string; shirt_number: number | null; position: string | null };
-}
-
-interface FormationData {
-  positions: { player_id: string; x: number; y: number; label: string }[];
-  captain_id?: string;
 }
 
 type MatchEvent = Event & { meeting_time: string | null };

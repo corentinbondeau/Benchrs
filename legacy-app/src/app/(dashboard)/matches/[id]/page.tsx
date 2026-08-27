@@ -67,6 +67,7 @@ import type {
   Event,
   MatchStat,
   Formation,
+  FormationData,
   MatchLineup,
   Profile,
 } from "@/types";
@@ -82,11 +83,6 @@ interface PlayerStat extends MatchStat {
 
 interface LineupEntry extends MatchLineup {
   profile?: Profile;
-}
-
-interface FormationData {
-  positions: { player_id: string; x: number; y: number; label: string }[];
-  captain_id?: string;
 }
 
 interface StatsFormEntry {

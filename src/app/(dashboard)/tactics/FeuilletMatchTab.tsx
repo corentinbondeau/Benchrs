@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/select";
 import { Crown } from "lucide-react";
 import { toast } from "sonner";
-import type { Profile, Event, Formation } from "@/types";
+import type { Profile, Event, Formation, FormationData } from "@/types";
 import { FORMATIONS } from "@/lib/lineup/formations";
 import { autoCompose as autoComposePure } from "@/lib/lineup/autoCompose";
 
@@ -306,10 +306,10 @@ export default function FeuilletMatchTab() {
       if (existingFormation?.formation_data) {
         setFormationName(existingFormation.name);
         setLoadedFormationId(existingFormation.id);
-        const fd = existingFormation.formation_data as any;
+        const fd = existingFormation.formation_data as FormationData;
         if (fd.positions) {
           const newAssignments: Record<string, string> = {};
-          fd.positions.forEach((pos: any, i: number) => {
+          fd.positions.forEach((pos, i) => {
             if (pos.player_id) {
               newAssignments[`slot-${i}`] = pos.player_id;
             }
