@@ -1,0 +1,197 @@
+[
+  {
+    "ma_no": 56363596,
+    "competition": {
+      "cp_no": 457587,
+      "season": 2026,
+      "type": "CH",
+      "name": "Seniors D4",
+      "level": "D",
+      "cdg": { "cg_no": 90, "name": "DISTRICT DES FLANDRES" }
+    },
+    "phase": { "number": 1, "type": "CH", "name": "PHASE 1" },
+    "poule": {
+      "stage_number": 4,
+      "name": "POULE D",
+      "poule_unique": false,
+      "at_least_one_match_resultat": false
+    },
+    "poule_journee": { "number": 1, "name": "1" },
+    "home": {
+      "club": { "cl_no": 206181, "logo": "https://cdn-transverse.azureedge.net/phlogos/BC564677.jpg" },
+      "category_code": "SEM",
+      "number": 6,
+      "code": 2,
+      "short_name": "PEVELE FC",
+      "type": "C",
+      "category_label": "Senior Libre",
+      "category_gender": "M"
+    },
+    "away": {
+      "club": { "cl_no": 918, "logo": "https://cdn-transverse.azureedge.net/phlogos/BC501330.jpg" },
+      "category_code": "SEM",
+      "number": 2,
+      "code": 2,
+      "short_name": "BOUSBECQUE CS",
+      "type": "C",
+      "category_label": "Senior Libre",
+      "category_gender": "M"
+    },
+    "terrain": {
+      "te_no": 590980101,
+      "name": "COMPLEXE SPORTIF LÉON DALLE 1",
+      "zip_code": "59166",
+      "city": "BOUSBECQUE",
+      "libelle_surface": "Pelouse Naturelle",
+      "address": "23 BIS RUE DE LINSELLES"
+    },
+    "season": 2026,
+    "status": "A",
+    "ma_inver": "O",
+    "ma_arret": "N",
+    "is_overtime": "N",
+    "date": "2026-09-06T00:00:00+00:00",
+    "time": "13H00",
+    "initial_date": null,
+    "home_resu": "",
+    "home_score": null,
+    "home_is_forfeit": "N",
+    "away_resu": "",
+    "away_score": null,
+    "away_is_forfeit": "N",
+    "seems_postponed": "",
+    "match_membres": [],
+    "match_feuille": null,
+    "status_label": "/"
+  },
+  {
+    "ma_no": 56363599,
+    "competition": {
+      "cp_no": 457587,
+      "season": 2026,
+      "type": "CH",
+      "name": "Seniors D4",
+      "level": "D",
+      "cdg": { "cg_no": 90, "name": "DISTRICT DES FLANDRES" }
+    },
+    "phase": { "number": 1, "type": "CH", "name": "PHASE 1" },
+    "poule": {
+      "stage_number": 4,
+      "name": "POULE D",
+      "poule_unique": false,
+      "at_least_one_match_resultat": false
+    },
+    "poule_journee": { "number": 1, "name": "1" },
+    "home": {
+      "club": { "cl_no": 10428, "logo": "https://cdn-transverse.azureedge.net/phlogos/BC525816.jpg" },
+      "category_code": "SEM",
+      "number": 1,
+      "code": 1,
+      "short_name": "CAMPHIN PEVELE ECF",
+      "type": "C",
+      "category_label": "Senior Libre",
+      "category_gender": "M"
+    },
+    "away": {
+      "club": { "cl_no": 6956, "logo": "https://cdn-transverse.azureedge.net/phlogos/BC520504.jpg" },
+      "category_code": "SEM",
+      "number": 2,
+      "code": 2,
+      "short_name": "WATTIGNIES FC",
+      "type": "C",
+      "category_label": "Senior Libre",
+      "category_gender": "M"
+    },
+    "terrain": {
+      "te_no": 591240101,
+      "name": "STADE MUNICIPAL",
+      "zip_code": "59780",
+      "city": "CAMPHIN EN PEVELE",
+      "libelle_surface": "Synthétique",
+      "address": "2 RUE DE LA BASSE COUTURE"
+    },
+    "season": 2026,
+    "status": "A",
+    "ma_inver": "N",
+    "ma_arret": "N",
+    "is_overtime": "N",
+    "date": "2026-09-06T00:00:00+00:00",
+    "time": "15H00",
+    "initial_date": null,
+    "home_resu": "",
+    "home_score": null,
+    "home_is_forfeit": "N",
+    "away_resu": "",
+    "away_score": null,
+    "away_is_forfeit": "N",
+    "seems_postponed": "",
+    "match_membres": [],
+    "match_feuille": null,
+    "status_label": "/"
+  },
+  {
+    "ma_no": 56363601,
+    "competition": {
+      "cp_no": 457587,
+      "season": 2026,
+      "type": "CH",
+      "name": "Seniors D4",
+      "level": "D",
+      "cdg": { "cg_no": 90, "name": "DISTRICT DES FLANDRES" }
+    },
+    "phase": { "number": 1, "type": "CH", "name": "PHASE 1" },
+    "poule": {
+      "stage_number": 4,
+      "name": "POULE D",
+      "poule_unique": false,
+      "at_least_one_match_resultat": false
+    },
+    "poule_journee": { "number": 1, "name": "1" },
+    "home": {
+      "club": { "cl_no": 15478, "logo": "https://cdn-transverse.azureedge.net/phlogos/BC533306.jpg" },
+      "category_code": "SEM",
+      "number": 2,
+      "code": 2,
+      "short_name": "TOUFFLERS AF",
+      "type": "C",
+      "category_label": "Senior Libre",
+      "category_gender": "M"
+    },
+    "away": {
+      "club": { "cl_no": 796, "logo": "https://cdn-transverse.azureedge.net/phlogos/BC500982.jpg" },
+      "category_code": "SEM",
+      "number": 10,
+      "code": 3,
+      "short_name": "LEERS OS",
+      "type": "C",
+      "category_label": "Senior Libre",
+      "category_gender": "M"
+    },
+    "terrain": {
+      "te_no": 595980102,
+      "name": "COMPLEXE SPORTIF 2",
+      "zip_code": "59390",
+      "city": "TOUFFLERS",
+      "libelle_surface": "Synthétique",
+      "address": "RUE DES ECOLES"
+    },
+    "season": 2026,
+    "status": "A",
+    "ma_inver": "N",
+    "ma_arret": "N",
+    "is_overtime": "N",
+    "date": "2026-09-06T00:00:00+00:00",
+    "time": "13H00",
+    "initial_date": null,
+    "home_resu": "",
+    "home_score": null,
+    "home_is_forfeit": "N",
+    "away_resu": "",
+    "away_score": null,
+    "away_is_forfeit": "N",
+    "seems_postponed": "",
+    "match_membres": [],
+    "match_feuille": null,
+    "status_label": "/"
+  }
+]

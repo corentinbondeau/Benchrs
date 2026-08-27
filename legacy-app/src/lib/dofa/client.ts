@@ -19,6 +19,7 @@ export class DofaUnavailableError extends Error {
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────
 
+/** @deprecated Modèle club historique, remplacé par le modèle compétition. Supprimé au lot 4. */
 export interface DOFAEquipe {
   eqNo: string;
   libelle: string;
@@ -27,6 +28,7 @@ export interface DOFAEquipe {
   };
 }
 
+/** @deprecated Modèle club historique, remplacé par le modèle compétition (`DofaRawMatch` / `DofaMatch`). Supprimé au lot 4. */
 export interface DOFAMatch {
   idRencontre: string;
   dateMatch: string;
@@ -45,6 +47,7 @@ export interface DOFAMatch {
   };
 }
 
+/** @deprecated Modèle club historique, remplacé par le modèle compétition. Supprimé au lot 4. */
 export interface DOFATeam {
   libelle: string;
   points?: number;
