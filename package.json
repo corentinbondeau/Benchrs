@@ -16,7 +16,9 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:unit": "VITE_CONFIG_NATIVE_IGNORE_WARNING=true vitest",
-    "test:unit:run": "VITE_CONFIG_NATIVE_IGNORE_WARNING=true vitest run"
+    "test:unit:run": "VITE_CONFIG_NATIVE_IGNORE_WARNING=true vitest run",
+    "check:legacy-parity": "node scripts/check-legacy-parity.mjs",
+    "sync:legacy": "bash scripts/sync-legacy.sh"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",

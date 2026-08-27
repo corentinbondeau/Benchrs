@@ -89,3 +89,57 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 7
+
+  # ---------------------------------------------------------------------------
+  # Fork legacy-app (Next 14 / React 18 / Tailwind 3)
+  # Le code applicatif de `legacy-app/src/` doit rester identique à `src/`,
+  # hors allowlist déclarée dans scripts/check-legacy-parity.mjs.
+  # ---------------------------------------------------------------------------
+  legacy-parity:
+    name: Parité fork legacy
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # Script Node pur (node:fs/path/crypto), aucune dépendance : pas de npm ci.
+      - name: Vérifier la parité src/ ↔ legacy-app/src/
+        run: npm run check:legacy-parity
+      - name: Aide en cas de dérive
+        if: failure()
+        run: |
+          echo "::error::Le fork legacy-app a divergé de l'app principale."
+          echo "Corrige en lançant 'npm run sync:legacy' puis en committant le résultat."
+          echo "Si l'écart est intentionnel, déclare-le dans l'allowlist de scripts/check-legacy-parity.mjs."
+
+  legacy-build:
+    name: Build fork legacy
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: legacy-app
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      OLLAMA_URL: ${{ secrets.OLLAMA_URL || 'http://localhost:11434' }}
+      AI_MODEL: ${{ secrets.AI_MODEL || 'llama3.1:8b' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: legacy-app/package-lock.json
+      - run: npm ci
+      # Non bloquant : les écarts de signatures de types React 18 vs React 19
+      # sont attendus sur le fork (cf. ignoreBuildErrors dans next.config.mjs).
+      # L'étape sert de signal de dérive, pas de garde-fou.
+      - name: Typecheck legacy (non bloquant)
+        continue-on-error: true
+        run: npx tsc --noEmit
+      - name: Build legacy
+        run: npm run build

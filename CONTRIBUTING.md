@@ -108,6 +108,19 @@ npx playwright test --reporter=html
 - **Types** — Ajouter les interfaces dans `src/types/index.ts` (en fin de fichier)
 - **API routes** — Utiliser `getAuthUser()` ou `getAuthUserDetailed()` pour l'auth
 
+## Parité legacy-app (fork Next 14)
+
+`legacy-app/` est un fork downgradé (Next 14 / React 18 / Tailwind 3) de l'app
+principale (`src/`), maintenu pour compatibilité avec les vieux navigateurs.
+Toute modification de `src/` doit être suivie de `npm run sync:legacy` pour
+répercuter le changement dans `legacy-app/src/`. La commande
+`npm run check:legacy-parity` est **bloquante en CI** : elle compare
+récursivement `src/` et `legacy-app/src/` et échoue si un écart hors allowlist
+est détecté. Allowlist actuelle (voir `scripts/check-legacy-parity.mjs`) :
+`proxy.ts`/`middleware.ts` (renommage Next 16 → Next 14),
+`lib/legacyUserAgent.ts`/`.test.ts` (principal seul), `app/layout.tsx` et
+`app/globals.css` (contenu volontairement divergent).
+
 ## Checklist PR
 
 - [ ] TypeScript compile sans erreur (`npx tsc --noEmit`)
