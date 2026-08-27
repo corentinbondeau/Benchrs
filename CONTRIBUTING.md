@@ -112,14 +112,30 @@ npx playwright test --reporter=html
 
 `legacy-app/` est un fork downgradé (Next 14 / React 18 / Tailwind 3) de l'app
 principale (`src/`), maintenu pour compatibilité avec les vieux navigateurs.
-Toute modification de `src/` doit être suivie de `npm run sync:legacy` pour
-répercuter le changement dans `legacy-app/src/`. La commande
-`npm run check:legacy-parity` est **bloquante en CI** : elle compare
-récursivement `src/` et `legacy-app/src/` et échoue si un écart hors allowlist
-est détecté. Allowlist actuelle (voir `scripts/check-legacy-parity.mjs`) :
-`proxy.ts`/`middleware.ts` (renommage Next 16 → Next 14),
-`lib/legacyUserAgent.ts`/`.test.ts` (principal seul), `app/layout.tsx` et
-`app/globals.css` (contenu volontairement divergent).
+Depuis les corrections UX du fork (error boundaries propres, accessibilité,
+pagination, pause des timers), `legacy-app/` n'est plus un miroir intégral de
+`src/` : l'UI y diverge **volontairement**. La parité ne porte donc plus que
+sur la **logique métier partagée**, seule partie qui doit rester strictement
+identique entre les deux arborescences.
+
+Périmètre exact surveillé (voir `PARITY_SCOPE` dans
+`scripts/check-legacy-parity.mjs`) :
+- `src/lib/**`
+- `src/types/**`
+- `src/components/lineup/**`
+
+Tout le reste (`src/app/**`, les composants hors `lineup`, les hooks, les
+tests) est laissé libre : le fork peut y diverger sans que la CI ne le
+signale.
+
+Toute modification de `src/lib`, `src/types` ou `src/components/lineup` doit
+être suivie de `npm run sync:legacy` pour répercuter le changement dans
+`legacy-app/src/`. La commande `npm run check:legacy-parity` est **bloquante
+en CI** : elle compare récursivement ces trois racines entre `src/` et
+`legacy-app/src/` et échoue si un écart hors allowlist est détecté. Allowlist
+actuelle (voir `scripts/check-legacy-parity.mjs`) :
+`lib/legacyUserAgent.ts`/`.test.ts` (spécifiques à l'app principale).
+
 
 ## Checklist PR
 

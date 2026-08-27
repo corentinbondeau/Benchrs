@@ -7,9 +7,13 @@ import { checkLegacyParity } from "../../../scripts/check-legacy-parity.mjs";
 const REPO_ROOT = path.resolve(__dirname, "../../..");
 
 /**
- * Garde-fou de parité src/ <-> legacy-app/src/.
- * Ce test est LE filet anti-régression : si une future US modifie src/
- * sans resynchroniser le fork, il doit casser.
+ * Garde-fou de parité src/ <-> legacy-app/src/, restreint depuis les
+ * corrections UX du fork au périmètre de la logique métier partagée
+ * (PARITY_SCOPE : lib/, types/, components/lineup/). Ce test est LE filet
+ * anti-régression sur ce périmètre : si une future US modifie ces
+ * répertoires dans src/ sans resynchroniser le fork, il doit casser.
+ * En dehors de ce périmètre (app/**, composants UI hors lineup...), le fork
+ * diverge volontairement et n'est plus surveillé.
  */
 describe("checkLegacyParity", () => {
   const tmpDirs: string[] = [];
@@ -26,7 +30,7 @@ describe("checkLegacyParity", () => {
     return dir;
   }
 
-  it("nominal critique : le repo actuel est conforme (src/ <-> legacy-app/src/ synchronisés hors allowlist)", () => {
+  it("nominal critique : le repo actuel est conforme sur le périmètre restreint (lib/, types/, components/lineup/)", () => {
     const result = checkLegacyParity({
       mainDir: path.join(REPO_ROOT, "src"),
       legacyDir: path.join(REPO_ROOT, "legacy-app/src"),
@@ -34,9 +38,9 @@ describe("checkLegacyParity", () => {
 
     expect(
       result.ok,
-      `Dérive détectée entre src/ et legacy-app/src/ (hors allowlist). ` +
-        `Ce garde-fou doit rester vert : si un fichier a été modifié dans src/, ` +
-        `il faut lancer "npm run sync:legacy" ou déclarer l'écart dans l'allowlist.\n` +
+      `Dérive détectée entre src/ et legacy-app/src/ sur le périmètre restreint (hors allowlist). ` +
+        `Ce garde-fou doit rester vert : si un fichier a été modifié dans src/lib, src/types ou ` +
+        `src/components/lineup, il faut lancer "npm run sync:legacy" ou déclarer l'écart dans l'allowlist.\n` +
         `Fichiers en dérive : ${JSON.stringify(result.drift, null, 2)}`
     ).toBe(true);
     expect(result.drift).toEqual([]);
@@ -60,7 +64,7 @@ describe("checkLegacyParity", () => {
     fs.writeFileSync(path.join(mainDir, "diverged.ts"), "export const value = 1;\n");
     fs.writeFileSync(path.join(legacyDir, "diverged.ts"), "export const value = 2;\n");
 
-    const result = checkLegacyParity({ mainDir, legacyDir });
+    const result = checkLegacyParity({ mainDir, legacyDir, scope: ["."] });
 
     expect(result.ok).toBe(false);
 
@@ -95,6 +99,7 @@ describe("checkLegacyParity", () => {
       mainDir,
       legacyDir,
       allowlist: ["allowed-diff.ts"],
+      scope: ["."],
     });
 
     expect(
@@ -103,5 +108,44 @@ describe("checkLegacyParity", () => {
         `Drift reçu : ${JSON.stringify(result.drift)}`
     ).toBe(true);
     expect(result.drift).toEqual([]);
+  });
+
+  it("ne signale PAS une divergence hors périmètre (ex. sous app/) : le fork y diverge volontairement", () => {
+    const mainDir = makeTmpDir();
+    const legacyDir = makeTmpDir();
+
+    // Divergence hors PARITY_SCOPE (app/**) : ne doit jamais apparaître dans le rapport,
+    // même sans allowlist explicite. C'est le cas qui documente la décision de
+    // recentrer la parité sur la logique métier (lib/, types/, components/lineup/).
+    fs.mkdirSync(path.join(legacyDir, "app", "(dashboard)"), { recursive: true });
+    fs.writeFileSync(
+      path.join(legacyDir, "app", "(dashboard)", "error.tsx"),
+      "export default function Error() { return null; }\n"
+    );
+    fs.mkdirSync(path.join(mainDir, "app", "(auth)", "login"), { recursive: true });
+    fs.writeFileSync(
+      path.join(mainDir, "app", "(auth)", "login", "page.tsx"),
+      "export default function Login() { return null; }\n"
+    );
+
+    // Divergence DANS le périmètre (lib/) : doit, elle, être signalée.
+    fs.mkdirSync(path.join(mainDir, "lib"), { recursive: true });
+    fs.writeFileSync(path.join(mainDir, "lib", "shared.ts"), "export const shared = 1;\n");
+
+    const result = checkLegacyParity({ mainDir, legacyDir });
+
+    expect(result.ok).toBe(false);
+
+    const appDrift = result.drift.filter((d) => d.path.startsWith("app/"));
+    expect(
+      appDrift,
+      `Aucune dérive sous app/** ne doit être signalée : c'est hors PARITY_SCOPE. Reçu : ${JSON.stringify(appDrift)}`
+    ).toEqual([]);
+
+    const libDrift = result.drift.find((d) => d.path === "lib/shared.ts");
+    expect(
+      libDrift,
+      `La dérive lib/shared.ts est dans le périmètre et doit être signalée. Drift reçu : ${JSON.stringify(result.drift)}`
+    ).toEqual({ type: "ONLY_IN_MAIN", path: "lib/shared.ts" });
   });
 });

@@ -92,8 +92,11 @@ jobs:
 
   # ---------------------------------------------------------------------------
   # Fork legacy-app (Next 14 / React 18 / Tailwind 3)
-  # Le code applicatif de `legacy-app/src/` doit rester identique à `src/`,
-  # hors allowlist déclarée dans scripts/check-legacy-parity.mjs.
+  # Depuis les corrections UX du fork, seule la logique métier partagée
+  # (src/lib/**, src/types/**, src/components/lineup/**) doit rester
+  # identique à legacy-app/src/, hors allowlist déclarée dans
+  # scripts/check-legacy-parity.mjs. Le reste de l'UI (app/**, composants
+  # hors lineup) est une divergence volontaire du fork, non surveillée.
   # ---------------------------------------------------------------------------
   legacy-parity:
     name: Parité fork legacy
@@ -105,14 +108,16 @@ jobs:
         with:
           node-version: 22
       # Script Node pur (node:fs/path/crypto), aucune dépendance : pas de npm ci.
-      - name: Vérifier la parité src/ ↔ legacy-app/src/
+      - name: Vérifier la parité src/ ↔ legacy-app/src/ (lib, types, components/lineup)
         run: npm run check:legacy-parity
       - name: Aide en cas de dérive
         if: failure()
         run: |
-          echo "::error::Le fork legacy-app a divergé de l'app principale."
+          echo "::error::Le fork legacy-app a divergé de l'app principale sur la logique métier partagée (lib/, types/, components/lineup/)."
           echo "Corrige en lançant 'npm run sync:legacy' puis en committant le résultat."
           echo "Si l'écart est intentionnel, déclare-le dans l'allowlist de scripts/check-legacy-parity.mjs."
+          echo "Rappel : l'UI (app/**, composants hors lineup) est hors périmètre, le fork peut y diverger librement."
+
 
   legacy-build:
     name: Build fork legacy

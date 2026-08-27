@@ -61,7 +61,7 @@ import { WeatherWidget } from "@/components/event/WeatherWidget";
 import { TerrainImpraticable } from "@/components/event/TerrainImpraticable";
 import { LockerPlaylist } from "@/components/event/LockerPlaylist";
 import { RecoveryProtocolCard } from "@/components/match/RecoveryProtocolCard";
-import { isEventLocked, CONVOCATION_LOCKED_MESSAGE } from "@/lib/event-lock";
+import { isEventLocked, CONVOCATION_LOCKED_MESSAGE, EVENT_LOCKED_MESSAGE } from "@/lib/event-lock";
 import { LineupEditor } from "@/components/lineup/LineupEditor";
 import type {
   AttendanceStatus,
@@ -538,6 +538,7 @@ export default function MatchDetailPage() {
 
   const matchDate = new Date(match.event_date);
   const matchIsOver = match.status === "completed";
+  const eventIsLocked = isEventLocked(match?.event_date, match?.end_date);
   const starters = lineups.filter((l) => l.is_starter);
   const subs = lineups.filter((l) => !l.is_starter);
   const fd = formation?.formation_data as FormationData | null;
@@ -921,7 +922,7 @@ export default function MatchDetailPage() {
         </Card>
       )}
 
-      {isCoach ? (
+      {isCoach && !eventIsLocked ? (
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
@@ -952,6 +953,12 @@ export default function MatchDetailPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
+              {isCoach && eventIsLocked && (
+                <p className="mb-3 flex items-center gap-2 text-sm text-muted-foreground">
+                  <Lock className="h-4 w-4 shrink-0" />
+                  {EVENT_LOCKED_MESSAGE}
+                </p>
+              )}
               <div className="mx-auto max-w-xs">
                 <div className="relative aspect-[2/3] rounded-lg bg-green-700 overflow-hidden">
                   <div
