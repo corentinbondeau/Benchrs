@@ -24,6 +24,7 @@ import { Crown } from "lucide-react";
 import { toast } from "sonner";
 import type { Profile, Event, Formation } from "@/types";
 import { FORMATIONS } from "@/lib/lineup/formations";
+import { autoCompose as autoComposePure } from "@/lib/lineup/autoCompose";
 
 function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString("fr-FR", {
@@ -162,33 +163,25 @@ export default function FeuilletMatchTab() {
   }
 
   function autoCompose() {
-    const slots = currentPositions.map((_, i) => `slot-${i}`);
-    const available = [...presentPlayers];
-    const newAssignments: Record<string, string> = {};
-    const newBench: Record<string, string> = {};
+    const { assignments: newAssignments, bench: newBench } = autoComposePure({
+      slots: currentPositions,
+      players: presentPlayers,
+      benchSize,
+    });
 
-    const gkIdx = available.findIndex((p) => (p.position || "").toLowerCase().includes("gardi"));
-    if (gkIdx >= 0 && slots.length > 0) {
-      newAssignments[slots[0]] = available[gkIdx].id;
-      available.splice(gkIdx, 1);
-    }
-    const slotStart = gkIdx >= 0 ? 1 : 0;
-    for (const slot of slots.slice(slotStart)) {
-      if (available.length === 0) break;
-      newAssignments[slot] = available[0].id;
-      available.splice(0, 1);
-    }
-    const benchSlots = Array.from({ length: benchSize }, (_, i) => `bench-${i}`);
-    for (const bs of benchSlots) {
-      if (available.length === 0) break;
-      newBench[bs] = available[0].id;
-      available.splice(0, 1);
-    }
     setAssignments(newAssignments);
     setBenchAssignments(newBench);
     setLoadedFormationId(null);
     setCaptainId((prev) => (prev && presentPlayers.some((p) => p.id === prev) ? prev : null));
-    toast.success("Composition générée — ajustez puis enregistrez");
+
+    const unfilledSlots = currentPositions.length - Object.keys(newAssignments).length;
+    if (unfilledSlots > 0) {
+      toast.info(
+        `Composition générée — ${unfilledSlots} poste(s) sans joueur au profil adapté`
+      );
+    } else {
+      toast.success("Composition générée — ajustez puis enregistrez");
+    }
   }
 
   function onDragStartPlayer(e: React.DragEvent, pid: string) {
@@ -290,6 +283,8 @@ export default function FeuilletMatchTab() {
         .select("*")
         .eq("event_id", selectedEventId)
         .eq("team_id", currentTeam.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
         .maybeSingle(),
     ]).then(([attendRes, formationRes]) => {
       // Set present players
@@ -303,6 +298,10 @@ export default function FeuilletMatchTab() {
       }
 
       // Load existing formation
+      if (formationRes.error) {
+        console.error("Erreur lors du chargement de la composition existante:", formationRes.error);
+        toast.error("Impossible de charger la composition existante");
+      }
       const existingFormation = formationRes.data as Formation | null;
       if (existingFormation?.formation_data) {
         setFormationName(existingFormation.name);
@@ -336,7 +335,6 @@ export default function FeuilletMatchTab() {
   async function handleSave() {
     if (!selectedEventId || !currentTeam) return;
     setSaving(true);
-    const supabase = createClient();
 
     const positions = currentPositions.map((slot, i) => ({
       player_id: assignments[`slot-${i}`] || null,
