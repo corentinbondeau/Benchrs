@@ -12,6 +12,11 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Fork legacy : code identique à src/ (garanti par npm run check:legacy-parity),
+    // buildé avec sa propre toolchain (Next 14 / ESLint 8). Le linter racine
+    // (Next 16 / ESLint 9) n'a pas à l'analyser — cohérent avec l'exclusion
+    // déjà présente dans tsconfig.json.
+    "legacy-app/**",
   ]),
 ]);
 
