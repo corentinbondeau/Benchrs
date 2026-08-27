@@ -23,6 +23,7 @@ import {
 import { Crown } from "lucide-react";
 import { toast } from "sonner";
 import type { Profile, Event, Formation } from "@/types";
+import { FORMATIONS } from "@/lib/lineup/formations";
 
 function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString("fr-FR", {
@@ -58,132 +59,6 @@ function PitchSVG() {
 }
 
 // --- Feuillet Match Tab --------------------------------------------------------
-
-interface SlotPos {
-  x: number;
-  y: number;
-  label: string;
-}
-
-const FORMATIONS: Record<string, SlotPos[]> = {
-  "4-3-3": [
-    { x: 50, y: 90, label: "Gardien" },
-    { x: 15, y: 70, label: "Arrière G" },
-    { x: 38, y: 72, label: "Défenseur" },
-    { x: 62, y: 72, label: "Défenseur" },
-    { x: 85, y: 70, label: "Arrière D" },
-    { x: 30, y: 48, label: "Milieu" },
-    { x: 50, y: 45, label: "Milieu" },
-    { x: 70, y: 48, label: "Milieu" },
-    { x: 15, y: 25, label: "Ailier G" },
-    { x: 50, y: 22, label: "Buteur" },
-    { x: 85, y: 25, label: "Ailier D" },
-  ],
-  "4-4-2": [
-    { x: 50, y: 90, label: "Gardien" },
-    { x: 15, y: 70, label: "Arrière G" },
-    { x: 38, y: 72, label: "Défenseur" },
-    { x: 62, y: 72, label: "Défenseur" },
-    { x: 85, y: 70, label: "Arrière D" },
-    { x: 15, y: 45, label: "Ailier G" },
-    { x: 38, y: 48, label: "Milieu" },
-    { x: 62, y: 48, label: "Milieu" },
-    { x: 85, y: 45, label: "Ailier D" },
-    { x: 38, y: 22, label: "Buteur" },
-    { x: 62, y: 22, label: "Buteur" },
-  ],
-  "3-5-2": [
-    { x: 50, y: 90, label: "Gardien" },
-    { x: 25, y: 72, label: "Défenseur" },
-    { x: 50, y: 72, label: "Défenseur" },
-    { x: 75, y: 72, label: "Défenseur" },
-    { x: 10, y: 48, label: "Arrière G" },
-    { x: 35, y: 48, label: "Milieu" },
-    { x: 50, y: 42, label: "Milieu" },
-    { x: 65, y: 48, label: "Milieu" },
-    { x: 90, y: 48, label: "Arrière D" },
-    { x: 38, y: 22, label: "Buteur" },
-    { x: 62, y: 22, label: "Buteur" },
-  ],
-  "3-4-3": [
-    { x: 50, y: 90, label: "Gardien" },
-    { x: 25, y: 72, label: "Défenseur" },
-    { x: 50, y: 72, label: "Défenseur" },
-    { x: 75, y: 72, label: "Défenseur" },
-    { x: 10, y: 48, label: "Milieu G" },
-    { x: 38, y: 48, label: "Milieu" },
-    { x: 62, y: 48, label: "Milieu" },
-    { x: 90, y: 48, label: "Milieu D" },
-    { x: 25, y: 25, label: "Ailier G" },
-    { x: 50, y: 20, label: "Buteur" },
-    { x: 75, y: 25, label: "Ailier D" },
-  ],
-  "4-2-2-2": [
-    { x: 50, y: 90, label: "Gardien" },
-    { x: 15, y: 70, label: "Arrière G" },
-    { x: 38, y: 72, label: "Défenseur" },
-    { x: 62, y: 72, label: "Défenseur" },
-    { x: 85, y: 70, label: "Arrière D" },
-    { x: 35, y: 50, label: "Milieu D" },
-    { x: 65, y: 50, label: "Milieu D" },
-    { x: 32, y: 32, label: "Milieu O" },
-    { x: 68, y: 32, label: "Milieu O" },
-    { x: 38, y: 16, label: "Buteur" },
-    { x: 62, y: 16, label: "Buteur" },
-  ],
-  "4-1-4-1": [
-    { x: 50, y: 90, label: "Gardien" },
-    { x: 15, y: 70, label: "Arrière G" },
-    { x: 38, y: 72, label: "Défenseur" },
-    { x: 62, y: 72, label: "Défenseur" },
-    { x: 85, y: 70, label: "Arrière D" },
-    { x: 50, y: 55, label: "Milieu D" },
-    { x: 18, y: 38, label: "Ailier G" },
-    { x: 40, y: 36, label: "Milieu" },
-    { x: 60, y: 36, label: "Milieu" },
-    { x: 82, y: 38, label: "Ailier D" },
-    { x: 50, y: 18, label: "Buteur" },
-  ],
-  "5-4-1": [
-    { x: 50, y: 90, label: "Gardien" },
-    { x: 8, y: 70, label: "Arrière G" },
-    { x: 27, y: 72, label: "Défenseur" },
-    { x: 50, y: 72, label: "Défenseur" },
-    { x: 73, y: 72, label: "Défenseur" },
-    { x: 92, y: 70, label: "Arrière D" },
-    { x: 20, y: 45, label: "Milieu G" },
-    { x: 42, y: 42, label: "Milieu" },
-    { x: 58, y: 42, label: "Milieu" },
-    { x: 80, y: 45, label: "Milieu D" },
-    { x: 50, y: 18, label: "Buteur" },
-  ],
-  "4-2-3-1": [
-    { x: 50, y: 90, label: "Gardien" },
-    { x: 15, y: 70, label: "Arrière G" },
-    { x: 38, y: 72, label: "Défenseur" },
-    { x: 62, y: 72, label: "Défenseur" },
-    { x: 85, y: 70, label: "Arrière D" },
-    { x: 35, y: 52, label: "Milieu D" },
-    { x: 65, y: 52, label: "Milieu D" },
-    { x: 15, y: 35, label: "Ailier G" },
-    { x: 50, y: 32, label: "Milieu O" },
-    { x: 85, y: 35, label: "Ailier D" },
-    { x: 50, y: 15, label: "Buteur" },
-  ],
-  "5-3-2": [
-    { x: 50, y: 90, label: "Gardien" },
-    { x: 10, y: 72, label: "Arrière G" },
-    { x: 30, y: 72, label: "Défenseur" },
-    { x: 50, y: 72, label: "Défenseur" },
-    { x: 70, y: 72, label: "Défenseur" },
-    { x: 90, y: 72, label: "Arrière D" },
-    { x: 35, y: 45, label: "Milieu" },
-    { x: 50, y: 42, label: "Milieu" },
-    { x: 65, y: 45, label: "Milieu" },
-    { x: 38, y: 22, label: "Buteur" },
-    { x: 62, y: 22, label: "Buteur" },
-  ],
-};
 
 const BENCH_SLOTS = ["R1", "R2", "R3", "R4", "R5"];
 
