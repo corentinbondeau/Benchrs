@@ -1,3 +1,6 @@
+import { normalizeDofaCollection } from "./normalize";
+import { parseDofaMatches, type DofaMatch } from "./parse-matches";
+
 const DOFA_BASE_URL = process.env.DOFA_BASE_URL || "https://api-dofa.fff.fr";
 
 /**
@@ -19,7 +22,12 @@ export class DofaUnavailableError extends Error {
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────
 
-/** @deprecated Modèle club historique, remplacé par le modèle compétition. Supprimé au lot 4. */
+/**
+ * Modèle club historique (une seule équipe interrogée par numéro FFF de
+ * club). Conservé uniquement pour `fetchClubEquipes`, dont la classification
+ * d'erreur reste verrouillée par les tests existants — pas de nouvel usage
+ * prévu au-delà du modèle compétition (poule).
+ */
 export interface DOFAEquipe {
   eqNo: string;
   libelle: string;
@@ -28,121 +36,11 @@ export interface DOFAEquipe {
   };
 }
 
-/** @deprecated Modèle club historique, remplacé par le modèle compétition (`DofaRawMatch` / `DofaMatch`). Supprimé au lot 4. */
-export interface DOFAMatch {
-  idRencontre: string;
-  dateMatch: string;
-  heureMatch: string;
-  libelle: string;
-  equipeAccueil: {
-    libelle: string;
-    score?: number;
-  };
-  equipeVisiteur: {
-    libelle: string;
-    score?: number;
-  };
-  stade?: {
-    libelle: string;
-  };
-}
-
-/** @deprecated Modèle club historique, remplacé par le modèle compétition. Supprimé au lot 4. */
-export interface DOFATeam {
-  libelle: string;
-  points?: number;
-  joues?: number;
-  victoires?: number;
-  nuls?: number;
-  defaites?: number;
-  butsPour?: number;
-  butsContre?: number;
-  // Variantes possibles selon l'API DOFA
-  nbMatchsJoues?: number;
-  nbVictoires?: number;
-  nbNuls?: number;
-  nbDefaites?: number;
-  nbButsPour?: number;
-  nbButsContre?: number;
-  nbPoints?: number;
-}
-
-export interface ParsedTeam {
-  id: string;
-  team_name: string;
-  played: number;
-  won: number;
-  drawn: number;
-  lost: number;
-  goals_for: number;
-  goals_against: number;
-  points: number;
-}
-
-export interface ParsedMatch {
-  date: string;
-  home_team: string;
-  away_team: string;
-  home_score: number | null;
-  away_score: number | null;
-  location?: string;
-}
-
-// ─── Parsers ──────────────────────────────────────────────────────────────────
-
-export function parseTeams(data: unknown): ParsedTeam[] {
-  const teams: ParsedTeam[] = [];
-
-  if (!Array.isArray(data)) return teams;
-
-  for (const item of data) {
-    const t = item as DOFATeam;
-
-    if (!t.libelle) continue;
-
-    teams.push({
-      id: crypto.randomUUID(),
-      team_name: t.libelle,
-      played: t.nbMatchsJoues ?? t.joues ?? 0,
-      won: t.nbVictoires ?? t.victoires ?? 0,
-      drawn: t.nbNuls ?? t.nuls ?? 0,
-      lost: t.nbDefaites ?? t.defaites ?? 0,
-      goals_for: t.nbButsPour ?? t.butsPour ?? 0,
-      goals_against: t.nbButsContre ?? t.butsContre ?? 0,
-      points: t.nbPoints ?? t.points ?? 0,
-    });
-  }
-
-  // Trier par points décroissants
-  return teams.sort((a, b) => b.points - a.points);
-}
-
-export function parseMatches(data: unknown): ParsedMatch[] {
-  const matches: ParsedMatch[] = [];
-
-  if (!Array.isArray(data)) return matches;
-
-  for (const item of data) {
-    const m = item as DOFAMatch;
-
-    if (!m.dateMatch || !m.equipeAccueil?.libelle || !m.equipeVisiteur?.libelle) {
-      continue;
-    }
-
-    // Format: "AAAA-MM-DD"
-    const dateStr = m.dateMatch.substring(0, 10);
-
-    matches.push({
-      date: dateStr,
-      home_team: m.equipeAccueil.libelle,
-      away_team: m.equipeVisiteur.libelle,
-      home_score: m.equipeAccueil.score ?? null,
-      away_score: m.equipeVisiteur.score ?? null,
-      location: m.stade?.libelle,
-    });
-  }
-
-  return matches;
+/** Référence d'une poule dans le modèle orienté compétition. */
+export interface DofaPouleRef {
+  cpNo: number;
+  phase: number;
+  poule: number;
 }
 
 // ─── Fetch interne ────────────────────────────────────────────────────────────
@@ -186,7 +84,18 @@ async function fetchDOFA(path: string): Promise<unknown> {
   }
 }
 
-// ─── API publique ─────────────────────────────────────────────────────────────
+/** Construit le chemin `/api/compets/{cpNo}/phases/{phase}/poules/{poule}[/{resource}]`. */
+function poulePath(ref: DofaPouleRef, resource?: string): string {
+  const base = `/api/compets/${ref.cpNo}/phases/${ref.phase}/poules/${ref.poule}`;
+  return resource ? `${base}/${resource}` : base;
+}
+
+async function fetchPouleMatchesResource(ref: DofaPouleRef, resource: string): Promise<DofaMatch[]> {
+  const data = await fetchDOFA(poulePath(ref, resource));
+  return parseDofaMatches(normalizeDofaCollection(data));
+}
+
+// ─── API publique — modèle club (historique, conservé pour fetchClubEquipes) ──
 
 /** Retourne la liste des équipes d'un club. */
 export async function fetchClubEquipes(fffNumber: string): Promise<DOFAEquipe[]> {
@@ -194,20 +103,36 @@ export async function fetchClubEquipes(fffNumber: string): Promise<DOFAEquipe[]>
   return Array.isArray(data) ? (data as DOFAEquipe[]) : [];
 }
 
-/** Retourne le calendrier (matchs à venir) d'une équipe. */
-export async function fetchCalendrier(fffNumber: string, eqNo: string): Promise<ParsedMatch[]> {
-  const data = await fetchDOFA(`/api/clubs/${fffNumber}/equipes/${eqNo}/calendrier`);
-  return parseMatches(data);
+// ─── API publique — modèle compétition (compets/phases/poules) ───────────────
+
+/** Résultats (matchs joués) d'une poule. */
+export async function fetchPouleResultats(ref: DofaPouleRef): Promise<DofaMatch[]> {
+  return fetchPouleMatchesResource(ref, "resultat");
 }
 
-/** Retourne les résultats (matchs passés) d'une équipe. */
-export async function fetchResultats(fffNumber: string, eqNo: string): Promise<ParsedMatch[]> {
-  const data = await fetchDOFA(`/api/clubs/${fffNumber}/equipes/${eqNo}/resultat`);
-  return parseMatches(data);
+/** Calendrier (matchs à venir) d'une poule. */
+export async function fetchPouleCalendrier(ref: DofaPouleRef): Promise<DofaMatch[]> {
+  return fetchPouleMatchesResource(ref, "calendrier");
 }
 
-/** Retourne le classement de la compétition d'une équipe, trié par points décroissants. */
-export async function fetchClassement(fffNumber: string, eqNo: string): Promise<ParsedTeam[]> {
-  const data = await fetchDOFA(`/api/clubs/${fffNumber}/equipes/${eqNo}/classement`);
-  return parseTeams(data);
+/** Classement par journée d'une poule (enveloppe Hydra). */
+export async function fetchPouleClassement(ref: DofaPouleRef): Promise<unknown[]> {
+  const data = await fetchDOFA(poulePath(ref, "classement_journees"));
+  return normalizeDofaCollection(data);
+}
+
+/** Ensemble des matchs (passés et à venir) d'une poule. */
+export async function fetchPouleMatchs(ref: DofaPouleRef): Promise<DofaMatch[]> {
+  return fetchPouleMatchesResource(ref, "matchs");
+}
+
+/** Journées d'une poule (enveloppe Hydra). */
+export async function fetchPouleJournees(ref: DofaPouleRef): Promise<unknown[]> {
+  const data = await fetchDOFA(poulePath(ref, "poule_journees"));
+  return normalizeDofaCollection(data);
+}
+
+/** Détail de la poule elle-même (sans ressource finale). */
+export async function fetchPoule(ref: DofaPouleRef): Promise<unknown> {
+  return fetchDOFA(poulePath(ref));
 }

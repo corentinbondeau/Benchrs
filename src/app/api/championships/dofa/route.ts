@@ -2,15 +2,31 @@ import { NextResponse } from "next/server";
 import { getAuthUser, unauthorized, forbidden, isTeamMember } from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
-  fetchClubEquipes,
-  fetchCalendrier,
-  fetchResultats,
-  fetchClassement,
+  fetchPouleResultats,
+  fetchPouleCalendrier,
+  fetchPouleClassement,
+  fetchPouleMatchs,
+  fetchPouleJournees,
+  fetchPoule,
 } from "@/lib/dofa";
-import type { ParsedMatch, ParsedTeam, DofaUnavailableError } from "@/lib/dofa";
+import type { DofaUnavailableError, ParsedDofaMatch } from "@/lib/dofa";
 
 const DOFA_UNAVAILABLE_MESSAGE =
   "Le service FFF (DOFA) est actuellement indisponible. Utilisez l'import manuel en attendant le rétablissement du service.";
+
+/**
+ * ⚠️ Route de secours documentée : l'API DOFA (`api-dofa.fff.fr`) est
+ * aujourd'hui bloquée par Akamai (403) en production, quel que soit
+ * l'endpoint appelé. Cette route reste implémentée et testée pour le jour où
+ * l'accès se rouvrirait (ou serait débloqué via un accord FFF) — elle ne
+ * doit pas être confondue avec du code mort : elle documente le contrat
+ * cible (triplet cpNo/phase/poule, modèle compétition) vers lequel migrer
+ * dès que l'accès réseau est de nouveau possible. En attendant, elle répond
+ * systématiquement 502 avec un message explicite, jamais un 200 silencieux.
+ * Le chemin opérationnel actuel pour le coach reste l'import manuel (collage
+ * de HTML / bookmarklet, cf. `championship/page.tsx`, dialog « Import
+ * manuel »), volontairement non touché par ce refactor.
+ */
 
 /**
  * Duck-typing plutôt que `instanceof DofaUnavailableError` : la classe réelle
@@ -27,100 +43,73 @@ function isDofaUnavailableError(error: unknown): error is DofaUnavailableError {
   );
 }
 
+type PouleRef = { cpNo: number; phase: number; poule: number };
+
+function isValidPouleRef(body: Record<string, unknown>): body is PouleRef {
+  return (
+    typeof body.cpNo === "number" &&
+    typeof body.phase === "number" &&
+    typeof body.poule === "number"
+  );
+}
+
 export async function POST(req: Request) {
   const user = await getAuthUser(req);
   if (!user) return unauthorized();
 
   const body = await req.json();
-  const { teamId, type = "calendar", eqNo, clubName } = body as {
+  const { teamId, type = "all" } = body as {
     teamId?: string;
-    fffNumber?: string;
-    clubName?: string;
-    eqNo?: string;
-    type?: "calendar" | "results" | "all" | "equipes" | "standings";
+    type?: "calendar" | "results" | "all" | "standings" | "poule" | "journees";
   };
-  let { fffNumber } = body as { fffNumber?: string };
 
-  // Vérifier que l'utilisateur a accès à cette équipe
+  // Vérifier que l'utilisateur a accès à cette équipe (si un teamId est fourni)
   if (teamId) {
     if (!(await isTeamMember(user.id, teamId))) {
       return forbidden();
     }
-
-    // Récupérer le numéro FFF de l'équipe si non fourni
-    if (!fffNumber) {
-      const supabase = createAdminClient();
-      const { data: team } = await supabase
-        .from("teams")
-        .select("id, club:clubs(id, fff_number)")
-        .eq("id", teamId)
-        .maybeSingle();
-
-      if (!team?.club) {
-        return NextResponse.json(
-          { error: "Club non trouvé" },
-          { status: 400 }
-        );
-      }
-
-      const foundFffNumber = (team.club as { fff_number?: string }).fff_number;
-      if (!foundFffNumber) {
-        return NextResponse.json(
-          { error: "Numéro FFF du club non disponible" },
-          { status: 400 }
-        );
-      }
-      fffNumber = foundFffNumber;
-    }
+    // Le teamId n'est utilisé ici que pour le contrôle d'accès : la ressource
+    // demandée reste identifiée par le triplet cpNo/phase/poule (modèle
+    // compétition), pas par le club de l'équipe.
+    const supabase = createAdminClient();
+    void supabase; // conservé pour cohérence avec la vérification d'accès ci-dessus
   }
 
-  if (!fffNumber) {
+  if (!isValidPouleRef(body)) {
     return NextResponse.json(
-      { error: "Numéro FFF requis" },
+      { error: "Triplet de poule requis : cpNo, phase, poule (nombres)" },
       { status: 400 }
     );
   }
 
+  const ref: PouleRef = { cpNo: body.cpNo, phase: body.phase, poule: body.poule };
+
   try {
     const result: {
-      matches?: ParsedMatch[];
-      standings?: ParsedTeam[];
-      equipes?: { eqNo: string; libelle: string }[];
-      error?: string;
+      matches?: ParsedDofaMatch[];
+      standings?: unknown[];
+      journees?: unknown[];
+      poule?: unknown;
     } = {};
 
-    if (type === "calendar" || type === "all") {
-      result.matches = await fetchCalendrier(fffNumber, eqNo ?? "");
+    if (type === "calendar") {
+      result.matches = await fetchPouleCalendrier(ref);
+    } else if (type === "results") {
+      result.matches = await fetchPouleResultats(ref);
+    } else if (type === "all") {
+      result.matches = await fetchPouleMatchs(ref);
     }
 
-    if (type === "results" || type === "all") {
-      const results = await fetchResultats(fffNumber, eqNo ?? "");
-      // Fusionner avec les matchs existants
-      if (result.matches) {
-        result.matches = [...result.matches, ...results].filter(
-          (m, i, arr) =>
-            arr.findIndex(
-              (x) =>
-                x.date === m.date &&
-                x.home_team === m.home_team &&
-                x.away_team === m.away_team
-            ) === i
-        );
-      } else {
-        result.matches = results;
-      }
+    if (type === "standings" || type === "all") {
+      result.standings = await fetchPouleClassement(ref);
     }
 
-    if (type === "standings" && eqNo) {
-      result.standings = await fetchClassement(fffNumber, eqNo);
+    if (type === "journees") {
+      result.journees = await fetchPouleJournees(ref);
     }
 
-    // Récupérer les équipes du club (classement + noms)
-    const equipes = await fetchClubEquipes(fffNumber);
-    if (equipes.length > 0) {
-      result.equipes = equipes
-        .filter((e) => e.eqNo && e.libelle)
-        .map((e) => ({ eqNo: e.eqNo, libelle: e.libelle }));
+    if (type === "poule") {
+      result.poule = await fetchPoule(ref);
     }
 
     return NextResponse.json(result);

@@ -1,20 +1,17 @@
 export {
   fetchClubEquipes,
-  fetchCalendrier,
-  fetchResultats,
-  fetchClassement,
-  parseTeams,
-  parseMatches,
+  fetchPouleResultats,
+  fetchPouleCalendrier,
+  fetchPouleClassement,
+  fetchPouleMatchs,
+  fetchPouleJournees,
+  fetchPoule,
   DofaUnavailableError,
 } from "./client";
 
-export type {
-  DOFAEquipe,
-  DOFAMatch,
-  DOFATeam,
-  ParsedTeam,
-  ParsedMatch,
-} from "./client";
+export type { DOFAEquipe, DofaPouleRef as DofaPouleRefClient } from "./client";
+
+export { parsePouleUrl } from "./poule-url";
 
 export { normalizeDofaCollection } from "./normalize";
 
