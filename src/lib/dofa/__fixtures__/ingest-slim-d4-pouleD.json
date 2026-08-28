@@ -1,0 +1,71 @@
+[
+  {
+    "ma_no": 56363596,
+    "competition": { "cp_no": 457587 },
+    "phase": { "number": 1 },
+    "poule": { "stage_number": 4 },
+    "poule_journee": { "number": 1 },
+    "home": { "club": { "cl_no": 206181 }, "number": 6, "short_name": "PEVELE FC" },
+    "away": { "club": { "cl_no": 918 }, "number": 2, "short_name": "BOUSBECQUE CS" },
+    "terrain": {
+      "name": "COMPLEXE SPORTIF LÉON DALLE 1",
+      "address": "23 BIS RUE DE LINSELLES",
+      "zip_code": "59166",
+      "city": "BOUSBECQUE"
+    },
+    "status": "A",
+    "date": "2026-09-06T00:00:00+00:00",
+    "time": "13H00",
+    "home_score": null,
+    "home_is_forfeit": "N",
+    "away_score": null,
+    "away_is_forfeit": "N",
+    "seems_postponed": ""
+  },
+  {
+    "ma_no": 56363599,
+    "competition": { "cp_no": 457587 },
+    "phase": { "number": 1 },
+    "poule": { "stage_number": 4 },
+    "poule_journee": { "number": 1 },
+    "home": { "club": { "cl_no": 10428 }, "number": 1, "short_name": "CAMPHIN PEVELE ECF" },
+    "away": { "club": { "cl_no": 6956 }, "number": 2, "short_name": "WATTIGNIES FC" },
+    "terrain": {
+      "name": "STADE MUNICIPAL",
+      "address": "2 RUE DE LA BASSE COUTURE",
+      "zip_code": "59780",
+      "city": "CAMPHIN EN PEVELE"
+    },
+    "status": "A",
+    "date": "2026-09-06T00:00:00+00:00",
+    "time": "15H00",
+    "home_score": null,
+    "home_is_forfeit": "N",
+    "away_score": null,
+    "away_is_forfeit": "N",
+    "seems_postponed": ""
+  },
+  {
+    "ma_no": 56363601,
+    "competition": { "cp_no": 457587 },
+    "phase": { "number": 1 },
+    "poule": { "stage_number": 4 },
+    "poule_journee": { "number": 1 },
+    "home": { "club": { "cl_no": 15478 }, "number": 2, "short_name": "TOUFFLERS AF" },
+    "away": { "club": { "cl_no": 796 }, "number": 10, "short_name": "LEERS OS" },
+    "terrain": {
+      "name": "COMPLEXE SPORTIF 2",
+      "address": "RUE DES ECOLES",
+      "zip_code": "59390",
+      "city": "TOUFFLERS"
+    },
+    "status": "A",
+    "date": "2026-09-06T00:00:00+00:00",
+    "time": "13H00",
+    "home_score": null,
+    "home_is_forfeit": "N",
+    "away_score": null,
+    "away_is_forfeit": "N",
+    "seems_postponed": ""
+  }
+]
