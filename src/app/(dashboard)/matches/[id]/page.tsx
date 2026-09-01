@@ -355,7 +355,10 @@ export default function MatchDetailPage() {
         match.match_started_at,
         match.match_ended_at ?? null,
         matchSubstitutions,
-        starterIds
+        starterIds,
+        undefined,
+        match.match_halftime_at ?? null,
+        match.match_resumed_at ?? null
       );
     }
 

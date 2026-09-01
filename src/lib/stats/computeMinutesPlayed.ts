@@ -9,13 +9,27 @@ export function computeMinutesPlayed(
   endedAt: string | null,
   substitutions: Substitution[],
   starterIds: string[],
-  now?: number
+  now?: number,
+  halftimeAt?: string | null,
+  resumedAt?: string | null
 ): Map<string, number> {
   if (!startedAt) return new Map();
 
   const start = new Date(startedAt).getTime();
   const end = endedAt ? new Date(endedAt).getTime() : (now ?? Date.now());
-  const totalMinutes = Math.round((end - start) / 60000);
+
+  let totalMinutes: number;
+  if (halftimeAt && resumedAt) {
+    // Temps de jeu effectif = 1ère mi-temps + 2ème mi-temps (sans la pause)
+    const ht = new Date(halftimeAt).getTime();
+    const rs = new Date(resumedAt).getTime();
+    const firstHalf = ht - start;
+    const secondHalf = end - rs;
+    totalMinutes = Math.round((firstHalf + secondHalf) / 60000);
+  } else {
+    // Pas de données de mi-temps → temps brut (rétrocompatible)
+    totalMinutes = Math.round((end - start) / 60000);
+  }
 
   const minutes = new Map<string, number>();
 

@@ -90,4 +90,19 @@ describe("computeMinutesPlayed", () => {
 
     expect(result.size).toBe(0);
   });
+
+  it("exclut la pause mi-temps du calcul quand halftimeAt et resumedAt sont fournis", () => {
+    // Match : 15:00 → mi-temps 15:30 → reprise 15:45 → fin 16:15
+    // Temps brut = 75 min, temps effectif = 30 + 30 = 60 min
+    const result = computeMinutesPlayed(
+      "2025-01-01T15:00:00Z",
+      "2025-01-01T16:15:00Z",
+      [],
+      ["player1"],
+      undefined,
+      "2025-01-01T15:30:00Z",
+      "2025-01-01T15:45:00Z"
+    );
+    expect(result.get("player1")).toBe(60);
+  });
 });

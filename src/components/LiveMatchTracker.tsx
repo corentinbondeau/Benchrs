@@ -512,7 +512,10 @@ export function LiveMatchTracker({
       startedAt,
       effectiveEndedAt,
       subs,
-      starterIds
+      starterIds,
+      undefined,
+      halftimeAt,
+      resumedAt
     );
 
     const { data: existingRows } = await supabase
