@@ -45,6 +45,12 @@ export interface ChampionshipUpsert {
  *
  * ⚠️ `home_score`/`away_score` sont `null` pour un match non joué, jamais
  * `0` — c'est le garde-fou central du lot (cf. tests).
+ *
+ * `home_cl_no`/`home_team_number`/`away_cl_no`/`away_team_number` (migration
+ * 086) portent l'identité DOFA (club + numéro d'équipe) de chaque équipe du
+ * match — jamais `short_name` seul, cf. `computeStandings` — pour permettre
+ * de calculer un classement fiable même quand plusieurs équipes d'un même
+ * club partagent le même nom court.
  */
 export interface MatchUpsert {
   championship_id: string;
@@ -52,6 +58,10 @@ export interface MatchUpsert {
   matchday_number: number | null;
   home_team: string;
   away_team: string;
+  home_cl_no: number;
+  home_team_number: number;
+  away_cl_no: number;
+  away_team_number: number;
   home_score: number | null;
   away_score: number | null;
   kickoff: string | null;
@@ -113,6 +123,10 @@ export function buildMatchUpserts(
     matchday_number: match.matchday,
     home_team: match.homeTeam.shortName,
     away_team: match.awayTeam.shortName,
+    home_cl_no: match.homeTeam.clNo,
+    home_team_number: match.homeTeam.number,
+    away_cl_no: match.awayTeam.clNo,
+    away_team_number: match.awayTeam.number,
     home_score: match.homeScore,
     away_score: match.awayScore,
     kickoff: match.kickoff,

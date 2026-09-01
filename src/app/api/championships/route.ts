@@ -1,6 +1,62 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAuthUser, unauthorized, forbidden, isTeamMember, isTeamCoach } from "@/lib/api-auth";
+import { computeStandings } from "@/lib/dofa";
+import type { DofaMatch } from "@/lib/dofa/parse-matches";
+
+/**
+ * Reconstruit, à partir d'une ligne `championship_standings`, le sous-
+ * ensemble de champs de `DofaMatch` exploité par `computeStandings`
+ * (identité des équipes + score + forfait). Les autres champs de
+ * `DofaMatch` (maNo, matchday, location, status…) n'influencent pas le
+ * calcul du classement : ils sont renseignés avec des valeurs neutres,
+ * jamais lues par `computeStandings`.
+ *
+ * Retourne `null` si l'identité d'équipe (home/away `cl_no` + `number`,
+ * migration 086) est incomplète — cas des lignes importées AVANT cette
+ * migration, jamais rétro-remplies (pas d'UPDATE sur l'historique). Ces
+ * lignes sont ignorées proprement du calcul plutôt que de risquer une
+ * fusion erronée par nom : un ré-import de la poule DOFA les complète.
+ */
+function toDofaMatchForStandings(row: Record<string, unknown>): DofaMatch | null {
+  const homeClNo = row.home_cl_no;
+  const homeNumber = row.home_team_number;
+  const awayClNo = row.away_cl_no;
+  const awayNumber = row.away_team_number;
+
+  if (
+    typeof homeClNo !== "number" ||
+    typeof homeNumber !== "number" ||
+    typeof awayClNo !== "number" ||
+    typeof awayNumber !== "number"
+  ) {
+    return null;
+  }
+
+  return {
+    maNo: typeof row.dofa_ma_no === "number" ? row.dofa_ma_no : 0,
+    matchday: typeof row.matchday_number === "number" ? row.matchday_number : null,
+    kickoff: typeof row.kickoff === "string" ? row.kickoff : null,
+    date: typeof row.kickoff === "string" ? row.kickoff : "",
+    homeTeam: {
+      clNo: homeClNo,
+      number: homeNumber,
+      shortName: typeof row.home_team === "string" ? row.home_team : "",
+    },
+    awayTeam: {
+      clNo: awayClNo,
+      number: awayNumber,
+      shortName: typeof row.away_team === "string" ? row.away_team : "",
+    },
+    homeScore: typeof row.home_score === "number" ? row.home_score : null,
+    awayScore: typeof row.away_score === "number" ? row.away_score : null,
+    homeIsForfeit: row.home_is_forfeit === true,
+    awayIsForfeit: row.away_is_forfeit === true,
+    location: null,
+    seemsPostponed: row.postponed === true,
+    status: null,
+  };
+}
 
 export async function GET(req: Request) {
   const user = await getAuthUser(req);
@@ -24,14 +80,41 @@ export async function GET(req: Request) {
     return NextResponse.json([]);
   }
 
+  // Le classement affiché au coach est calculé côté serveur, à partir des
+  // matchs importés (`championship_standings`), plutôt que dans la page :
+  // cette route est le seul point qui lit déjà ces lignes pour construire
+  // la réponse, et centraliser le calcul ici évite de dupliquer la logique
+  // d'agrégation (et le risque de fusion par nom) dans chaque consommateur
+  // futur de l'API (page web actuelle, appli mobile éventuelle, etc.).
+  // Le classement officiel FFF n'est pas branché ici (service bloqué,
+  // cf. dofa/route.ts) : `resolveStandings` basculerait dessus s'il
+  // devenait disponible, sans changement côté client.
   const results = await Promise.all(
     championships.map(async (c) => {
-      const { data: teams } = await supabase
+      const { data: rows } = await supabase
         .from("championship_standings")
         .select("*")
         .eq("championship_id", c.id);
 
-      return { ...c, teams: teams || [] };
+      const matches = (rows || [])
+        .map((row) => toDofaMatchForStandings(row as Record<string, unknown>))
+        .filter((m): m is DofaMatch => m !== null);
+
+      const standings = computeStandings(matches);
+
+      const teams = standings.map((row) => ({
+        id: `${row.clNo}/${row.number}`,
+        team_name: row.shortName,
+        played: row.played,
+        won: row.won,
+        drawn: row.drawn,
+        lost: row.lost,
+        goals_for: row.goalsFor,
+        goals_against: row.goalsAgainst,
+        points: row.points,
+      }));
+
+      return { ...c, teams, standings_source: "computed" as const };
     })
   );
 

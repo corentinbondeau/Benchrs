@@ -296,6 +296,7 @@ export async function POST(req: Request) {
           const { data: inserted, error: insertError } = await supabase
             .from("events")
             .insert({
+              team_id: body.teamId,
               type: action.event.type,
               title: `Match vs ${action.event.opponent}`,
               event_date: action.event.event_date,

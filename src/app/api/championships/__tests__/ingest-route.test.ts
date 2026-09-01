@@ -72,7 +72,12 @@ vi.mock("@/lib/api-auth", () => ({
 // Mock : @/lib/supabase/admin — client générique par table, état contrôlable
 // ---------------------------------------------------------------------------
 interface SupabaseMockState {
-  championship: { id: string; last_imported_at: string | null } | null;
+  championship: {
+    id: string;
+    last_imported_at: string | null;
+    dofa_cl_no?: number;
+    dofa_team_number?: number;
+  } | null;
   existingMaNos: number[];
 }
 
@@ -80,12 +85,21 @@ let mockState: SupabaseMockState;
 let upsertedRows: Array<Record<string, unknown>> = [];
 let updatedChampionshipPatch: Record<string, unknown> | null = null;
 let deleteCalled = false;
+// Écritures dans `events` réalisées par l'exécuteur d'event-sync — table
+// absente du mock initial (cf. bug prod : insertion sans `team_id`, cause
+// invisible car `events` échouait silencieusement, absorbé par le
+// try/catch par action). Étendue ici uniquement pour verrouiller ce point,
+// sans toucher au comportement des tables déjà mockées.
+let insertedEvents: Array<Record<string, unknown>> = [];
+let eventIdCounter = 0;
 
 function resetSupabaseMockState() {
   mockState = { championship: { id: "champ-1", last_imported_at: null }, existingMaNos: [] };
   upsertedRows = [];
   updatedChampionshipPatch = null;
   deleteCalled = false;
+  insertedEvents = [];
+  eventIdCounter = 0;
 }
 
 vi.mock("@/lib/supabase/admin", () => ({
@@ -121,10 +135,46 @@ vi.mock("@/lib/supabase/admin", () => ({
             upsertedRows = rows;
             return { error: null };
           },
+          // Patch appliqué par l'exécuteur event-sync après création/mise à
+          // jour d'un événement (event_id, last_imported_kickoff/location).
+          // Non pertinent pour les assertions de ce fichier, doit juste
+          // réussir silencieusement (pas d'altération des cas existants).
+          update: () => ({
+            eq: () => ({
+              eq: async () => ({ error: null }),
+            }),
+          }),
           delete: () => {
             deleteCalled = true;
             return { eq: async () => ({ error: null }) };
           },
+        };
+      }
+
+      if (table === "events") {
+        return {
+          // Utilisé en lecture (event-sync : hydratation des ExistingEventRecord) ;
+          // aucune ligne pré-existante dans ces tests (aucun `event_id` déjà lié).
+          select: () => ({
+            in: async () => ({ data: [], error: null }),
+          }),
+          insert: (row: Record<string, unknown>) => {
+            insertedEvents.push(row);
+            const id = `event-${++eventIdCounter}`;
+            return {
+              select: () => ({
+                single: async () => ({ data: { id }, error: null }),
+              }),
+            };
+          },
+          update: () => ({ eq: async () => ({ error: null }) }),
+        };
+      }
+
+      if (table === "attendances") {
+        return {
+          select: () => ({ in: async () => ({ data: [], error: null }) }),
+          update: () => ({ eq: async () => ({ error: null }) }),
         };
       }
 
@@ -364,5 +414,49 @@ describe("POST /api/championships/dofa/ingest — garde-fou de fréquence (60s)"
     const res = await POST(makeIngestRequest(validBody()));
 
     expect(res.status).toBe(200);
+  });
+});
+
+describe("POST /api/championships/dofa/ingest — synchronisation agenda : team_id obligatoire à la création (régression bug prod)", () => {
+  // ⚠️ RÉGRESSION PROD : `events.team_id` est NOT NULL. L'insertion réalisée
+  // par l'exécuteur du plan event-sync (action "create") doit systématiquement
+  // renseigner `team_id` avec l'équipe de la requête (`body.teamId`, déjà
+  // validée par `isTeamCoach`). Son absence provoquait une erreur Postgres
+  // 23502 par match, silencieusement absorbée par le try/catch par action
+  // (cf. `eventSync.errors`) : aucun événement n'était jamais créé en prod.
+  beforeEach(() => {
+    vi.mocked(getAuthUser).mockResolvedValue(makeAuthedUser());
+    vi.mocked(isTeamCoach).mockResolvedValue(true);
+  });
+
+  it("insère chaque nouvel événement avec team_id = teamId de la requête, sans erreur d'event-sync", async () => {
+    mockState.existingMaNos = [];
+    mockState.championship = {
+      id: "champ-1",
+      last_imported_at: null,
+      dofa_cl_no: 12345,
+      dofa_team_number: 1,
+    };
+
+    const { POST } = await importRoute();
+    const res = await POST(makeIngestRequest(validBody()));
+    const json = await res.json();
+
+    expect(
+      res.status,
+      `attendu 200, reçu ${res.status} — body=${JSON.stringify(json)}`
+    ).toBe(200);
+    expect(
+      json.eventSync?.errors,
+      `aucune erreur d'event-sync attendue (body=${JSON.stringify(json)})`
+    ).toBe(0);
+    expect(json.eventSync?.created).toBe(3);
+    expect(insertedEvents).toHaveLength(3);
+    for (const row of insertedEvents) {
+      expect(
+        row.team_id,
+        "chaque événement inséré doit porter team_id (contrainte NOT NULL 'events.team_id')"
+      ).toBe(TEAM_ID);
+    }
   });
 });
