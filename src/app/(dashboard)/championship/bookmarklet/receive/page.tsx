@@ -34,10 +34,12 @@
  */
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useTeam } from "@/lib/team";
 import { authFetch } from "@/lib/api-client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { isFffOrigin } from "@/lib/dofa/poule-url";
+import { DOFA_IMPORT_RESULT_STORAGE_KEY } from "@/lib/dofa/import-result-storage";
 import { Loader2 } from "lucide-react";
 
 type SlimMatch = {
@@ -166,6 +168,22 @@ export default function BookmarkletReceivePage() {
           return;
         }
 
+        const ingestResult = await ingestRes.json();
+
+        // Relais d'affichage vers la page Championnat (LOT 10) : aucune
+        // logique ajoutée, on stocke tel quel la réponse déjà calculée par
+        // `POST /api/championships/dofa/ingest`.
+        try {
+          window.sessionStorage.setItem(
+            DOFA_IMPORT_RESULT_STORAGE_KEY,
+            JSON.stringify({ championshipId: championship.id, ...ingestResult })
+          );
+        } catch {
+          // sessionStorage indisponible (navigation privée stricte, etc.) :
+          // le résultat détaillé ne s'affichera pas sur la page Championnat,
+          // ce n'est pas bloquant pour l'import lui-même.
+        }
+
         setStatus("success");
         setMessage(`${matches.length} match(s) importé(s) avec succès.`);
       } catch {
@@ -223,14 +241,28 @@ export default function BookmarkletReceivePage() {
             </div>
           )}
           {status === "success" && (
-            <div className="rounded-md border border-green-500/50 bg-green-500/10 p-3 text-sm text-green-700">
+            <div
+              role="status"
+              className="rounded-md border border-green-500/50 bg-green-500/10 p-3 text-sm text-green-700"
+            >
               {message}
             </div>
           )}
           {status === "error" && (
-            <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+            <div
+              role="alert"
+              className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive"
+            >
               {message}
             </div>
+          )}
+          {(status === "success" || status === "error") && (
+            <Link
+              href="/championship"
+              className="inline-block text-sm font-medium text-[var(--color-primary-blue)] hover:underline"
+            >
+              ← Retour à la page Championnat
+            </Link>
           )}
         </CardContent>
       </Card>
