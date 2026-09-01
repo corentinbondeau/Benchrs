@@ -75,10 +75,9 @@ export async function POST(req: Request) {
  * PATCH /api/championships — LOT 10 (glue minimal, aucune règle métier
  * nouvelle) : permet au coach d'attacher/modifier le triplet DOFA
  * (cp_no/phase/poule, cf. `parsePouleUrl`, lot 4) sur un championnat déjà
- * créé. Nécessaire pour que `/api/championships/dofa/ingest` (lot 7)
- * retrouve le championnat correspondant à une poule importée par le
- * bookmarklet (lot 8) — cf. commentaire de
- * `championship/bookmarklet/receive/page.tsx`.
+ * créé. Nécessaire pour que `/api/championships/dofa/ingest` retrouve le
+ * championnat correspondant à une poule importée par collage manuel du
+ * JSON (cf. `championship/page.tsx`).
  *
  * Ne fait qu'écrire trois entiers déjà validés côté client par
  * `parsePouleUrl` ; revalidés ici (mêmes règles) avant écriture. Aucune

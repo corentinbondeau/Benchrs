@@ -3,6 +3,9 @@
  * de poule du site district FFF (ex. flandres.fff.fr, escaut.fff.fr, …) ou
  * depuis une saisie manuelle du triplet sous la forme "cpNo/phase/poule".
  *
+ * Sert à mémoriser le triplet du championnat (PATCH /api/championships) ;
+ * le parcours d'import lui-même (collage du JSON DOFA) n'en dépend plus.
+ *
  * 🔒 Fonction exposée à une saisie utilisateur non fiable : la validation du
  * domaine repose exclusivement sur `new URL(...).hostname` (jamais une
  * recherche de sous-chaîne), pour ne pas être contournable par un userinfo
@@ -17,27 +20,6 @@ const FFF_ROOT_DOMAIN = "fff.fr";
 /** Vrai uniquement si `hostname` est `fff.fr` ou un sous-domaine réel de `fff.fr`. */
 function isFffHostname(hostname: string): boolean {
   return hostname === FFF_ROOT_DOMAIN || hostname.endsWith(`.${FFF_ROOT_DOMAIN}`);
-}
-
-/**
- * Vrai uniquement si `origin` (ex. `event.origin` d'un `postMessage`) est
- * une origine `https://…fff.fr` réelle — jamais par recherche de
- * sous-chaîne (mêmes garanties que `isFffHostname` : pas de contournement
- * par userinfo, sous-domaine mimétique ou domaine ressemblant). Ne lève
- * jamais d'exception : toute entrée invalide renvoie `false`.
- *
- * Utilisé côté page de réception du bookmarklet (LOT 8) pour vérifier
- * `event.origin` avant d'accepter tout message `postMessage` en provenance
- * du site du district.
- */
-export function isFffOrigin(origin: string): boolean {
-  if (!origin || typeof origin !== "string") return false;
-  try {
-    const url = new URL(origin);
-    return url.protocol === "https:" && isFffHostname(url.hostname);
-  } catch {
-    return false;
-  }
 }
 
 function parseTriplet(cpNoRaw: string | null, phaseRaw: string | null, pouleRaw: string | null) {

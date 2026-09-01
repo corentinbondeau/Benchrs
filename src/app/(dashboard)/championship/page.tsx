@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { useTeam } from "@/lib/team";
 import { authFetch } from "@/lib/api-client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,10 +9,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Trophy, Medal, Plus, Loader2, Zap, AlertTriangle } from "lucide-react";
+import { Trophy, Medal, Plus, Loader2, Zap, AlertTriangle, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { parsePouleUrl } from "@/lib/dofa/poule-url";
-import { DOFA_IMPORT_RESULT_STORAGE_KEY, type DofaImportResult } from "@/lib/dofa/import-result-storage";
 
 interface Championship {
   id: string;
@@ -39,26 +37,29 @@ interface ChampionshipTeam {
   points: number;
 }
 
-interface ScrapedTeam {
-  team_name: string;
-  points: number;
-  played: number;
-  won: number;
-  drawn: number;
-  lost: number;
-  goals_for: number;
-  goals_against: number;
+interface DofaEventSyncResult {
+  created: number;
+  updated: number;
+  noop: number;
+  conflict: number;
+  skippedLocked: number;
+  postponed: number;
+  rescheduledResetAttendances: number;
+  errors: number;
 }
 
-interface ScrapedMatch {
-  matchday?: number | null;
-  date: string;
-  home_team: string;
-  away_team: string;
-  home_score: number | null;
-  away_score: number | null;
-  location?: string;
+interface DofaImportResult {
+  imported: number;
+  updated: number;
+  skipped: number;
+  source: string;
+  eventSync: DofaEventSyncResult;
 }
+
+/** Base de l'API DOFA (calendrier public d'une poule), ouverte dans un
+ * nouvel onglet par le coach — jamais appelée depuis le serveur Benchrs
+ * (bloquée par un pare-feu Akamai côté FFF pour toute requête serveur). */
+const DOFA_CALENDRIER_BASE = "https://api-dofa.fff.fr/api/compets";
 
 export default function ChampionshipPage() {
   const { currentTeam, userRole } = useTeam();
@@ -67,25 +68,23 @@ export default function ChampionshipPage() {
   const [selectedId, setSelectedId] = useState("");
   const [loading, setLoading] = useState(true);
 
-  // Import DOFA — saisie/édition de l'URL de poule (LOT 10)
+  // Import DOFA — saisie/édition de l'URL de poule, puis collage du JSON.
   const [pouleDialogOpen, setPouleDialogOpen] = useState(false);
   const [pouleUrlInput, setPouleUrlInput] = useState("");
   const [pouleUrlEditing, setPouleUrlEditing] = useState(false);
   const [pouleSaveError, setPouleSaveError] = useState<string | null>(null);
   const [pouleSaving, setPouleSaving] = useState(false);
+  const [pasteInput, setPasteInput] = useState("");
+  const [pasteError, setPasteError] = useState<string | null>(null);
+  const [pasteImporting, setPasteImporting] = useState(false);
+  const [lastImportResult, setLastImportResult] = useState<DofaImportResult | null>(null);
 
-  // Mode manuel (copier-coller HTML)
-  const [manualOpen, setManualOpen] = useState(false);
-  const [fffUrl, setFffUrl] = useState("");
-  const [fffHtml, setFffHtml] = useState("");
-  const [fffLoading, setFffLoading] = useState(false);
-  const [scrapedMatches, setScrapedMatches] = useState<ScrapedMatch[] | null>(null);
-
-  // Formulaire d'import commun
-  const [importName, setImportName] = useState("");
-  const [importSeason, setImportSeason] = useState("2025-2026");
-  const [importLevel, setImportLevel] = useState("");
-  const [saving, setSaving] = useState(false);
+  // Création d'un nouveau championnat (nom/saison/niveau uniquement).
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createName, setCreateName] = useState("");
+  const [createSeason, setCreateSeason] = useState("2025-2026");
+  const [createLevel, setCreateLevel] = useState("");
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
     authFetch(`/api/championships?team_id=${currentTeam!.id}`)
@@ -98,37 +97,19 @@ export default function ChampionshipPage() {
       .catch(() => setLoading(false));
   }, [currentTeam]);
 
-  // Résultat du dernier import (relayé par la page de réception du
-  // bookmarklet) : lu une seule fois via l'initialiseur paresseux de
-  // `useState`, sans logique d'agrégation ni effet de bord au montage.
-  const [lastImportResult, setLastImportResult] = useState<DofaImportResult | null>(() => {
-    if (typeof window === "undefined") return null;
-    try {
-      const raw = window.sessionStorage.getItem(DOFA_IMPORT_RESULT_STORAGE_KEY);
-      return raw ? (JSON.parse(raw) as DofaImportResult) : null;
-    } catch {
-      return null;
-    }
-  });
-
   if (!currentTeam) return null;
 
   function dismissLastImportResult() {
     setLastImportResult(null);
-    try {
-      window.sessionStorage.removeItem(DOFA_IMPORT_RESULT_STORAGE_KEY);
-    } catch {
-      // pas bloquant
-    }
   }
 
   // Enregistre (première fois) ou modifie (bouton « Changer de poule ») le
   // triplet DOFA du championnat actuellement sélectionné. `parsePouleUrl`
-  // (lot 4, non modifié) donne un retour immédiat : une entrée invalide ne
-  // déclenche même pas d'appel réseau.
+  // donne un retour immédiat : une entrée invalide ne déclenche même pas
+  // d'appel réseau.
   async function handleSavePouleUrl() {
     if (!selected) {
-      setPouleSaveError("Sélectionnez ou créez d'abord un championnat (bouton « Import manuel »).");
+      setPouleSaveError("Créez d'abord un championnat (bouton « Nouveau championnat »).");
       return;
     }
     const triplet = parsePouleUrl(pouleUrlInput);
@@ -159,7 +140,7 @@ export default function ChampionshipPage() {
       setChampionships((prev) => prev.map((c) => (c.id === selected.id ? { ...c, ...data } : c)));
       setPouleUrlEditing(false);
       setPouleUrlInput("");
-      toast.success("Poule DOFA configurée. Utilisez le bookmarklet pour importer les matchs.");
+      toast.success("Poule DOFA configurée. Ouvrez le lien « Ouvrir mes matchs » pour récupérer les résultats.");
     } catch {
       // 🔒 Distinct du message de validation ci-dessus : ceci est une panne
       // réseau/serveur, pas une saisie invalide.
@@ -169,102 +150,113 @@ export default function ChampionshipPage() {
     }
   }
 
-  async function handleFffScrape() {
-    if (!fffUrl && !fffHtml) {
-      toast.error("Entrez une URL ou collez le HTML");
+  // Parcours cible : le coach a ouvert le lien « Ouvrir mes matchs », fait
+  // Ctrl+A / Ctrl+C sur la page JSON, puis colle ici. Accepte aussi bien le
+  // tableau nu que l'enveloppe Hydra — le serveur (`validateIngestPayload`)
+  // sait déjà gérer les deux formes ; ce parsing côté client sert
+  // uniquement à distinguer un texte illisible (page HTML, texte quelconque)
+  // d'un JSON exploitable, AVANT même l'appel réseau.
+  async function handleImportPaste() {
+    if (!selected || selected.dofa_cp_no == null || selected.dofa_phase == null || selected.dofa_poule == null) {
+      setPasteError("Configurez d'abord la poule de ce championnat ci-dessus.");
       return;
     }
-    setFffLoading(true);
-    setScrapedMatches(null);
-    try {
-      const res = await authFetch("/api/championships/fff", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: fffUrl || undefined, html: fffHtml || undefined, type: "calendar" }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        if (data.matches && data.matches.length > 0) {
-          setScrapedMatches(data.matches);
-        } else {
-          toast.error(data.error || "Erreur lors du scraping");
-          return;
-        }
-      } else {
-        if (data.matches) setScrapedMatches(data.matches);
-      }
-      const matchCount = data.matches?.length ?? 0;
-      if (matchCount > 0) toast.success(`${matchCount} matchs trouvés`);
-      else toast.error("Aucun match trouvé dans le contenu");
-    } catch {
-      toast.error("Erreur de connexion");
-    } finally {
-      setFffLoading(false);
-    }
-  }
 
-  async function handleSaveMatches(matches: ScrapedMatch[] | null) {
-    if (!matches || matches.length === 0) {
-      toast.error("Aucun match à importer");
+    const trimmed = pasteInput.trim();
+    if (!trimmed) {
+      setPasteError("Collez d'abord le contenu de la page « Ouvrir mes matchs ».");
       return;
     }
-    if (!importName.trim()) {
-      toast.error("Entrez un nom de championnat");
-      return;
-    }
-    setSaving(true);
+
+    let parsed: unknown;
     try {
-      const createRes = await authFetch("/api/championships", {
+      parsed = JSON.parse(trimmed);
+    } catch {
+      setPasteError(
+        "Ce contenu n'est pas un JSON valide. Assurez-vous d'avoir collé le texte de la page « Ouvrir mes matchs » (Ctrl+A puis Ctrl+C sur cette page, pas sur une autre)."
+      );
+      return;
+    }
+
+    const matches = Array.isArray(parsed)
+      ? parsed
+      : parsed && typeof parsed === "object" && Array.isArray((parsed as Record<string, unknown>)["hydra:member"])
+        ? (parsed as Record<string, unknown>)["hydra:member"]
+        : null;
+
+    if (matches === null) {
+      setPasteError(
+        "Le format collé n'est pas reconnu (ni tableau de matchs, ni enveloppe attendue). Vérifiez que vous avez bien copié le contenu de la page « Ouvrir mes matchs »."
+      );
+      return;
+    }
+
+    setPasteError(null);
+    setPasteImporting(true);
+    try {
+      const res = await authFetch("/api/championships/dofa/ingest", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: importName.trim(),
-          season: importSeason,
-          level: importLevel || null,
-          team_id: currentTeam!.id,
+          teamId: currentTeam!.id,
+          cpNo: selected.dofa_cp_no,
+          phase: selected.dofa_phase,
+          poule: selected.dofa_poule,
+          matches,
         }),
       });
-      if (!createRes.ok) {
-        toast.error("Erreur lors de la création du championnat");
+      const data = await res.json();
+      if (!res.ok) {
+        setPasteError(data.error || "L'import a été refusé par le serveur. Aucune donnée n'a été modifiée.");
         return;
       }
-      const championship = await createRes.json();
-
-      // Sauvegarder les matchs
-      for (const m of matches) {
-        await authFetch("/api/championships/standings", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            championship_id: championship.id,
-            home_team: m.home_team,
-            away_team: m.away_team,
-            home_score: m.home_score ?? 0,
-            away_score: m.away_score ?? 0,
-            team_id: currentTeam!.id,
-          }),
-        });
-      }
-
-      toast.success("Championnat importé avec succès");
-      setManualOpen(false);
-      resetFffDialog();
-      const data = await authFetch(`/api/championships?team_id=${currentTeam!.id}`).then((r) => r.json());
-      setChampionships(data);
+      setLastImportResult(data as DofaImportResult);
+      setPasteInput("");
+      toast.success("Import terminé.");
+      const refreshed = await authFetch(`/api/championships?team_id=${currentTeam!.id}`).then((r) => r.json());
+      setChampionships(refreshed);
     } catch {
-      toast.error("Erreur lors de la sauvegarde");
+      setPasteError("Erreur de connexion pendant l'import. Aucune donnée n'a été modifiée.");
     } finally {
-      setSaving(false);
+      setPasteImporting(false);
     }
   }
 
-  function resetFffDialog() {
-    setFffUrl("");
-    setFffHtml("");
-    setScrapedMatches(null);
-    setImportName("");
-    setImportSeason("2025-2026");
-    setImportLevel("");
+  async function handleCreateChampionship() {
+    if (!createName.trim()) {
+      toast.error("Entrez un nom de championnat");
+      return;
+    }
+    setCreating(true);
+    try {
+      const res = await authFetch("/api/championships", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: createName.trim(),
+          season: createSeason,
+          level: createLevel || null,
+          team_id: currentTeam!.id,
+        }),
+      });
+      if (!res.ok) {
+        toast.error("Erreur lors de la création du championnat");
+        return;
+      }
+      const championship = await res.json();
+      toast.success("Championnat créé");
+      setCreateOpen(false);
+      setCreateName("");
+      setCreateSeason("2025-2026");
+      setCreateLevel("");
+      const data = await authFetch(`/api/championships?team_id=${currentTeam!.id}`).then((r) => r.json());
+      setChampionships(data);
+      setSelectedId(championship.id);
+    } catch {
+      toast.error("Erreur lors de la sauvegarde");
+    } finally {
+      setCreating(false);
+    }
   }
 
   const selected = championships.find((c) => c.id === selectedId);
@@ -275,6 +267,11 @@ export default function ChampionshipPage() {
           b.goals_for - b.goals_against - (a.goals_for - a.goals_against)
       )
     : [];
+
+  const matchesLink =
+    selected && selected.dofa_cp_no != null && selected.dofa_phase != null && selected.dofa_poule != null
+      ? `${DOFA_CALENDRIER_BASE}/${selected.dofa_cp_no}/phases/${selected.dofa_phase}/poules/${selected.dofa_poule}/calendrier`
+      : null;
 
   if (loading) {
     return (
@@ -295,7 +292,7 @@ export default function ChampionshipPage() {
         </div>
         {isCoach && (
           <div className="flex gap-2">
-            {/* Dialog Import DOFA — saisie de l'URL de poule (LOT 10) */}
+            {/* Dialog Import DOFA — poule + collage des matchs */}
             <Dialog
               open={pouleDialogOpen}
               onOpenChange={(open) => {
@@ -304,6 +301,7 @@ export default function ChampionshipPage() {
                   setPouleUrlEditing(false);
                   setPouleUrlInput("");
                   setPouleSaveError(null);
+                  setPasteError(null);
                 }
               }}
             >
@@ -318,7 +316,7 @@ export default function ChampionshipPage() {
                 <div className="space-y-4">
                   {!selected ? (
                     <p className="text-sm text-muted-foreground">
-                      Créez d&apos;abord un championnat (bouton « Import manuel » ci-contre),
+                      Créez d&apos;abord un championnat (bouton « Nouveau championnat » ci-contre),
                       puis revenez ici pour lui associer la poule DOFA de votre équipe.
                     </p>
                   ) : selected.dofa_cp_no != null && !pouleUrlEditing ? (
@@ -335,6 +333,57 @@ export default function ChampionshipPage() {
                           {selected.dofa_poule}
                         </p>
                       </div>
+
+                      {/* Étape 2 : ouvrir le lien des matchs */}
+                      {matchesLink && (
+                        <a
+                          href={matchesLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 text-sm font-medium text-[var(--color-primary-blue)] hover:underline"
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                          Ouvrir mes matchs
+                        </a>
+                      )}
+
+                      {/* Étape 3 : coller le JSON récupéré */}
+                      <div className="space-y-2">
+                        <Label htmlFor="dofa-paste-input">Coller le contenu de la page ici</Label>
+                        <textarea
+                          id="dofa-paste-input"
+                          value={pasteInput}
+                          onChange={(e) => {
+                            setPasteInput(e.target.value);
+                            setPasteError(null);
+                          }}
+                          placeholder='[{ "ma_no": ... }] ou { "hydra:member": [...] }'
+                          className="w-full h-28 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring font-mono"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Ouvrez le lien ci-dessus, sélectionnez tout (Ctrl+A), copiez (Ctrl+C), puis
+                          collez ici (Ctrl+V).
+                        </p>
+                        {pasteError && (
+                          <p role="alert" className="text-xs text-destructive">
+                            {pasteError}
+                          </p>
+                        )}
+                        <Button
+                          onClick={handleImportPaste}
+                          disabled={pasteImporting || !pasteInput.trim()}
+                          className="w-full bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold"
+                        >
+                          {pasteImporting ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Import en cours...
+                            </>
+                          ) : (
+                            "Importer les matchs"
+                          )}
+                        </Button>
+                      </div>
+
                       <Button
                         onClick={() => {
                           setPouleUrlEditing(true);
@@ -372,17 +421,6 @@ export default function ChampionshipPage() {
                     </div>
                   )}
 
-                  <div className="rounded-md border bg-muted/30 p-3 text-xs text-muted-foreground">
-                    L&apos;import des matchs se fait ensuite via le favori de navigateur généré
-                    sur la page dédiée :{" "}
-                    <Link
-                      href="/championship/bookmarklet"
-                      className="font-medium text-[var(--color-primary-blue)] hover:underline"
-                    >
-                      générer mon bookmarklet d&apos;import →
-                    </Link>
-                  </div>
-
                   <div className="flex gap-2">
                     <Button
                       variant="outline"
@@ -411,178 +449,53 @@ export default function ChampionshipPage() {
               </DialogContent>
             </Dialog>
 
-            {/* Dialog Import manuel */}
-            <Dialog
-              open={manualOpen}
-              onOpenChange={(open) => {
-                setManualOpen(open);
-                if (!open) resetFffDialog();
-              }}
-            >
+            {/* Dialog Nouveau championnat */}
+            <Dialog open={createOpen} onOpenChange={setCreateOpen}>
               <DialogTrigger render={<Button variant="outline" />}>
                 <Plus className="h-4 w-4 mr-1" />
-                Import manuel
+                Nouveau championnat
               </DialogTrigger>
               <DialogContent className="sm:max-w-md">
                 <DialogHeader>
-                  <DialogTitle>Import manuel depuis la FFF</DialogTitle>
+                  <DialogTitle>Nouveau championnat</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4">
-                  {!scrapedMatches ? (
-                    <>
-                      <div className="space-y-2">
-                        <Label>URL de la page FFF (optionnel)</Label>
-                        <Input
-                          value={fffUrl}
-                          onChange={(e) => setFffUrl(e.target.value)}
-                          placeholder="https://www.fff.fr/competition/calendrier/..."
-                        />
-                        <p className="text-xs text-muted-foreground">
-                          Collez l&apos;URL de la page calendrier du site FFF (peut être bloquée)
-                        </p>
-                      </div>
-
-                      <div className="relative">
-                        <div className="absolute inset-0 flex items-center">
-                          <span className="w-full border-t" />
-                        </div>
-                        <div className="relative flex justify-center text-xs uppercase">
-                          <span className="bg-background px-2 text-muted-foreground">ou</span>
-                        </div>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label>HTML de la page (optionnel)</Label>
-                        <textarea
-                          value={fffHtml}
-                          onChange={(e) => setFffHtml(e.target.value)}
-                          placeholder="Collez ici le HTML complet de la page calendrier FFF..."
-                          className="w-full h-32 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                        />
-                        <p className="text-xs text-muted-foreground">
-                          Faites Ctrl+U puis Ctrl+A puis Ctrl+C sur la page calendrier FFF
-                        </p>
-                      </div>
-
-                      <Button
-                        onClick={handleFffScrape}
-                        disabled={fffLoading || (!fffUrl && !fffHtml)}
-                        className="w-full bg-[var(--color-primary-blue)] text-white font-semibold"
-                      >
-                        {fffLoading ? (
-                          <>
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Analyse en cours...
-                          </>
-                        ) : (
-                          "Extraire données"
-                        )}
-                      </Button>
-                    </>
-                  ) : (
-                    <>
-                      {/* Aperçu des matchs extraits */}
-                      <div className="max-h-48 overflow-y-auto overflow-x-auto rounded-lg border">
-                        <table className="w-full text-xs">
-                          <thead className="bg-muted/50 sticky top-0">
-                            <tr>
-                              <th className="p-1.5 text-left">Date</th>
-                              <th className="p-1.5 text-left">Domicile</th>
-                              <th className="p-1.5 text-center">Score</th>
-                              <th className="p-1.5 text-left">Extérieur</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {scrapedMatches.slice(0, 10).map((m, idx) => (
-                              <tr key={idx} className="border-t">
-                                <td className="p-1.5 whitespace-nowrap">{m.date}</td>
-                                <td
-                                  className={`p-1.5 font-medium ${
-                                    m.home_score !== null &&
-                                    (m.home_score ?? 0) > (m.away_score ?? 0)
-                                      ? "text-green-600"
-                                      : ""
-                                  }`}
-                                >
-                                  {m.home_team}
-                                </td>
-                                <td className="p-1.5 text-center font-bold">
-                                  {m.home_score !== null
-                                    ? `${m.home_score} - ${m.away_score}`
-                                    : "?"}
-                                </td>
-                                <td
-                                  className={`p-1.5 font-medium ${
-                                    m.away_score !== null &&
-                                    (m.away_score ?? 0) > (m.home_score ?? 0)
-                                      ? "text-green-600"
-                                      : ""
-                                  }`}
-                                >
-                                  {m.away_team}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                      {scrapedMatches.length > 10 && (
-                        <p className="text-xs text-muted-foreground text-center">
-                          … et {scrapedMatches.length - 10} autres matchs
-                        </p>
-                      )}
-
-                      {/* Formulaire d'import */}
-                      <div className="space-y-2">
-                        <Label>Nom du championnat *</Label>
-                        <Input
-                          value={importName}
-                          onChange={(e) => setImportName(e.target.value)}
-                          placeholder="Ex: District D1 Senior"
-                          required
-                        />
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label>Saison</Label>
-                          <Input
-                            value={importSeason}
-                            onChange={(e) => setImportSeason(e.target.value)}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Niveau</Label>
-                          <Input
-                            value={importLevel}
-                            onChange={(e) => setImportLevel(e.target.value)}
-                            placeholder="Ex: District"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          onClick={() => setScrapedMatches(null)}
-                          className="flex-1"
-                        >
-                          Retour
-                        </Button>
-                        <Button
-                          onClick={() => handleSaveMatches(scrapedMatches)}
-                          disabled={saving || !importName.trim()}
-                          className="flex-1 bg-[var(--color-primary-blue)] text-white font-semibold"
-                        >
-                          {saving ? (
-                            <>
-                              <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Sauvegarde...
-                            </>
-                          ) : (
-                            "Importer"
-                          )}
-                        </Button>
-                      </div>
-                    </>
-                  )}
+                  <div className="space-y-2">
+                    <Label>Nom du championnat *</Label>
+                    <Input
+                      value={createName}
+                      onChange={(e) => setCreateName(e.target.value)}
+                      placeholder="Ex: District D1 Senior"
+                      required
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Saison</Label>
+                      <Input value={createSeason} onChange={(e) => setCreateSeason(e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Niveau</Label>
+                      <Input
+                        value={createLevel}
+                        onChange={(e) => setCreateLevel(e.target.value)}
+                        placeholder="Ex: District"
+                      />
+                    </div>
+                  </div>
+                  <Button
+                    onClick={handleCreateChampionship}
+                    disabled={creating || !createName.trim()}
+                    className="w-full bg-[var(--color-primary-blue)] text-white font-semibold"
+                  >
+                    {creating ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Création...
+                      </>
+                    ) : (
+                      "Créer"
+                    )}
+                  </Button>
                 </div>
               </DialogContent>
             </Dialog>
@@ -590,7 +503,7 @@ export default function ChampionshipPage() {
         )}
       </div>
 
-      {/* Résultat du dernier import DOFA (relayé depuis la page bookmarklet) */}
+      {/* Résultat du dernier import DOFA */}
       {lastImportResult && (
         <Card>
           <CardHeader>
@@ -677,7 +590,7 @@ export default function ChampionshipPage() {
             <h3 className="font-semibold text-lg">Aucun championnat</h3>
             <p className="text-muted-foreground text-sm mt-1">
               {isCoach
-                ? "Commencez par « Import manuel », puis configurez la poule via « Import DOFA »."
+                ? "Commencez par « Nouveau championnat », puis configurez la poule via « Import DOFA »."
                 : "Pas encore de championnat."}
             </p>
           </CardContent>
@@ -713,7 +626,7 @@ export default function ChampionshipPage() {
                     // cf. api/championships/dofa/route.ts) : tant qu'il ne
                     // répond pas, le classement affiché est TOUJOURS déduit
                     // des résultats saisis, jamais l'officiel FFF. Le coach
-                    // doit le savoir explicitement (cf. lot 10, règle d'or).
+                    // doit le savoir explicitement.
                     <Badge
                       variant="outline"
                       className="ml-auto text-xs"

@@ -9,11 +9,12 @@ import type { DofaPouleRef, TeamIdentity } from "@/lib/dofa/types";
 /**
  * POST /api/championships/dofa/ingest — LOT 7 (endpoint d'ingestion sécurisé)
  *
- * ⚠️ Point le plus sensible du chantier : le payload reçu ici provient du
- * navigateur du coach (bookmarklet, lot 8), lui-même relayé depuis un site
- * tiers (FFF/DOFA). Rien ne garantit son origine ni son intégrité. Toute la
- * confiance repose sur `validateIngestPayload` (lot 7, fonction pure,
- * réutilisée telle quelle, jamais mockée).
+ * ⚠️ Point le plus sensible du chantier : le payload reçu ici provient d'un
+ * collage manuel effectué par le coach (JSON copié depuis le site DOFA),
+ * lui-même relayé depuis un site tiers (FFF/DOFA). Rien ne garantit son
+ * origine ni son intégrité. Toute la confiance repose sur
+ * `validateIngestPayload` (fonction pure, réutilisée telle quelle, jamais
+ * mockée).
  *
  * Règles de sécurité de cette route :
  *   - authentification obligatoire (401) ;

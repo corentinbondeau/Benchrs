@@ -1,9 +1,9 @@
 /**
  * ingest-validation.ts — LOT 7 (endpoint d'ingestion sécurisé)
  *
- * ⚠️ Point le plus sensible du chantier : le payload validé ici provient du
- * navigateur du coach (bookmarklet, lot 8), lui-même relayé depuis un site
- * tiers (FFF/DOFA). Rien ne garantit qu'il vient réellement de la FFF, ni
+ * ⚠️ Point le plus sensible du chantier : le payload validé ici provient d'un
+ * collage manuel effectué par le coach (JSON copié depuis le site DOFA),
+ * lui-même relayé depuis un site tiers (FFF/DOFA). Rien ne garantit qu'il vient réellement de la FFF, ni
  * qu'il n'a pas été altéré en transit ou fabriqué de toutes pièces.
  *
  * `validateIngestPayload` est la seule frontière de confiance avant écriture
@@ -18,8 +18,8 @@ import type { DofaPouleRef } from "./types";
 export const MAX_INGEST_MATCHES = 500;
 /**
  * 1,5 Mo (1.5 * 1024 * 1024 octets). Mesures réelles sur données DOFA brutes
- * (le bookmarklet transmet désormais le JSON brut, sans allègement côté
- * client — voir plus bas) : une journée pèse ~29 Ko, une saison complète
+ * (le coach colle désormais le JSON brut, sans allègement côté client —
+ * voir plus bas) : une journée pèse ~29 Ko, une saison complète
  * entre ~645 Ko (12 équipes) et ~889 Ko (14 équipes). 512 Ko était donc déjà
  * insuffisant pour une saison complète ; 1,5 Mo conserve une marge
  * confortable sans ouvrir la porte à un payload démesuré.
@@ -27,11 +27,11 @@ export const MAX_INGEST_MATCHES = 500;
 export const MAX_INGEST_BYTES = 1.5 * 1024 * 1024;
 
 /**
- * ── Format d'échange allégé (bookmarklet, lot 8 — conservé pour compat) ───
+ * ── Format d'échange allégé (ancien bookmarklet — conservé pour compat) ───
  *
  * Le JSON brut renvoyé par l'API DOFA répète intégralement `competition`,
  * `phase`, `poule`, `engagements`, les logos et `external_updated_at` sur
- * CHAQUE match (~5 Ko/match en conditions réelles). Le bookmarklet transmet
+ * CHAQUE match (~5 Ko/match en conditions réelles). Le collage manuel transmet
  * désormais ce JSON brut tel quel (décision produit : la normalisation est
  * un travail serveur, pas la peine de le dupliquer côté client) — mais le
  * format allégé décrit ci-dessous reste accepté par le serveur, qui VALIDE

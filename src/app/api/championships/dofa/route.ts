@@ -23,9 +23,9 @@ const DOFA_UNAVAILABLE_MESSAGE =
  * cible (triplet cpNo/phase/poule, modèle compétition) vers lequel migrer
  * dès que l'accès réseau est de nouveau possible. En attendant, elle répond
  * systématiquement 502 avec un message explicite, jamais un 200 silencieux.
- * Le chemin opérationnel actuel pour le coach reste l'import manuel (collage
- * de HTML / bookmarklet, cf. `championship/page.tsx`, dialog « Import
- * manuel »), volontairement non touché par ce refactor.
+ * Le chemin opérationnel actuel pour le coach reste le collage manuel du
+ * JSON récupéré via le lien « Ouvrir mes matchs » (cf. `championship/page.tsx`,
+ * dialog « Import DOFA »), volontairement non touché par ce refactor.
  */
 
 /**
