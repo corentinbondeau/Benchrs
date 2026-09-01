@@ -371,7 +371,7 @@ export default function MatchDetailPage() {
         assists: existing?.assists || 0,
         yellow_cards: existing?.yellow_cards || 0,
         red_cards: existing?.red_cards || 0,
-        minutes_played: existing?.minutes_played || minutesMap.get(p.id) || 0,
+        minutes_played: minutesMap.get(p.id) ?? existing?.minutes_played ?? 0,
       };
     }
 
