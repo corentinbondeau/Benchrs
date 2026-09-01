@@ -95,12 +95,14 @@ function weekStartLabel(): string {
 
 async function fetchNextEvent(teamId: string): Promise<unknown | null> {
   const supabase = createClient();
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
   const { data } = await supabase
     .from("events")
     .select("*")
     .eq("team_id", teamId)
     .in("status", ["upcoming", "ongoing"])
-    .gte("event_date", new Date().toISOString())
+    .gte("event_date", todayStart.toISOString())
     .order("event_date", { ascending: true })
     .limit(1)
     .maybeSingle();
@@ -297,6 +299,8 @@ async function fetchWeekOverview(teamId: string): Promise<WeekOverview> {
 
 async function fetchQuickStats(teamId: string): Promise<QuickStats> {
   const supabase = createClient();
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
 
   const [eventsRes, playersCount, winsRes] = await Promise.all([
     supabase
@@ -304,7 +308,7 @@ async function fetchQuickStats(teamId: string): Promise<QuickStats> {
       .select("id")
       .eq("team_id", teamId)
       .eq("status", "upcoming")
-      .gte("event_date", new Date().toISOString())
+      .gte("event_date", todayStart.toISOString())
       .maybeSingle(),
     countTeamActivePlayers(teamId),
     supabase

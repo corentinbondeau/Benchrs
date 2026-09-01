@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import type { EventStatus, MatchEventRecord, Profile } from "@/types";
+import { computeMinutesPlayed, type Substitution } from "@/lib/stats/computeMinutesPlayed";
 
 export type LiveEventType =
   | "goal"
@@ -460,13 +461,14 @@ export function LiveMatchTracker({
     const supabase = createClient();
     const { data } = await supabase
       .from("match_events")
-      .select("event_type, player_id, related_player_id")
+      .select("event_type, player_id, related_player_id, minute")
       .eq("event_id", eventId)
       .eq("team_id", teamId);
     const rows = (data || []) as {
       event_type: string;
       player_id: string | null;
       related_player_id: string | null;
+      minute: number | null;
     }[];
 
     const counters = new Map<
@@ -490,6 +492,28 @@ export function LiveMatchTracker({
       }
     }
 
+    // Calcul des minutes jouées via le helper
+    const subs: Substitution[] = rows
+      .filter(
+        (r) =>
+          r.event_type === "substitution" &&
+          r.player_id &&
+          r.related_player_id
+      )
+      .map((r) => ({
+        minute: r.minute ?? 0,
+        playerOut: r.player_id!,
+        playerIn: r.related_player_id!,
+      }));
+    const subInIds = new Set(subs.map((s) => s.playerIn));
+    const starterIds = players.map((p) => p.id).filter((id) => !subInIds.has(id));
+    const minutesMap = computeMinutesPlayed(
+      startedAt,
+      endedAt,
+      subs,
+      starterIds
+    );
+
     const { data: existingRows } = await supabase
       .from("match_stats")
       .select("id, player_id, minutes_played")
@@ -504,7 +528,7 @@ export function LiveMatchTracker({
 
     for (const [playerId, c] of counters) {
       const ex = existingMap.get(playerId);
-      const minutes = ex?.minutes_played ?? 0;
+      const minutes = minutesMap.get(playerId) ?? ex?.minutes_played ?? 0;
       const hasData =
         c.goals > 0 || c.assists > 0 || c.yellow_cards > 0 || c.red_cards > 0 || minutes > 0;
       if (ex) {
@@ -516,6 +540,7 @@ export function LiveMatchTracker({
               assists: c.assists,
               yellow_cards: c.yellow_cards,
               red_cards: c.red_cards,
+              minutes_played: minutes,
             })
             .eq("id", ex.id);
         } else {
@@ -535,7 +560,34 @@ export function LiveMatchTracker({
       }
     }
 
-    const orphaned = Array.from(existingMap.keys()).filter((pid) => !counters.has(pid));
+    // Joueurs avec des minutes calculées mais sans events dans counters
+    // (ex : remplaçants sans but ni carton, titulaires sans events)
+    for (const [playerId, mins] of minutesMap) {
+      if (counters.has(playerId)) continue; // déjà traité ci-dessus
+      if (mins <= 0) continue;
+      const ex = existingMap.get(playerId);
+      if (ex) {
+        await supabase
+          .from("match_stats")
+          .update({ minutes_played: mins })
+          .eq("id", ex.id);
+      } else {
+        await supabase.from("match_stats").insert({
+          event_id: eventId,
+          player_id: playerId,
+          team_id: teamId,
+          goals: 0,
+          assists: 0,
+          yellow_cards: 0,
+          red_cards: 0,
+          minutes_played: mins,
+        });
+      }
+    }
+
+    const orphaned = Array.from(existingMap.keys()).filter(
+      (pid) => !counters.has(pid) && !minutesMap.has(pid)
+    );
     for (const playerId of orphaned) {
       const ex = existingMap.get(playerId);
       if (!ex) continue;

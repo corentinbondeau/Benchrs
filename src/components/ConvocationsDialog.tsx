@@ -23,7 +23,7 @@ import {
 import { Users, Check, X, ChevronDown, UserPlus, Trash2, Calendar, Bell, Send, Info } from "lucide-react";
 import { toast } from "sonner";
 import { fetchTeamActivePlayers } from "@/lib/players";
-import { isEventLocked, CONVOCATION_LOCKED_MESSAGE } from "@/lib/event-lock";
+import { isLockedForRole, CONVOCATION_LOCKED_MESSAGE } from "@/lib/event-lock";
 import type { Event, Attendance, Profile } from "@/types";
 
 interface EventWithAttendances extends Event {
@@ -61,7 +61,7 @@ export function ConvocationsDialog({ event, open, onOpenChange }: ConvocationsDi
   const [loading, setLoading] = useState(true);
   const [addPlayerOpen, setAddPlayerOpen] = useState(false);
   const [selectedNewPlayerIds, setSelectedNewPlayerIds] = useState<string[]>([]);
-  const locked = isEventLocked(event.event_date, event.end_date);
+  const locked = isLockedForRole(event.event_date, event.end_date, isCoach);
 
   const fetchData = useCallback(async () => {
     if (!currentTeam || !event) return;

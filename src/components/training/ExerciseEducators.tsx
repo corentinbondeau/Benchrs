@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Card, CardContent } from "@/components/ui/card";
 import { Users } from "lucide-react";
 import { toast } from "sonner";
 
@@ -63,7 +62,7 @@ export function ExerciseEducators({
     const allUserIds = [...new Set([...coachUserIds, ...planRows.map((p) => p.user_id)])];
 
     // 4. Fetch profiles for all relevant users in one call
-    let profileMap = new Map<string, CoachMember>();
+    const profileMap = new Map<string, CoachMember>();
     if (allUserIds.length > 0) {
       const { data: profiles } = await supabase
         .from("profiles")
@@ -107,26 +106,15 @@ export function ExerciseEducators({
 
   async function assignEducator(index: number, userId: string) {
     const supabase = createClient();
-    // Delete existing assignment first (partial unique index not supported by PostgREST upsert)
-    const { error: deleteError } = await supabase
-      .from("educator_plans")
-      .delete()
-      .eq("team_id", teamId)
-      .eq("event_id", eventId)
-      .eq("exercise_index", index);
-    if (deleteError) {
-      // Log but continue — if there was no row to delete, INSERT may still succeed
-      console.warn("[educator_plans] delete warning:", deleteError.message, deleteError.code, deleteError.details);
-    }
-    const { error } = await supabase.from("educator_plans").insert({
-      team_id: teamId,
-      user_id: userId,
-      event_id: eventId,
-      exercise_index: index,
-      role: "responsable",
+    const { error } = await supabase.rpc("upsert_educator_plan", {
+      p_team_id: teamId,
+      p_event_id: eventId,
+      p_exercise_index: index,
+      p_user_id: userId,
+      p_role: "responsable",
     });
     if (error) {
-      console.error("[educator_plans] insert error:", error.message, error.code, error.details);
+      console.error("[educator_plans] rpc error:", error.message, error.code);
       toast.error("Impossible d'assigner le responsable");
       return;
     }

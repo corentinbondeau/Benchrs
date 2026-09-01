@@ -34,7 +34,7 @@ import { fetchTeamActivePlayers } from "@/lib/players";
 import { computeMissingResponders } from "@/lib/session-reminders";
 import { SessionRemindersCard } from "@/components/training/SessionRemindersCard";
 import { logActivity } from "@/lib/activity";
-import { isEventLocked, CONVOCATION_LOCKED_MESSAGE, getEventDurationMinutes } from "@/lib/event-lock";
+import { isLockedForRole, CONVOCATION_LOCKED_MESSAGE, getEventDurationMinutes } from "@/lib/event-lock";
 import type { AttendanceStatus, Event } from "@/types";
 
 type TrainingEvent = Event & {
@@ -119,7 +119,7 @@ export default function TrainingDetailPage() {
   }, [trainingId, currentTeam, isCoach, user?.id, userRole]);
 
   async function updateAttendance(userId: string, status: AttendanceStatus, reason?: string) {
-    if (isEventLocked(event?.event_date, event?.end_date)) {
+    if (isLockedForRole(event?.event_date, event?.end_date, isCoach)) {
       toast.error(CONVOCATION_LOCKED_MESSAGE);
       return;
     }

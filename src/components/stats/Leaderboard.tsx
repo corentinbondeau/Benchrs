@@ -51,7 +51,8 @@ export function Leaderboard() {
         .from("events")
         .select("id")
         .eq("team_id", currentTeam!.id)
-        .eq("type", "training");
+        .eq("type", "training")
+        .neq("status", "cancelled");
       const trainingIds = (trainingEvents || []).map((e) => e.id as string);
       const { data: attendanceData } = trainingIds.length > 0
         ? await supabase

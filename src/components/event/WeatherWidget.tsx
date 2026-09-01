@@ -130,9 +130,9 @@ export function WeatherWidget({
     };
   }, [lat, lng, eventDate]);
 
-  async function geocode() {
+  async function geocode(silent = false) {
     if (!location?.trim()) {
-      toast.error("L'événement n'a pas de lieu renseigné");
+      if (!silent) toast.error("L'événement n'a pas de lieu renseigné");
       return;
     }
     setGeocoding(true);
@@ -142,7 +142,7 @@ export function WeatherWidget({
       );
       const rows = await res.json();
       if (!rows?.length) {
-        toast.error("Lieu introuvable, saisis les coordonnées manuellement");
+        if (!silent) toast.error("Lieu introuvable, saisis les coordonnées manuellement");
         return;
       }
       const foundLat = parseFloat(rows[0].lat);
@@ -151,11 +151,19 @@ export function WeatherWidget({
       await saveCoords(foundLat, foundLng);
       setEditing(false);
     } catch {
-      toast.error("Impossible de localiser le lieu");
+      if (!silent) toast.error("Impossible de localiser le lieu");
     } finally {
       setGeocoding(false);
     }
   }
+
+  // Géocodage automatique au montage
+  useEffect(() => {
+    if (location?.trim() && latitude == null && longitude == null && !editing) {
+      geocode(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Uniquement au montage
 
   async function saveCoords(newLat: number, newLng: number) {
     const supabase = createClient();
@@ -212,7 +220,7 @@ export function WeatherWidget({
                 >
                   Enregistrer
                 </Button>
-                <Button size="sm" variant="outline" className="h-7 text-xs flex-1" onClick={geocode} disabled={geocoding}>
+                <Button size="sm" variant="outline" className="h-7 text-xs flex-1" onClick={() => geocode()} disabled={geocoding}>
                   {geocoding ? <Loader2 className="h-3 w-3 animate-spin" /> : <MapPin className="h-3 w-3" />}
                   Localiser le lieu
                 </Button>

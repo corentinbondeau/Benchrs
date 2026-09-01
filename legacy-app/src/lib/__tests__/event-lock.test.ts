@@ -32,6 +32,7 @@ import { describe, it, expect } from "vitest";
 
 import {
   isEventLocked,
+  isLockedForRole,
   getEventDurationMinutes,
   shiftEndDate,
   applyDurationToStart,
@@ -211,6 +212,33 @@ describe("getEventDurationMinutes", () => {
  *     (utilisé pour propager la même durée sur chaque occurrence d'une
  *     série, chacune avec son propre début).
  */
+
+describe("isLockedForRole", () => {
+  // Dates ancrées sur Date.now() réel pour éviter tout décalage temporel.
+  const realNow = Date.now();
+  const passeDate = new Date(realNow - 4 * 60 * 60 * 1000).toISOString(); // 4h dans le passé => verrouillé
+  const futurDate = new Date(realNow + 2 * 60 * 60 * 1000).toISOString(); // 2h dans le futur => non verrouillé
+
+  // ==== P0 — un coach n'est JAMAIS verrouillé ====
+  it("[P0] un coach n'est JAMAIS verrouillé, même après l'événement", () => {
+    expect(isLockedForRole(passeDate, null, true)).toBe(false);
+  });
+
+  // ==== P0 — un joueur est verrouillé après l'événement ====
+  it("[P0] un joueur est verrouillé après l'événement", () => {
+    expect(isLockedForRole(passeDate, null, false)).toBe(true);
+  });
+
+  // ==== P0 — un joueur n'est PAS verrouillé avant l'événement ====
+  it("[P0] un joueur n'est pas verrouillé avant l'événement", () => {
+    expect(isLockedForRole(futurDate, null, false)).toBe(false);
+  });
+
+  // ==== P1 — isCoach undefined → verrouillé comme joueur ====
+  it("[P1] isCoach undefined → verrouillé comme joueur après l'événement", () => {
+    expect(isLockedForRole(passeDate, null, undefined)).toBe(true);
+  });
+});
 
 describe("shiftEndDate", () => {
   // ==== CAS 1 — NOMINAL : début déplacé de 7 jours, durée de 2h conservée ====

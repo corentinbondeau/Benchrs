@@ -15,12 +15,14 @@ function NextEventCard() {
     currentTeam ? `events:next:${currentTeam.id}` : null,
     async () => {
       const supabase = createClient();
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
       const { data } = await supabase
         .from("events")
         .select("id, title, event_date, end_date, type, status, opponent, location")
         .eq("team_id", currentTeam!.id)
         .in("status", ["upcoming", "ongoing"])
-        .gte("event_date", new Date().toISOString())
+        .gte("event_date", todayStart.toISOString())
         .order("event_date", { ascending: true })
         .limit(1)
         .maybeSingle();

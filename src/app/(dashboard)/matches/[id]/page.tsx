@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -61,7 +61,8 @@ import { WeatherWidget } from "@/components/event/WeatherWidget";
 import { TerrainImpraticable } from "@/components/event/TerrainImpraticable";
 import { LockerPlaylist } from "@/components/event/LockerPlaylist";
 import { RecoveryProtocolCard } from "@/components/match/RecoveryProtocolCard";
-import { isEventLocked, CONVOCATION_LOCKED_MESSAGE, EVENT_LOCKED_MESSAGE } from "@/lib/event-lock";
+import { isEventLocked, isLockedForRole, CONVOCATION_LOCKED_MESSAGE, EVENT_LOCKED_MESSAGE } from "@/lib/event-lock";
+import { filterPresentPlayers } from "@/lib/stats/filterPresentPlayers";
 import { LineupEditor } from "@/components/lineup/LineupEditor";
 import type {
   AttendanceStatus,
@@ -162,6 +163,15 @@ export default function MatchDetailPage() {
   const [matchPlayers, setMatchPlayers] = useState<PlayerAttendanceRow[]>([]);
   const [parentLinks, setParentLinks] = useState<{ parent_id: string; student_id: string }[]>([]);
   const { children: myChildren, selectedChildId: childId, setChild: setChildId } = useSelectedChild(currentTeam?.id);
+
+  const presentPlayers = useMemo(() => {
+    type LocalProfile = { id: string; [key: string]: unknown };
+    type LocalAttRow = { profile: LocalProfile; status: "present" | "late" | "absent" | "excused" | "pending" | null };
+    return filterPresentPlayers(
+      allPlayers as unknown as LocalProfile[],
+      matchPlayers as unknown as LocalAttRow[]
+    ) as unknown as import("@/types").Profile[];
+  }, [allPlayers, matchPlayers]);
   const [convDialogOpen, setConvDialogOpen] = useState(false);
   const [announcementOpen, setAnnouncementOpen] = useState(false);
   const [liveNow, setLiveNow] = useState(() => Date.now());
@@ -321,7 +331,7 @@ export default function MatchDetailPage() {
   function initStatsForm() {
     const form: Record<string, StatsFormEntry> = {};
 
-    for (const p of allPlayers) {
+    for (const p of presentPlayers) {
       const existing = playerStats.find((s) => s.player_id === p.id);
       form[p.id] = {
         goals: existing?.goals || 0,
@@ -455,7 +465,7 @@ export default function MatchDetailPage() {
   }
 
   async function updateMatchAttendance(userId: string, status: AttendanceStatus, reason?: string) {
-    if (isEventLocked(match?.event_date, match?.end_date)) {
+    if (isLockedForRole(match?.event_date, match?.end_date, isCoach)) {
       toast.error(CONVOCATION_LOCKED_MESSAGE);
       return;
     }
@@ -538,7 +548,7 @@ export default function MatchDetailPage() {
 
   const matchDate = new Date(match.event_date);
   const matchIsOver = match.status === "completed";
-  const eventIsLocked = isEventLocked(match?.event_date, match?.end_date);
+  const eventIsLocked = isLockedForRole(match?.event_date, match?.end_date, isCoach);
   const starters = lineups.filter((l) => l.is_starter);
   const subs = lineups.filter((l) => !l.is_starter);
   const fd = formation?.formation_data as FormationData | null;
@@ -1244,7 +1254,7 @@ export default function MatchDetailPage() {
         <LiveMatchTracker
           eventId={matchId}
           teamId={currentTeam.id}
-          players={allPlayers}
+          players={presentPlayers}
           canEdit={isCoach || userRole === "parent"}
           isCoach={isCoach}
           userId={user?.id}

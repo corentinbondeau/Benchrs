@@ -45,6 +45,24 @@ export function isEventLocked(
 }
 
 /**
+ * Détermine si un évènement est verrouillé en tenant compte du rôle de
+ * l'utilisateur. Un coach (ou owner) n'est JAMAIS verrouillé, quel que soit
+ * l'état de l'évènement. Un joueur est verrouillé selon la règle `isEventLocked`.
+ *
+ * @param eventDate  - Date de début de l'évènement.
+ * @param endDate    - Date de fin réelle (optionnelle).
+ * @param isCoach    - `true` si l'utilisateur est coach/owner.
+ */
+export function isLockedForRole(
+  eventDate: string | Date | null | undefined,
+  endDate?: string | Date | null,
+  isCoach?: boolean
+): boolean {
+  if (isCoach) return false;
+  return isEventLocked(eventDate, endDate);
+}
+
+/**
  * Calcule la durée d'un évènement en minutes entre `eventDate` et `endDate`.
  * Retourne `null` si `endDate` est absente, invalide, ou antérieure/égale à
  * `eventDate` (incohérent).
