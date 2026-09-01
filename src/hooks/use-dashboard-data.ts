@@ -149,10 +149,16 @@ async function fetchPendingConvocations(teamId: string): Promise<PendingConvocat
 
   const allParents = toArray<Record<string, unknown> & { id: string }>(parentResult.data);
 
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
   const items: CoachPendingItem[] = atts
     .map((att) => {
       const player = allPlayers.find((p) => p.id === att.user_id);
       if (!player || !att.event) return null;
+      // Exclure les événements passés (avant le début du jour courant)
+      const eventDate = att.event.event_date as string | undefined;
+      if (!eventDate || new Date(eventDate) < today) return null;
       const parentIdsForPlayer = links
         .filter((l) => l.student_id === att.user_id)
         .map((l) => l.parent_id);

@@ -63,6 +63,7 @@ import { LockerPlaylist } from "@/components/event/LockerPlaylist";
 import { RecoveryProtocolCard } from "@/components/match/RecoveryProtocolCard";
 import { isEventLocked, isLockedForRole, CONVOCATION_LOCKED_MESSAGE, EVENT_LOCKED_MESSAGE } from "@/lib/event-lock";
 import { filterPresentPlayers } from "@/lib/stats/filterPresentPlayers";
+import { computeMinutesPlayed, type Substitution } from "@/lib/stats/computeMinutesPlayed";
 import { LineupEditor } from "@/components/lineup/LineupEditor";
 import type {
   AttendanceStatus,
@@ -176,6 +177,7 @@ export default function MatchDetailPage() {
   const [announcementOpen, setAnnouncementOpen] = useState(false);
   const [liveNow, setLiveNow] = useState(() => Date.now());
   const [liveToken, setLiveToken] = useState<string | null>(null);
+  const [matchSubstitutions, setMatchSubstitutions] = useState<Substitution[]>([]);
 
   const liveOpenAt = match?.event_date
     ? new Date(match.event_date).getTime() - 30 * 60 * 1000
@@ -220,7 +222,7 @@ export default function MatchDetailPage() {
     const team = currentTeam;
 
     async function fetchMatchData() {
-      const [matchRes, statsRes, formRes, lineupsRes, playersRes, attRes, parentLinksRes] = await Promise.all([
+      const [matchRes, statsRes, formRes, lineupsRes, playersRes, attRes, parentLinksRes, subEventsRes] = await Promise.all([
         supabase
           .from("events")
           .select("*")
@@ -255,6 +257,12 @@ export default function MatchDetailPage() {
           .from("parent_student")
           .select("parent_id, student_id")
           .eq("team_id", team.id),
+        supabase
+          .from("match_events")
+          .select("player_id, related_player_id, minute")
+          .eq("event_id", matchId)
+          .eq("team_id", team.id)
+          .eq("event_type", "substitution"),
       ]);
 
       setMatch(matchRes.data as MatchEvent | null);
@@ -263,6 +271,15 @@ export default function MatchDetailPage() {
       setLineups((lineupsRes.data as LineupEntry[]) || []);
       setAllPlayers(playersRes);
       setParentLinks((parentLinksRes.data as { parent_id: string; student_id: string }[]) || []);
+
+      const subs: Substitution[] = ((subEventsRes.data || []) as { player_id: string | null; related_player_id: string | null; minute: number | null }[])
+        .filter((s) => s.player_id && s.related_player_id && s.minute != null)
+        .map((s) => ({
+          playerOut: s.player_id as string,
+          playerIn: s.related_player_id as string,
+          minute: s.minute as number,
+        }));
+      setMatchSubstitutions(subs);
 
       const atts = (attRes.data || []) as { id: string; user_id: string; status: string; absence_reason: string | null }[];
       const allP = playersRes;
@@ -329,6 +346,19 @@ export default function MatchDetailPage() {
   }
 
   function initStatsForm() {
+    // Calculer les minutes si le match a démarré et qu'elles ne sont pas en base
+    let minutesMap = new Map<string, number>();
+    if (match?.match_started_at) {
+      const subInIds = new Set(matchSubstitutions.map((s) => s.playerIn));
+      const starterIds = presentPlayers.map((p) => p.id).filter((id) => !subInIds.has(id));
+      minutesMap = computeMinutesPlayed(
+        match.match_started_at,
+        match.match_ended_at ?? null,
+        matchSubstitutions,
+        starterIds
+      );
+    }
+
     const form: Record<string, StatsFormEntry> = {};
 
     for (const p of presentPlayers) {
@@ -338,7 +368,7 @@ export default function MatchDetailPage() {
         assists: existing?.assists || 0,
         yellow_cards: existing?.yellow_cards || 0,
         red_cards: existing?.red_cards || 0,
-        minutes_played: existing?.minutes_played || 0,
+        minutes_played: existing?.minutes_played || minutesMap.get(p.id) || 0,
       };
     }
 

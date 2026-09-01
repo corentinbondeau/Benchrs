@@ -61,8 +61,7 @@ export default function FormDropPage() {
     const rpes = (rpeRes.data || []) as SessionRpe[];
 
     const trainingEvents = events.filter((e) => e.type === "training");
-    const latest6 = trainingEvents.slice(0, 6);
-    const latest6Ids = new Set(latest6.map((e) => e.id));
+    const allTrainingIds = new Set(trainingEvents.map((e) => e.id));
 
     const byPlayer = new Map<string, { attend: Attendance[]; rpe: SessionRpe[] }>();
     for (const a of attendances) {
@@ -77,7 +76,7 @@ export default function FormDropPage() {
     const rows: PlayerMetric[] = players.map((p) => {
       const data = byPlayer.get(p.id) || { attend: [], rpe: [] };
 
-      const convoked = data.attend.filter((a) => latest6Ids.has(a.event_id));
+      const convoked = data.attend.filter((a) => allTrainingIds.has(a.event_id));
       const present = convoked.filter((a) => a.status === "present" || a.status === "late").length;
       const presence = convoked.length > 0 ? (present / convoked.length) * 100 : null;
 
@@ -99,7 +98,7 @@ export default function FormDropPage() {
 
       const alerts: string[] = [];
       if (convoked.length >= 2 && presence !== null && presence < 60) {
-        alerts.push(`Assiduité ${Math.round(presence)}% sur les ${convoked.length} derniers événements`);
+        alerts.push(`Assiduité ${Math.round(presence)}% (${present}/${convoked.length} entraînements)`);
       }
       if (rpePrev !== null && rpeRecent !== null && rpePrev - rpeRecent > 1.5) {
         alerts.push(`RPE en baisse de ${(rpePrev - rpeRecent).toFixed(1)} (${rpeRecent.toFixed(1)} vs ${rpePrev.toFixed(1)})`);

@@ -67,7 +67,14 @@ export function PendingConvocations() {
             .eq("team_id", currentTeam!.id),
         ]);
 
-        const atts = (attRes.data as (Attendance & { event: Event })[]) || [];
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const rawAtts = (attRes.data as (Attendance & { event: Event })[]) || [];
+        const atts = rawAtts.filter((att) => {
+          const ev = att.event;
+          if (!ev) return false;
+          return new Date(ev.event_date) >= today;
+        });
         const allPlayers = (playersRes.data as Profile[]) || [];
         const links = (psRes.data as { parent_id: string; student_id: string }[]) || [];
 
@@ -100,7 +107,14 @@ export function PendingConvocations() {
         .eq("team_id", currentTeam!.id)
         .eq("status", "pending")
         .order("created_at", { ascending: false });
-      return { role: "player", items: (attData as (Attendance & { event: Event })[]) || [] } as PendingData;
+      const todayPlayer = new Date();
+      todayPlayer.setHours(0, 0, 0, 0);
+      const futureAtts = ((attData as (Attendance & { event: Event })[]) || []).filter((att) => {
+        const ev = att.event;
+        if (!ev) return false;
+        return new Date(ev.event_date) >= todayPlayer;
+      });
+      return { role: "player", items: futureAtts } as PendingData;
     },
     { ttl: 15_000 }
   );

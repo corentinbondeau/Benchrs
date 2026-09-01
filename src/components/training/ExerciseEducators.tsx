@@ -114,8 +114,8 @@ export function ExerciseEducators({
       p_role: "responsable",
     });
     if (error) {
-      console.error("[educator_plans] rpc error:", error.message, error.code);
-      toast.error("Impossible d'assigner le responsable");
+      console.error("[educator_plans] rpc error:", error.message, error.code, error.details);
+      toast.error(`Impossible d'assigner le responsable : ${error.message}`);
       return;
     }
     toast.success("Responsable de l'exercice mis à jour");
@@ -171,7 +171,7 @@ export function ExerciseEducators({
                 </span>
                 {isCoach ? (
                   <select
-                    className="flex h-9 rounded-lg border border-[var(--color-royal)]/30 bg-background px-3 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-blue)]/40 max-w-[200px]"
+                    className="flex h-9 w-full max-w-full rounded-lg border border-[var(--color-royal)]/30 bg-background px-3 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-blue)]/40"
                     value={educator?.id ?? ""}
                     onChange={(e) => {
                       const v = e.target.value;
