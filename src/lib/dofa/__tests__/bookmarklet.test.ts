@@ -39,6 +39,8 @@ import {
   planFetches,
   shouldRetry,
   toSlimMatches,
+  extractDofaCollection,
+  dedupeMatchesByManNo,
   type BookmarkletConfig,
   type BookmarkletFetchError,
 } from "@/lib/dofa/bookmarklet";
@@ -234,5 +236,91 @@ describe("toSlimMatches — nominal (fixture réelle)", () => {
       expect(match.phase.number).toBe(TRIPLET.phase);
       expect(match.poule.stage_number).toBe(TRIPLET.poule);
     }
+  });
+});
+
+// ─── extractDofaCollection ─────────────────────────────────────────────────
+//
+// 🔒 BUG CONSTATÉ EN CONDITIONS RÉELLES : le code généré par
+// `buildBookmarkletSource` gérait jusqu'ici les réponses des endpoints via
+// `(Array.isArray(d) ? d : []).forEach(...)` — donc :
+//   - `/…/resultat` (tableau nu) : OK ;
+//   - `/…/calendrier` : forme non vérifiée, potentiellement une enveloppe
+//     Hydra `{ "hydra:member": [...] }` comme `classement_journees` ;
+//   - toute forme NON tableau nu était silencieusement traitée comme "aucun
+//     match", sans le moindre signal — exactement la panne remontée par le
+//     coach ("aucun match à importer alors qu'il y a des matchs").
+//
+// `extractDofaCollection` est la fonction pure que `buildBookmarkletSource`
+// doit réutiliser dans le code généré (soit en injectant sa logique dans le
+// texte généré, soit — préférable pour la testabilité en dehors du
+// navigateur — en s'appuyant dessus comme unique point de vérité). Contrat,
+// délibérément DIFFÉRENT de `normalizeDofaCollection` (qui renvoie toujours
+// `[]` sans distinction, contrat correct pour SES appelants actuels) :
+// ici, une forme incomprise DOIT être distinguée d'une collection
+// légitimement vide, pour ne jamais reproduire le défaut d'échec silencieux
+// déjà éliminé ailleurs dans ce chantier.
+describe("extractDofaCollection — absorbe tableau nu et enveloppe Hydra, distingue vide et incompris", () => {
+  it("tableau nu non vide → { ok: true, items } avec les éléments tels quels", () => {
+    const input = [{ ma_no: 1 }, { ma_no: 2 }];
+    expect(extractDofaCollection(input)).toEqual({ ok: true, items: input });
+  });
+
+  it("enveloppe Hydra non vide → { ok: true, items } extraits de hydra:member (cas /…/calendrier suspecté de renvoyer cette forme)", () => {
+    const members = [{ ma_no: 10 }, { ma_no: 11 }];
+    const input = { "hydra:member": members, "hydra:totalItems": 2 };
+    expect(extractDofaCollection(input)).toEqual({ ok: true, items: members });
+  });
+
+  it("cas légitimement vide — tableau nu vide → { ok: true, items: [] } (aucun match, PAS une erreur)", () => {
+    expect(extractDofaCollection([])).toEqual({ ok: true, items: [] });
+  });
+
+  it("cas légitimement vide — enveloppe Hydra avec hydra:totalItems: 0 → { ok: true, items: [] } (aucun match, PAS une erreur)", () => {
+    const input = { "hydra:member": [], "hydra:totalItems": 0 };
+    expect(extractDofaCollection(input)).toEqual({ ok: true, items: [] });
+  });
+
+  describe("🔒 TEST-SENTINELLE — forme incomprise JAMAIS confondue avec 'aucun match'", () => {
+    it.each([
+      ["objet quelconque sans hydra:member", { foo: "bar" }],
+      ["chaîne", "not a collection"],
+      ["null", null],
+      ["undefined", undefined],
+      ["nombre", 42],
+      ["objet Hydra malformé (hydra:member n'est pas un tableau)", { "hydra:member": "oops" }],
+    ])("entrée %s → { ok: false } explicite, jamais { ok: true, items: [] }", (_label, input) => {
+      const result = extractDofaCollection(input);
+      expect(result.ok).toBe(false);
+      // Contrat capital : une forme incomprise ne doit JAMAIS produire la
+      // même valeur qu'une collection légitimement vide, sous peine de
+      // reproduire silencieusement le bug ("aucun match" alors qu'il y en a).
+      expect(result).not.toEqual({ ok: true, items: [] });
+    });
+  });
+});
+
+// ─── dedupeMatchesByManNo ───────────────────────────────────────────────────
+//
+// `resultat` et `calendrier` peuvent tous deux référencer le même match
+// (même `ma_no`) — un match à venir apparaît dans `calendrier`, puis une
+// fois son score connu il peut réapparaître dans `resultat` avant que
+// `calendrier` n'ait cessé de le lister. Sans fusion, le match serait
+// transmis en double au serveur d'ingestion (risque de duplication d'un
+// événement d'agenda ou d'échec d'ingestion sur la contrainte d'unicité
+// `dofa_ma_no`).
+describe("dedupeMatchesByManNo — fusion resultat + calendrier sans doublon", () => {
+  it("un même ma_no présent dans les deux endpoints n'apparaît qu'une seule fois", () => {
+    const fromResultat = [{ ma_no: 100, status: "joue" }];
+    const fromCalendrier = [{ ma_no: 100, status: "a_jouer" }, { ma_no: 200, status: "a_jouer" }];
+    const merged = dedupeMatchesByManNo([...fromResultat, ...fromCalendrier]);
+    const maNos = merged.map((m) => (m as { ma_no: number }).ma_no);
+    expect(maNos.filter((n) => n === 100)).toHaveLength(1);
+    expect(new Set(maNos).size).toBe(maNos.length);
+  });
+
+  it("conserve tous les matchs distincts (aucune perte lors de la fusion)", () => {
+    const merged = dedupeMatchesByManNo([{ ma_no: 1 }, { ma_no: 2 }, { ma_no: 3 }]);
+    expect(merged).toHaveLength(3);
   });
 });

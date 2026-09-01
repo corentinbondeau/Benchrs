@@ -16,18 +16,27 @@ import { parseDofaMatches, type DofaMatch } from "./parse-matches";
 import type { DofaPouleRef } from "./types";
 
 export const MAX_INGEST_MATCHES = 500;
-export const MAX_INGEST_BYTES = 512 * 1024;
+/**
+ * 1,5 Mo (1.5 * 1024 * 1024 octets). Mesures réelles sur données DOFA brutes
+ * (le bookmarklet transmet désormais le JSON brut, sans allègement côté
+ * client — voir plus bas) : une journée pèse ~29 Ko, une saison complète
+ * entre ~645 Ko (12 équipes) et ~889 Ko (14 équipes). 512 Ko était donc déjà
+ * insuffisant pour une saison complète ; 1,5 Mo conserve une marge
+ * confortable sans ouvrir la porte à un payload démesuré.
+ */
+export const MAX_INGEST_BYTES = 1.5 * 1024 * 1024;
 
 /**
- * ── Format d'échange allégé (bookmarklet, lot 8) ──────────────────────────
+ * ── Format d'échange allégé (bookmarklet, lot 8 — conservé pour compat) ───
  *
  * Le JSON brut renvoyé par l'API DOFA répète intégralement `competition`,
  * `phase`, `poule`, `engagements`, les logos et `external_updated_at` sur
- * CHAQUE match (~5 Ko/match en conditions réelles) : une saison complète
- * dépasserait largement `MAX_INGEST_BYTES` bien avant `MAX_INGEST_MATCHES`.
- * Le bookmarklet transmet donc un sous-ensemble allégé des champs — validé
- * ici au même titre que le format brut complet (le serveur VALIDE, il
- * n'IMPOSE pas un régime unique : les deux formes sont acceptées).
+ * CHAQUE match (~5 Ko/match en conditions réelles). Le bookmarklet transmet
+ * désormais ce JSON brut tel quel (décision produit : la normalisation est
+ * un travail serveur, pas la peine de le dupliquer côté client) — mais le
+ * format allégé décrit ci-dessous reste accepté par le serveur, qui VALIDE
+ * les deux formes sans en IMPOSER une seule : une garantie de compatibilité
+ * utile, pas du code mort.
  *
  * Champs conservés par match, et pourquoi :
  *   - `ma_no`                         : identifiant du match (obligatoire).
@@ -193,7 +202,7 @@ export function validateIngestPayload(
     return {
       ok: false,
       reason: "payload_too_large",
-      message: "Le payload dépasse la taille maximale autorisée (512 Ko).",
+      message: "Le payload dépasse la taille maximale autorisée (1,5 Mo).",
     };
   }
 

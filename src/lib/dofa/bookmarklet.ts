@@ -37,6 +37,7 @@
  */
 
 import type { DofaPouleRef, DofaRawMatch, DofaTeamRef, DofaTerrain } from "./types";
+import { normalizeDofaCollection } from "./normalize";
 
 export interface BookmarkletConfig {
   triplet: DofaPouleRef;
@@ -161,6 +162,53 @@ export function toSlimMatches(rawMatches: DofaRawMatch[], triplet: DofaPouleRef)
   }));
 }
 
+export type DofaExtractResult = { ok: true; items: unknown[] } | { ok: false };
+
+/**
+ * Distingue une collection légitimement vide d'une forme non comprise —
+ * exactement la distinction que le code généré (avant correction) ne
+ * faisait pas, causant la perte silencieuse de matchs constatée par le
+ * coach ("aucun match à importer alors qu'il y a des matchs").
+ *
+ * Réutilise `normalizeDofaCollection` (déjà éprouvée, cf. `normalize.ts`)
+ * pour l'EXTRACTION effective des éléments une fois la forme reconnue
+ * valide : pas de troisième logique de déballage. La seule logique propre
+ * à cette fonction est la RECONNAISSANCE de forme (tableau nu / enveloppe
+ * Hydra avec `hydra:member` tableau) — nécessaire car `normalizeDofaCollection`
+ * renvoie toujours `[]` sans distinction, un contrat volontairement
+ * différent et correct pour ses appelants actuels, mais insuffisant ici où
+ * une forme incomprise doit être une ERREUR, jamais confondue avec "aucun
+ * match".
+ */
+export function extractDofaCollection(data: unknown): DofaExtractResult {
+  if (Array.isArray(data)) {
+    return { ok: true, items: normalizeDofaCollection(data) };
+  }
+  if (data && typeof data === "object" && Array.isArray((data as Record<string, unknown>)["hydra:member"])) {
+    return { ok: true, items: normalizeDofaCollection(data) };
+  }
+  return { ok: false };
+}
+
+/**
+ * Fusionne les matchs issus de `resultat` et `calendrier` sans doublon sur
+ * `ma_no` (un match "à venir" côté calendrier peut réapparaître côté
+ * résultat une fois son score connu, avant que calendrier n'ait cessé de
+ * le lister). Conserve la PREMIÈRE occurrence rencontrée pour chaque
+ * `ma_no`, préserve l'ordre des autres.
+ */
+export function dedupeMatchesByManNo(matches: unknown[]): unknown[] {
+  const seen = new Set<unknown>();
+  const out: unknown[] = [];
+  for (const m of matches) {
+    const maNo = (m as { ma_no?: unknown })?.ma_no;
+    if (seen.has(maNo)) continue;
+    seen.add(maNo);
+    out.push(m);
+  }
+  return out;
+}
+
 /**
  * Construit le triplet à injecter dans le code généré à partir de
  * `config.triplet`, sans jamais faire confiance à sa forme réelle : seules
@@ -210,11 +258,17 @@ function jsStringLiteral(value: string): string {
  *   1. appelle SEULEMENT 2 endpoints DOFA (résultat, calendrier — PAS
  *      `classement_journees`, cf. commentaire de `planFetches`) avec
  *      reprise (2 essais supplémentaires espacés, abandon explicite ensuite) ;
- *   2. allège les matchs (résultat + calendrier) ;
+ *   2. transmet les matchs BRUTS tels que renvoyés par l'API DOFA — AUCUNE
+ *      projection/allègement côté client (décision produit : la
+ *      normalisation, déjà correcte et déjà testée, est un travail serveur
+ *      via `normalizeDofaCollection`/`parseDofaMatches` ; la dupliquer ici
+ *      ne ferait que gonfler le code généré sans bénéfice) ; extraction
+ *      robuste (tableau nu ou enveloppe Hydra `hydra:member`, toute autre
+ *      forme = erreur explicite) et dédoublonnage par `ma_no` ;
  *   3. ouvre un onglet Benchrs et attend une POIGNÉE DE MAIN avant d'y
  *      transmettre quoi que ce soit (voir ci-dessous) ;
- *   4. en cas d'échec réseau non résorbé, transmet `{ s: "error" }` —
- *      jamais une liste de matchs vide.
+ *   4. en cas d'échec réseau non résorbé OU de forme de réponse incomprise,
+ *      transmet `{ s: "error" }` — jamais une liste de matchs vide.
  *
  * 🔒 POIGNÉE DE MAIN (anti course onglet/réseau) : sans elle, le
  * bookmarklet pourrait `postMessage` le résultat AVANT que la page de
@@ -254,17 +308,16 @@ export function buildBookmarkletSource(config: BookmarkletConfig): string {
     "(function(){" +
     "var o=" + originLiteral + ",c=" + tripletLiteral + "," +
     "b='https://api-dofa.fff.fr/api/compets/'+c.cp_no+'/phases/'+c.phase+'/poules/'+c.poule+'/'," +
-    "tt=t=>t?{club:{cl_no:t.club.cl_no},number:t.number,short_name:t.short_name}:{club:{cl_no:0},number:0,short_name:''}," +
-    "tr=t=>t?{name:t.name||null,address:t.address||null,zip_code:t.zip_code||null,city:t.city||null}:null," +
-    "sl=m=>({ma_no:m.ma_no,competition:{cp_no:c.cp_no},phase:{number:c.phase},poule:{stage_number:c.poule},poule_journee:m.poule_journee?{number:m.poule_journee.number}:null,home:tt(m.home),away:tt(m.away),terrain:tr(m.terrain),status:m.status||null,date:m.date,time:m.time||null,home_score:m.home_score,home_is_forfeit:m.home_is_forfeit,away_score:m.away_score,away_is_forfeit:m.away_is_forfeit,seems_postponed:m.seems_postponed})," +
     "gt=(u,i,cb)=>fetch(u).then(r=>r.ok?r.json():Promise.reject()).then(d=>cb(0,d)).catch(e=>i<2?setTimeout(()=>gt(u,i+1,cb),600*i):cb(1,0))," +
+    "hk='hydra:member'," +
+    "ex=d=>Array.isArray(d)?d:(d&&Array.isArray(d[hk]))?d[hk]:0," +
     "a=[],x=0,n=0,y=0,p=null," +
     "w=open(o+'/b/r');" +
     "if(!w){alert('Popup bloquee');return;}" +
     "var s=()=>w.postMessage({t:'bdi',p:p},o);" +
     "addEventListener('message',e=>{if(e.origin===o&&e.data&&e.data.t==='bdr'){y=1;if(p)s();}});" +
     "setTimeout(()=>{if(!y)alert('Onglet ferme');},15000);" +
-    "['resultat','calendrier'].forEach(k=>gt(b+k,1,(e,d)=>{n++;if(e)x++;else (Array.isArray(d)?d:[]).forEach(m=>a.push(sl(m)));if(n===2){p=x>0?{s:'error'}:{s:'ok',m:a};if(y)s();}}));" +
+    "['resultat','calendrier'].forEach(k=>gt(b+k,1,(e,d)=>{n++;var v=e?0:ex(d);if(!v)x++;else v.forEach(m=>a.push(m));if(n===2){if(x){p={s:'error'};}else{var h={};p={s:'ok',m:a.filter(m=>!h[m.ma_no]&&(h[m.ma_no]=1))};}if(y)s();}}));" +
     "})();";
 
   const result = "javascript:" + encodeURIComponent(body);

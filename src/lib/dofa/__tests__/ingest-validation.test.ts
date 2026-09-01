@@ -15,7 +15,7 @@
  * Signature attendue (contrat imposé à @dev) :
  *
  *   export const MAX_INGEST_MATCHES = 500;
- *   export const MAX_INGEST_BYTES = 512 * 1024;
+ *   export const MAX_INGEST_BYTES = 1.5 * 1024 * 1024; // 1,5 Mo
  *
  *   export interface ValidateIngestPayloadInput {
  *     rawBody: string;        // corps brut de la requête HTTP (avant JSON.parse)
@@ -39,7 +39,7 @@
  *   ): IngestValidationResult
  *
  * Contrat de validation (dans l'ordre, chaque étape peut court-circuiter) :
- *   1. Taille brute (octets UTF-8 de `rawBody`) > 512 Ko → reject "payload_too_large".
+ *   1. Taille brute (octets UTF-8 de `rawBody`) > 1,5 Mo → reject "payload_too_large".
  *   2. `JSON.parse(rawBody)` échoue → reject "invalid_json".
  *   3. La valeur parsée n'est ni un tableau, ni une enveloppe Hydra
  *      (`{ "hydra:member": [...] }`) → reject "invalid_shape" (protège
@@ -93,7 +93,7 @@ function makeMatch(overrides: Record<string, unknown> = {}): Record<string, unkn
  * (nécessaire au contrôle anti-injection de poule) sont présents. Utilisé
  * pour le test "exactement 500 matchs" : cloner la fixture complète pour
  * 500 matchs dépasserait `MAX_INGEST_BYTES`, alors que les deux limites
- * (500 matchs, 512 Ko) doivent rester atteignables simultanément grâce au
+ * (500 matchs, 1,5 Mo) doivent rester atteignables simultanément grâce au
  * format allégé.
  */
 function makeSlimMatch(overrides: Record<string, unknown> = {}): Record<string, unknown> {
@@ -166,10 +166,10 @@ describe("validateIngestPayload — limitation de volume (garde-fou anti-DoS)", 
     expect(result.ok, `attendu ok=true à la limite de 500, reçu: ${JSON.stringify(result).slice(0, 200)}`).toBe(true);
   });
 
-  it("rejette un payload dont la taille brute dépasse 512 Ko, même avec peu de matchs", () => {
-    const paddedMatch = makeMatch({ short_name_padding: "x".repeat(600 * 1024) });
+  it("rejette un payload dont la taille brute dépasse 1,5 Mo, même avec peu de matchs", () => {
+    const paddedMatch = makeMatch({ short_name_padding: "x".repeat(1600 * 1024) });
     const rawBody = JSON.stringify([paddedMatch]);
-    expect(Buffer.byteLength(rawBody, "utf8")).toBeGreaterThan(512 * 1024);
+    expect(Buffer.byteLength(rawBody, "utf8")).toBeGreaterThan(1.5 * 1024 * 1024);
 
     const result = validateIngestPayload({ rawBody, triplet: REAL_TRIPLET });
 
