@@ -19,6 +19,27 @@ function isFffHostname(hostname: string): boolean {
   return hostname === FFF_ROOT_DOMAIN || hostname.endsWith(`.${FFF_ROOT_DOMAIN}`);
 }
 
+/**
+ * Vrai uniquement si `origin` (ex. `event.origin` d'un `postMessage`) est
+ * une origine `https://…fff.fr` réelle — jamais par recherche de
+ * sous-chaîne (mêmes garanties que `isFffHostname` : pas de contournement
+ * par userinfo, sous-domaine mimétique ou domaine ressemblant). Ne lève
+ * jamais d'exception : toute entrée invalide renvoie `false`.
+ *
+ * Utilisé côté page de réception du bookmarklet (LOT 8) pour vérifier
+ * `event.origin` avant d'accepter tout message `postMessage` en provenance
+ * du site du district.
+ */
+export function isFffOrigin(origin: string): boolean {
+  if (!origin || typeof origin !== "string") return false;
+  try {
+    const url = new URL(origin);
+    return url.protocol === "https:" && isFffHostname(url.hostname);
+  } catch {
+    return false;
+  }
+}
+
 function parseTriplet(cpNoRaw: string | null, phaseRaw: string | null, pouleRaw: string | null) {
   if (!cpNoRaw || !phaseRaw || !pouleRaw) return null;
 
