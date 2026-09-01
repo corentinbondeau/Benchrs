@@ -54,9 +54,10 @@
 
 import { describe, it, expect } from "vitest";
 import fixtureRaw from "@/lib/dofa/__fixtures__/resultat-d4-pouleD.json";
-import { parseDofaMatches } from "@/lib/dofa/parse-matches";
+import { parseDofaMatches, type DofaMatch } from "@/lib/dofa/parse-matches";
 import {
   computeStandings,
+  isPartialCoverage,
   parseOfficialStandings,
   resolveStandings,
 } from "@/lib/dofa/standings";
@@ -392,5 +393,150 @@ describe("parseOfficialStandings — extraction pure de l'enveloppe Hydra du cla
     expect(parseOfficialStandings({ "hydra:member": [], "hydra:totalItems": 0 })).toEqual([]);
     expect(() => parseOfficialStandings(null)).not.toThrow();
     expect(parseOfficialStandings(null)).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// isPartialCoverage — détection de couverture partielle de poule
+// ---------------------------------------------------------------------------
+//
+// Helper minimal : construit un DofaMatch avec uniquement les champs
+// nécessaires à isPartialCoverage (homeTeam / awayTeam). Les autres champs
+// sont remplis avec des valeurs neutres pour satisfaire le type DofaMatch.
+//
+function buildMatch(
+  homeClNo: number,
+  homeNumber: number,
+  awayClNo: number,
+  awayNumber: number
+): DofaMatch {
+  return {
+    maNo: homeClNo * 10000 + awayClNo,
+    matchday: null,
+    kickoff: null,
+    date: "2026-09-06T00:00:00+00:00",
+    homeTeam: { clNo: homeClNo, number: homeNumber, shortName: `TEAM_${homeClNo}_${homeNumber}` },
+    awayTeam: { clNo: awayClNo, number: awayNumber, shortName: `TEAM_${awayClNo}_${awayNumber}` },
+    homeScore: null,
+    awayScore: null,
+    homeIsForfeit: false,
+    awayIsForfeit: false,
+    location: null,
+    seemsPostponed: false,
+    status: null,
+  };
+}
+
+describe("isPartialCoverage", () => {
+  // -------------------------------------------------------------------------
+  // P0 — SENTINELLE : le bug principal de l'US
+  // -------------------------------------------------------------------------
+  it(
+    "SENTINELLE: 22 matchs d'une seule equipe sur 12 ne sont PAS une couverture complete",
+    () => {
+      // Reproduit exactement le cas métier : l'équipe du coach (clNo=10428, number=1)
+      // a joué 22 matchs (11 à domicile + 11 à l'extérieur) contre 11 adversaires
+      // dans une poule de 12 équipes. La base ne contient que ces 22 matchs —
+      // les 110 confrontations entre les autres équipes sont absentes.
+      //
+      // Bug protégé : sans ce test, isPartialCoverage pourrait retourner false
+      // (classement déclaré fiable) alors qu'il ne couvre que 22/132 matchs.
+      const COACH_TEAM = { clNo: 10428, number: 1 };
+      const adversaires = [
+        { clNo: 1001, number: 1 }, { clNo: 1002, number: 1 }, { clNo: 1003, number: 1 },
+        { clNo: 1004, number: 1 }, { clNo: 1005, number: 1 }, { clNo: 1006, number: 1 },
+        { clNo: 1007, number: 1 }, { clNo: 1008, number: 1 }, { clNo: 1009, number: 1 },
+        { clNo: 1010, number: 1 }, { clNo: 1011, number: 1 },
+      ];
+
+      // 11 matchs à domicile + 11 matchs à l'extérieur = 22 matchs, poule de 12
+      const matches: DofaMatch[] = [
+        ...adversaires.map((adv) =>
+          buildMatch(COACH_TEAM.clNo, COACH_TEAM.number, adv.clNo, adv.number)
+        ),
+        ...adversaires.map((adv) =>
+          buildMatch(adv.clNo, adv.number, COACH_TEAM.clNo, COACH_TEAM.number)
+        ),
+      ];
+
+      expect(matches).toHaveLength(22);
+      expect(isPartialCoverage(matches, 12)).toBe(true);
+    }
+  );
+
+  // -------------------------------------------------------------------------
+  // P0 — Cas nominal complet
+  // -------------------------------------------------------------------------
+  it("round-robin complet de 4 équipes (6 paires) → couverture complète", () => {
+    // Bug protégé : sans ce test, isPartialCoverage pourrait retourner true
+    // (faux positif) sur un classement valide, bloquant l'affichage au coach.
+    //
+    // 4 équipes : (1,2), (1,3), (1,4), (2,3), (2,4), (3,4) = 6 paires distinctes
+    const matches: DofaMatch[] = [
+      buildMatch(1, 1, 2, 1), // paire 1-2
+      buildMatch(1, 1, 3, 1), // paire 1-3
+      buildMatch(1, 1, 4, 1), // paire 1-4
+      buildMatch(2, 1, 3, 1), // paire 2-3
+      buildMatch(2, 1, 4, 1), // paire 2-4
+      buildMatch(3, 1, 4, 1), // paire 3-4
+    ];
+    expect(isPartialCoverage(matches, 4)).toBe(false);
+  });
+
+  // -------------------------------------------------------------------------
+  // P0 — Tous les matchs impliquent la même équipe
+  // -------------------------------------------------------------------------
+  it("tous les matchs impliquent la même équipe → signal fiable d'import filtré", () => {
+    // Bug protégé : sans ce test, un import filtré par équipe pourrait être
+    // déclaré complet si le critère de paires seul était défaillant
+    // (ex: si expectedTeamCount était mal calculé).
+    //
+    // 5 matchs, toujours l'équipe (99, 1) home ou away, face à 5 adversaires
+    // distincts. Poule de 6 équipes → 15 paires théoriques, seulement 5 vues.
+    const matches: DofaMatch[] = [
+      buildMatch(99, 1, 10, 1),
+      buildMatch(99, 1, 20, 1),
+      buildMatch(30, 1, 99, 1),
+      buildMatch(40, 1, 99, 1),
+      buildMatch(50, 1, 99, 1),
+    ];
+    expect(isPartialCoverage(matches, 6)).toBe(true);
+  });
+
+  // -------------------------------------------------------------------------
+  // P1 — Paires manquantes (pas encore le round-robin complet)
+  // -------------------------------------------------------------------------
+  it("4 équipes avec 5 paires sur 6 attendues → partiel (pencher vers incomplet en cas de doute)", () => {
+    // Bug protégé : sans ce test, isPartialCoverage pourrait retourner false
+    // sur un ensemble presque complet mais insuffisant pour un classement fiable.
+    //
+    // 4 équipes → 6 paires théoriques, on n'en fournit que 5 (paire 3-4 absente).
+    const matches: DofaMatch[] = [
+      buildMatch(1, 1, 2, 1), // paire 1-2
+      buildMatch(1, 1, 3, 1), // paire 1-3
+      buildMatch(1, 1, 4, 1), // paire 1-4
+      buildMatch(2, 1, 3, 1), // paire 2-3
+      buildMatch(2, 1, 4, 1), // paire 2-4
+      // paire 3-4 absente
+    ];
+    expect(isPartialCoverage(matches, 4)).toBe(true);
+  });
+
+  // -------------------------------------------------------------------------
+  // P1 — expectedTeamCount dégénéré (0)
+  // -------------------------------------------------------------------------
+  it("expectedTeamCount = 0 → pas de classement possible (partiel)", () => {
+    // Bug protégé : sans ce test, un appel avec expectedTeamCount=0 pourrait
+    // retourner false ou crasher, causant un affichage ou une exception inattendue.
+    expect(isPartialCoverage([], 0)).toBe(true);
+  });
+
+  // -------------------------------------------------------------------------
+  // P1 — Aucun match
+  // -------------------------------------------------------------------------
+  it("tableau de matchs vide → pas de données = classement non fiable (partiel)", () => {
+    // Bug protégé : sans ce test, un ensemble vide pourrait être déclaré
+    // complet (false), affichant un classement fictif à la place de l'avertissement.
+    expect(isPartialCoverage([], 12)).toBe(true);
   });
 });

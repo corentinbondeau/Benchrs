@@ -411,5 +411,14 @@ export async function POST(req: Request) {
     .update({ last_imported_at: new Date().toISOString() })
     .eq("id", championshipId);
 
+  // Persister le classement officiel FFF si fourni dans le body
+  const officialStandings = (body as Record<string, unknown>).officialStandings;
+  if (officialStandings !== undefined) {
+    await supabase
+      .from("championships")
+      .update({ official_standings: officialStandings })
+      .eq("id", championshipId);
+  }
+
   return NextResponse.json({ imported, updated, skipped, source: "dofa_import", eventSync });
 }

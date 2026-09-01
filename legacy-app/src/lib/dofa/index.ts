@@ -23,6 +23,7 @@ export type { DofaMatch as ParsedDofaMatch, DofaMatchTeam, DofaLocation } from "
 
 export {
   computeStandings,
+  isPartialCoverage,
   parseOfficialStandings,
   resolveStandings,
 } from "./standings";

@@ -213,6 +213,45 @@ export function parseOfficialStandings(data: unknown): StandingRow[] {
 }
 
 /**
+ * Détecte si la liste de matchs fournie ne couvre qu'une partie des
+ * confrontations attendues dans la poule (round-robin simple).
+ *
+ * Algorithme :
+ *   1. Si `expectedTeamCount < 2` ou `matches` est vide → couverture partielle
+ *      (pas assez de données pour un classement fiable).
+ *   2. Collecte les paires d'équipes distinctes (identifiées par `clNo + number`)
+ *      sous forme canonique (petite clé d'abord) pour dédupliquer.
+ *   3. Compare le nombre de paires observées au nombre théorique d'un
+ *      round-robin complet : n*(n-1)/2.
+ *   4. Si observées < théoriques → `true` (partiel), sinon `false` (complet).
+ *
+ * Fonction pure — pas d'I/O, pas de side effects.
+ */
+export function isPartialCoverage(
+  matches: DofaMatch[],
+  expectedTeamCount: number
+): boolean {
+  if (expectedTeamCount < 2 || matches.length === 0) return true;
+
+  const pairs = new Set<string>();
+
+  for (const match of matches) {
+    const homeKey = teamKey(match.homeTeam.clNo, match.homeTeam.number);
+    const awayKey = teamKey(match.awayTeam.clNo, match.awayTeam.number);
+    // Clé canonique non ordonnée : on trie lexicographiquement pour dédupliquer
+    // (A vs B) === (B vs A).
+    const pairKey =
+      homeKey < awayKey ? `${homeKey}|${awayKey}` : `${awayKey}|${homeKey}`;
+    pairs.add(pairKey);
+  }
+
+  const expectedPairs =
+    (expectedTeamCount * (expectedTeamCount - 1)) / 2;
+
+  return pairs.size < expectedPairs;
+}
+
+/**
  * Résout la source de classement à exposer au coach : privilégie le
  * classement officiel FFF s'il est non vide, sinon bascule sur le
  * classement calculé localement. La source retenue est exposée pour

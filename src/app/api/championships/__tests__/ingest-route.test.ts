@@ -85,6 +85,10 @@ let mockState: SupabaseMockState;
 let upsertedRows: Array<Record<string, unknown>> = [];
 let updatedChampionshipPatch: Record<string, unknown> | null = null;
 let deleteCalled = false;
+// Patches distincts envoyés via championships.update() — le mock capture
+// chaque appel dans un tableau pour que les tests officialStandings puissent
+// vérifier indépendamment la présence/absence de official_standings.
+let championshipUpdatePatches: Array<Record<string, unknown>> = [];
 // Écritures dans `events` réalisées par l'exécuteur d'event-sync — table
 // absente du mock initial (cf. bug prod : insertion sans `team_id`, cause
 // invisible car `events` échouait silencieusement, absorbé par le
@@ -100,6 +104,7 @@ function resetSupabaseMockState() {
   deleteCalled = false;
   insertedEvents = [];
   eventIdCounter = 0;
+  championshipUpdatePatches = [];
 }
 
 vi.mock("@/lib/supabase/admin", () => ({
@@ -118,6 +123,7 @@ vi.mock("@/lib/supabase/admin", () => ({
           }),
           update: (patch: Record<string, unknown>) => {
             updatedChampionshipPatch = patch;
+            championshipUpdatePatches.push(patch);
             return { eq: async () => ({ error: null }) };
           },
         };
@@ -414,6 +420,87 @@ describe("POST /api/championships/dofa/ingest — garde-fou de fréquence (60s)"
     const res = await POST(makeIngestRequest(validBody()));
 
     expect(res.status).toBe(200);
+  });
+});
+
+describe("POST /api/championships/dofa/ingest — officialStandings", () => {
+  // Ces tests verrouillent la persistance du classement officiel FFF dans la
+  // colonne `championships.official_standings`. Le champ `officialStandings`
+  // est optionnel dans le body : sa présence déclenche un UPDATE ciblé,
+  // son absence ne modifie JAMAIS la colonne (règle d'or : absence ≠ purge).
+  beforeEach(() => {
+    vi.mocked(getAuthUser).mockResolvedValue(makeAuthedUser());
+    vi.mocked(isTeamCoach).mockResolvedValue(true);
+  });
+
+  it("persiste official_standings quand officialStandings est fourni dans le body", async () => {
+    // Bug empêché : officialStandings fourni par le bookmarklet est ignoré
+    // silencieusement — le classement officiel FFF ne serait jamais stocké
+    // en base, et le GET retournerait toujours standings_source: "computed"
+    // même après import du classement officiel (même type de bug que les
+    // champs perdus lors des lots précédents de ce chantier).
+
+    const officialStandings = {
+      "hydra:member": [
+        {
+          club: { cl_no: 100, number: 1 },
+          short_name: "Equipe A",
+          played: 3,
+          won: 2,
+          drawn: 1,
+          lost: 0,
+          goals_for: 5,
+          goals_against: 2,
+          points: 7,
+        },
+      ],
+    };
+
+    const { POST } = await importRoute();
+    const res = await POST(makeIngestRequest(validBody({ officialStandings })));
+    const json = await res.json();
+
+    expect(
+      res.status,
+      `attendu 200, reçu ${res.status} — body=${JSON.stringify(json)}`
+    ).toBe(200);
+
+    // L'UPDATE sur championships doit inclure official_standings avec la
+    // valeur fournie — que ce soit un appel séparé ou fusionné avec
+    // last_imported_at, peu importe : au moins un patch doit porter la clé.
+    const patchWithOfficial = championshipUpdatePatches.find(
+      (p) => "official_standings" in p
+    );
+    expect(
+      patchWithOfficial,
+      "aucun UPDATE sur championships n'a inclus official_standings — la valeur est ignorée silencieusement"
+    ).toBeDefined();
+    expect(patchWithOfficial!.official_standings).toEqual(officialStandings);
+  });
+
+  it("ne touche PAS official_standings quand officialStandings est absent du body", async () => {
+    // Bug empêché : une ingestion sans officialStandings (usage quotidien
+    // d'import de matchs) écraserait le classement officiel précédemment
+    // stocké à null — le coach perdrait son classement FFF après chaque
+    // ré-import de matchs.
+
+    const { POST } = await importRoute();
+    // validBody() ne contient pas officialStandings
+    const res = await POST(makeIngestRequest(validBody()));
+    const json = await res.json();
+
+    expect(
+      res.status,
+      `attendu 200, reçu ${res.status} — body=${JSON.stringify(json)}`
+    ).toBe(200);
+
+    const patchWithOfficial = championshipUpdatePatches.find(
+      (p) => "official_standings" in p
+    );
+    expect(
+      patchWithOfficial,
+      "un UPDATE sur official_standings a été émis alors qu'officialStandings était absent du body — risque d'écrasement du classement officiel"
+    ).toBeUndefined();
   });
 });
 

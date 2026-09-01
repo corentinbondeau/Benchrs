@@ -382,3 +382,61 @@ describe("PATCH /api/championships — identité d'équipe (clNo/teamNumber)", (
     expect(res.status).toBe(400);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Extension — nom d'équipe (team_name)
+//
+// Contexte : le coach doit pouvoir stocker le nom de son équipe (tel qu'il
+// apparaît dans le DOFA) sur son championnat, pour l'afficher dans l'UI sans
+// avoir à le ressaisir. Ce champ est OPTIONNEL : un PATCH sans teamName ne
+// doit jamais écraser un nom précédemment enregistré.
+//
+// ⚠️ Ces tests n'altèrent AUCUN cas existant ci-dessus.
+// ---------------------------------------------------------------------------
+
+describe("PATCH /api/championships — teamName (nom d'équipe)", () => {
+  beforeEach(() => {
+    vi.mocked(getAuthUser).mockResolvedValue(makeAuthedUser());
+    vi.mocked(isTeamCoach).mockResolvedValue(true);
+  });
+
+  it("persiste team_name quand teamName est fourni", async () => {
+    // Bug empêché : teamName fourni dans le body mais ignoré silencieusement
+    // → team_name jamais écrit en base (régression déjà observée 4× sur ce projet).
+    const { PATCH } = await importRoute();
+    const res = await PATCH(
+      makePatchRequest(validBody({ teamName: "CAMPHIN PEVELE ECF" }))
+    );
+    const json = await res.json();
+
+    expect(res.status, `attendu 200, reçu ${res.status} — body=${JSON.stringify(json)}`).toBe(200);
+    expect(
+      updatePatch,
+      "team_name doit être inclus dans le payload envoyé à Supabase"
+    ).toHaveProperty("team_name", "CAMPHIN PEVELE ECF");
+  });
+
+  it("ne touche PAS a team_name quand teamName est absent du body", async () => {
+    // Bug empêché : un PATCH sans teamName envoie team_name: null à Supabase,
+    // écrasant silencieusement un nom précédemment stocké.
+    const { PATCH } = await importRoute();
+    const res = await PATCH(makePatchRequest(validBody()));
+
+    expect(res.status).toBe(200);
+    expect(
+      updatePatch,
+      "team_name ne doit PAS figurer dans le payload quand teamName est absent du body"
+    ).not.toHaveProperty("team_name");
+  });
+
+  it("repond 400 si teamName depasse 200 caracteres", async () => {
+    // Bug empêché : nom de 201+ caractères causant un débordement en base
+    // ou un rendu tronqué/cassé dans l'UI.
+    const { PATCH } = await importRoute();
+    const res = await PATCH(
+      makePatchRequest(validBody({ teamName: "A".repeat(201) }))
+    );
+
+    expect(res.status).toBe(400);
+  });
+});

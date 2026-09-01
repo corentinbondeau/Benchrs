@@ -27,6 +27,9 @@ interface Championship {
   dofa_cl_no?: number | null;
   dofa_team_number?: number | null;
   last_imported_at?: string | null;
+  standings_coverage?: "full" | "partial";
+  standings_source?: "official" | "computed";
+  team_name?: string | null;
 }
 
 interface ChampionshipTeam {
@@ -269,6 +272,7 @@ export default function ChampionshipPage() {
           poule: selected.dofa_poule,
           clNo: team.clNo,
           teamNumber: team.number,
+          teamName: team.shortName,
         }),
       });
       const data = await res.json();
@@ -416,7 +420,7 @@ export default function ChampionshipPage() {
                               Votre équipe :{" "}
                               {pouleTeams.find(
                                 (t) => t.clNo === selected.dofa_cl_no && t.number === selected.dofa_team_number
-                              )?.shortName ?? `équipe n°${selected.dofa_team_number}`}
+                              )?.shortName ?? selected.team_name ?? `équipe n°${selected.dofa_team_number}`}
                             </span>
                           </div>
                         </div>
@@ -768,13 +772,29 @@ export default function ChampionshipPage() {
                     // répond pas, le classement affiché est TOUJOURS déduit
                     // des résultats saisis, jamais l'officiel FFF. Le coach
                     // doit le savoir explicitement.
-                    <Badge
-                      variant="outline"
-                      className="ml-auto text-xs"
-                      title="Le classement officiel FFF n'est pas encore accessible (service bloqué côté FFF) : ce classement est calculé à partir des résultats saisis."
-                    >
-                      Classement calculé
-                    </Badge>
+                    selected.standings_source === "official" ? (
+                      <Badge
+                        variant="outline"
+                        className="ml-auto text-xs border-green-400 text-green-800 dark:border-green-600 dark:text-green-200"
+                      >
+                        Classement officiel
+                      </Badge>
+                    ) : selected.standings_coverage === "partial" ? (
+                      <Badge
+                        variant="outline"
+                        className="ml-auto text-xs border-amber-400 text-amber-800 dark:text-amber-200"
+                      >
+                        Classement partiel
+                      </Badge>
+                    ) : (
+                      <Badge
+                        variant="outline"
+                        className="ml-auto text-xs"
+                        title="Le classement officiel FFF n'est pas encore accessible (service bloqué côté FFF) : ce classement est calculé à partir des résultats saisis."
+                      >
+                        Classement calculé
+                      </Badge>
+                    )
                   )}
                   {isCoach && selected.dofa_cp_no == null && (
                     <Badge variant="outline" className="text-xs">
@@ -798,43 +818,60 @@ export default function ChampionshipPage() {
                     Aucune équipe dans le classement
                   </p>
                 ) : (
-                  <div className="rounded-lg border overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead className="bg-muted/50">
-                        <tr>
-                          <th className="p-2 text-left whitespace-nowrap">#</th>
-                          <th className="p-2 text-left min-w-[120px]">Équipe</th>
-                          <th className="p-2 text-center whitespace-nowrap">J</th>
-                          <th className="p-2 text-center whitespace-nowrap">V</th>
-                          <th className="p-2 text-center whitespace-nowrap">N</th>
-                          <th className="p-2 text-center whitespace-nowrap">D</th>
-                          <th className="p-2 text-center whitespace-nowrap">BP</th>
-                          <th className="p-2 text-center whitespace-nowrap">BC</th>
-                          <th className="p-2 text-center font-bold whitespace-nowrap">Pts</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {sortedTeams.map((team, idx) => (
-                          <tr
-                            key={team.id}
-                            className={`border-t ${
-                              idx === 0 ? "bg-amber-50 dark:bg-amber-950/20" : ""
-                            }`}
-                          >
-                            <td className="p-2">{idx + 1}</td>
-                            <td className="p-2 font-medium">{team.team_name}</td>
-                            <td className="p-2 text-center">{team.played}</td>
-                            <td className="p-2 text-center">{team.won}</td>
-                            <td className="p-2 text-center">{team.drawn}</td>
-                            <td className="p-2 text-center">{team.lost}</td>
-                            <td className="p-2 text-center">{team.goals_for}</td>
-                            <td className="p-2 text-center">{team.goals_against}</td>
-                            <td className="p-2 text-center font-bold">{team.points}</td>
+                  <>
+                    {selected.standings_coverage === "partial" && (
+                      <div className="flex items-start gap-3 rounded-lg border border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950/30 p-4 mb-4">
+                        <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+                        <div className="text-sm">
+                          <p className="font-medium text-amber-800 dark:text-amber-200">
+                            Classement incomplet
+                          </p>
+                          <p className="text-amber-700 dark:text-amber-300 mt-1">
+                            Seuls les matchs de votre équipe sont en base. Ce classement est indicatif
+                            uniquement — les totaux des autres équipes sont partiels. Pour un classement
+                            fiable, collez la page « Résultats » complète de la poule depuis le site FFF.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                    <div className={`rounded-lg border overflow-x-auto${selected.standings_coverage === "partial" ? " opacity-60" : ""}`}>
+                      <table className="w-full text-sm">
+                        <thead className="bg-muted/50">
+                          <tr>
+                            <th className="p-2 text-left whitespace-nowrap">#</th>
+                            <th className="p-2 text-left min-w-[120px]">Équipe</th>
+                            <th className="p-2 text-center whitespace-nowrap">J</th>
+                            <th className="p-2 text-center whitespace-nowrap">V</th>
+                            <th className="p-2 text-center whitespace-nowrap">N</th>
+                            <th className="p-2 text-center whitespace-nowrap">D</th>
+                            <th className="p-2 text-center whitespace-nowrap">BP</th>
+                            <th className="p-2 text-center whitespace-nowrap">BC</th>
+                            <th className="p-2 text-center font-bold whitespace-nowrap">Pts</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                        </thead>
+                        <tbody>
+                          {sortedTeams.map((team, idx) => (
+                            <tr
+                              key={team.id}
+                              className={`border-t ${
+                                idx === 0 ? "bg-amber-50 dark:bg-amber-950/20" : ""
+                              }`}
+                            >
+                              <td className="p-2">{idx + 1}</td>
+                              <td className="p-2 font-medium">{team.team_name}</td>
+                              <td className="p-2 text-center">{team.played}</td>
+                              <td className="p-2 text-center">{team.won}</td>
+                              <td className="p-2 text-center">{team.drawn}</td>
+                              <td className="p-2 text-center">{team.lost}</td>
+                              <td className="p-2 text-center">{team.goals_for}</td>
+                              <td className="p-2 text-center">{team.goals_against}</td>
+                              <td className="p-2 text-center font-bold">{team.points}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
                 )}
               </CardContent>
             </Card>

@@ -571,6 +571,7 @@ export interface Championship {
   level: string | null;
   team_id: string;
   created_at: string;
+  team_name?: string | null;
 }
 
 export interface User {

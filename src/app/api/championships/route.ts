@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAuthUser, unauthorized, forbidden, isTeamMember, isTeamCoach } from "@/lib/api-auth";
-import { computeStandings } from "@/lib/dofa";
+import { computeStandings, isPartialCoverage, resolveStandings } from "@/lib/dofa";
 import type { DofaMatch } from "@/lib/dofa/parse-matches";
 
 /**
@@ -100,7 +100,13 @@ export async function GET(req: Request) {
         .map((row) => toDofaMatchForStandings(row as Record<string, unknown>))
         .filter((m): m is DofaMatch => m !== null);
 
-      const standings = computeStandings(matches);
+      const { rows: standings, source: standings_source } = resolveStandings(
+        (c as Record<string, unknown>).official_standings,
+        matches
+      );
+      const standings_coverage = standings_source === "official"
+        ? "full" as const
+        : isPartialCoverage(matches, standings.length) ? "partial" as const : "full" as const;
 
       const teams = standings.map((row) => ({
         id: `${row.clNo}/${row.number}`,
@@ -114,7 +120,7 @@ export async function GET(req: Request) {
         points: row.points,
       }));
 
-      return { ...c, teams, standings_source: "computed" as const };
+      return { ...c, teams, standings_source, standings_coverage };
     })
   );
 
@@ -179,13 +185,14 @@ export async function PATCH(req: Request) {
   } catch {
     return NextResponse.json({ error: "Corps de requête JSON invalide" }, { status: 400 });
   }
-  const { id, cpNo, phase, poule, clNo, teamNumber } = body as {
+  const { id, cpNo, phase, poule, clNo, teamNumber, teamName } = body as {
     id?: string;
     cpNo?: number;
     phase?: number;
     poule?: number;
     clNo?: number;
     teamNumber?: number;
+    teamName?: string;
   };
 
   if (typeof id !== "string" || !id) {
@@ -231,6 +238,16 @@ export async function PATCH(req: Request) {
     );
   }
 
+  // teamName : optionnel, 200 chars max
+  if (teamName !== undefined) {
+    if (typeof teamName !== "string" || teamName.length > 200) {
+      return NextResponse.json(
+        { error: "teamName doit être une chaîne de 200 caractères maximum" },
+        { status: 400 }
+      );
+    }
+  }
+
   const supabase = createAdminClient();
 
   const { data: championship } = await supabase
@@ -243,7 +260,7 @@ export async function PATCH(req: Request) {
     return forbidden();
   }
 
-  const updatePayload: Record<string, number> = {
+  const updatePayload: Record<string, number | string> = {
     dofa_cp_no: cpNo,
     dofa_phase: phase,
     dofa_poule: poule,
@@ -251,6 +268,9 @@ export async function PATCH(req: Request) {
   if (hasClNo) {
     updatePayload.dofa_cl_no = clNo as number;
     updatePayload.dofa_team_number = teamNumber as number;
+  }
+  if (teamName !== undefined) {
+    updatePayload.team_name = teamName;
   }
 
   const { data, error } = await supabase
