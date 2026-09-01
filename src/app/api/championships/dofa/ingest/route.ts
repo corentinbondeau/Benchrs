@@ -34,6 +34,38 @@ const RATE_LIMIT_WINDOW_MS = 60_000;
 const GENERIC_INVALID_PAYLOAD_MESSAGE =
   "Le payload transmis est invalide. Vérifiez le format des données importées.";
 
+// Erreur côté serveur (base de données) — ne doit JAMAIS être confondue avec
+// une erreur de payload : la faute n'est pas celle de l'utilisateur.
+const GENERIC_DATABASE_ERROR_MESSAGE =
+  "Une erreur serveur est survenue pendant le traitement de l'import. Réessayez plus tard.";
+
+// Cas particulier d'erreur DB : colonne (42703) ou contrainte ON CONFLICT
+// (42P10) absente, symptôme typique d'une migration non appliquée. On ne
+// révèle jamais le nom de la colonne ni la structure de la base au client.
+const MIGRATION_MISSING_MESSAGE =
+  "Une erreur serveur est survenue (configuration de la base incomplète). Contactez l'administrateur.";
+
+const MIGRATION_MISSING_PG_CODES = new Set(["42703", "42P10"]);
+
+/**
+ * Construit la réponse d'erreur pour un échec Supabase (lecture ou écriture).
+ * Toujours un 500 : ce n'est jamais une faute du payload envoyé par le client.
+ * Le détail technique (code, message Postgres) est loggé côté serveur
+ * uniquement — jamais renvoyé au client.
+ */
+function databaseErrorResponse(context: string, error: { code?: string; message?: string } | null) {
+  console.error(`[dofa/ingest] Erreur Supabase (${context}):`, error);
+
+  if (error?.code && MIGRATION_MISSING_PG_CODES.has(error.code)) {
+    console.error(
+      `[dofa/ingest] Migration probablement manquante (code=${error.code}, contexte=${context}).`
+    );
+    return NextResponse.json({ error: MIGRATION_MISSING_MESSAGE }, { status: 500 });
+  }
+
+  return NextResponse.json({ error: GENERIC_DATABASE_ERROR_MESSAGE }, { status: 500 });
+}
+
 interface IngestRequestBody {
   teamId?: string;
   cpNo?: number;
@@ -100,8 +132,7 @@ export async function POST(req: Request) {
     .maybeSingle();
 
   if (championshipError) {
-    console.error("[dofa/ingest] Erreur Supabase (lecture championnat):", championshipError);
-    return NextResponse.json({ error: GENERIC_INVALID_PAYLOAD_MESSAGE }, { status: 400 });
+    return databaseErrorResponse("lecture championnat", championshipError);
   }
 
   if (!championship) {
@@ -123,10 +154,14 @@ export async function POST(req: Request) {
 
   const championshipId = championship.id as string;
 
-  const { data: existingRows } = await supabase
+  const { data: existingRows, error: existingRowsError } = await supabase
     .from("championship_standings")
     .select("dofa_ma_no, event_id, last_imported_kickoff, last_imported_location")
     .eq("championship_id", championshipId);
+
+  if (existingRowsError) {
+    return databaseErrorResponse("lecture championship_standings", existingRowsError);
+  }
 
   const existingMaNos = new Set(
     (existingRows ?? []).map((row: { dofa_ma_no: number }) => row.dofa_ma_no)
@@ -155,8 +190,7 @@ export async function POST(req: Request) {
       .upsert(matchUpserts, { onConflict: "championship_id,dofa_ma_no" });
 
     if (upsertError) {
-      console.error("[dofa/ingest] Erreur Supabase (upsert matchs):", upsertError);
-      return NextResponse.json({ error: GENERIC_INVALID_PAYLOAD_MESSAGE }, { status: 400 });
+      return databaseErrorResponse("upsert matchs", upsertError);
     }
   }
 
