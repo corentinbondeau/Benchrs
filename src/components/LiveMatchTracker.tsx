@@ -457,7 +457,7 @@ export function LiveMatchTracker({
     if (title) notifyLive(title);
   }
 
-  async function syncStats() {
+  async function syncStats(endedAtOverride?: string | null) {
     const supabase = createClient();
     const { data } = await supabase
       .from("match_events")
@@ -507,9 +507,10 @@ export function LiveMatchTracker({
       }));
     const subInIds = new Set(subs.map((s) => s.playerIn));
     const starterIds = players.map((p) => p.id).filter((id) => !subInIds.has(id));
+    const effectiveEndedAt = endedAtOverride !== undefined ? endedAtOverride : endedAt;
     const minutesMap = computeMinutesPlayed(
       startedAt,
-      endedAt,
+      effectiveEndedAt,
       subs,
       starterIds
     );
@@ -659,7 +660,7 @@ export function LiveMatchTracker({
     if (eventType === "goal" || eventType === "opponent_goal") {
       syncScore();
     }
-    if (["goal", "yellow_card", "red_card"].includes(eventType)) {
+    if (["goal", "yellow_card", "red_card", "substitution"].includes(eventType)) {
       syncStats();
     }
     notifyLiveEvent(eventType, playerId, minute);
@@ -680,7 +681,7 @@ export function LiveMatchTracker({
     if (eventType === "goal" || eventType === "opponent_goal") {
       syncScore();
     }
-    if (["goal", "yellow_card", "red_card"].includes(eventType)) {
+    if (["goal", "yellow_card", "red_card", "substitution"].includes(eventType)) {
       syncStats();
     }
   }
@@ -781,6 +782,8 @@ export function LiveMatchTracker({
       status: "completed",
       match_result: result,
     });
+    // Synchroniser les stats finales (minutes jouées) avec match_ended_at connu
+    syncStats(nowIso);
     const scoreStr =
       ev && ev.score_us !== null && ev.score_them !== null
         ? ` : ${ev.score_us}-${ev.score_them}`
