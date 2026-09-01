@@ -129,10 +129,17 @@ describe("buildMatchUpserts — nominal critique sur la fixture réelle", () => 
     ]);
   });
 
-  it("compose correctement le kickoff (date + heure locale du terrain)", () => {
-    expect(rows[0].kickoff).toBe("2026-09-06T13:00");
-    expect(rows[1].kickoff).toBe("2026-09-06T15:00");
-    expect(rows[2].kickoff).toBe("2026-09-06T13:00");
+  it("compose correctement le kickoff (date + heure locale du terrain, instant UTC réel — BUG dates décalées de 2h corrigé)", () => {
+    // 13H00/15H00 heure française = 11:00/13:00 UTC en septembre (UTC+2).
+    expect(Date.parse(rows[0].kickoff as string)).toBe(
+      Date.UTC(2026, 8, 6, 11, 0, 0)
+    );
+    expect(Date.parse(rows[1].kickoff as string)).toBe(
+      Date.UTC(2026, 8, 6, 13, 0, 0)
+    );
+    expect(Date.parse(rows[2].kickoff as string)).toBe(
+      Date.UTC(2026, 8, 6, 11, 0, 0)
+    );
   });
 
   it("⚠️ GARDE-FOU CRITIQUE : un match non joué a home_score/away_score à null, jamais 0", () => {

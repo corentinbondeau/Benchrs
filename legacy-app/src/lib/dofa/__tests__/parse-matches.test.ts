@@ -62,23 +62,27 @@ describe("parseDofaMatches — nominal critique sur la fixture réelle (garde-fo
     expect(result).toHaveLength(3);
   });
 
-  it("le match CAMPHIN PEVELE ECF (15H00) a un kickoff correctement composé et des scores null préservés", () => {
+  it("le match CAMPHIN PEVELE ECF (15H00) a un kickoff correctement composé (instant UTC réel, 15H00 heure française = 13:00 UTC en septembre) et des scores null préservés", () => {
     const [result] = parseDofaMatches(cloneFixture()).filter(
       (m) => m.maNo === 56363599
     );
     expect(result, "le match ma_no 56363599 doit être présent").toBeDefined();
-    expect(result.kickoff).toBe("2026-09-06T15:00");
+    expect(Date.parse(result.kickoff as string)).toBe(
+      Date.UTC(2026, 8, 6, 13, 0, 0)
+    );
     expect(result.matchday).toBe(1);
     expect(result.homeScore).toBeNull();
     expect(result.awayScore).toBeNull();
   });
 
-  it("un match à 13H00 (ma_no 56363596) a un kickoff distinct correctement composé", () => {
+  it("un match à 13H00 (ma_no 56363596) a un kickoff distinct correctement composé (13H00 heure française = 11:00 UTC en septembre)", () => {
     const [result] = parseDofaMatches(cloneFixture()).filter(
       (m) => m.maNo === 56363596
     );
     expect(result).toBeDefined();
-    expect(result.kickoff).toBe("2026-09-06T13:00");
+    expect(Date.parse(result.kickoff as string)).toBe(
+      Date.UTC(2026, 8, 6, 11, 0, 0)
+    );
   });
 
   it("poule_journee.number alimente matchday pour tous les matchs de la fixture", () => {
@@ -215,11 +219,11 @@ describe("parseTime — conversion du format FFF \"HHhMM\" (séparateur H, pas :
   });
 });
 
-describe("composeKickoff — combine date (T00:00:00+00:00) + time (HHhMM)", () => {
-  it("compose une date et une heure valides en horodatage local exploitable", () => {
-    expect(composeKickoff("2026-09-06T00:00:00+00:00", "15H00")).toBe(
-      "2026-09-06T15:00"
-    );
+describe("composeKickoff — combine date (T00:00:00+00:00) + time (HHhMM) en instant UTC réel (BUG dates décalées de 2h corrigé)", () => {
+  it("compose une date et une heure valides en instant UTC réel (15H00 heure française = 13:00 UTC en septembre, UTC+2)", () => {
+    const result = composeKickoff("2026-09-06T00:00:00+00:00", "15H00");
+    expect(result).not.toBeNull();
+    expect(Date.parse(result as string)).toBe(Date.UTC(2026, 8, 6, 13, 0, 0));
   });
 
   it("time absent/vide/null → conserve la date seule, ne droppe jamais le match", () => {
@@ -244,6 +248,41 @@ describe("composeKickoff — combine date (T00:00:00+00:00) + time (HHhMM)", () 
     expect(composeKickoff("", "15H00")).toBeNull();
     // @ts-expect-error — robustesse volontaire contre une entrée non-string
     expect(composeKickoff(null, "15H00")).toBeNull();
+  });
+
+  it("match en janvier (heure d'hiver, UTC+1) : 15H00 heure française = 14:00 UTC", () => {
+    const result = composeKickoff("2026-01-10T00:00:00+00:00", "15H00");
+    expect(result).not.toBeNull();
+    expect(Date.parse(result as string)).toBe(
+      Date.UTC(2026, 0, 10, 14, 0, 0)
+    );
+  });
+
+  it("[CAS LIMITE VERROUILLÉ] week-end du passage à l'heure d'HIVER (dernier dimanche d'octobre) : la veille (samedi, encore UTC+2) diffère de deux heures de calcul naïf comme le lendemain (UTC+1)", () => {
+    // Samedi 24/10/2026, encore en heure d'été (UTC+2)
+    const saturday = composeKickoff("2026-10-24T00:00:00+00:00", "15H00");
+    expect(Date.parse(saturday as string)).toBe(Date.UTC(2026, 9, 24, 13, 0, 0));
+
+    // Dimanche 25/10/2026 (jour du changement d'heure, bascule à 3h00 locale) :
+    // un match d'après-midi a lieu APRÈS la bascule, donc déjà en UTC+1.
+    // Une implémentation qui appliquerait UTC+2 toute l'année produirait
+    // 13:00 UTC au lieu du vrai 14:00 UTC — c'est précisément le piège
+    // verrouillé ici.
+    const sunday = composeKickoff("2026-10-25T00:00:00+00:00", "15H00");
+    expect(Date.parse(sunday as string)).toBe(Date.UTC(2026, 9, 25, 14, 0, 0));
+  });
+
+  it("[CAS LIMITE VERROUILLÉ] week-end du passage à l'heure d'ÉTÉ (dernier dimanche de mars) : la veille (samedi, encore UTC+1) diffère du lendemain (UTC+2)", () => {
+    // Samedi 28/03/2026, encore en heure d'hiver (UTC+1)
+    const saturday = composeKickoff("2026-03-28T00:00:00+00:00", "15H00");
+    expect(Date.parse(saturday as string)).toBe(Date.UTC(2026, 2, 28, 14, 0, 0));
+
+    // Dimanche 29/03/2026 (jour du changement d'heure, bascule à 2h00 locale
+    // -> 3h00) : un match d'après-midi a lieu après la bascule, déjà en
+    // UTC+2. Une implémentation figée sur UTC+1 produirait 14:00 UTC au
+    // lieu du vrai 13:00 UTC.
+    const sunday = composeKickoff("2026-03-29T00:00:00+00:00", "15H00");
+    expect(Date.parse(sunday as string)).toBe(Date.UTC(2026, 2, 29, 13, 0, 0));
   });
 });
 

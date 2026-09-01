@@ -434,7 +434,11 @@ describe("POST /api/championships/dofa/ingest — synchronisation agenda : team_
     mockState.championship = {
       id: "champ-1",
       last_imported_at: null,
-      dofa_cl_no: 12345,
+      // clNo=10428 / number=1 : identité réelle de "CAMPHIN PEVELE ECF" dans
+      // la fixture (seul match, sur les 3 de la journée, qui implique
+      // l'équipe du coach — cf. filtrage planEventSync, BUG "tous les
+      // matchs de la poule dans l'agenda").
+      dofa_cl_no: 10428,
       dofa_team_number: 1,
     };
 
@@ -450,8 +454,8 @@ describe("POST /api/championships/dofa/ingest — synchronisation agenda : team_
       json.eventSync?.errors,
       `aucune erreur d'event-sync attendue (body=${JSON.stringify(json)})`
     ).toBe(0);
-    expect(json.eventSync?.created).toBe(3);
-    expect(insertedEvents).toHaveLength(3);
+    expect(json.eventSync?.created).toBe(1);
+    expect(insertedEvents).toHaveLength(1);
     for (const row of insertedEvents) {
       expect(
         row.team_id,

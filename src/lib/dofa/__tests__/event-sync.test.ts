@@ -199,7 +199,7 @@ describe("planEventSync — idempotence (critique)", () => {
     expect(actions).toEqual([{ action: "noop", maNo: 1, eventId: "evt-1" }]);
   });
 
-  it("une deuxième passe sur les 3 matchs de la fixture réelle, sans aucun changement, ne produit QUE des `noop`", () => {
+  it("une deuxième passe sur les 3 matchs de la fixture réelle (dont un seul implique l'équipe du coach), sans aucun changement, ne produit QU'UN SEUL `noop` (les 2 autres matchs de la poule, hors coach, ne produisent aucune action)", () => {
     const matches = [
       buildMatch({
         maNo: 56363596,
@@ -241,7 +241,7 @@ describe("planEventSync — idempotence (critique)", () => {
 
     const actions = planEventSync(matches, existing, NOT_LOCKED_NOW, COACH_TEAM);
 
-    expect(actions).toHaveLength(3);
+    expect(actions).toHaveLength(1);
     expect(actions.every((a) => a.action === "noop")).toBe(true);
   });
 
@@ -488,8 +488,85 @@ describe("planEventSync — anti-régression CAPITALE : absence ≠ annulation",
   });
 });
 
-describe("planEventSync — priorités entre règles (combinaisons tranchées)", () => {
-  it("verrouillé ET saisie manuelle (conflit) → `skip-locked` prime, jamais `conflict`", () => {
+/**
+ * BUG PRODUCTION — tous les matchs de la poule atterrissent dans l'agenda :
+ *
+ * `planEventSync` n'utilisait `coachTeam` que pour NOMMER l'adversaire
+ * (`resolveOpponentName`), sans jamais FILTRER les matchs sur l'identité du
+ * coach. Résultat observé : 6 matchs de journée → 6 `create`, dont un
+ * intitulé "Match vs CAMPHIN PEVELE ECF" (le club du coach lui-même désigné
+ * comme adversaire, sur un match auquel il ne participe pas).
+ *
+ * Décision utilisateur : seuls les matchs où `coachTeam` est engagé (home
+ * OU away, identité stricte `clNo` + `number`) alimentent l'agenda. Le
+ * classement (`standings.ts`) n'est PAS concerné et continue d'utiliser
+ * tous les matchs de la poule — hors-scope ici.
+ */
+describe("planEventSync — filtrage sur l'équipe du coach (BUG : tous les matchs de la poule créaient un événement)", () => {
+  it("un match entre deux AUTRES équipes de la poule (coach non engagé) ne produit AUCUNE action, ni create ni noop", () => {
+    const match = buildMatch({
+      maNo: 2,
+      homeTeam: team(206181, 6, "PEVELE FC"),
+      awayTeam: team(918, 2, "BOUSBECQUE CS"),
+    });
+
+    const actions = planEventSync([match], [], NOT_LOCKED_NOW, COACH_TEAM);
+
+    expect(actions).toEqual([]);
+  });
+
+  it("[PIÈGE VERROUILLÉ] un match entre deux équipes du MÊME club que le coach mais avec un `number` différent n'est PAS retenu (identité = clNo + number, jamais clNo seul)", () => {
+    // Le club du coach (clNo 10428) engage ici une équipe 2 et une équipe 3
+    // dans la même poule — ni l'une ni l'autre n'est l'équipe du coach
+    // (COACH_TEAM = clNo 10428, number 1).
+    const match = buildMatch({
+      maNo: 3,
+      homeTeam: team(10428, 2, "CAMPHIN PEVELE ECF 2"),
+      awayTeam: team(10428, 3, "CAMPHIN PEVELE ECF 3"),
+    });
+
+    const actions = planEventSync([match], [], NOT_LOCKED_NOW, COACH_TEAM);
+
+    expect(actions).toEqual([]);
+  });
+
+  it("sur la fixture réelle (3 matchs de journée, dont un seul implique Camphin Pévèle clNo=10428/number=1), un premier import ne produit qu'UNE SEULE action", () => {
+    const matches = [
+      buildMatch({
+        maNo: 56363596,
+        kickoff: "2026-09-06T13:00",
+        homeTeam: team(206181, 6, "PEVELE FC"),
+        awayTeam: team(918, 2, "BOUSBECQUE CS"),
+        location: {
+          name: "COMPLEXE SPORTIF LÉON DALLE 1",
+          address: "23 BIS RUE DE LINSELLES",
+          zipCode: "59166",
+          city: "BOUSBECQUE",
+        },
+      }),
+      buildMatch({ maNo: 56363599 }), // Camphin Pévèle (home) — celui du coach
+      buildMatch({
+        maNo: 56363601,
+        kickoff: "2026-09-06T13:00",
+        homeTeam: team(15478, 2, "TOUFFLERS AF"),
+        awayTeam: team(796, 10, "LEERS OS"),
+        location: {
+          name: "COMPLEXE SPORTIF 2",
+          address: null,
+          zipCode: null,
+          city: null,
+        },
+      }),
+    ];
+
+    const actions = planEventSync(matches, [], NOT_LOCKED_NOW, COACH_TEAM);
+
+    expect(actions).toHaveLength(1);
+    expect(actions[0]).toMatchObject({ action: "create", maNo: 56363599 });
+  });
+});
+
+describe("planEventSync — priorités entre règles (combinaisons tranchées)", () => {  it("verrouillé ET saisie manuelle (conflit) → `skip-locked` prime, jamais `conflict`", () => {
     const match = buildMatch({ kickoff: "2026-09-13T15:00" });
     const existing = [
       {

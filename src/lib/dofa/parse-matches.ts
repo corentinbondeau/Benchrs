@@ -59,9 +59,69 @@ export function parseTime(
 }
 
 /**
+ * Détermine le décalage UTC (en minutes) appliqué par le fuseau
+ * `Europe/Paris` à un instant donné, changement d'heure compris (UTC+2 en
+ * été, UTC+1 en hiver). Calculé sans dépendance externe via
+ * `Intl.DateTimeFormat` : on formate l'instant naïf (interprété comme si
+ * les champs de date/heure locaux valaient l'UTC) dans le fuseau cible, la
+ * différence entre le résultat et l'entrée donne le décalage réel — la
+ * même technique que la conversion classique "round-trip" utilisée pour
+ * émuler `Date.parse` avec fuseau explicite sans librairie.
+ */
+function parisOffsetMinutes(
+  year: number,
+  month: number, // 1-12
+  day: number,
+  hours: number,
+  minutes: number
+): number {
+  // Instant de référence : les champs demandés interprétés en UTC.
+  const asUtc = Date.UTC(year, month - 1, day, hours, minutes);
+
+  const dtf = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Europe/Paris",
+    hourCycle: "h23",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+
+  const parts = dtf.formatToParts(new Date(asUtc));
+  const get = (type: string) => Number(parts.find((p) => p.type === type)?.value);
+
+  // Instant représentant, en UTC, la même écriture de champs telle que lue
+  // dans le fuseau Europe/Paris pour l'instant `asUtc`.
+  const parisReading = Date.UTC(
+    get("year"),
+    get("month") - 1,
+    get("day"),
+    get("hour"),
+    get("minute"),
+    get("second")
+  );
+
+  // Le décalage réel Europe/Paris à cet instant = différence entre la
+  // lecture locale et l'instant UTC de référence.
+  return (parisReading - asUtc) / 60000;
+}
+
+/**
  * Compose la date brute DOFA (`"2026-09-06T00:00:00+00:00"`, qui ne porte
- * pas l'heure réelle du match) avec l'heure au format `"HHhMM"` pour
- * produire un horodatage local exploitable (`"2026-09-06T15:00"`).
+ * pas l'heure réelle du match) avec l'heure au format `"HHhMM"` — heure
+ * LOCALE Europe/Paris — pour produire l'INSTANT UTC réel du coup d'envoi,
+ * rendu en ISO 8601 UTC (ex. `"2026-09-06T13:00:00.000Z"` pour un match à
+ * 15H00 heure française en septembre).
+ *
+ * BUG CORRIGÉ (dates de match décalées de 2h) : l'ancienne implémentation
+ * renvoyait un horodatage NAÏF sans fuseau (`"2026-09-06T15:00"`) que
+ * PostgreSQL, en colonne `TIMESTAMPTZ`, interprétait à tort comme un
+ * instant UTC — un match à 15H00 heure française s'affichait donc à 17h00.
+ * La conversion ci-dessous détermine le décalage réel Europe/Paris à la
+ * date du match via `Intl.DateTimeFormat` (UTC+2 l'été / UTC+1 l'hiver,
+ * changement d'heure compris), sans dépendance externe.
  *
  * Si l'heure est absente ou malformée, on replie sur la date seule plutôt
  * que d'écarter le match (ne jamais reproduire l'échec silencieux de la
@@ -78,9 +138,23 @@ export function composeKickoff(
 
   if (!parsedTime) return dateOnly;
 
-  const hh = String(parsedTime.hours).padStart(2, "0");
-  const mm = String(parsedTime.minutes).padStart(2, "0");
-  return `${dateOnly}T${hh}:${mm}`;
+  const [year, month, day] = dateOnly.split("-").map(Number);
+  const { hours, minutes } = parsedTime;
+
+  // `dateOnly` peut être une chaîne non parsable (validée en amont par
+  // `ingest-validation.ts`, mais `composeKickoff` ne doit jamais throw) :
+  // repli sur la date seule plutôt qu'une exception.
+  if ([year, month, day].some((n) => Number.isNaN(n))) return dateOnly;
+
+  // Décalage Europe/Paris déterminé sur l'instant naïf (date + heure locale
+  // interprétée comme UTC) : suffisant pour choisir le bon côté du
+  // changement d'heure, la bascule ayant lieu à une heure fixe locale.
+  const offsetMinutes = parisOffsetMinutes(year, month, day, hours, minutes);
+
+  const localAsUtc = Date.UTC(year, month - 1, day, hours, minutes);
+  const realInstant = localAsUtc - offsetMinutes * 60000;
+
+  return new Date(realInstant).toISOString();
 }
 
 function parseTeamRef(

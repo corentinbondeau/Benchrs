@@ -85,6 +85,15 @@ function resolveOpponentName(match: DofaMatch, coachTeam: TeamIdentity): string 
   return isHomeCoach ? match.awayTeam.shortName : match.homeTeam.shortName;
 }
 
+/** L'équipe du coach est-elle engagée dans ce match (home OU away) ? Identité stricte `clNo` + `number` (jamais `clNo` seul — deux équipes du même club portent des `number` différents). */
+function isCoachMatch(match: DofaMatch, coachTeam: TeamIdentity): boolean {
+  const isHome =
+    match.homeTeam.clNo === coachTeam.clNo && match.homeTeam.number === coachTeam.number;
+  const isAway =
+    match.awayTeam.clNo === coachTeam.clNo && match.awayTeam.number === coachTeam.number;
+  return isHome || isAway;
+}
+
 export function planEventSync(
   matches: DofaMatch[],
   existingEvents: ExistingEventRecord[],
@@ -96,6 +105,11 @@ export function planEventSync(
   const actions: EventSyncAction[] = [];
 
   for (const match of matches) {
+    // Seuls les matchs où l'équipe du coach est engagée (home OU away)
+    // alimentent l'agenda — le classement (standings.ts) continue
+    // d'utiliser tous les matchs de la poule, hors-scope ici.
+    if (!isCoachMatch(match, coachTeam)) continue;
+
     const existing = existingByMaNo.get(match.maNo);
 
     if (!existing) {
