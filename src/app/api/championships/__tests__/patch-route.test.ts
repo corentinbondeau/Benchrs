@@ -303,3 +303,82 @@ describe("PATCH /api/championships — nominal (200)", () => {
     expect(json).toEqual(expect.objectContaining(mockState.updatedRow));
   });
 });
+
+// ---------------------------------------------------------------------------
+// Extension — identité d'équipe (dofa_cl_no / dofa_team_number)
+//
+// Contexte (correctif « agenda vide ») : le triplet de poule seul ne suffit
+// pas à `planEventSync`, qui filtre désormais sur l'identité de l'équipe du
+// coach (dofa_cl_no + dofa_team_number). Cette identité est choisie par le
+// coach dans la liste reconstituée par `extractPouleTeams` (cf.
+// poule-teams.test.ts), puis envoyée à ce PATCH — soit en même temps que le
+// triplet, soit dans un second appel une fois la poule déjà configurée.
+//
+// ⚠️ Ces tests n'altèrent AUCUN cas existant ci-dessus : même mock, même
+// convention isTeamCoach/isTeamMember, même structure de réponse.
+// ---------------------------------------------------------------------------
+
+describe("PATCH /api/championships — identité d'équipe (clNo/teamNumber)", () => {
+  beforeEach(() => {
+    vi.mocked(getAuthUser).mockResolvedValue(makeAuthedUser());
+    vi.mocked(isTeamCoach).mockResolvedValue(true);
+  });
+
+  it("persiste le triplet ET l'identité d'équipe lorsque clNo/teamNumber sont fournis", async () => {
+    mockState.updatedRow = {
+      ...mockState.updatedRow,
+      dofa_cl_no: 10428,
+      dofa_team_number: 1,
+    };
+
+    const { PATCH } = await importRoute();
+    const res = await PATCH(
+      makePatchRequest(validBody({ clNo: 10428, teamNumber: 1 }))
+    );
+    const json = await res.json();
+
+    expect(res.status, `attendu 200, reçu ${res.status} — body=${JSON.stringify(json)}`).toBe(200);
+    expect(updatePatch).toEqual({
+      dofa_cp_no: TRIPLET.cpNo,
+      dofa_phase: TRIPLET.phase,
+      dofa_poule: TRIPLET.poule,
+      dofa_cl_no: 10428,
+      dofa_team_number: 1,
+    });
+  });
+
+  it("rétrocompatibilité : accepte une requête ne portant que le triplet, sans identité d'équipe", async () => {
+    const { PATCH } = await importRoute();
+    const res = await PATCH(makePatchRequest(validBody()));
+
+    expect(
+      res.status,
+      "le coach doit pouvoir configurer sa poule avant de choisir son équipe"
+    ).toBe(200);
+    expect(updatePatch).toEqual({
+      dofa_cp_no: TRIPLET.cpNo,
+      dofa_phase: TRIPLET.phase,
+      dofa_poule: TRIPLET.poule,
+    });
+    expect(updatePatch).not.toHaveProperty("dofa_cl_no");
+    expect(updatePatch).not.toHaveProperty("dofa_team_number");
+  });
+
+  it("répond 400 si clNo est fourni mais n'est pas un entier", async () => {
+    const { PATCH } = await importRoute();
+    const res = await PATCH(
+      makePatchRequest(validBody({ clNo: "10428", teamNumber: 1 }))
+    );
+
+    expect(res.status).toBe(400);
+  });
+
+  it("répond 400 si teamNumber est fourni mais n'est pas un entier (décimal)", async () => {
+    const { PATCH } = await importRoute();
+    const res = await PATCH(
+      makePatchRequest(validBody({ clNo: 10428, teamNumber: 1.5 }))
+    );
+
+    expect(res.status).toBe(400);
+  });
+});

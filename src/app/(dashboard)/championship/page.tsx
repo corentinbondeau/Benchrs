@@ -9,9 +9,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Trophy, Medal, Plus, Loader2, Zap, AlertTriangle, ExternalLink } from "lucide-react";
+import { Trophy, Medal, Plus, Loader2, Zap, AlertTriangle, ExternalLink, Users } from "lucide-react";
 import { toast } from "sonner";
 import { parsePouleUrl } from "@/lib/dofa/poule-url";
+import { parseDofaMatches } from "@/lib/dofa/parse-matches";
+import { extractPouleTeams, type PouleTeam } from "@/lib/dofa/poule-teams";
 
 interface Championship {
   id: string;
@@ -22,6 +24,8 @@ interface Championship {
   dofa_cp_no?: number | null;
   dofa_phase?: number | null;
   dofa_poule?: number | null;
+  dofa_cl_no?: number | null;
+  dofa_team_number?: number | null;
   last_imported_at?: string | null;
 }
 
@@ -78,6 +82,15 @@ export default function ChampionshipPage() {
   const [pasteError, setPasteError] = useState<string | null>(null);
   const [pasteImporting, setPasteImporting] = useState(false);
   const [lastImportResult, setLastImportResult] = useState<DofaImportResult | null>(null);
+
+  // Choix de l'équipe du coach dans la poule — reconstituée à partir du
+  // dernier collage (`extractPouleTeams`). Nécessaire pour activer l'agenda
+  // (`planEventSync` filtre sur cette identité) et pour basculer le lien
+  // « Ouvrir mes matchs » sur la saison complète du club (1 page, 22 matchs)
+  // plutôt que sur la seule journée à venir (calendrier, 12 équipes).
+  const [pouleTeams, setPouleTeams] = useState<PouleTeam[]>([]);
+  const [teamChoiceSaving, setTeamChoiceSaving] = useState<string | null>(null);
+  const [teamChoiceError, setTeamChoiceError] = useState<string | null>(null);
 
   // Création d'un nouveau championnat (nom/saison/niveau uniquement).
   const [createOpen, setCreateOpen] = useState(false);
@@ -140,7 +153,7 @@ export default function ChampionshipPage() {
       setChampionships((prev) => prev.map((c) => (c.id === selected.id ? { ...c, ...data } : c)));
       setPouleUrlEditing(false);
       setPouleUrlInput("");
-      toast.success("Poule DOFA configurée. Ouvrez le lien « Ouvrir mes matchs » pour récupérer les résultats.");
+      toast.success("Poule DOFA configurée. Ouvrez le calendrier ci-dessous, collez-le, puis choisissez votre équipe.");
     } catch {
       // 🔒 Distinct du message de validation ci-dessus : ceci est une panne
       // réseau/serveur, pas une saisie invalide.
@@ -194,6 +207,18 @@ export default function ChampionshipPage() {
     setPasteError(null);
     setPasteImporting(true);
     try {
+      // Reconstitue la liste des équipes de la poule à partir du même
+      // contenu collé, AVANT l'import : le coach doit pouvoir choisir son
+      // équipe même si l'import lui-même échoue (poule déjà à jour, etc.).
+      try {
+        const parsedMatches = parseDofaMatches(matches);
+        setPouleTeams(extractPouleTeams(parsedMatches));
+      } catch {
+        // La liste des équipes est un confort, pas une condition de succès
+        // de l'import : une erreur de reconstitution ne doit jamais
+        // bloquer l'import lui-même.
+      }
+
       const res = await authFetch("/api/championships/dofa/ingest", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -219,6 +244,44 @@ export default function ChampionshipPage() {
       setPasteError("Erreur de connexion pendant l'import. Aucune donnée n'a été modifiée.");
     } finally {
       setPasteImporting(false);
+    }
+  }
+
+  // Persiste le choix de l'équipe du coach dans la poule (dofa_cl_no /
+  // dofa_team_number). Le triplet de poule est ré-envoyé avec (contrat de
+  // PATCH /api/championships : le triplet est toujours requis), repris de
+  // l'état déjà enregistré du championnat sélectionné.
+  async function handleChooseTeam(team: PouleTeam) {
+    if (!selected || selected.dofa_cp_no == null || selected.dofa_phase == null || selected.dofa_poule == null) {
+      return;
+    }
+    const teamKey = `${team.clNo}/${team.number}`;
+    setTeamChoiceSaving(teamKey);
+    setTeamChoiceError(null);
+    try {
+      const res = await authFetch("/api/championships", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: selected.id,
+          cpNo: selected.dofa_cp_no,
+          phase: selected.dofa_phase,
+          poule: selected.dofa_poule,
+          clNo: team.clNo,
+          teamNumber: team.number,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setTeamChoiceError(data.error || "Le serveur a refusé l'enregistrement de l'équipe.");
+        return;
+      }
+      setChampionships((prev) => prev.map((c) => (c.id === selected.id ? { ...c, ...data } : c)));
+      toast.success(`Équipe ${team.shortName} enregistrée. Votre agenda va se remplir automatiquement.`);
+    } catch {
+      setTeamChoiceError("Impossible de contacter le serveur Benchrs (connexion). Réessayez.");
+    } finally {
+      setTeamChoiceSaving(null);
     }
   }
 
@@ -270,7 +333,15 @@ export default function ChampionshipPage() {
 
   const matchesLink =
     selected && selected.dofa_cp_no != null && selected.dofa_phase != null && selected.dofa_poule != null
-      ? `${DOFA_CALENDRIER_BASE}/${selected.dofa_cp_no}/phases/${selected.dofa_phase}/poules/${selected.dofa_poule}/calendrier`
+      ? selected.dofa_cl_no != null
+        ? // Identité connue : saison complète du club, filtrée par clNo —
+          // 22 matchs en UNE seule page. ⚠️ Ne jamais utiliser `/matchs`
+          // sans filtre : 132 matchs paginés sur 5 pages, cinq collages
+          // seraient inacceptables.
+          `${DOFA_CALENDRIER_BASE}/${selected.dofa_cp_no}/phases/${selected.dofa_phase}/poules/${selected.dofa_poule}/matchs?clNo=${selected.dofa_cl_no}`
+        : // Identité inconnue : la journée à venir (calendrier), suffisante
+          // pour découvrir les 12 équipes de la poule.
+          `${DOFA_CALENDRIER_BASE}/${selected.dofa_cp_no}/phases/${selected.dofa_phase}/poules/${selected.dofa_poule}/calendrier`
       : null;
 
   if (loading) {
@@ -302,6 +373,7 @@ export default function ChampionshipPage() {
                   setPouleUrlInput("");
                   setPouleSaveError(null);
                   setPasteError(null);
+                  setTeamChoiceError(null);
                 }
               }}
             >
@@ -334,7 +406,34 @@ export default function ChampionshipPage() {
                         </p>
                       </div>
 
-                      {/* Étape 2 : ouvrir le lien des matchs */}
+                      {/* Équipe choisie par le coach — sans elle, l'agenda ne peut pas
+                          être alimenté (planEventSync filtre sur cette identité). */}
+                      {selected.dofa_cl_no != null ? (
+                        <div className="rounded-lg bg-blue-50 dark:bg-blue-950 p-3 border border-blue-200 dark:border-blue-800 flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <Users className="h-4 w-4 text-[var(--color-primary-blue)] shrink-0" />
+                            <span className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                              Votre équipe :{" "}
+                              {pouleTeams.find(
+                                (t) => t.clNo === selected.dofa_cl_no && t.number === selected.dofa_team_number
+                              )?.shortName ?? `équipe n°${selected.dofa_team_number}`}
+                            </span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div
+                          role="alert"
+                          className="rounded-lg bg-amber-50 dark:bg-amber-950/40 p-3 border border-amber-300 dark:border-amber-800 text-sm text-amber-900 dark:text-amber-100"
+                        >
+                          Équipe non choisie : l&apos;agenda ne peut pas encore se remplir
+                          automatiquement. Collez d&apos;abord le calendrier ci-dessous, puis
+                          cliquez sur votre équipe dans la liste qui apparaîtra.
+                        </div>
+                      )}
+
+                      {/* Étape 2 : ouvrir le lien des matchs — la journée à venir tant que
+                          l'équipe n'est pas choisie (pour découvrir la poule), la saison
+                          complète du club en une page une fois l'équipe connue. */}
                       {matchesLink && (
                         <a
                           href={matchesLink}
@@ -343,8 +442,48 @@ export default function ChampionshipPage() {
                           className="inline-flex items-center gap-1.5 text-sm font-medium text-[var(--color-primary-blue)] hover:underline"
                         >
                           <ExternalLink className="h-4 w-4" />
-                          Ouvrir mes matchs
+                          {selected.dofa_cl_no != null
+                            ? "Ouvrir mes matchs (saison complète)"
+                            : "Ouvrir le calendrier de la poule"}
                         </a>
+                      )}
+
+                      {/* Liste des équipes de la poule : à cliquer pour choisir/changer
+                          d'équipe. Apparaît dès qu'un calendrier a été collé. */}
+                      {pouleTeams.length > 0 && (
+                        <div className="space-y-2">
+                          <Label>
+                            {selected.dofa_cl_no != null
+                              ? "Changer d'équipe"
+                              : "Cliquez sur votre équipe"}
+                          </Label>
+                          <div className="flex flex-wrap gap-2">
+                            {pouleTeams.map((team) => {
+                              const teamKey = `${team.clNo}/${team.number}`;
+                              const isCurrent =
+                                selected.dofa_cl_no === team.clNo && selected.dofa_team_number === team.number;
+                              return (
+                                <Button
+                                  key={teamKey}
+                                  variant={isCurrent ? "secondary" : "outline"}
+                                  size="sm"
+                                  disabled={teamChoiceSaving !== null}
+                                  onClick={() => handleChooseTeam(team)}
+                                >
+                                  {teamChoiceSaving === teamKey ? (
+                                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                  ) : null}
+                                  {team.shortName}
+                                </Button>
+                              );
+                            })}
+                          </div>
+                          {teamChoiceError && (
+                            <p role="alert" className="text-xs text-destructive">
+                              {teamChoiceError}
+                            </p>
+                          )}
+                        </div>
                       )}
 
                       {/* Étape 3 : coller le JSON récupéré */}
@@ -361,8 +500,9 @@ export default function ChampionshipPage() {
                           className="w-full h-28 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring font-mono"
                         />
                         <p className="text-xs text-muted-foreground">
-                          Ouvrez le lien ci-dessus, sélectionnez tout (Ctrl+A), copiez (Ctrl+C), puis
-                          collez ici (Ctrl+V).
+                          {selected.dofa_cl_no != null
+                            ? "Ouvrez le lien ci-dessus, sélectionnez tout (Ctrl+A), copiez (Ctrl+C), puis collez ici (Ctrl+V) : votre saison complète sera importée."
+                            : "Ouvrez le lien ci-dessus, sélectionnez tout (Ctrl+A), copiez (Ctrl+C), puis collez ici (Ctrl+V) : Benchrs affichera la liste des équipes de la poule pour que vous cliquiez la vôtre."}
                         </p>
                         {pasteError && (
                           <p role="alert" className="text-xs text-destructive">
@@ -383,6 +523,7 @@ export default function ChampionshipPage() {
                           )}
                         </Button>
                       </div>
+
 
                       <Button
                         onClick={() => {
@@ -638,6 +779,15 @@ export default function ChampionshipPage() {
                   {isCoach && selected.dofa_cp_no == null && (
                     <Badge variant="outline" className="text-xs">
                       Poule DOFA non configurée
+                    </Badge>
+                  )}
+                  {isCoach && selected.dofa_cp_no != null && selected.dofa_cl_no == null && (
+                    <Badge
+                      variant="outline"
+                      className="text-xs border-amber-400 text-amber-800 dark:text-amber-200"
+                      title="L'agenda ne peut pas être alimenté automatiquement tant que vous n'avez pas choisi votre équipe (bouton « Import DOFA »)."
+                    >
+                      Équipe non choisie — agenda non alimenté
                     </Badge>
                   )}
                 </CardTitle>

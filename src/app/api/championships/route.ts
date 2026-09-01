@@ -179,11 +179,13 @@ export async function PATCH(req: Request) {
   } catch {
     return NextResponse.json({ error: "Corps de requête JSON invalide" }, { status: 400 });
   }
-  const { id, cpNo, phase, poule } = body as {
+  const { id, cpNo, phase, poule, clNo, teamNumber } = body as {
     id?: string;
     cpNo?: number;
     phase?: number;
     poule?: number;
+    clNo?: number;
+    teamNumber?: number;
   };
 
   if (typeof id !== "string" || !id) {
@@ -203,6 +205,32 @@ export async function PATCH(req: Request) {
     );
   }
 
+  // Identité d'équipe du coach (clNo/teamNumber) — optionnelle : le coach
+  // configure d'abord sa poule, choisit son équipe ensuite (second appel).
+  // 🔒 Identité PARTIELLE refusée : clNo et teamNumber vont ensemble ou pas
+  // du tout, sinon `planEventSync` filtrerait silencieusement sur une
+  // identité incomplète (cf. décision testeur, US import-championnat).
+  const hasClNo = clNo !== undefined;
+  const hasTeamNumber = teamNumber !== undefined;
+  if (hasClNo !== hasTeamNumber) {
+    return NextResponse.json(
+      { error: "clNo et teamNumber doivent être fournis ensemble, ou omis tous les deux" },
+      { status: 400 }
+    );
+  }
+  if (
+    hasClNo &&
+    (typeof clNo !== "number" ||
+      typeof teamNumber !== "number" ||
+      !Number.isInteger(clNo) ||
+      !Number.isInteger(teamNumber))
+  ) {
+    return NextResponse.json(
+      { error: "clNo et teamNumber doivent être des nombres entiers" },
+      { status: 400 }
+    );
+  }
+
   const supabase = createAdminClient();
 
   const { data: championship } = await supabase
@@ -215,9 +243,19 @@ export async function PATCH(req: Request) {
     return forbidden();
   }
 
+  const updatePayload: Record<string, number> = {
+    dofa_cp_no: cpNo,
+    dofa_phase: phase,
+    dofa_poule: poule,
+  };
+  if (hasClNo) {
+    updatePayload.dofa_cl_no = clNo as number;
+    updatePayload.dofa_team_number = teamNumber as number;
+  }
+
   const { data, error } = await supabase
     .from("championships")
-    .update({ dofa_cp_no: cpNo, dofa_phase: phase, dofa_poule: poule })
+    .update(updatePayload)
     .eq("id", id)
     .select()
     .single();
