@@ -16,20 +16,29 @@ export default function FeuilletMatchTab() {
   const [events, setEvents] = useState<Event[]>([]);
   const [selectedEventId, setSelectedEventId] = useState("");
   const [loading, setLoading] = useState(true);
+  const [matchFormat, setMatchFormat] = useState(11);
 
-  // Fetch events
+  // Fetch events + team_settings
   useEffect(() => {
     if (!currentTeam) return;
-    supabase
-      .from("events")
-      .select("*")
-      .eq("team_id", currentTeam.id)
-      .eq("type", "match")
-      .order("event_date", { ascending: false })
-      .then(({ data }) => {
-        setEvents((data as Event[]) || []);
-        setLoading(false);
-      });
+    Promise.all([
+      supabase
+        .from("events")
+        .select("*")
+        .eq("team_id", currentTeam.id)
+        .eq("type", "match")
+        .order("event_date", { ascending: false }),
+      supabase
+        .from("team_settings")
+        .select("match_format")
+        .eq("team_id", currentTeam.id)
+        .maybeSingle(),
+    ]).then(([eventsRes, settingsRes]) => {
+      setEvents((eventsRes.data as Event[]) || []);
+      const fmt = (settingsRes.data as { match_format?: number } | null)?.match_format;
+      if (fmt) setMatchFormat(fmt);
+      setLoading(false);
+    });
   }, [currentTeam]);
 
   if (loading) {
@@ -49,6 +58,7 @@ export default function FeuilletMatchTab() {
       showEventPicker
       events={events}
       onEventChange={(id) => setSelectedEventId(id)}
+      matchFormat={matchFormat}
     />
   );
 }
