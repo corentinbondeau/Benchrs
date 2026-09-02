@@ -58,6 +58,9 @@ export default function TeamInfoSection({ isOwner, isCoach }: TeamInfoSectionPro
   const [savingRpe, setSavingRpe] = useState(false);
   const [minPlayingMinutes, setMinPlayingMinutes] = useState(0);
   const [savingMinutes, setSavingMinutes] = useState(false);
+  const [halfDuration, setHalfDuration] = useState(45);
+  const [matchFormat, setMatchFormat] = useState(11);
+  const [savingMatchSettings, setSavingMatchSettings] = useState(false);
   const [tabVisibility, setTabVisibility] = useState<Record<string, boolean>>({});
   const [savingTab, setSavingTab] = useState<string | null>(null);
   const [icsInfo, setIcsInfo] = useState<{
@@ -85,12 +88,14 @@ export default function TeamInfoSection({ isOwner, isCoach }: TeamInfoSectionPro
 
     supabase
       .from("team_settings")
-      .select("enable_rpe, min_playing_minutes")
+      .select("enable_rpe, min_playing_minutes, half_duration, match_format")
       .eq("team_id", team.id)
       .maybeSingle()
       .then(({ data }) => {
         setEnableRpe(data?.enable_rpe === true);
         setMinPlayingMinutes(data?.min_playing_minutes ?? 0);
+        setHalfDuration(data?.half_duration ?? 45);
+        setMatchFormat(data?.match_format ?? 11);
       });
 
     supabase
@@ -441,6 +446,81 @@ export default function TeamInfoSection({ isOwner, isCoach }: TeamInfoSectionPro
                 setSavingMinutes(false);
                 if (error) toast.error("Erreur lors de l'enregistrement");
                 else toast.success("Paramètre enregistré");
+              }}
+              className="bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold"
+            >
+              Enregistrer
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Paramètres de match */}
+      {isCoach && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Clock className="h-5 w-5" />
+              Paramètres de match
+            </CardTitle>
+            <CardDescription>
+              Configurez le format de match et la durée des mi-temps selon la catégorie de votre équipe.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Durée mi-temps */}
+            <div className="flex items-center justify-between rounded-lg border p-3">
+              <div>
+                <p className="text-sm font-medium">Durée d&apos;une mi-temps</p>
+                <p className="text-xs text-muted-foreground">En minutes, selon la catégorie</p>
+              </div>
+              <select
+                value={halfDuration}
+                onChange={(e) => setHalfDuration(parseInt(e.target.value))}
+                className="rounded-md border border-input bg-background px-3 py-1.5 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+              >
+                <option value={20}>20 min</option>
+                <option value={25}>25 min</option>
+                <option value={30}>30 min</option>
+                <option value={35}>35 min</option>
+                <option value={40}>40 min</option>
+                <option value={45}>45 min</option>
+              </select>
+            </div>
+
+            {/* Format de match */}
+            <div className="flex items-center justify-between rounded-lg border p-3">
+              <div>
+                <p className="text-sm font-medium">Format de match</p>
+                <p className="text-xs text-muted-foreground">Nombre de joueurs sur le terrain</p>
+              </div>
+              <select
+                value={matchFormat}
+                onChange={(e) => setMatchFormat(parseInt(e.target.value))}
+                className="rounded-md border border-input bg-background px-3 py-1.5 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+              >
+                <option value={5}>5 contre 5</option>
+                <option value={7}>7 contre 7</option>
+                <option value={8}>8 contre 8</option>
+                <option value={11}>11 contre 11</option>
+              </select>
+            </div>
+
+            <Button
+              size="sm"
+              disabled={savingMatchSettings}
+              onClick={async () => {
+                if (!currentTeam) return;
+                setSavingMatchSettings(true);
+                const { error } = await supabase
+                  .from("team_settings")
+                  .upsert(
+                    { team_id: currentTeam.id, half_duration: halfDuration, match_format: matchFormat, updated_by: user?.id ?? null },
+                    { onConflict: "team_id" }
+                  );
+                setSavingMatchSettings(false);
+                if (error) toast.error("Erreur lors de l'enregistrement");
+                else toast.success("Paramètres de match enregistrés");
               }}
               className="bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold"
             >

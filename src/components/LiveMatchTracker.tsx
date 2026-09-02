@@ -69,6 +69,8 @@ interface LiveMatchTrackerProps {
   resumedAt: string | null;
   onMatchUpdate: (patch: LiveMatchPatch) => void;
   onStatsChange: () => void;
+  /** Durée d'une mi-temps en minutes. Défaut : 45 */
+  halfDuration?: number;
 }
 
 interface EventTypeConfig {
@@ -204,6 +206,7 @@ export function LiveMatchTracker({
   resumedAt,
   onMatchUpdate,
   onStatsChange,
+  halfDuration = 45,
 }: LiveMatchTrackerProps) {
   const [events, setEvents] = useState<MatchEventRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -237,18 +240,20 @@ export function LiveMatchTracker({
           ? "halftime"
           : "playing";
 
+  const HALF_MS = halfDuration * 60000;
+  const FULL_MS = halfDuration * 2 * 60000;
   const clockRef = endMs ?? now;
   let elapsedMs = 0;
   if (startMs !== null) {
     if (phase === "ended") {
-      elapsedMs = 90 * 60000;
+      elapsedMs = FULL_MS;
     } else if (phase === "halftime") {
-      elapsedMs = 45 * 60000;
+      elapsedMs = HALF_MS;
     } else if (halftimeMs !== null && resumedMs !== null) {
-      elapsedMs = 45 * 60000 + Math.max(0, clockRef - resumedMs);
-      elapsedMs = Math.min(elapsedMs, 90 * 60000);
+      elapsedMs = HALF_MS + Math.max(0, clockRef - resumedMs);
+      elapsedMs = Math.min(elapsedMs, FULL_MS);
     } else {
-      elapsedMs = Math.min(Math.max(0, clockRef - startMs), 45 * 60000);
+      elapsedMs = Math.min(Math.max(0, clockRef - startMs), HALF_MS);
     }
   }
   const currentMinute = Math.floor(elapsedMs / 60000);

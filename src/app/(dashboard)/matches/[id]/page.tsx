@@ -178,6 +178,8 @@ export default function MatchDetailPage() {
   const [liveNow, setLiveNow] = useState(() => Date.now());
   const [liveToken, setLiveToken] = useState<string | null>(null);
   const [matchSubstitutions, setMatchSubstitutions] = useState<Substitution[]>([]);
+  const [halfDuration, setHalfDuration] = useState(45);
+  const [matchFormat, setMatchFormat] = useState(11);
 
   const liveOpenAt = match?.event_date
     ? new Date(match.event_date).getTime() - 30 * 60 * 1000
@@ -222,7 +224,7 @@ export default function MatchDetailPage() {
     const team = currentTeam;
 
     async function fetchMatchData() {
-      const [matchRes, statsRes, formRes, lineupsRes, playersRes, attRes, parentLinksRes, subEventsRes] = await Promise.all([
+      const [matchRes, statsRes, formRes, lineupsRes, playersRes, attRes, parentLinksRes, subEventsRes, teamSettingsRes] = await Promise.all([
         supabase
           .from("events")
           .select("*")
@@ -263,6 +265,11 @@ export default function MatchDetailPage() {
           .eq("event_id", matchId)
           .eq("team_id", team.id)
           .eq("event_type", "substitution"),
+        supabase
+          .from("team_settings")
+          .select("half_duration, match_format")
+          .eq("team_id", team.id)
+          .maybeSingle(),
       ]);
 
       setMatch(matchRes.data as MatchEvent | null);
@@ -271,6 +278,8 @@ export default function MatchDetailPage() {
       setLineups((lineupsRes.data as LineupEntry[]) || []);
       setAllPlayers(playersRes);
       setParentLinks((parentLinksRes.data as { parent_id: string; student_id: string }[]) || []);
+      setHalfDuration((teamSettingsRes.data as { half_duration?: number } | null)?.half_duration ?? 45);
+      setMatchFormat((teamSettingsRes.data as { match_format?: number } | null)?.match_format ?? 11);
 
       const subs: Substitution[] = ((subEventsRes.data || []) as { player_id: string | null; related_player_id: string | null; minute: number | null }[])
         .filter((s) => s.player_id && s.related_player_id && s.minute != null)
@@ -983,6 +992,7 @@ export default function MatchDetailPage() {
               onSaved={() => {
                 reloadLineupData();
               }}
+              matchFormat={matchFormat}
             />
           </CardContent>
         </Card>
@@ -1300,6 +1310,7 @@ export default function MatchDetailPage() {
             setMatch((prev) => (prev ? { ...prev, ...patch } : prev))
           }
           onStatsChange={refreshPlayerStats}
+          halfDuration={halfDuration}
         />
       ) : (
         <Card>

@@ -938,3 +938,14 @@ export interface ClubhouseReservation {
   created_at: string;
   creator?: Pick<Profile, "id" | "first_name" | "last_name" | "avatar_url">;
 }
+
+export interface TeamSettings {
+  team_id: string;
+  enable_rpe: boolean;
+  min_playing_minutes: number;
+  /** Durée d'une mi-temps en minutes (20, 25, 30, 35, 40 ou 45 selon la catégorie) */
+  half_duration: number;
+  /** Nombre de joueurs par équipe sur le terrain (5, 7, 8 ou 11) */
+  match_format: number;
+  updated_by?: string | null;
+}

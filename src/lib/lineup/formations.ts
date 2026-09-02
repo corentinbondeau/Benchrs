@@ -143,3 +143,114 @@ export const FORMATIONS: Record<string, SlotPos[]> = {
     { x: 62, y: 22, label: "Buteur", role: "BU" },
   ],
 };
+
+// ─── Formations pour formats réduits (5, 7, 8 joueurs par équipe) ─────────────
+// Séparées de FORMATIONS pour préserver l'invariant de non-régression des 9 formations à 11.
+
+/** Formations pour foot à 5 (1 GK + 4 joueurs de champ) */
+export const FORMATIONS_5: Record<string, SlotPos[]> = {
+  "1-2-1": [
+    { x: 50, y: 90, label: "Gardien", role: "GK" },
+    { x: 30, y: 65, label: "Défenseur G", role: "DC" },
+    { x: 70, y: 65, label: "Défenseur D", role: "DC" },
+    { x: 50, y: 40, label: "Milieu", role: "MC" },
+    { x: 50, y: 18, label: "Buteur", role: "BU" },
+  ],
+  "2-1-1": [
+    { x: 50, y: 90, label: "Gardien", role: "GK" },
+    { x: 30, y: 68, label: "Défenseur G", role: "DC" },
+    { x: 70, y: 68, label: "Défenseur D", role: "DC" },
+    { x: 50, y: 45, label: "Milieu", role: "MC" },
+    { x: 50, y: 18, label: "Buteur", role: "BU" },
+  ],
+  "1-1-2": [
+    { x: 50, y: 90, label: "Gardien", role: "GK" },
+    { x: 50, y: 65, label: "Défenseur", role: "DC" },
+    { x: 50, y: 42, label: "Milieu", role: "MC" },
+    { x: 30, y: 18, label: "Ailier G", role: "AG" },
+    { x: 70, y: 18, label: "Ailier D", role: "AD" },
+  ],
+};
+
+/** Formations pour foot à 7 (1 GK + 6 joueurs de champ) */
+export const FORMATIONS_7: Record<string, SlotPos[]> = {
+  "2-3-1": [
+    { x: 50, y: 90, label: "Gardien", role: "GK" },
+    { x: 30, y: 70, label: "Défenseur G", role: "DC" },
+    { x: 70, y: 70, label: "Défenseur D", role: "DC" },
+    { x: 20, y: 48, label: "Milieu G", role: "AG" },
+    { x: 50, y: 45, label: "Milieu C", role: "MC" },
+    { x: 80, y: 48, label: "Milieu D", role: "AD" },
+    { x: 50, y: 18, label: "Buteur", role: "BU" },
+  ],
+  "3-2-1": [
+    { x: 50, y: 90, label: "Gardien", role: "GK" },
+    { x: 20, y: 70, label: "Défenseur G", role: "DC" },
+    { x: 50, y: 72, label: "Défenseur C", role: "DC" },
+    { x: 80, y: 70, label: "Défenseur D", role: "DC" },
+    { x: 35, y: 45, label: "Milieu G", role: "MC" },
+    { x: 65, y: 45, label: "Milieu D", role: "MC" },
+    { x: 50, y: 18, label: "Buteur", role: "BU" },
+  ],
+  "2-2-2": [
+    { x: 50, y: 90, label: "Gardien", role: "GK" },
+    { x: 30, y: 70, label: "Défenseur G", role: "DC" },
+    { x: 70, y: 70, label: "Défenseur D", role: "DC" },
+    { x: 30, y: 45, label: "Milieu G", role: "MC" },
+    { x: 70, y: 45, label: "Milieu D", role: "MC" },
+    { x: 35, y: 20, label: "Ailier G", role: "AG" },
+    { x: 65, y: 20, label: "Ailier D", role: "AD" },
+  ],
+};
+
+/** Formations pour foot à 8 (1 GK + 7 joueurs de champ) */
+export const FORMATIONS_8: Record<string, SlotPos[]> = {
+  "3-3-1": [
+    { x: 50, y: 90, label: "Gardien", role: "GK" },
+    { x: 20, y: 70, label: "Défenseur G", role: "DC" },
+    { x: 50, y: 72, label: "Défenseur C", role: "DC" },
+    { x: 80, y: 70, label: "Défenseur D", role: "DC" },
+    { x: 20, y: 45, label: "Milieu G", role: "AG" },
+    { x: 50, y: 42, label: "Milieu C", role: "MC" },
+    { x: 80, y: 45, label: "Milieu D", role: "AD" },
+    { x: 50, y: 18, label: "Buteur", role: "BU" },
+  ],
+  "2-3-2": [
+    { x: 50, y: 90, label: "Gardien", role: "GK" },
+    { x: 30, y: 70, label: "Défenseur G", role: "DC" },
+    { x: 70, y: 70, label: "Défenseur D", role: "DC" },
+    { x: 20, y: 45, label: "Milieu G", role: "AG" },
+    { x: 50, y: 42, label: "Milieu C", role: "MC" },
+    { x: 80, y: 45, label: "Milieu D", role: "AD" },
+    { x: 35, y: 20, label: "Ailier G", role: "AG" },
+    { x: 65, y: 20, label: "Ailier D", role: "AD" },
+  ],
+  "3-2-2": [
+    { x: 50, y: 90, label: "Gardien", role: "GK" },
+    { x: 20, y: 70, label: "Défenseur G", role: "DC" },
+    { x: 50, y: 72, label: "Défenseur C", role: "DC" },
+    { x: 80, y: 70, label: "Défenseur D", role: "DC" },
+    { x: 35, y: 45, label: "Milieu G", role: "MC" },
+    { x: 65, y: 45, label: "Milieu D", role: "MC" },
+    { x: 35, y: 20, label: "Ailier G", role: "AG" },
+    { x: 65, y: 20, label: "Ailier D", role: "AD" },
+  ],
+};
+
+// ─── Index global des formations par format ───────────────────────────────────
+
+/** Toutes les formations accessibles, fusionnées pour lookup par nom */
+export const ALL_FORMATIONS: Record<string, SlotPos[]> = {
+  ...FORMATIONS,
+  ...FORMATIONS_5,
+  ...FORMATIONS_7,
+  ...FORMATIONS_8,
+};
+
+/** Noms de formations disponibles par format de match */
+export const FORMATIONS_BY_FORMAT: Record<number, string[]> = {
+  5: Object.keys(FORMATIONS_5),
+  7: Object.keys(FORMATIONS_7),
+  8: Object.keys(FORMATIONS_8),
+  11: Object.keys(FORMATIONS),
+};

@@ -106,18 +106,43 @@ export function ExerciseEducators({
 
   async function assignEducator(index: number, userId: string) {
     const supabase = createClient();
-    const { error } = await supabase.rpc("upsert_educator_plan", {
+
+    // Tenter la RPC atomique (migration 091) ; si elle n'existe pas ou
+    // échoue, retomber sur le pattern DELETE+INSERT classique.
+    const { error: rpcError } = await supabase.rpc("upsert_educator_plan", {
       p_team_id: teamId,
       p_event_id: eventId,
       p_exercise_index: index,
       p_user_id: userId,
       p_role: "responsable",
     });
-    if (error) {
-      console.error("[educator_plans] rpc error:", error.message, error.code, error.details);
-      toast.error(`Impossible d'assigner le responsable : ${error.message}`);
-      return;
+
+    if (rpcError) {
+      console.warn("[educator_plans] rpc failed, fallback DELETE+INSERT:", rpcError.message);
+
+      // Fallback : DELETE puis INSERT (non atomique mais fonctionnel)
+      await supabase
+        .from("educator_plans")
+        .delete()
+        .eq("team_id", teamId)
+        .eq("event_id", eventId)
+        .eq("exercise_index", index);
+
+      const { error: insertError } = await supabase.from("educator_plans").insert({
+        team_id: teamId,
+        user_id: userId,
+        event_id: eventId,
+        exercise_index: index,
+        role: "responsable",
+      });
+
+      if (insertError) {
+        console.error("[educator_plans] insert error:", insertError.message, insertError.code, insertError.details);
+        toast.error(`Impossible d'assigner le responsable : ${insertError.message}`);
+        return;
+      }
     }
+
     toast.success("Responsable de l'exercice mis à jour");
     refresh();
   }

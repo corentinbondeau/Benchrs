@@ -21,7 +21,7 @@ import {
 import { Crown } from "lucide-react";
 import { toast } from "sonner";
 import type { Profile, Event, Formation, FormationData } from "@/types";
-import { FORMATIONS } from "@/lib/lineup/formations";
+import { ALL_FORMATIONS, FORMATIONS_BY_FORMAT } from "@/lib/lineup/formations";
 import { autoCompose as autoComposePure } from "@/lib/lineup/autoCompose";
 import { toMatchLineupRows } from "@/lib/lineup/toMatchLineups";
 import { PitchSVG } from "./PitchSVG";
@@ -43,6 +43,8 @@ export interface LineupEditorProps {
   events?: MatchEventOption[]; // requis si showEventPicker
   onEventChange?: (id: string) => void;
   onSaved?: (formation: Formation) => void; // rafraîchissement de la fiche match
+  /** Format de match : 5, 7, 8 ou 11. Défaut : 11 */
+  matchFormat?: number;
 }
 
 function formatDate(dateStr: string) {
@@ -62,12 +64,15 @@ export function LineupEditor({
   events = [],
   onEventChange,
   onSaved,
+  matchFormat = 11,
 }: LineupEditorProps) {
   const { currentTeam } = useTeam();
   const supabase = createClient();
 
   const [selectedEventId, setSelectedEventId] = useState(eventId || "");
-  const [formationName, setFormationName] = useState("4-3-3");
+  // Réinitialise la formation si elle n'est pas compatible avec le matchFormat courant
+  const defaultFormationForFormat = FORMATIONS_BY_FORMAT[matchFormat]?.[0] ?? "4-3-3";
+  const [formationName, setFormationName] = useState(defaultFormationForFormat);
   const [presentPlayers, setPresentPlayers] = useState<Profile[]>([]);
   const [assignments, setAssignments] = useState<Record<string, string>>({});
   const [benchAssignments, setBenchAssignments] = useState<Record<string, string>>({});
@@ -78,7 +83,9 @@ export function LineupEditor({
   const [pickingSlot, setPickingSlot] = useState<string | null>(null);
   const [captainId, setCaptainId] = useState<string | null>(null);
 
-  const currentPositions = FORMATIONS[formationName] || FORMATIONS["4-3-3"];
+  // Formations disponibles pour le format courant
+  const availableFormationNames = FORMATIONS_BY_FORMAT[matchFormat] ?? FORMATIONS_BY_FORMAT[11];
+  const currentPositions = ALL_FORMATIONS[formationName] || ALL_FORMATIONS[availableFormationNames[0]] || ALL_FORMATIONS["4-3-3"];
 
   const assignedPlayerIds = new Set([
     ...Object.values(assignments),
@@ -86,7 +93,7 @@ export function LineupEditor({
   ]);
 
   const availablePlayers = presentPlayers.filter((p) => !assignedPlayerIds.has(p.id));
-  const benchSize = Math.max(0, presentPlayers.length - 11);
+  const benchSize = Math.max(0, presentPlayers.length - matchFormat);
 
   function assignToSlot(slotKey: string, playerId: string) {
     if (slotKey.startsWith("bench-")) {
@@ -471,7 +478,7 @@ export function LineupEditor({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {Object.keys(FORMATIONS).map((f) => (
+                {availableFormationNames.map((f) => (
                   <SelectItem key={f} value={f}>
                     {f}
                   </SelectItem>
@@ -578,7 +585,7 @@ export function LineupEditor({
 
             {!loadingPlayers && presentPlayers.length > 0 && (
               <div className="text-xs text-muted-foreground">
-                {Object.keys(assignments).length}/11 postes · {Object.keys(benchAssignments).length}/{benchSize} remplaçants
+                {Object.keys(assignments).length}/{matchFormat} postes · {Object.keys(benchAssignments).length}/{benchSize} remplaçants
               </div>
             )}
 
@@ -710,7 +717,7 @@ export function LineupEditor({
             )}
           </div>
           <p className="text-xs text-muted-foreground">
-            {Object.keys(assignments).length}/11 postes attribués
+            {Object.keys(assignments).length}/{matchFormat} postes attribués
           </p>
         </div>
       )}
