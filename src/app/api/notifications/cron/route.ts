@@ -80,6 +80,11 @@ export async function GET(req: Request) {
     relances_seance: getCount(7),
   };
 
+  // --- ÉTAPE FINALE — Livrer les notifications créées pendant ce cycle ---
+  // (delivery first + delivery last = pas de notification orpheline 24h)
+  // Idempotent : ne retraite que les notifications WHERE delivered_at IS NULL.
+  const finalDelivery = await deliverPendingNotifications(supabase);
+
   const durationMs = Date.now() - startTime;
 
   const result = {
@@ -87,6 +92,7 @@ export async function GET(req: Request) {
     delivery: { sent, delivered, skipped },
     autoConvocations: autoConvocationsResult,
     creation,
+    finalDelivery: { sent: finalDelivery.sent, delivered: finalDelivery.delivered, skipped: finalDelivery.skipped },
     durationMs,
   };
 

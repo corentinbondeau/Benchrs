@@ -7,6 +7,7 @@ import {
   type RpeRow,
   type FeedbackRow,
 } from "@/lib/session-reminders";
+import { deliverPendingNotifications } from "@/lib/deliver-notifications";
 
 export const dynamic = "force-dynamic";
 
@@ -192,6 +193,14 @@ export async function POST(
         { error: "Erreur lors de l'envoi des relances", step: "notifications", detail: error.message },
         { status: 500 }
       );
+    }
+
+    // Livrer immédiatement les notifications créées (push direct, sans attendre le cron)
+    try {
+      await deliverPendingNotifications(supabase);
+    } catch (deliverErr) {
+      // Non-bloquant : la livraison sera reprise par le cron si elle échoue
+      console.error("[remind-session] deliverPendingNotifications error:", deliverErr);
     }
 
     return NextResponse.json({ ok: true, reminded: rows.length });

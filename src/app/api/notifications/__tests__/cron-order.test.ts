@@ -7,11 +7,15 @@
  *      échoue ou timeout).
  *   2. `deliverPendingNotifications` s'exécute EN PREMIER dans le cron global,
  *      i.e. AVANT toute étape de création (rappels, digests, félicitations, etc.)
+ *   3. `deliverPendingNotifications` s'exécute EN DERNIER dans le cron global,
+ *      après toutes les étapes de création (delivery last — pas de notification
+ *      orpheline 24h dans le même cycle).
  *
- * Ordre cible du cron réordonné :
+ * Ordre cible du cron :
  *   1. deliverPendingNotifications  ← EN PREMIER
  *   2. createAutoConvocations
  *   3. (rappels, digests, félicitations, …)
+ *   N. deliverPendingNotifications  ← EN DERNIER
  *
  * Ordre actuel (avant refactoring) :
  *   rappels → digest → expirations → relances → temps de jeu → cotisations →
@@ -196,7 +200,7 @@ describe("Cron notifications — ordre d'exécution", () => {
     const res = await GET(req);
     expect(res.status).toBe(200);
 
-    expect(deliverPendingNotifications).toHaveBeenCalledOnce();
+    expect(deliverPendingNotifications).toHaveBeenCalledTimes(2);
     expect(createAutoConvocations).toHaveBeenCalledOnce();
 
     const deliverIdx = callOrder.indexOf("deliverPendingNotifications");
@@ -209,6 +213,10 @@ describe("Cron notifications — ordre d'exécution", () => {
       deliverIdx,
       `deliverPendingNotifications (idx=${deliverIdx}) doit être AVANT createAutoConvocations (idx=${autoConvoIdx}). callOrder=${JSON.stringify(callOrder)}`
     ).toBeLessThan(autoConvoIdx);
+
+    // Le second appel est à la fin (après toutes les créations)
+    const lastDeliverIdx = callOrder.lastIndexOf("deliverPendingNotifications");
+    expect(lastDeliverIdx).toBe(callOrder.length - 1);
   });
 
   /**
@@ -227,7 +235,7 @@ describe("Cron notifications — ordre d'exécution", () => {
     const res = await GET(req);
     expect(res.status).toBe(200);
 
-    expect(deliverPendingNotifications).toHaveBeenCalledOnce();
+    expect(deliverPendingNotifications).toHaveBeenCalledTimes(2);
     expect(createAutoConvocations).toHaveBeenCalledOnce();
 
     const deliverIdx = callOrder.indexOf("deliverPendingNotifications");
@@ -242,6 +250,10 @@ describe("Cron notifications — ordre d'exécution", () => {
       autoConvoIdx,
       `createAutoConvocations (idx=${autoConvoIdx}) doit venir APRÈS deliverPendingNotifications (idx=${deliverIdx})`
     ).toBeGreaterThan(deliverIdx);
+
+    // Le second appel est à la fin (après toutes les créations)
+    const lastDeliverIdx = callOrder.lastIndexOf("deliverPendingNotifications");
+    expect(lastDeliverIdx).toBe(callOrder.length - 1);
   });
 
   /**
@@ -270,11 +282,13 @@ describe("Cron notifications — ordre d'exécution", () => {
       // Exception tolérée dans ce test
     }
 
-    // deliverPendingNotifications DOIT avoir été appelé
+    // deliverPendingNotifications DOIT avoir été appelé (au moins une fois)
+    // Le premier appel a eu lieu avant createAutoConvocations ; le second (final)
+    // peut être sauté si le cron catch l'erreur avant d'y arriver.
     expect(
       deliverPendingNotifications,
       "deliverPendingNotifications doit avoir été appelé même si createAutoConvocations échoue"
-    ).toHaveBeenCalledOnce();
+    ).toHaveBeenCalled();
 
     // Et delivery doit être EN PREMIER
     const deliverIdx = callOrder.indexOf("deliverPendingNotifications");
