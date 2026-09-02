@@ -18,12 +18,14 @@ interface LiveData {
   endedAt: string | null;
   halftimeAt: string | null;
   resumedAt: string | null;
+  halfDuration?: number;
 }
 
 const POLL_MS = 5000;
 
 function matchClock(live: LiveData): string | null {
   if (!live.startedAt || live.endedAt) return null;
+  const half = live.halfDuration ?? 45;
   const halftimeAt = live.halftimeAt ? new Date(live.halftimeAt).getTime() : null;
   const resumedAt = live.resumedAt ? new Date(live.resumedAt).getTime() : null;
   const now = Date.now();
@@ -33,13 +35,13 @@ function matchClock(live: LiveData): string | null {
   let display: number;
   let label: string;
   if (halftimeAt && resumedAt && now >= resumedAt) {
-    display = 45 + (now - resumedAt) / 60000;
+    display = half + (now - resumedAt) / 60000;
     label = "2e mi-temps";
   } else if (halftimeAt && now >= halftimeAt) {
-    display = 45;
+    display = half;
     label = "Mi-temps";
   } else {
-    display = Math.min(elapsed, 45);
+    display = Math.min(elapsed, half);
     label = "1re mi-temps";
   }
   const mm = Math.max(0, Math.floor(display));

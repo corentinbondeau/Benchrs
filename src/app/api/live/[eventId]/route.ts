@@ -26,6 +26,14 @@ export async function GET(req: Request, { params }: { params: Promise<{ eventId:
   const teamRaw = event.teams as { name: string }[] | null;
   const team = teamRaw?.[0] ?? null;
 
+  // Charger la durée de mi-temps configurée pour l'équipe
+  const { data: settings } = await admin
+    .from("team_settings")
+    .select("half_duration")
+    .eq("team_id", event.team_id)
+    .maybeSingle();
+  const halfDuration = (settings as { half_duration?: number } | null)?.half_duration ?? 45;
+
   return NextResponse.json({
     id: event.id,
     teamName: team?.name ?? "Équipe",
@@ -40,5 +48,6 @@ export async function GET(req: Request, { params }: { params: Promise<{ eventId:
     endedAt: event.match_ended_at,
     halftimeAt: event.match_halftime_at,
     resumedAt: event.match_resumed_at,
+    halfDuration,
   });
 }
