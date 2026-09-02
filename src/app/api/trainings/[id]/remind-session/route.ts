@@ -148,39 +148,20 @@ export async function POST(
       }
     }
 
-    const refIds = [...recipientIds].map((uid) => `seance-relance:${eventRow.id}:${uid}`);
-
-    const { data: existingData, error: existingError } = await supabase
-      .from("notifications")
-      .select("reference_id")
-      .eq("type", "relance_seance")
-      .in("reference_id", refIds);
-
-    if (existingError) {
-      console.error("[remind-session] notifications error:", existingError);
-      return NextResponse.json(
-        { error: "Erreur lors de l'envoi des relances", step: "notifications", detail: existingError.message },
-        { status: 500 }
-      );
-    }
-
-    const existingRefs = new Set(
-      ((existingData || []) as { reference_id: string }[]).map((n) => n.reference_id)
-    );
-
+    // Relance manuelle : pas de déduplication — le coach peut relancer
+    // autant de fois qu'il le souhaite. Le reference_id inclut un timestamp
+    // pour garantir l'unicité de chaque relance.
     const now = new Date().toISOString();
-    const rows = [...recipientIds]
-      .map((uid) => ({
-        user_id: uid,
-        team_id: eventRow.team_id,
-        type: "relance_seance",
-        title: "Analyse de séance à compléter",
-        body: "Merci de renseigner ton RPE et/ou ton analyse de séance pour l'entraînement passé.",
-        reference_id: `seance-relance:${eventRow.id}:${uid}`,
-        url: `/trainings/${eventRow.id}`,
-        scheduled_for: now,
-      }))
-      .filter((row) => !existingRefs.has(row.reference_id));
+    const rows = [...recipientIds].map((uid) => ({
+      user_id: uid,
+      team_id: eventRow.team_id,
+      type: "relance_seance",
+      title: "Analyse de séance à compléter",
+      body: "Merci de renseigner ton RPE et/ou ton analyse de séance pour l'entraînement passé.",
+      reference_id: `seance-relance:${eventRow.id}:${uid}:${now}`,
+      url: `/trainings/${eventRow.id}`,
+      scheduled_for: now,
+    }));
 
     if (rows.length === 0) {
       return NextResponse.json({ ok: true, reminded: 0 });
