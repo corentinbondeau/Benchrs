@@ -24,6 +24,8 @@ export default function CreateTeamPage() {
   const [clubName, setClubName] = useState("");
   const [teamName, setTeamName] = useState("");
   const [fffNumber, setFffNumber] = useState("");
+  const [matchFormat, setMatchFormat] = useState(11);
+  const [halfDuration, setHalfDuration] = useState(45);
   const [existingClub, setExistingClub] = useState<{ id: string; name: string } | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -136,7 +138,7 @@ export default function CreateTeamPage() {
       const res = await authFetch("/api/auth/create-team", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: user.id, clubName, teamName, fffNumber: fff }),
+        body: JSON.stringify({ userId: user.id, clubName, teamName, fffNumber: fff, matchFormat, halfDuration }),
       });
 
       const data = await res.json();
@@ -271,6 +273,40 @@ export default function CreateTeamPage() {
                   onChange={(e) => setTeamName(e.target.value)}
                   required
                 />
+              </div>
+
+              {/* Format de match */}
+              <div className="space-y-2">
+                <Label htmlFor="matchFormat">Format de match</Label>
+                <select
+                  id="matchFormat"
+                  value={matchFormat}
+                  onChange={(e) => setMatchFormat(parseInt(e.target.value))}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  <option value={5}>Foot à 5</option>
+                  <option value={7}>Foot à 7</option>
+                  <option value={8}>Foot à 8</option>
+                  <option value={11}>Foot à 11</option>
+                </select>
+              </div>
+
+              {/* Durée d'une mi-temps */}
+              <div className="space-y-2">
+                <Label htmlFor="halfDuration">Durée d&apos;une mi-temps</Label>
+                <select
+                  id="halfDuration"
+                  value={halfDuration}
+                  onChange={(e) => setHalfDuration(parseInt(e.target.value))}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  <option value={20}>20 minutes</option>
+                  <option value={25}>25 minutes</option>
+                  <option value={30}>30 minutes</option>
+                  <option value={35}>35 minutes</option>
+                  <option value={40}>40 minutes</option>
+                  <option value={45}>45 minutes</option>
+                </select>
               </div>
             </>
           ) : (

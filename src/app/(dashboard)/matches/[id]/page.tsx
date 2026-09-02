@@ -845,9 +845,14 @@ export default function MatchDetailPage() {
             </CardTitle>
             {isCoach && (
               <div className="flex items-center gap-2">
-                <Button size="sm" variant="outline" onClick={shareLiveScore}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={shareLiveScore}
+                  className="bg-red-50 border-red-200 text-red-700 hover:bg-red-100 dark:bg-red-950/30 dark:border-red-800 dark:text-red-300"
+                >
                   <Radio className="h-3.5 w-3.5 mr-1" />
-                  {liveToken ? "Lien généré ✓" : "Score live"}
+                  {liveToken ? "Lien copié ✓" : "Partager le score live"}
                 </Button>
                 {editingScore ? (
                   <div className="flex gap-2">
@@ -1311,6 +1316,7 @@ export default function MatchDetailPage() {
           }
           onStatsChange={refreshPlayerStats}
           halfDuration={halfDuration}
+          onShareLive={shareLiveScore}
         />
       ) : (
         <Card>

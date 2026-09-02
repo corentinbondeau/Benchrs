@@ -34,6 +34,30 @@ export async function GET(req: Request, { params }: { params: Promise<{ eventId:
     .maybeSingle();
   const halfDuration = (settings as { half_duration?: number } | null)?.half_duration ?? 45;
 
+  // Charger les données enrichies du match en parallèle
+  const [eventsRes, playersRes, statsRes, lineupsRes] = await Promise.all([
+    admin
+      .from("match_events")
+      .select("event_type, player_id, related_player_id, minute, notes")
+      .eq("event_id", eventId)
+      .eq("team_id", event.team_id)
+      .order("minute", { ascending: true, nullsFirst: false }),
+    admin
+      .from("team_members")
+      .select("profiles!inner(id, first_name, last_name, shirt_number)")
+      .eq("team_id", event.team_id),
+    admin
+      .from("match_stats")
+      .select("player_id, goals, assists, yellow_cards, red_cards, minutes_played")
+      .eq("event_id", eventId)
+      .eq("team_id", event.team_id),
+    admin
+      .from("match_lineups")
+      .select("player_id, position, is_starter")
+      .eq("event_id", eventId)
+      .eq("team_id", event.team_id),
+  ]);
+
   return NextResponse.json({
     id: event.id,
     teamName: team?.name ?? "Équipe",
@@ -49,5 +73,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ eventId:
     halftimeAt: event.match_halftime_at,
     resumedAt: event.match_resumed_at,
     halfDuration,
+    events: eventsRes.data || [],
+    players: playersRes.data?.map((m) => (m as { profiles: unknown }).profiles) || [],
+    stats: statsRes.data || [],
+    lineups: lineupsRes.data || [],
   });
 }

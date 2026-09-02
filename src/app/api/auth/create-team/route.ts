@@ -16,7 +16,7 @@ export async function POST(req: Request) {
     const user = await getAuthUser(req);
     if (!user) return unauthorized();
 
-    const { clubName, teamName, fffNumber } = await req.json();
+    const { clubName, teamName, fffNumber, matchFormat, halfDuration } = await req.json();
 
     if (!clubName || !teamName) {
       return NextResponse.json(
@@ -132,6 +132,16 @@ export async function POST(req: Request) {
     if (profileError) {
       console.error("[create-team] profile update error:", profileError);
     }
+
+    // Créer les paramètres de match de l'équipe
+    const matchFormatVal = typeof matchFormat === "number" && [5, 7, 8, 11].includes(matchFormat) ? matchFormat : 11;
+    const halfDurationVal = typeof halfDuration === "number" && halfDuration >= 15 && halfDuration <= 45 ? halfDuration : 45;
+
+    await supabase.from("team_settings").upsert({
+      team_id: team.id,
+      match_format: matchFormatVal,
+      half_duration: halfDurationVal,
+    }, { onConflict: "team_id" });
 
     // Create default chat channel (non-blocking)
     const { error: channelError } = await supabase.from("chat_channels").insert({

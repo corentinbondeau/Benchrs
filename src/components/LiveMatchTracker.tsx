@@ -71,6 +71,8 @@ interface LiveMatchTrackerProps {
   onStatsChange: () => void;
   /** Durée d'une mi-temps en minutes. Défaut : 45 */
   halfDuration?: number;
+  /** Callback pour partager le lien du score live */
+  onShareLive?: () => void;
 }
 
 interface EventTypeConfig {
@@ -207,6 +209,7 @@ export function LiveMatchTracker({
   onMatchUpdate,
   onStatsChange,
   halfDuration = 45,
+  onShareLive,
 }: LiveMatchTrackerProps) {
   const [events, setEvents] = useState<MatchEventRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1010,6 +1013,17 @@ export function LiveMatchTracker({
                   Relancer
                 </Button>
               )
+            )}
+            {onShareLive && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={onShareLive}
+                className="bg-red-50 border-red-200 text-red-700 hover:bg-red-100 dark:bg-red-950/30 dark:border-red-800 dark:text-red-300"
+              >
+                <Radio className="h-3.5 w-3.5 mr-1" />
+                Partager
+              </Button>
             )}
             <Button
               size="icon"
