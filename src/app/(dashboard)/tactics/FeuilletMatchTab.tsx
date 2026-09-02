@@ -27,7 +27,8 @@ export default function FeuilletMatchTab() {
         .select("*")
         .eq("team_id", currentTeam.id)
         .eq("type", "match")
-        .order("event_date", { ascending: false }),
+        .gte("event_date", new Date(new Date().setHours(0, 0, 0, 0)).toISOString())
+        .order("event_date", { ascending: true }),
       supabase
         .from("team_settings")
         .select("match_format")
