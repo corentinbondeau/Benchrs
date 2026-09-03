@@ -591,8 +591,6 @@ export default function MatchDetailPage() {
   const matchDate = new Date(match.event_date);
   const matchIsOver = match.status === "completed";
   const eventIsLocked = isLockedForRole(match?.event_date, match?.end_date, isCoach);
-  const starters = lineups.filter((l) => l.is_starter);
-  const subs = lineups.filter((l) => !l.is_starter);
   const fd = formation?.formation_data as FormationData | null;
   const positions = fd?.positions || [];
   const captainId = fd?.captain_id;
@@ -813,8 +811,8 @@ export default function MatchDetailPage() {
         userId={user?.id ?? ""}
       />
 
-      {/* Sondage de disponibilité avant match */}
-      {!matchIsOver && (
+      {/* Sondage de disponibilité avant match — masqué une fois les convocations envoyées */}
+      {!matchIsOver && !match?.convocations_sent_at && (
         <MatchAvailabilityCard
           eventId={matchId}
           teamId={currentTeam.id}
@@ -1252,50 +1250,7 @@ export default function MatchDetailPage() {
         url={`/matches/${matchId}`}
       />
 
-      {/* Lineups */}
-      {lineups.length > 0 && (
-        <div className="grid gap-6 lg:grid-cols-2">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm">Titulaires ({starters.length})</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-1">
-                {starters.map((l) => (
-                  <div key={l.id} className="flex items-center gap-2 rounded-lg bg-muted/50 px-3 py-1.5 text-sm">
-                    <span className="font-bold text-xs w-6 text-center">{l.profile?.shirt_number ?? "?"}</span>
-                    <span className="flex-1 truncate">{l.profile?.first_name} {l.profile?.last_name}</span>
-                    <Badge variant="secondary" className="text-[10px]">{l.position_label}</Badge>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
 
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm">Remplaçants ({subs.length})</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {subs.length === 0 ? (
-                <p className="text-xs text-muted-foreground text-center py-2">Aucun remplaçant</p>
-              ) : (
-                <div className="space-y-1">
-                  {subs.map((l) => (
-                    <div key={l.id} className="flex items-center gap-2 rounded-lg bg-muted/50 px-3 py-1.5 text-sm">
-                      <span className="font-bold text-xs w-6 text-center">{l.profile?.shirt_number ?? "?"}</span>
-                      <span className="flex-1 truncate">{l.profile?.first_name} {l.profile?.last_name}</span>
-                      {l.entered_at_minute !== null && (
-                        <Badge variant="outline" className="text-[10px]">Entrée {l.entered_at_minute}&apos;</Badge>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      )}
 
       {/* Match en direct */}
       {liveReady ? (

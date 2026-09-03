@@ -120,6 +120,15 @@ export function ConvocationsDialog({ event, open, onOpenChange }: ConvocationsDi
       return;
     }
     toast.success(`${userIds.length} notification(s) envoyée(s)`);
+    // Marquer convocations_sent_at uniquement lors du premier envoi
+    if (!eventData?.convocations_sent_at) {
+      const supabase = createClient();
+      await supabase
+        .from("events")
+        .update({ convocations_sent_at: new Date().toISOString() })
+        .eq("id", event.id)
+        .is("convocations_sent_at", null);
+    }
   }
 
   async function convocateSelected() {

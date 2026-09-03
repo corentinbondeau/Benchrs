@@ -137,6 +137,8 @@ export interface Event {
   referee?: string | null;
   delegate?: string | null;
   cancel_reason?: string | null;
+  convocations_sent_at?: string | null;
+  convocation_lead_days?: number | null;
   created_at: string;
   updated_at: string;
 }

@@ -429,6 +429,7 @@ export default function CalendarPage() {
     type: "match" | "training",
     title: string
   ) {
+    const supabase = createClient();
     for (const evt of events) {
       const evtDate = new Date(evt.event_date);
       const scheduledFor = new Date(evtDate.getTime() - leadDays * 24 * 60 * 60 * 1000);
@@ -450,6 +451,14 @@ export default function CalendarPage() {
           url: evtUrl,
           scheduled_for: scheduledFor.toISOString(),
         }),
+      }).then(() => {
+        // Marquer convocations_sent_at uniquement lors du premier envoi
+        supabase
+          .from("events")
+          .update({ convocations_sent_at: new Date().toISOString() })
+          .eq("id", evt.id)
+          .is("convocations_sent_at", null)
+          .then(() => {});
       }).catch(() => {
         // La création de l'événement ne doit pas dépendre de l'envoi des convocations
       });
