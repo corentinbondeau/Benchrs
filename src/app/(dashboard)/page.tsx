@@ -26,12 +26,6 @@ function WidgetSkeleton({ className = "" }: { className?: string }) {
   );
 }
 
-const NewsFeed = dynamic(
-  () => import("@/components/dashboard/NewsFeed").then((m) => m.NewsFeed),
-  {
-    loading: () => <WidgetSkeleton className="h-28" />,
-  }
-);
 
 const SeasonSummary = dynamic(
   () => import("@/components/dashboard/SeasonSummary").then((m) => m.SeasonSummary),
@@ -110,10 +104,7 @@ export default function DashboardPage() {
       {/* P2: Recent results */}
       <RecentResults />
 
-      {/* P3: News feed & season summary */}
-      <LazyMount fallback={<WidgetSkeleton className="h-28" />}>
-        <NewsFeed />
-      </LazyMount>
+      {/* P3: Season summary */}
       <LazyMount fallback={<WidgetSkeleton className="h-36" />}>
         <SeasonSummary />
       </LazyMount>
