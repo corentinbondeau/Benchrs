@@ -45,6 +45,7 @@ export default function RosterPage() {
   const canAddPlayer = userRole === "owner" || userRole === "coach" || userRole === "parent";
   const [allProfiles, setAllProfiles] = useState<Profile[]>([]);
   const [memberIds, setMemberIds] = useState<Record<string, string>>({});
+  const [muteStatuses, setMuteStatuses] = useState<Record<string, string | null>>({});
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState<"csv" | "pdf" | null>(null);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
@@ -66,7 +67,7 @@ export default function RosterPage() {
     async function loadMembers() {
       const { data: rows } = await supabase
         .from("team_members")
-        .select("id, user_id, role")
+        .select("id, user_id, role, mute_status")
         .eq("team_id", currentTeam!.id);
 
       if (!rows || rows.length === 0) {
@@ -77,9 +78,11 @@ export default function RosterPage() {
 
       const roleMap: Record<string, string> = {};
       const memberIdMap: Record<string, string> = {};
-      for (const r of rows as { id: string; user_id: string; role: string }[]) {
+      const muteMap: Record<string, string | null> = {};
+      for (const r of rows as { id: string; user_id: string; role: string; mute_status: string | null }[]) {
         roleMap[r.user_id] = r.role === "owner" ? "coach" : r.role;
         memberIdMap[r.user_id] = r.id;
+        muteMap[r.user_id] = r.mute_status ?? null;
       }
 
       const { data: profiles } = await supabase
@@ -95,6 +98,7 @@ export default function RosterPage() {
         }))
       );
       setMemberIds(memberIdMap);
+      setMuteStatuses(muteMap);
       setLoading(false);
     }
 
@@ -130,15 +134,17 @@ export default function RosterPage() {
       // Recharger la liste
       const supabase = createClient();
       const { data: rows } = await supabase
-        .from("team_members")
-        .select("id, user_id, role")
-        .eq("team_id", currentTeam.id);
+          .from("team_members")
+          .select("id, user_id, role, mute_status")
+          .eq("team_id", currentTeam.id);
       if (rows && rows.length > 0) {
         const roleMap: Record<string, string> = {};
         const memberIdMap: Record<string, string> = {};
-        for (const r of rows as { id: string; user_id: string; role: string }[]) {
+        const muteMap: Record<string, string | null> = {};
+        for (const r of rows as { id: string; user_id: string; role: string; mute_status: string | null }[]) {
           roleMap[r.user_id] = r.role === "owner" ? "coach" : r.role;
           memberIdMap[r.user_id] = r.id;
+          muteMap[r.user_id] = r.mute_status ?? null;
         }
         const { data: profiles } = await supabase
           .from("profiles")
@@ -152,6 +158,7 @@ export default function RosterPage() {
           }))
         );
         setMemberIds(memberIdMap);
+        setMuteStatuses(muteMap);
       }
     } catch {
       toast.error("Erreur de connexion au serveur");
@@ -289,15 +296,27 @@ export default function RosterPage() {
                     : initials}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-[15px]">
-                    {profile.first_name} {profile.last_name}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {isPlayer
-                      ? (profile.position || "Joueur")
-                      : section.label.slice(0, -1)}
-                  </p>
-                </div>
+                   <p className="font-semibold text-[15px]">
+                     {profile.first_name} {profile.last_name}
+                   </p>
+                   <div className="flex items-center gap-1.5 flex-wrap">
+                     <p className="text-sm text-muted-foreground">
+                       {isPlayer
+                         ? (profile.position || "Joueur")
+                         : section.label.slice(0, -1)}
+                     </p>
+                     {isPlayer && muteStatuses[profile.id] === "mute" && (
+                       <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+                         Muté
+                       </span>
+                     )}
+                     {isPlayer && muteStatuses[profile.id] === "mute_hors_periode" && (
+                       <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-600">
+                         Muté HP
+                       </span>
+                     )}
+                   </div>
+                 </div>
                 <ChevronRight className="h-5 w-5 text-muted-foreground/40 shrink-0" />
               </>
             );
@@ -320,38 +339,68 @@ export default function RosterPage() {
                   </Link>
                 )}
                 {isOwner && profile.id !== user?.id && memberIds[profile.id] && (
-                  <div className="flex items-center border border-l-0 bg-card rounded-r-xl px-2">
-                    <select
-                      value={profile.role === "coach" ? "coach" : profile.role === "parent" ? "parent" : "player"}
-                      onChange={async (e) => {
-                        e.stopPropagation();
-                        const newRole = e.target.value;
-                        const supabase = createClient();
-                        const { error } = await supabase
-                          .from("team_members")
-                          .update({ role: newRole })
-                          .eq("id", memberIds[profile.id]);
-                        if (error) {
-                          toast.error("Impossible de modifier le rôle");
-                          return;
-                        }
-                        toast.success(`Rôle modifié`);
-                        setAllProfiles((prev) =>
-                          prev.map((p) =>
-                            p.id === profile.id ? { ...p, role: newRole as Profile["role"] } : p
-                          )
-                        );
-                      }}
-                      onClick={(e) => e.stopPropagation()}
-                      className="h-8 rounded-md border-0 bg-transparent text-xs cursor-pointer"
-                      title="Modifier le rôle"
-                    >
-                      <option value="player">Joueur</option>
-                      <option value="coach">Coach</option>
-                      <option value="parent">Parent</option>
-                    </select>
-                  </div>
-                )}
+                   <div className="flex items-center border border-l-0 bg-card rounded-r-xl px-2 gap-1">
+                     <select
+                       value={profile.role === "coach" ? "coach" : profile.role === "parent" ? "parent" : "player"}
+                       onChange={async (e) => {
+                         e.stopPropagation();
+                         const newRole = e.target.value;
+                         const supabase = createClient();
+                         const { error } = await supabase
+                           .from("team_members")
+                           .update({ role: newRole })
+                           .eq("id", memberIds[profile.id]);
+                         if (error) {
+                           toast.error("Impossible de modifier le rôle");
+                           return;
+                         }
+                         toast.success(`Rôle modifié`);
+                         setAllProfiles((prev) =>
+                           prev.map((p) =>
+                             p.id === profile.id ? { ...p, role: newRole as Profile["role"] } : p
+                           )
+                         );
+                       }}
+                       onClick={(e) => e.stopPropagation()}
+                       className="h-8 rounded-md border-0 bg-transparent text-xs cursor-pointer"
+                       title="Modifier le rôle"
+                     >
+                       <option value="player">Joueur</option>
+                       <option value="coach">Coach</option>
+                       <option value="parent">Parent</option>
+                     </select>
+                     {isPlayer && (
+                       <select
+                         value={muteStatuses[profile.id] ?? ""}
+                         onChange={async (e) => {
+                           e.stopPropagation();
+                           const newMuteStatus = e.target.value || null;
+                           const supabase = createClient();
+                           const { error } = await supabase
+                             .from("team_members")
+                             .update({ mute_status: newMuteStatus })
+                             .eq("id", memberIds[profile.id]);
+                           if (error) {
+                             toast.error("Impossible de modifier le statut de mutation");
+                             return;
+                           }
+                           toast.success("Statut de mutation modifié");
+                           setMuteStatuses((prev) => ({
+                             ...prev,
+                             [profile.id]: newMuteStatus,
+                           }));
+                         }}
+                         onClick={(e) => e.stopPropagation()}
+                         className="h-8 rounded-md border-0 bg-transparent text-xs cursor-pointer"
+                         title="Modifier le statut de mutation"
+                       >
+                         <option value="">Non muté</option>
+                         <option value="mute">Muté</option>
+                         <option value="mute_hors_periode">Muté HP</option>
+                       </select>
+                     )}
+                   </div>
+                 )}
               </div>
             );
           })}

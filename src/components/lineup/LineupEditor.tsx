@@ -105,6 +105,7 @@ export function LineupEditor({
   const [loadedFormationId, setLoadedFormationId] = useState<string | null>(null);
   const [pickingSlot, setPickingSlot] = useState<string | null>(null);
   const [captainId, setCaptainId] = useState<string | null>(null);
+  const [muteStatusMap, setMuteStatusMap] = useState<Record<string, string | null>>({});
 
   // Formations disponibles pour le format courant
   const availableFormationNames = FORMATIONS_BY_FORMAT[matchFormat] ?? FORMATIONS_BY_FORMAT[11];
@@ -302,7 +303,18 @@ export function LineupEditor({
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle(),
-    ]).then(([attendRes, formationRes]) => {
+      supabase
+        .from("team_members")
+        .select("user_id, mute_status")
+        .eq("team_id", currentTeam.id),
+    ]).then(([attendRes, formationRes, membersRes]) => {
+      // Build mute status map
+      const muteMap: Record<string, string | null> = {};
+      for (const m of (membersRes.data ?? []) as { user_id: string; mute_status: string | null }[]) {
+        muteMap[m.user_id] = m.mute_status ?? null;
+      }
+      setMuteStatusMap(muteMap);
+
       // Set present players
       if (attendRes.data) {
         const players = attendRes.data
@@ -617,8 +629,30 @@ export function LineupEditor({
             </div>
 
             {!loadingPlayers && presentPlayers.length > 0 && (
-              <div className="text-xs text-muted-foreground">
-                {Object.keys(assignments).length}/{matchFormat} postes · {Object.keys(benchAssignments).length}/{benchSize} remplaçants
+              <div className="text-xs text-muted-foreground space-y-1">
+                <div>
+                  {Object.keys(assignments).length}/{matchFormat} postes · {Object.keys(benchAssignments).length}/{benchSize} remplaçants
+                </div>
+                {(() => {
+                  const assignedIds = new Set([
+                    ...Object.values(assignments),
+                    ...Object.values(benchAssignments),
+                  ]);
+                  let muteCount = 0;
+                  let muteHpCount = 0;
+                  for (const pid of assignedIds) {
+                    const status = muteStatusMap[pid];
+                    if (status === "mute") muteCount++;
+                    else if (status === "mute_hors_periode") muteHpCount++;
+                  }
+                  const total = muteCount + muteHpCount;
+                  if (total === 0) return null;
+                  return (
+                    <div>
+                      ({muteCount}+{muteHpCount}) muté(s) sur la feuille dont {muteHpCount} muté(s) hors période
+                    </div>
+                  );
+                })()}
               </div>
             )}
 
