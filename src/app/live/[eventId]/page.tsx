@@ -104,12 +104,55 @@ function eventIcon(type: string): string {
   }
 }
 
+/**
+ * Construit un index prénom → suffixe de nom pour différencier les homonymes.
+ * Si un prénom est unique → pas de suffixe. Sinon, ajoute la première lettre
+ * du nom, puis 2 lettres si ce n'est pas suffisant, etc.
+ */
+function buildDisplayNames(players: LivePlayer[]): Map<string, string> {
+  const byFirst = new Map<string, LivePlayer[]>();
+  for (const p of players) {
+    const list = byFirst.get(p.first_name) || [];
+    list.push(p);
+    byFirst.set(p.first_name, list);
+  }
+
+  const result = new Map<string, string>();
+  for (const [firstName, group] of byFirst) {
+    if (group.length === 1) {
+      result.set(group[0].id, firstName);
+    } else {
+      // Trouver le nombre de lettres du nom nécessaires pour distinguer chacun
+      for (const p of group) {
+        const lastName = p.last_name || "";
+        // Essayer 1 lettre, puis 2, puis 3... jusqu'à unicité
+        let suffix = lastName.charAt(0).toUpperCase() + ".";
+        let letters = 1;
+        while (letters < lastName.length) {
+          const candidateSuffix = lastName.slice(0, letters).charAt(0).toUpperCase() + lastName.slice(1, letters) + ".";
+          const conflicts = group.filter(
+            (other) => other.id !== p.id && (other.last_name || "").slice(0, letters).toLowerCase() === lastName.slice(0, letters).toLowerCase()
+          );
+          if (conflicts.length === 0) {
+            suffix = lastName.slice(0, letters).charAt(0).toUpperCase() + lastName.slice(1, letters) + ".";
+            break;
+          }
+          letters++;
+          suffix = lastName.slice(0, letters).charAt(0).toUpperCase() + lastName.slice(1, letters) + ".";
+        }
+        result.set(p.id, `${firstName} ${suffix}`);
+      }
+    }
+  }
+  return result;
+}
+
 function TimelineSection({ events, players }: { events: LiveEvent[]; players: LivePlayer[] }) {
+  const displayNames = buildDisplayNames(players);
+
   function getPlayerName(playerId: string | null): string {
     if (!playerId) return "";
-    const p = players.find((pl) => pl.id === playerId);
-    if (!p) return "Inconnu";
-    return p.first_name;
+    return displayNames.get(playerId) || "Inconnu";
   }
 
   if (events.length === 0) {
@@ -168,15 +211,13 @@ function TimelineSection({ events, players }: { events: LiveEvent[]; players: Li
 }
 
 function LineupSection({ lineups, players }: { lineups: LiveLineup[]; players: LivePlayer[] }) {
-  function getPlayer(playerId: string): LivePlayer | undefined {
-    return players.find((p) => p.id === playerId);
-  }
+  const displayNames = buildDisplayNames(players);
 
   function formatPlayer(playerId: string): string {
-    const p = getPlayer(playerId);
+    const p = players.find((pl) => pl.id === playerId);
     if (!p) return "Inconnu";
     const num = p.shirt_number !== null ? `#${p.shirt_number} ` : "";
-    return `${num}${p.first_name}`;
+    return `${num}${displayNames.get(playerId) || p.first_name}`;
   }
 
   const starters = lineups.filter((l) => l.is_starter);
@@ -218,10 +259,10 @@ function LineupSection({ lineups, players }: { lineups: LiveLineup[]; players: L
 }
 
 function StatsSection({ stats, players }: { stats: LiveStat[]; players: LivePlayer[] }) {
+  const displayNames = buildDisplayNames(players);
+
   function getPlayerName(playerId: string): string {
-    const p = players.find((pl) => pl.id === playerId);
-    if (!p) return "Inconnu";
-    return p.first_name;
+    return displayNames.get(playerId) || "Inconnu";
   }
 
   const activeStats = stats
