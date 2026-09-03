@@ -6,9 +6,17 @@ import { authFetch } from "@/lib/api-client";
 import { useTeam } from "@/lib/team";
 import { useAuth } from "@/lib/auth";
 import Link from "next/link";
-import { Shield, Users, Baby, ChevronRight, FileText, Download, Loader2, MessageCircle } from "lucide-react";
+import { Shield, Users, Baby, ChevronRight, FileText, Download, Loader2, MessageCircle, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import type { Profile } from "@/types";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
 type Section = { key: "coach" | "player" | "parent"; label: string; icon: typeof Shield };
 
@@ -18,14 +26,38 @@ const SECTIONS: Section[] = [
   { key: "parent", label: "Parents", icon: Baby },
 ];
 
+type AddPlayerForm = {
+  firstName: string;
+  lastName: string;
+  dateOfBirth: string;
+  position: string;
+  shirtNumber: string;
+  hasEmail: boolean;
+  email: string;
+};
+
+const POSITIONS = ["Gardien", "Défenseur", "Milieu", "Attaquant"];
+
 export default function RosterPage() {
   const { user } = useAuth();
   const { currentTeam, userRole } = useTeam();
   const isOwner = userRole === "owner";
+  const canAddPlayer = userRole === "owner" || userRole === "coach" || userRole === "parent";
   const [allProfiles, setAllProfiles] = useState<Profile[]>([]);
   const [memberIds, setMemberIds] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState<"csv" | "pdf" | null>(null);
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [addForm, setAddForm] = useState<AddPlayerForm>({
+    firstName: "",
+    lastName: "",
+    dateOfBirth: "",
+    position: "",
+    shirtNumber: "",
+    hasEmail: false,
+    email: "",
+  });
+  const [addSaving, setAddSaving] = useState(false);
 
   useEffect(() => {
     if (!currentTeam) return;
@@ -68,6 +100,65 @@ export default function RosterPage() {
 
     loadMembers();
   }, [currentTeam?.id]);
+
+  async function handleAddPlayer(e: React.FormEvent) {
+    e.preventDefault();
+    if (!currentTeam) return;
+    setAddSaving(true);
+    try {
+      const res = await authFetch("/api/auth/create-player", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          teamId: currentTeam.id,
+          firstName: addForm.firstName,
+          lastName: addForm.lastName,
+          dateOfBirth: addForm.dateOfBirth || undefined,
+          position: addForm.position || undefined,
+          shirtNumber: addForm.shirtNumber || undefined,
+          email: addForm.hasEmail && addForm.email ? addForm.email : undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "Erreur lors de la création du joueur");
+        return;
+      }
+      toast.success("Joueur créé avec succès");
+      setAddDialogOpen(false);
+      setAddForm({ firstName: "", lastName: "", dateOfBirth: "", position: "", shirtNumber: "", hasEmail: false, email: "" });
+      // Recharger la liste
+      const supabase = createClient();
+      const { data: rows } = await supabase
+        .from("team_members")
+        .select("id, user_id, role")
+        .eq("team_id", currentTeam.id);
+      if (rows && rows.length > 0) {
+        const roleMap: Record<string, string> = {};
+        const memberIdMap: Record<string, string> = {};
+        for (const r of rows as { id: string; user_id: string; role: string }[]) {
+          roleMap[r.user_id] = r.role === "owner" ? "coach" : r.role;
+          memberIdMap[r.user_id] = r.id;
+        }
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("id, first_name, last_name, role, position, shirt_number, date_of_birth, phone, vma, vmi, avatar_url")
+          .in("id", rows.map((r) => r.user_id))
+          .order("last_name", { ascending: true });
+        setAllProfiles(
+          ((profiles as Profile[]) || []).map((p) => ({
+            ...p,
+            role: (roleMap[p.id] || p.role) as Profile["role"],
+          }))
+        );
+        setMemberIds(memberIdMap);
+      }
+    } catch {
+      toast.error("Erreur de connexion au serveur");
+    } finally {
+      setAddSaving(false);
+    }
+  }
 
   if (!currentTeam) {
     return (
@@ -279,31 +370,43 @@ export default function RosterPage() {
             {players.length} joueur{players.length > 1 ? "s" : ""} &middot; {currentTeam.name}
           </p>
         </div>
-        {(userRole === "coach" || userRole === "owner") && allProfiles.length > 0 && (
-          <div className="flex gap-2 shrink-0">
+        <div className="flex gap-2 shrink-0">
+          {canAddPlayer && (
             <button
               type="button"
-              onClick={exportCsv}
+              onClick={() => setAddDialogOpen(true)}
               className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-muted/50 transition-colors"
             >
-              <FileText className="h-3.5 w-3.5" />
-              CSV
+              <UserPlus className="h-3.5 w-3.5" />
+              Ajouter
             </button>
-            <button
-              type="button"
-              onClick={exportPdf}
-              disabled={exporting === "pdf"}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--color-primary-blue)] px-3 py-2 text-xs font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
-            >
-              {exporting === "pdf" ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Download className="h-3.5 w-3.5" />
-              )}
-              PDF
-            </button>
-          </div>
-        )}
+          )}
+          {(userRole === "coach" || userRole === "owner") && allProfiles.length > 0 && (
+            <>
+              <button
+                type="button"
+                onClick={exportCsv}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-muted/50 transition-colors"
+              >
+                <FileText className="h-3.5 w-3.5" />
+                CSV
+              </button>
+              <button
+                type="button"
+                onClick={exportPdf}
+                disabled={exporting === "pdf"}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--color-primary-blue)] px-3 py-2 text-xs font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+              >
+                {exporting === "pdf" ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Download className="h-3.5 w-3.5" />
+                )}
+                PDF
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {allProfiles.length === 0 ? (
@@ -319,6 +422,134 @@ export default function RosterPage() {
       ) : (
         SECTIONS.map((section) => <RoleSection key={section.key} section={section} />)
       )}
+
+      {/* Dialog ajout joueur */}
+      <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Ajouter un joueur</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleAddPlayer} className="space-y-3 mt-1">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-muted-foreground">Prénom *</label>
+                <input
+                  required
+                  type="text"
+                  value={addForm.firstName}
+                  onChange={(e) => setAddForm((f) => ({ ...f, firstName: e.target.value }))}
+                  placeholder="Prénom"
+                  className="rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[var(--color-primary-blue)]/40"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-muted-foreground">Nom *</label>
+                <input
+                  required
+                  type="text"
+                  value={addForm.lastName}
+                  onChange={(e) => setAddForm((f) => ({ ...f, lastName: e.target.value }))}
+                  placeholder="Nom"
+                  className="rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[var(--color-primary-blue)]/40"
+                />
+              </div>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Adresse email</label>
+              <div className="flex gap-3">
+                <label className="flex items-center gap-1.5 text-sm cursor-pointer">
+                  <input
+                    type="radio"
+                    name="hasEmail"
+                    checked={!addForm.hasEmail}
+                    onChange={() => setAddForm((f) => ({ ...f, hasEmail: false, email: "" }))}
+                    className="accent-[var(--color-primary-blue)]"
+                  />
+                  Pas d&apos;email
+                </label>
+                <label className="flex items-center gap-1.5 text-sm cursor-pointer">
+                  <input
+                    type="radio"
+                    name="hasEmail"
+                    checked={addForm.hasEmail}
+                    onChange={() => setAddForm((f) => ({ ...f, hasEmail: true }))}
+                    className="accent-[var(--color-primary-blue)]"
+                  />
+                  A une adresse email
+                </label>
+              </div>
+              {addForm.hasEmail && (
+                <input
+                  type="email"
+                  required
+                  value={addForm.email}
+                  onChange={(e) => setAddForm((f) => ({ ...f, email: e.target.value }))}
+                  placeholder="email@exemple.com"
+                  className="rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[var(--color-primary-blue)]/40"
+                />
+              )}
+              {!addForm.hasEmail && (
+                <p className="text-[11px] text-muted-foreground">
+                  Un compte de service sera créé. L&apos;enfant pourra revendiquer son compte plus tard en ajoutant son email.
+                </p>
+              )}
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-muted-foreground">Date de naissance</label>
+              <input
+                type="date"
+                value={addForm.dateOfBirth}
+                onChange={(e) => setAddForm((f) => ({ ...f, dateOfBirth: e.target.value }))}
+                className="rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[var(--color-primary-blue)]/40"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-muted-foreground">Poste</label>
+                <select
+                  value={addForm.position}
+                  onChange={(e) => setAddForm((f) => ({ ...f, position: e.target.value }))}
+                  className="rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[var(--color-primary-blue)]/40"
+                >
+                  <option value="">— Poste —</option>
+                  {POSITIONS.map((p) => (
+                    <option key={p} value={p}>{p}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-muted-foreground">N° maillot</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={99}
+                  value={addForm.shirtNumber}
+                  onChange={(e) => setAddForm((f) => ({ ...f, shirtNumber: e.target.value }))}
+                  placeholder="Ex : 10"
+                  className="rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[var(--color-primary-blue)]/40"
+                />
+              </div>
+            </div>
+            <DialogFooter className="-mx-0 -mb-0 border-t-0 bg-transparent p-0 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setAddDialogOpen(false)}
+                disabled={addSaving}
+              >
+                Annuler
+              </Button>
+              <Button
+                type="submit"
+                disabled={addSaving}
+                className="bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90"
+              >
+                {addSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Créer le joueur"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
