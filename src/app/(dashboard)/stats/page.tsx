@@ -13,6 +13,20 @@ export default function StatsPage() {
   const { userRole, clubMemberships, currentTeam } = useTeam();
   const isCoach = userRole === "coach" || userRole === "owner";
   const isComiteOnly = clubMemberships.length > 0 && userRole === null;
+  const loading = currentTeam === undefined;
+
+  if (loading) {
+    return (
+      <div className="section-gap">
+        <div className="h-8 w-48 animate-pulse rounded-lg bg-muted" />
+        <div className="space-y-3 mt-4">
+          {Array.from({ length: 5 }, (_, i) => (
+            <div key={i} className="h-16 animate-pulse rounded-xl bg-muted" />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="section-gap">

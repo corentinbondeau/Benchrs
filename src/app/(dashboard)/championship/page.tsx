@@ -381,7 +381,7 @@ export default function ChampionshipPage() {
                 }
               }}
             >
-              <DialogTrigger render={<Button className="bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold" />}>
+              <DialogTrigger render={<Button variant="primary" />}>
                 <Zap className="h-4 w-4 mr-1" />
                 Import DOFA
               </DialogTrigger>

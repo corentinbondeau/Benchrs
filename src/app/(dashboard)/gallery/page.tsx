@@ -761,7 +761,7 @@ export default function GalleryPage() {
             lightbox.media_type?.startsWith("video/") ? (
               <video src={lightbox.url} controls className="w-full max-h-[80vh] rounded-lg" autoPlay playsInline preload="metadata" />
             ) : (
-              <img src={lightbox.url} alt={lightbox.caption || ""} className="w-full h-auto max-h-[80vh] object-contain rounded-lg" decoding="async" />
+              <img src={lightbox.url} alt={lightbox.caption || "Photo de la galerie"} className="w-full h-auto max-h-[80vh] object-contain rounded-lg" decoding="async" />
             )
           )}
           {lightbox && (

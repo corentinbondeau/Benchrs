@@ -101,7 +101,7 @@ export default function ColorsSection({ isOwner }: ColorsSectionProps) {
           <Button
             onClick={saveColors}
             disabled={savingColors}
-            className="bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold"
+            variant="primary"
           >
             {savingColors ? "Sauvegarde..." : "Sauvegarder les couleurs"}
           </Button>

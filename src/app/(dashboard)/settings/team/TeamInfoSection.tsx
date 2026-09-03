@@ -350,9 +350,9 @@ export default function TeamInfoSection({ isOwner, isCoach }: TeamInfoSectionPro
                   );
                 setSavingDifficulty(false);
                 if (error) toast.error("Erreur lors de l'enregistrement");
-                else toast.success("Difficulté mise à jour");
+                else toast.success("Paramètre enregistré");
               }}
-              className="bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold"
+              variant="primary"
             >
               Enregistrer
             </Button>
@@ -398,7 +398,7 @@ export default function TeamInfoSection({ isOwner, isCoach }: TeamInfoSectionPro
                 if (error) toast.error("Erreur lors de l'enregistrement");
                 else toast.success("Paramètre enregistré");
               }}
-              className="bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold"
+              variant="primary"
             >
               Enregistrer
             </Button>
@@ -447,7 +447,7 @@ export default function TeamInfoSection({ isOwner, isCoach }: TeamInfoSectionPro
                 if (error) toast.error("Erreur lors de l'enregistrement");
                 else toast.success("Paramètre enregistré");
               }}
-              className="bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold"
+              variant="primary"
             >
               Enregistrer
             </Button>
@@ -522,7 +522,7 @@ export default function TeamInfoSection({ isOwner, isCoach }: TeamInfoSectionPro
                 if (error) toast.error("Erreur lors de l'enregistrement");
                 else toast.success("Paramètres de match enregistrés");
               }}
-              className="bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold"
+              variant="primary"
             >
               Enregistrer
             </Button>

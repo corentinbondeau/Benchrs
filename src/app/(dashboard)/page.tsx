@@ -15,6 +15,7 @@ import { PlayerDashboard } from "@/components/dashboard/PlayerDashboard";
 import { ParentDashboard } from "@/components/dashboard/ParentDashboard";
 import { Card, CardContent } from "@/components/ui/card";
 import { ContentSkeleton } from "@/components/ui/content-skeleton";
+import { OnboardingTip } from "@/components/OnboardingTips";
 
 function WidgetSkeleton({ className = "" }: { className?: string }) {
   return (
@@ -82,6 +83,12 @@ export default function DashboardPage() {
   return (
     <div className="section-gap">
       <TodayHeader name={user?.profile?.first_name || ""} />
+
+      <OnboardingTip
+        tipKey="dashboard-welcome"
+        title="Bienvenue sur Benchrs !"
+        description="Depuis ce tableau de bord, vous pouvez voir votre semaine, gérer les convocations et suivre les résultats. Explorez le menu pour découvrir toutes les fonctionnalités."
+      />
 
       {/* P0: Next event — most important, always visible */}
       <Suspense fallback={<ContentSkeleton />}>

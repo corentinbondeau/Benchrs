@@ -242,7 +242,7 @@ export default function CagnottePage() {
           <p className="text-sm text-muted-foreground">Financement des tournois, tenues et projets. Les fonds sont versés à la trésorerie.</p>
         </div>
         {isCoach && (
-          <Button size="sm" className="bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold" onClick={() => setCreateOpen(true)}>
+          <Button size="sm" variant="primary" onClick={() => setCreateOpen(true)}>
             <Plus className="h-3.5 w-3.5 mr-1" />
             Nouvelle cagnotte
           </Button>

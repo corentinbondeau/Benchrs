@@ -9,6 +9,7 @@ import BottomNav from "@/components/layout/BottomNav";
 import { PushNotificationInit } from "@/components/PushNotificationInit";
 import { UniversalOnboarding } from "@/components/onboarding/UniversalOnboarding";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { useOfflineSync } from "@/lib/useOfflineQueue";
 
 export default function DashboardLayout({
   children,
@@ -16,6 +17,7 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const isMobile = useIsMobile();
+  useOfflineSync();
 
   return (
     <AuthProvider>
@@ -29,7 +31,9 @@ export default function DashboardLayout({
               <TopBar />
               <main className="flex-1 overflow-y-auto overflow-x-clip">
                 <div className="page-container px-4 py-4 md:px-6 md:py-5 lg:px-8 lg:py-6 pb-24 lg:pb-8">
-                  {children}
+                  <div className="animate-[fadeIn_0.2s_ease-out]">
+                    {children}
+                  </div>
                 </div>
               </main>
               {isMobile && <BottomNav />}

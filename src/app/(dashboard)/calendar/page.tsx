@@ -46,6 +46,7 @@ import { LocationPicker } from "@/components/calendar/LocationPicker";
 import { fetchTeamActivePlayers } from "@/lib/players";
 import { clearQueryCache } from "@/lib/queryCache";
 import type { Event, Profile } from "@/types";
+import { OnboardingTip } from "@/components/OnboardingTips";
 
 type Recurrence = "Aucun" | "weekly" | "biweekly" | "monthly";
 
@@ -548,6 +549,13 @@ export default function CalendarPage() {
   return (
     <Suspense fallback={<ContentSkeleton />}>
     <div className="section-gap">
+      {isCoach && (
+        <OnboardingTip
+          tipKey="calendar-create"
+          title="Créez votre premier événement"
+          description="Créez un événement en cliquant sur le bouton + en haut à droite."
+        />
+      )}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
           <h1 className="text-2xl font-bold">Calendrier</h1>
@@ -555,7 +563,7 @@ export default function CalendarPage() {
         </div>
         {isCoach && (
           <Dialog open={createOpen} onOpenChange={handleCreateOpenChange}>
-            <DialogTrigger render={<Button className="bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold" />}>
+            <DialogTrigger render={<Button variant="primary" />}>
               <Plus className="h-4 w-4 mr-1" />
               Événement
             </DialogTrigger>

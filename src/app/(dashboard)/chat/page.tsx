@@ -418,8 +418,13 @@ export default function ChatPage() {
 
   if (loading) {
     return (
-      <div className="h-[calc(100vh-8rem)] flex items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-[var(--color-royal)] border-t-transparent" />
+      <div className="section-gap">
+        <div className="h-8 w-48 animate-pulse rounded-lg bg-muted" />
+        <div className="space-y-3 mt-4">
+          {Array.from({ length: 5 }, (_, i) => (
+            <div key={i} className="h-16 animate-pulse rounded-xl bg-muted" />
+          ))}
+        </div>
       </div>
     );
   }

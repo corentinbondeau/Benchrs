@@ -398,7 +398,7 @@ export default function ChallengePage() {
               <Button
                 onClick={handleGenerate}
                 disabled={generating}
-                className="bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold"
+                variant="primary"
               >
                 {generating ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Sparkles className="mr-1 h-4 w-4" />}
                 {generating ? "Génération en cours..." : data.challenge ? "Régénérer par IA" : "Générer par IA"}
@@ -470,7 +470,7 @@ export default function ChallengePage() {
                 <Button
                   onClick={handleSubmit}
                   disabled={uploading}
-                  className="bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold"
+                  variant="primary"
                 >
                   {uploading ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Upload className="mr-1 h-4 w-4" />}
                   {uploading ? "Envoi en cours..." : "Envoyer ma preuve"}
@@ -522,9 +522,9 @@ export default function ChallengePage() {
                         />
                       ) : (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img
+                          <img
                           src={s.media_url}
-                          alt="Preuve du défi"
+                          alt="Soumission du défi"
                           className="mt-2 max-h-56 rounded-lg object-cover"
                         />
                       )}
@@ -581,7 +581,7 @@ export default function ChallengePage() {
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
                             src={s.media_url}
-                            alt="Preuve du défi"
+                            alt="Soumission du défi"
                             className="mt-2 max-h-56 rounded-lg object-cover"
                           />
                         )}

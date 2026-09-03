@@ -1,6 +1,6 @@
 const CACHE_NAME = "benchrs-cache-v1";
 const OFFLINE_URL = "/offline";
-const PRECACHE_URLS = ["/", "/calendar", "/matches", "/trainings", "/stats", OFFLINE_URL];
+const PRECACHE_URLS = ["/", "/calendar", "/matches", "/trainings", "/stats", "/chat", "/roster", "/settings", "/notifications", OFFLINE_URL];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(

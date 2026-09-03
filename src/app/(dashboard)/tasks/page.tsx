@@ -93,7 +93,7 @@ export default function TasksPage() {
         </div>
         {isCoach && (
           <Dialog open={addOpen} onOpenChange={setAddOpen}>
-            <DialogTrigger render={<Button className="bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold" />}>
+            <DialogTrigger render={<Button variant="primary" />}>
               <Plus className="h-4 w-4 mr-1" />
               Tâche
             </DialogTrigger>

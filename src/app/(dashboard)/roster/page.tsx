@@ -37,6 +37,7 @@ type AddPlayerForm = {
 };
 
 import { POSITIONS } from "@/lib/positions";
+import { OnboardingTip } from "@/components/OnboardingTips";
 
 export default function RosterPage() {
   const { user } = useAuth();
@@ -169,8 +170,13 @@ export default function RosterPage() {
 
   if (!currentTeam) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <p className="text-muted-foreground">Chargement de l&apos;équipe...</p>
+      <div className="section-gap">
+        <div className="h-8 w-48 animate-pulse rounded-lg bg-muted" />
+        <div className="space-y-3 mt-4">
+          {Array.from({ length: 5 }, (_, i) => (
+            <div key={i} className="h-16 animate-pulse rounded-xl bg-muted" />
+          ))}
+        </div>
       </div>
     );
   }
@@ -412,6 +418,13 @@ export default function RosterPage() {
 
   return (
     <div className="section-gap">
+      {isOwner && (
+        <OnboardingTip
+          tipKey="roster-invite"
+          title="Invitez vos joueurs"
+          description="Invitez vos joueurs en partageant le code d'invitation dans Paramètres > Équipe."
+        />
+      )}
       {/* Page header */}
       <div className="flex items-start justify-between gap-4">
         <div>
