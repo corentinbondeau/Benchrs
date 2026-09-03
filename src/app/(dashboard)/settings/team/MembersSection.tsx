@@ -409,7 +409,29 @@ export default function MembersSection({ isOwner }: MembersSectionProps) {
                       {member.role === "owner" ? "Coach principal" : member.role === "coach" ? "Coach" : member.role === "parent" ? "Parent" : "Joueur"}
                     </span>
                     {isOwner && member.user_id !== user?.id && member.role !== "owner" && (
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-2">
+                        <select
+                          value={member.role}
+                          onChange={async (e) => {
+                            const newRole = e.target.value;
+                            const supabase = createClient();
+                            const { error } = await supabase
+                              .from("team_members")
+                              .update({ role: newRole })
+                              .eq("id", member.id);
+                            if (error) {
+                              toast.error("Impossible de modifier le rôle");
+                              return;
+                            }
+                            toast.success(`Rôle modifié en ${newRole === "coach" ? "Coach" : newRole === "parent" ? "Parent" : "Joueur"}`);
+                            fetchMembers(currentTeam!.id).then(setMembers);
+                          }}
+                          className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+                        >
+                          <option value="player">Joueur</option>
+                          <option value="coach">Coach</option>
+                          <option value="parent">Parent</option>
+                        </select>
                         <Button
                           size="icon"
                           variant="ghost"
