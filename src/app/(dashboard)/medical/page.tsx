@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useTeam } from "@/lib/team";
+import { useSelectedChild } from "@/lib/useSelectedChild";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,7 +18,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Heart, Plus, AlertTriangle } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import type { Injury, Profile } from "@/types";
@@ -36,6 +36,9 @@ export default function MedicalPage() {
   const [form, setForm] = useState({ playerId: "", description: "", injuryType: "", injuryDate: "", expectedReturn: "" });
 
   const isCoach = userRole === "coach" || userRole === "owner";
+  const isParent = userRole === "parent";
+  const { children, selectedChildId } = useSelectedChild(currentTeam?.id);
+  const canReport = isCoach || isParent;
 
   if (!currentTeam) {
     return <div className="flex items-center justify-center h-64"><p className="text-muted-foreground">Chargement de l&apos;équipe...</p></div>;
@@ -45,10 +48,14 @@ export default function MedicalPage() {
     const supabase = createClient();
     Promise.all([
       supabase.from("injuries").select("*, player:profiles!injuries_player_id_fkey(first_name, last_name)").eq("team_id", currentTeam!.id).order("created_at", { ascending: false }),
-      supabase.from("profiles").select("*").eq("role", "player").eq("is_active", true).eq("team_id", currentTeam!.id).order("last_name"),
-    ]).then(([injuriesRes, playersRes]) => {
+      supabase.from("team_members").select("user_id, profiles!inner(id, first_name, last_name, shirt_number, is_active)").eq("team_id", currentTeam!.id).eq("role", "player"),
+    ]).then(([injuriesRes, membersRes]) => {
       setInjuries((injuriesRes.data as InjuryWithPlayer[]) || []);
-      setPlayers((playersRes.data as Profile[]) || []);
+      const teamPlayers = ((membersRes.data || []) as unknown as { profiles: Profile }[])
+        .map((m) => m.profiles)
+        .filter((p) => p && p.is_active)
+        .sort((a, b) => (a.last_name || "").localeCompare(b.last_name || ""));
+      setPlayers(teamPlayers);
       setLoading(false);
     });
   }
@@ -98,8 +105,14 @@ export default function MedicalPage() {
           <h1 className="text-2xl font-bold">Infirmerie</h1>
           <p className="text-sm text-muted-foreground mt-1">Suivi des blessures</p>
         </div>
-        {isCoach && (
-          <Dialog open={addOpen} onOpenChange={setAddOpen}>
+        {canReport && (
+          <Dialog open={addOpen} onOpenChange={(open) => {
+            setAddOpen(open);
+            // Pré-sélectionner l'enfant si c'est un parent
+            if (open && isParent && selectedChildId) {
+              setForm((f) => ({ ...f, playerId: f.playerId || selectedChildId }));
+            }
+          }}>
             <DialogTrigger render={<Button className="bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold" />}>
               <Plus className="h-4 w-4 mr-1" />
               Signaler
@@ -111,14 +124,21 @@ export default function MedicalPage() {
               <form onSubmit={handleAdd} className="space-y-4">
                 <div className="space-y-2">
                   <Label>Joueur *</Label>
-                  <Select value={form.playerId} onValueChange={(v) => v && setForm({ ...form, playerId: v })}>
-                    <SelectTrigger><SelectValue placeholder="Sélectionner" /></SelectTrigger>
-                    <SelectContent>
-                      {players.map((p) => (
-                        <SelectItem key={p.id} value={p.id}>{p.first_name} {p.last_name}</SelectItem>
+                  {isParent && children.length === 1 ? (
+                    <p className="text-sm font-medium py-2">{children[0].first_name} {children[0].last_name}</p>
+                  ) : (
+                    <select
+                      value={form.playerId}
+                      onChange={(e) => setForm({ ...form, playerId: e.target.value })}
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                      required
+                    >
+                      <option value="">Sélectionner un joueur</option>
+                      {(isParent ? children.map((c) => ({ id: c.id, first_name: c.first_name, last_name: c.last_name })) : players).map((p) => (
+                        <option key={p.id} value={p.id}>{p.first_name} {p.last_name}</option>
                       ))}
-                    </SelectContent>
-                  </Select>
+                    </select>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label>Description *</Label>
