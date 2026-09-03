@@ -283,6 +283,7 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
   const [mvpCount, setMvpCount] = useState(0);
   const [notesData, setNotesData] = useState<NotesChartPoint[]>([]);
   const [isParentOfPlayer, setIsParentOfPlayer] = useState(false);
+  const [muteStatus, setMuteStatus] = useState<string | null>(null);
 
   const fffCategory = fffCategoryFromBirthDate(profile?.date_of_birth);
   const vmaNorm = normRangeFor(fffCategory, FFF_VMA_NORMS);
@@ -309,11 +310,12 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
 
       const { data: membership } = await supabase
         .from("team_members")
-        .select("role")
+        .select("role, mute_status")
         .eq("user_id", playerId)
         .eq("team_id", team.id)
         .maybeSingle();
 
+      setMuteStatus((membership as { role: string; mute_status: string | null } | null)?.mute_status ?? null);
       const teamRole = membership?.role === "owner" ? "coach" : membership?.role;
       const role = (teamRole as ProfileData["role"] | null) || (profile.role as ProfileData["role"]);
 
@@ -958,12 +960,12 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
                           Pied {profile.preferred_foot.toLowerCase()}
                         </span>
                       )}
-                      {profile.height_cm && (
+                      {(isCoach || isParentOfPlayer || playerId === user?.id) && profile.height_cm && (
                         <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2 py-0.5">
                           {profile.height_cm} cm
                         </span>
                       )}
-                      {profile.weight_kg && (
+                      {(isCoach || isParentOfPlayer || playerId === user?.id) && profile.weight_kg && (
                         <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2 py-0.5">
                           {profile.weight_kg} kg
                         </span>
@@ -977,9 +979,15 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
                   )}
                 </>
               )}
-              <div className="flex gap-2 mt-2">
+              <div className="flex gap-2 mt-2 flex-wrap">
                 {stats.yellow_cards > 0 && <Badge className="bg-yellow-400 text-yellow-900">{stats.yellow_cards} jaunes</Badge>}
                 {stats.red_cards > 0 && <Badge className="bg-red-500 text-white">{stats.red_cards} rouges</Badge>}
+                {muteStatus === "mute" && (
+                  <Badge className="bg-amber-100 text-amber-700 border border-amber-300">Muté</Badge>
+                )}
+                {muteStatus === "mute_hors_periode" && (
+                  <Badge className="bg-red-100 text-red-600 border border-red-300">Muté HP</Badge>
+                )}
               </div>
               <button
                 onClick={() => setPaniniOpen(true)}
