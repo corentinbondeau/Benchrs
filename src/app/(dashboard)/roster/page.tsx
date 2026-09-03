@@ -249,12 +249,12 @@ export default function RosterPage() {
   const players = allProfiles.filter((p) => p.role === "player");
   const parents = allProfiles.filter((p) => p.role === "parent");
 
-  if (loading) {
+  if (loading || !currentTeam) {
     return (
       <div className="section-gap">
         <div>
-          <h1 className="text-2xl font-bold">Equipe</h1>
-          <p className="text-sm text-muted-foreground mt-1">{currentTeam.name}</p>
+          <h1 className="text-2xl font-bold">Équipe</h1>
+          <p className="text-sm text-muted-foreground mt-1">{currentTeam?.name || "Chargement..."}</p>
         </div>
         <div className="space-y-2">
           {Array.from({ length: 8 }).map((_, i) => (
