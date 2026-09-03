@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { authFetch } from "@/lib/api-client";
 import { useTeam } from "@/lib/team";
+import { useAuth } from "@/lib/auth";
 import Link from "next/link";
 import { Shield, Users, Baby, ChevronRight, FileText, Download, Loader2, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
@@ -18,8 +19,11 @@ const SECTIONS: Section[] = [
 ];
 
 export default function RosterPage() {
+  const { user } = useAuth();
   const { currentTeam, userRole } = useTeam();
+  const isOwner = userRole === "owner";
   const [allProfiles, setAllProfiles] = useState<Profile[]>([]);
+  const [memberIds, setMemberIds] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState<"csv" | "pdf" | null>(null);
 
@@ -30,7 +34,7 @@ export default function RosterPage() {
     async function loadMembers() {
       const { data: rows } = await supabase
         .from("team_members")
-        .select("user_id, role")
+        .select("id, user_id, role")
         .eq("team_id", currentTeam!.id);
 
       if (!rows || rows.length === 0) {
@@ -40,8 +44,10 @@ export default function RosterPage() {
       }
 
       const roleMap: Record<string, string> = {};
-      for (const r of rows) {
+      const memberIdMap: Record<string, string> = {};
+      for (const r of rows as { id: string; user_id: string; role: string }[]) {
         roleMap[r.user_id] = r.role === "owner" ? "coach" : r.role;
+        memberIdMap[r.user_id] = r.id;
       }
 
       const { data: profiles } = await supabase
@@ -56,6 +62,7 @@ export default function RosterPage() {
           role: (roleMap[p.id] || p.role) as Profile["role"],
         }))
       );
+      setMemberIds(memberIdMap);
       setLoading(false);
     }
 
@@ -214,12 +221,45 @@ export default function RosterPage() {
                 {isPlayer && (userRole === "coach" || userRole === "owner") && (
                   <Link
                     href={`/chat?player=${profile.id}`}
-                    className="flex items-center justify-center rounded-r-xl border border-l-0 bg-card px-3 text-[var(--color-royal)] hover:bg-muted/50"
+                    className="flex items-center justify-center border border-l-0 bg-card px-3 text-[var(--color-royal)] hover:bg-muted/50"
                     aria-label="Discuter avec les parents"
                     title="Discuter avec les parents"
                   >
                     <MessageCircle className="h-5 w-5" />
                   </Link>
+                )}
+                {isOwner && profile.id !== user?.id && memberIds[profile.id] && (
+                  <div className="flex items-center border border-l-0 bg-card rounded-r-xl px-2">
+                    <select
+                      value={profile.role === "coach" ? "coach" : profile.role === "parent" ? "parent" : "player"}
+                      onChange={async (e) => {
+                        e.stopPropagation();
+                        const newRole = e.target.value;
+                        const supabase = createClient();
+                        const { error } = await supabase
+                          .from("team_members")
+                          .update({ role: newRole })
+                          .eq("id", memberIds[profile.id]);
+                        if (error) {
+                          toast.error("Impossible de modifier le rôle");
+                          return;
+                        }
+                        toast.success(`Rôle modifié`);
+                        setAllProfiles((prev) =>
+                          prev.map((p) =>
+                            p.id === profile.id ? { ...p, role: newRole as Profile["role"] } : p
+                          )
+                        );
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      className="h-8 rounded-md border-0 bg-transparent text-xs cursor-pointer"
+                      title="Modifier le rôle"
+                    >
+                      <option value="player">Joueur</option>
+                      <option value="coach">Coach</option>
+                      <option value="parent">Parent</option>
+                    </select>
+                  </div>
                 )}
               </div>
             );
