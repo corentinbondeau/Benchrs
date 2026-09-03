@@ -83,7 +83,8 @@ export default function CarpoolingPage() {
       team_id: currentTeam!.id,
     });
     if (error) {
-      toast.error("Impossible de creer le trajet");
+      console.error("[carpooling] insert error:", error.message, error.code, error.details);
+      toast.error(`Impossible de créer le trajet : ${error.message}`);
       return;
     }
     toast.success("Trajet propose !");
