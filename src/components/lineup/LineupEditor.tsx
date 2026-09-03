@@ -649,7 +649,7 @@ export function LineupEditor({
                   if (total === 0) return null;
                   return (
                     <div>
-                      ({muteCount}+{muteHpCount}) muté(s) sur la feuille dont {muteHpCount} muté(s) hors période
+                      {total} muté{total > 1 ? "s" : ""} sur la feuille{muteHpCount > 0 ? ` dont ${muteHpCount} hors période` : ""}
                     </div>
                   );
                 })()}
