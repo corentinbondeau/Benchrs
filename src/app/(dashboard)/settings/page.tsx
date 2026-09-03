@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useAuth } from "@/lib/auth";
 import { useTeam } from "@/lib/team";
 import { createClient } from "@/lib/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -654,6 +654,33 @@ export default function SettingsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Installer l'application */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Installer l&apos;application</CardTitle>
+          <CardDescription>
+            Ajoute Benchrs sur ton écran d&apos;accueil pour y accéder comme une vraie appli, avec les notifications et un accès hors-ligne.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="rounded-lg bg-muted p-4 text-sm space-y-3">
+            <p className="font-semibold">Sur iPhone / iPad (Safari) :</p>
+            <ol className="space-y-1.5 text-muted-foreground list-decimal list-inside">
+              <li>Appuie sur le bouton <strong className="text-foreground">Partager</strong> ⬆ en bas de l&apos;écran</li>
+              <li>Fais défiler et appuie sur <strong className="text-foreground">Sur l&apos;écran d&apos;accueil</strong> ➕</li>
+              <li>Appuie sur <strong className="text-foreground">Ajouter</strong> en haut à droite</li>
+            </ol>
+          </div>
+          <div className="rounded-lg bg-muted p-4 text-sm space-y-3">
+            <p className="font-semibold">Sur Android (Chrome) :</p>
+            <ol className="space-y-1.5 text-muted-foreground list-decimal list-inside">
+              <li>Appuie sur le menu <strong className="text-foreground">⋮</strong> en haut à droite</li>
+              <li>Appuie sur <strong className="text-foreground">Installer l&apos;application</strong> ou <strong className="text-foreground">Ajouter à l&apos;écran d&apos;accueil</strong></li>
+            </ol>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Sign out */}
       <Card>
