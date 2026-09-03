@@ -194,15 +194,13 @@ export default function TeamInfoSection({ isOwner, isCoach }: TeamInfoSectionPro
     const text = `🏟️ Rejoins l'équipe ${currentTeam.name} sur Benchrs !\n\nConvocations, stats, compositions, match en direct... tout est sur l'appli.\n\n👉 ${link}`;
     if (navigator.share) {
       try {
-        await navigator.share({
-          title: `Rejoins ${currentTeam.name} sur Benchrs`,
-          text,
-          url: link,
-        });
+        // Ne pas passer url séparément — WhatsApp ignore text quand url est présent
+        await navigator.share({ title: `Rejoins ${currentTeam.name} sur Benchrs`, text });
         return;
       } catch { /* fallback */ }
     }
-    copyInviteLink();
+    await navigator.clipboard.writeText(text);
+    toast.success("Message d'invitation copié !");
   }
 
   async function saveTeamName() {

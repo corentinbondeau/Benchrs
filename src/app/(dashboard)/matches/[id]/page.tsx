@@ -208,21 +208,21 @@ export default function MatchDetailPage() {
       ? `\n⚽ Score actuel : ${match.score_us} - ${match.score_them}`
       : "";
     const teamName = currentTeam?.name || "";
-    const shareText = `🏟️ ${teamName} vs ${opponent}${matchDate ? `\n📅 ${matchDate}` : ""}${scoreText}\n\nSuis le match en direct sur Benchrs 👇`;
+    const shareText = `🏟️ ${teamName} vs ${opponent}${matchDate ? `\n📅 ${matchDate}` : ""}${scoreText}\n\nSuis le match en direct sur Benchrs 👇\n${liveUrl}`;
 
     if (navigator.share) {
       try {
+        // Ne pas passer url séparément — WhatsApp ignore text quand url est présent
         await navigator.share({
           title: `${teamName} vs ${opponent} — Match en direct`,
           text: shareText,
-          url: liveUrl,
         });
         return;
       } catch {
         // partage annulé → fallback copie
       }
     }
-    await navigator.clipboard.writeText(`${shareText}\n${liveUrl}`);
+    await navigator.clipboard.writeText(shareText);
     toast.success("Lien de score live copié");
   }
 
