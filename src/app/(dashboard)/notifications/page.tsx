@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useTeam } from "@/lib/team";
+import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -65,6 +66,8 @@ function groupByDate(notifications: Notification[]) {
   return groups;
 }
 
+const PAGE_SIZE = 30;
+
 export default function NotificationsPage() {
   const { user } = useAuth();
   const { currentTeam } = useTeam();
@@ -73,28 +76,45 @@ export default function NotificationsPage() {
   const [loading, setLoading] = useState(true);
   const [selectedFilter, setSelectedFilter] = useState(0);
   const [search, setSearch] = useState("");
+  const [hasMore, setHasMore] = useState(true);
+  const pageRef = useRef(0);
 
-  const fetchNotifications = useCallback(async () => {
-    if (!user?.id || !currentTeam) return null;
+  const fetchNotificationsPage = useCallback(async (pageIndex: number) => {
+    if (!user?.id || !currentTeam) return;
     const supabase = createClient();
+    const from = pageIndex * PAGE_SIZE;
+    const to = from + PAGE_SIZE - 1;
     const { data } = await supabase
       .from("notifications")
       .select("id, user_id, title, body, type, is_read, team_id, created_at, url")
       .eq("user_id", user.id)
       .eq("team_id", currentTeam.id)
       .order("created_at", { ascending: false })
-      .limit(100);
-    return (data as Notification[]) || [];
+      .range(from, to);
+    const rows = (data as Notification[]) || [];
+    if (pageIndex === 0) {
+      setNotifications(rows);
+      setHasMore(rows.length >= PAGE_SIZE);
+    } else {
+      setNotifications((prev) => [...prev, ...rows]);
+      if (rows.length < PAGE_SIZE) setHasMore(false);
+    }
+    setLoading(false);
   }, [user?.id, currentTeam?.id]);
 
+  const handleLoadMore = useCallback(() => {
+    if (!hasMore || loading) return;
+    const nextPage = pageRef.current + 1;
+    pageRef.current = nextPage;
+    fetchNotificationsPage(nextPage);
+  }, [hasMore, loading, fetchNotificationsPage]);
+
+  const sentinelRef = useInfiniteScroll(handleLoadMore, hasMore, loading);
+
   useEffect(() => {
-    fetchNotifications().then((data) => {
-      if (data) {
-        setNotifications(data);
-        setLoading(false);
-      }
-    });
-  }, [fetchNotifications]);
+    pageRef.current = 0;
+    fetchNotificationsPage(0);
+  }, [fetchNotificationsPage]);
 
   const unreadCount = useMemo(() => notifications.filter((n) => !n.is_read).length, [notifications]);
 
@@ -285,6 +305,8 @@ export default function NotificationsPage() {
           )}
         </CardContent>
       </Card>
+      {/* Sentinel infinite scroll */}
+      <div ref={sentinelRef} className="h-4" />
     </div>
   );
 }

@@ -168,6 +168,20 @@ function RecentResults() {
             </div>
             <ScrollBar orientation="horizontal" />
           </ScrollArea>
+          {/* Sparkline — indicateur de forme */}
+          <div className="flex items-center gap-1 mt-2">
+            <span className="text-[10px] text-muted-foreground mr-1">Forme :</span>
+            {results.slice(0, 5).reverse().map((m, i) => (
+              <div
+                key={i}
+                className={`h-2.5 w-2.5 rounded-full ${
+                  m.match_result === "win" ? "bg-green-500" :
+                  m.match_result === "loss" ? "bg-red-500" : "bg-amber-400"
+                }`}
+                title={`${m.match_result === "win" ? "V" : m.match_result === "loss" ? "D" : "N"} vs ${m.opponent || ""}`}
+              />
+            ))}
+          </div>
         </div>
       )}
     </div>

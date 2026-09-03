@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Users, Check, X, ChevronDown, UserPlus, Trash2, Calendar, Bell, Send, Info } from "lucide-react";
 import { toast } from "sonner";
+import { hapticSuccess } from "@/lib/haptic";
 import { fetchTeamActivePlayers } from "@/lib/players";
 import { isLockedForRole, CONVOCATION_LOCKED_MESSAGE } from "@/lib/event-lock";
 import type { Event, Attendance, Profile } from "@/types";
@@ -221,6 +222,7 @@ export function ConvocationsDialog({ event, open, onOpenChange }: ConvocationsDi
       toast.error("Erreur lors de la réponse");
       return;
     }
+    hapticSuccess();
     toast.success(status === "present" ? "Présence confirmée" : "Absence signalée");
     fetchData();
   }

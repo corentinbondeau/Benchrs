@@ -164,6 +164,7 @@ export default function MembersSection({ isOwner }: MembersSectionProps) {
   }, [currentTeam, fetchMembers, loadClubData, loadClubIdentity, fetchInviteCode]);
 
   async function removeMember(memberId: string, memberName: string) {
+    if (!window.confirm(`Êtes-vous sûr de vouloir retirer ${memberName} de l'équipe ? Cette action est irréversible.`)) return;
     const supabase = createClient();
     const { error } = await supabase.from("team_members").delete().eq("id", memberId);
     if (error) toast.error("Erreur lors de la expulsion");
@@ -266,6 +267,7 @@ export default function MembersSection({ isOwner }: MembersSectionProps) {
 
   async function removeClubMember(userId: string) {
     if (!currentTeam?.club_id) return;
+    if (!window.confirm("Êtes-vous sûr de vouloir retirer ce membre du comité ? Cette action est irréversible.")) return;
     const res = await authFetch("/api/clubs/members", {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },

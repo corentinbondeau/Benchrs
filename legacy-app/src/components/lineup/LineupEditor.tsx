@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/select";
 import { Crown } from "lucide-react";
 import { toast } from "sonner";
+import { hapticSuccess } from "@/lib/haptic";
 import type { Profile, Event, Formation, FormationData } from "@/types";
 import { ALL_FORMATIONS, FORMATIONS_BY_FORMAT } from "@/lib/lineup/formations";
 import { autoCompose as autoComposePure } from "@/lib/lineup/autoCompose";
@@ -167,6 +168,7 @@ export function LineupEditor({
         return next;
       });
     }
+    hapticSuccess();
     setPickingSlot(null);
   }
 

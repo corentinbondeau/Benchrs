@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
+import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { authFetch } from "@/lib/api-client";
@@ -28,6 +29,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Plus, Upload, Image as ImageIcon, Folder, ArrowLeft, Trash2, Download } from "lucide-react";
+import { compressImage } from "@/lib/compressImage";
 import { EmptyState } from "@/components/ui/empty-state";
 import { toast } from "sonner";
 import type { GalleryMedia, Event, Album } from "@/types";
@@ -57,55 +59,74 @@ export default function GalleryPage() {
   const [selecting, setSelecting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkAlbum, setBulkAlbum] = useState("Aucun");
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
 
-  if (!currentTeam) {
-    return <div className="flex items-center justify-center h-64"><p className="text-muted-foreground">Chargement de l'équipe...</p></div>;
-  }
+  const PAGE_SIZE = 30;
 
-  function fetchAlbums() {
+  const fetchAlbums = useCallback(() => {
+    if (!currentTeam) return;
     const supabase = createClient();
     supabase
       .from("albums")
       .select("*")
-      .eq("team_id", currentTeam!.id)
+      .eq("team_id", currentTeam.id)
       .order("created_at", { ascending: false })
       .then(({ data }) => setAlbums((data as Album[]) || []));
-  }
+  }, [currentTeam]);
 
-  function fetchMedia() {
+  const fetchMediaPage = useCallback(async (pageIndex: number) => {
+    if (!currentTeam) return;
     const supabase = createClient();
-    supabase
+    const from = pageIndex * PAGE_SIZE;
+    const to = from + PAGE_SIZE - 1;
+    const { data } = await supabase
       .from("gallery_media")
       .select("*")
-      .eq("team_id", currentTeam!.id)
+      .eq("team_id", currentTeam.id)
       .order("created_at", { ascending: false })
-      .limit(200)
-      .then(async ({ data }) => {
-        const rows = (data as GalleryMedia[]) || [];
-        const signed = await signList(supabase, "gallery", rows, (m) => ({
-          path: m.storage_path || m.url,
-          urlField: "url",
-        }));
-        setMedia(signed);
-        setLoading(false);
-      });
-  }
+      .range(from, to);
+    const rows = (data as GalleryMedia[]) || [];
+    const signed = await signList(supabase, "gallery", rows, (m) => ({
+      path: m.storage_path || m.url,
+      urlField: "url",
+    }));
+    if (pageIndex === 0) {
+      setMedia(signed);
+      setHasMore(rows.length >= PAGE_SIZE);
+    } else {
+      setMedia((prev) => [...prev, ...signed]);
+      if (rows.length < PAGE_SIZE) setHasMore(false);
+    }
+    setLoading(false);
+  }, [currentTeam]);
+
+  const handleLoadMore = useCallback(() => {
+    if (!hasMore || loading) return;
+    const nextPage = page + 1;
+    setPage(nextPage);
+    fetchMediaPage(nextPage);
+  }, [hasMore, loading, page, fetchMediaPage]);
+
+  const sentinelRef = useInfiniteScroll(handleLoadMore, hasMore, loading);
 
   useEffect(() => {
+    if (!currentTeam) return;
     fetchAlbums();
-    fetchMedia();
-  }, []);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void fetchMediaPage(0);
+  }, [currentTeam, fetchAlbums, fetchMediaPage]);
 
   useEffect(() => {
-    if (!uploadOpen && !albumOpen) return;
+    if (!uploadOpen && !albumOpen || !currentTeam) return;
     const supabase = createClient();
     supabase
       .from("events")
       .select("*")
-      .eq("team_id", currentTeam!.id)
+      .eq("team_id", currentTeam.id)
       .order("event_date", { ascending: false })
       .then(({ data }) => setEvents((data as Event[]) || []));
-  }, [uploadOpen, albumOpen]);
+  }, [uploadOpen, albumOpen, currentTeam]);
 
   useEffect(() => {
     if (!media.length || !currentTeam) return;
@@ -119,6 +140,10 @@ export default function GalleryPage() {
       .order("event_date", { ascending: false })
       .then(({ data }) => { setEvents((data as Event[]) || []); });
   }, [media, currentTeam]);
+
+  if (!currentTeam) {
+    return <div className="flex items-center justify-center h-64"><p className="text-muted-foreground">Chargement de l&apos;équipe...</p></div>;
+  }
 
   async function handleCreateAlbum() {
     if (!albumTitle.trim()) return;
@@ -211,13 +236,24 @@ export default function GalleryPage() {
         toast.error(`${file.name} est vide`);
         continue;
       }
-      const ext = file.name.split(".").pop();
-      const path = `gallery/${user.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-      const buffer = await file.arrayBuffer();
+
+      // Compression des images avant upload (sauf vidéos)
+      const isImage = file.type.startsWith("image/");
+      let uploadBlob: Blob = file;
+      let uploadContentType = file.type;
+      let uploadExt = file.name.split(".").pop();
+      if (isImage) {
+        uploadBlob = await compressImage(file);
+        uploadContentType = "image/webp";
+        uploadExt = "webp";
+      }
+
+      const path = `gallery/${user.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${uploadExt}`;
+      const buffer = await uploadBlob.arrayBuffer();
 
       const { error: uploadError } = await supabase.storage
         .from("gallery")
-        .upload(path, buffer, { upsert: true, contentType: file.type });
+        .upload(path, buffer, { upsert: true, contentType: uploadContentType });
 
       if (uploadError) {
         toast.error(`Erreur lors de l'upload de ${file.name} : ${uploadError.message}`);
@@ -701,6 +737,7 @@ export default function GalleryPage() {
             icon={ImageIcon}
             title={selectedEvent ? "Aucune photo pour cet événement" : "Aucun média"}
             description={selectedEvent ? "Changez de filtre ou réinitialisez." : "Les photos et vidéos apparaîtront ici."}
+            action={!selectedEvent && user ? { label: "Ajouter une photo", onClick: () => setUploadOpen(true) } : undefined}
           />
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -747,6 +784,8 @@ export default function GalleryPage() {
             })}
           </div>
         )}
+        {/* Sentinel infinite scroll */}
+        <div ref={sentinelRef} className="h-4" />
       </div>
 
       <Dialog open={!!lightbox} onOpenChange={(open) => {

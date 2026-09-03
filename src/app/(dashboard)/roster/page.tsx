@@ -8,6 +8,7 @@ import { useAuth } from "@/lib/auth";
 import Link from "next/link";
 import { Shield, Users, Baby, ChevronRight, FileText, Download, Loader2, MessageCircle, UserPlus } from "lucide-react";
 import { toast } from "sonner";
+import { EmptyState } from "@/components/ui/empty-state";
 import type { Profile } from "@/types";
 import {
   Dialog,
@@ -473,15 +474,12 @@ export default function RosterPage() {
       </div>
 
       {allProfiles.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <div className="h-14 w-14 rounded-2xl bg-muted flex items-center justify-center mb-4">
-            <Users className="h-7 w-7 text-muted-foreground/50" />
-          </div>
-          <h3 className="font-semibold text-lg">Aucun membre</h3>
-          <p className="text-muted-foreground text-sm mt-1 max-w-xs">
-            Invitez des joueurs via le code d&apos;invitation de l&apos;equipe.
-          </p>
-        </div>
+        <EmptyState
+          icon={Users}
+          title="Aucun membre"
+          description="Invitez des joueurs via le code d'invitation de l'équipe."
+          action={canAddPlayer ? { label: "Ajouter un joueur", onClick: () => setAddDialogOpen(true) } : undefined}
+        />
       ) : (
         SECTIONS.map((section) => <RoleSection key={section.key} section={section} />)
       )}
