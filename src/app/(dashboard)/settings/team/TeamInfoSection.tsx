@@ -190,10 +190,15 @@ export default function TeamInfoSection({ isOwner, isCoach }: TeamInfoSectionPro
 
   async function shareInviteLink() {
     if (!currentTeam) return;
-    const text = `Rejoins mon équipe ${currentTeam.name} sur Benchrs : ${inviteLink()}`;
+    const link = inviteLink();
+    const text = `🏟️ Rejoins l'équipe ${currentTeam.name} sur Benchrs !\n\nConvocations, stats, compositions, match en direct... tout est sur l'appli.\n\n👉 ${link}`;
     if (navigator.share) {
       try {
-        await navigator.share({ title: "Invitation Benchrs", text });
+        await navigator.share({
+          title: `Rejoins ${currentTeam.name} sur Benchrs`,
+          text,
+          url: link,
+        });
         return;
       } catch { /* fallback */ }
     }

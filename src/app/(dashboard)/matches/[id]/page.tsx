@@ -198,15 +198,31 @@ export default function MatchDetailPage() {
     const { liveToken: token } = (await res.json()) as { liveToken: string };
     setLiveToken(token);
     const liveUrl = `${window.location.origin}/live/${matchId}?token=${token}`;
+
+    // Message personnalisé avec le contexte du match
+    const opponent = match?.opponent || match?.title || "Match";
+    const matchDate = match?.event_date
+      ? new Date(match.event_date).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })
+      : "";
+    const scoreText = match?.score_us != null && match?.score_them != null
+      ? `\n⚽ Score actuel : ${match.score_us} - ${match.score_them}`
+      : "";
+    const teamName = currentTeam?.name || "";
+    const shareText = `🏟️ ${teamName} vs ${opponent}${matchDate ? `\n📅 ${matchDate}` : ""}${scoreText}\n\nSuis le match en direct sur Benchrs 👇`;
+
     if (navigator.share) {
       try {
-        await navigator.share({ title: "Score live", text: "Suis le match en direct", url: liveUrl });
+        await navigator.share({
+          title: `${teamName} vs ${opponent} — Match en direct`,
+          text: shareText,
+          url: liveUrl,
+        });
         return;
       } catch {
         // partage annulé → fallback copie
       }
     }
-    await navigator.clipboard.writeText(liveUrl);
+    await navigator.clipboard.writeText(`${shareText}\n${liveUrl}`);
     toast.success("Lien de score live copié");
   }
 
