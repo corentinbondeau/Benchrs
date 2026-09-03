@@ -430,9 +430,10 @@ export function LiveMatchTracker({
   function notifyLiveEvent(
     eventType: LiveEventType,
     playerId: string | null,
-    minute: number | null
+    minute: number | null,
+    relatedPlayerId?: string | null
   ) {
-    if (!["goal", "opponent_goal", "yellow_card", "red_card", "injury"].includes(eventType)) {
+    if (!["goal", "opponent_goal", "yellow_card", "red_card", "injury", "substitution"].includes(eventType)) {
       return;
     }
     const p = playerList.find((pl) => pl.id === playerId);
@@ -449,18 +450,24 @@ export function LiveMatchTracker({
       case "opponent_goal": {
         const us = events.filter((e) => e.event_type === "goal").length;
         const them = events.filter((e) => e.event_type === "opponent_goal").length + 1;
-        title = `But de l'adversaire${minStr} — ${us}-${them}`;
+        title = `But adverse${minStr} — ${us}-${them}`;
         break;
       }
       case "yellow_card":
-        title = `Carton jaune pour ${name || "un joueur"}${minStr}`;
+        title = `🟨 Carton jaune pour ${name || "un joueur"}${minStr}`;
         break;
       case "red_card":
-        title = `Carton rouge pour ${name || "un joueur"}${minStr}`;
+        title = `🟥 Carton rouge pour ${name || "un joueur"}${minStr}`;
         break;
       case "injury":
-        title = `Blessure de ${name || "un joueur"}${minStr}`;
+        title = `🤕 Blessure de ${name || "un joueur"}${minStr}`;
         break;
+      case "substitution": {
+        const relatedPlayer = playerList.find((pl) => pl.id === relatedPlayerId);
+        const entrantName = playerName(relatedPlayer);
+        title = `🔄 ${name || "Sortie"} → ${entrantName || "Entrée"}${minStr}`;
+        break;
+      }
     }
     if (title) notifyLive(title);
   }
@@ -674,7 +681,7 @@ export function LiveMatchTracker({
     if (["goal", "yellow_card", "red_card", "substitution"].includes(eventType)) {
       syncStats();
     }
-    notifyLiveEvent(eventType, playerId, minute);
+    notifyLiveEvent(eventType, playerId, minute, relatedPlayerId);
   }
 
   async function handleDelete(id: string, eventType: string) {
@@ -725,7 +732,7 @@ export function LiveMatchTracker({
       match_ended_at: null,
       status: "ongoing",
     });
-    notifyLive("Début du match");
+    notifyLive("🏟️ Coup d'envoi !");
   }
 
   async function halfTime() {
@@ -743,7 +750,7 @@ export function LiveMatchTracker({
     }
     toast.success("Mi-temps");
     onMatchUpdateRef.current({ match_halftime_at: nowIso });
-    notifyLive("Mi-temps");
+    notifyLive("⏸️ Mi-temps");
   }
 
   async function resumeMatch() {
@@ -762,7 +769,7 @@ export function LiveMatchTracker({
     setNow(Date.now());
     toast.success("Début de la 2e mi-temps");
     onMatchUpdateRef.current({ match_resumed_at: nowIso });
-    notifyLive("Début de la 2e mi-temps");
+    notifyLive("▶️ Reprise de la 2e mi-temps");
   }
 
   async function endMatch() {
@@ -799,7 +806,7 @@ export function LiveMatchTracker({
       ev && ev.score_us !== null && ev.score_them !== null
         ? ` : ${ev.score_us}-${ev.score_them}`
         : "";
-    notifyLive(`Match terminé${scoreStr}`);
+    notifyLive(`🏁 Match terminé${scoreStr}`);
   }
 
   async function reopenMatch() {
