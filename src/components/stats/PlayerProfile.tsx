@@ -38,6 +38,7 @@ import {
   RadarChart,
   PolarGrid,
   PolarAngleAxis,
+  PolarRadiusAxis,
   Radar,
 } from "@/components/charts";
 import {
@@ -134,7 +135,8 @@ interface SeasonTotals {
 interface RadarDatum {
   metric: string;
   Joueur: number;
-  Équipe: number;
+  Moyenne: number;
+  max: number;
 }
 
 const roleLabels: Record<ProfileData["role"], string> = {
@@ -530,22 +532,35 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
         : { goals: 0, assists: 0, matches: 0, minutes: 0 };
       const avgPresence = presenceCount > 0 ? sumPresence / presenceCount : 0;
 
+      // Calculer le max de l'équipe pour chaque métrique (meilleur joueur)
+      let maxGoals = 0, maxAssists = 0, maxMatches = 0, maxMinutes = 0, maxPresence = 0;
+      for (const [, e] of agg) {
+        if (e.goals > maxGoals) maxGoals = e.goals;
+        if (e.assists > maxAssists) maxAssists = e.assists;
+        if (e.matches > maxMatches) maxMatches = e.matches;
+        if (e.minutes > maxMinutes) maxMinutes = e.minutes;
+      }
+      for (const [, e] of attAgg) {
+        if (e.total > 0) {
+          const pres = Math.round((e.present / e.total) * 100);
+          if (pres > maxPresence) maxPresence = pres;
+        }
+      }
+
       const metrics = [
-        { label: "Buts", player: pv.goals, avg: avg.goals },
-        { label: "Passes", player: pv.assists, avg: avg.assists },
-        { label: "Minutes", player: pv.minutes, avg: avg.minutes },
-        { label: "Matchs", player: pv.matches, avg: avg.matches },
-        { label: "Présence", player: playerPresence, avg: avgPresence },
+        { label: "Buts", player: pv.goals, avg: avg.goals, max: Math.max(maxGoals, 1) },
+        { label: "Passes", player: pv.assists, avg: avg.assists, max: Math.max(maxAssists, 1) },
+        { label: "Minutes", player: pv.minutes, avg: avg.minutes, max: Math.max(maxMinutes, 1) },
+        { label: "Matchs", player: pv.matches, avg: avg.matches, max: Math.max(maxMatches, 1) },
+        { label: "Présence", player: playerPresence, avg: avgPresence, max: Math.max(maxPresence, 1) },
       ];
       setRadarData(
-        metrics.map((m) => {
-          const max = Math.max(m.player, m.avg, 1);
-          return {
-            metric: m.label,
-            Joueur: Math.round((m.player / max) * 100),
-            Équipe: Math.round((m.avg / max) * 100),
-          };
-        })
+        metrics.map((m) => ({
+          metric: `${m.label} (${Math.round(m.max)})`,
+          Joueur: m.player,
+          Moyenne: Math.round(m.avg * 10) / 10,
+          max: m.max,
+        }))
       );
 
       // --- MVP cumulés (joueur du match par match) ---
@@ -1233,9 +1248,10 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
             <ResponsiveContainer width="100%" height={260}>
               <RadarChart data={radarData} outerRadius="75%">
                 <PolarGrid />
-                <PolarAngleAxis dataKey="metric" tick={{ fontSize: 11 }} />
+                <PolarAngleAxis dataKey="metric" tick={{ fontSize: 10 }} />
+                <PolarRadiusAxis domain={[0, "dataMax"]} tick={false} axisLine={false} />
                 <Radar name="Joueur" dataKey="Joueur" stroke="var(--color-royal)" fill="var(--color-royal)" fillOpacity={0.5} />
-                <Radar name="Moyenne équipe" dataKey="Équipe" stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.3} />
+                <Radar name="Moyenne équipe" dataKey="Moyenne" stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.3} />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
                 <Tooltip />
               </RadarChart>
