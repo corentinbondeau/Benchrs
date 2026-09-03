@@ -69,7 +69,7 @@ export function CoachWeekOverview() {
       const [{ data: events }, { data: injuries }, { data: challenge }] = await Promise.all([
         supabase
           .from("events")
-          .select("id, type, title, opponent, event_date, status")
+          .select("id, type, title, opponent, event_date, status, convocations_sent_at")
           .eq("team_id", currentTeam.id)
           .in("type", ["match", "training"])
           .in("status", ["upcoming", "ongoing"])
@@ -89,8 +89,11 @@ export function CoachWeekOverview() {
           .maybeSingle(),
       ]);
 
-      const weekEvents = (events || []) as WeekEvent[];
-      const matchIds = weekEvents.filter((e) => e.type === "match").map((e) => e.id);
+      const weekEvents = (events || []) as (WeekEvent & { convocations_sent_at?: string | null })[];
+      // Disponibilités uniquement pour les matchs sans convocations envoyées
+      const matchIds = weekEvents
+        .filter((e) => e.type === "match" && !e.convocations_sent_at)
+        .map((e) => e.id);
       const trainingIds = weekEvents.filter((e) => e.type === "training").map((e) => e.id);
 
       const [availRows, rpeRows, subsRows, totalPlayers] = await Promise.all([

@@ -83,7 +83,7 @@ interface ProfileFixture {
 function makeChain(resolve: (calls: Call[]) => { data: unknown; error: null }) {
   const calls: Call[] = [];
   const chain: Record<string, unknown> = {};
-  const methods = ["select", "eq", "in", "gte", "lte", "lt", "order", "maybeSingle"];
+  const methods = ["select", "eq", "neq", "in", "gte", "lte", "lt", "order", "maybeSingle"];
   for (const m of methods) {
     chain[m] = (...args: unknown[]) => {
       calls.push([m, args]);

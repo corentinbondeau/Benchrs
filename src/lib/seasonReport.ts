@@ -115,13 +115,15 @@ export async function fetchSeasonData(
   const matchIds = matches.map((m) => m.id);
   const emptyRows = { data: [] as unknown[] };
 
+  const nowISO = new Date().toISOString();
   const { data: trainingEvents } = await supabase
     .from("events")
     .select("id")
     .eq("team_id", teamId)
     .eq("type", "training")
+    .neq("status", "cancelled")
     .gte("event_date", startISO)
-    .lte("event_date", endISO);
+    .lte("event_date", endISO < nowISO ? endISO : nowISO);
   const trainingIds = ((trainingEvents as { id: string }[] | null) || []).map((e) => e.id);
 
   const { data: statsRaw } = matchIds.length

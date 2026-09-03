@@ -48,6 +48,7 @@ export default function FormDropPage() {
         .select("id, event_date, type")
         .eq("team_id", teamId)
         .neq("status", "cancelled")
+        .lte("event_date", new Date().toISOString())
         .order("event_date", { ascending: false }),
     ]);
 

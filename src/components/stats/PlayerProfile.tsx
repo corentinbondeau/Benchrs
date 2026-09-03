@@ -344,7 +344,7 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
           .select("event_id, goals, assists, yellow_cards, red_cards, minutes_played")
           .eq("player_id", playerId)
           .eq("team_id", team.id),
-        supabase.from("events").select("id").eq("team_id", team.id).eq("type", "training"),
+        supabase.from("events").select("id").eq("team_id", team.id).eq("type", "training").neq("status", "cancelled").lte("event_date", new Date().toISOString()),
         supabase
           .from("player_physical_tests")
           .select("id, player_id, team_id, test_type, value, tested_at, notes, created_at")

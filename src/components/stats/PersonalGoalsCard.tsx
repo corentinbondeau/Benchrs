@@ -100,13 +100,15 @@ export function PersonalGoalsCard({ playerId }: Props) {
           .lte("event_date", range.end.toISOString());
         const eventIds = (events || []).map((e) => e.id);
 
+        const nowISO = new Date().toISOString();
         const { data: trainingEvents } = await supabase
           .from("events")
           .select("id")
           .eq("team_id", teamId)
           .eq("type", "training")
+          .neq("status", "cancelled")
           .gte("event_date", range.start.toISOString())
-          .lte("event_date", range.end.toISOString());
+          .lte("event_date", range.end.toISOString() < nowISO ? range.end.toISOString() : nowISO);
         const trainingIds = (trainingEvents || []).map((e) => e.id as string);
 
         if (eventIds.length > 0 || trainingIds.length > 0) {
