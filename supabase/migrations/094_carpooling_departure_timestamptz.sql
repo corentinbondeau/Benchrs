@@ -1,12 +1,18 @@
--- Migration 094 : changer departure_time de TIME en TIMESTAMPTZ
--- Le champ TIME ne stocke pas la date, ce qui est problématique pour le covoiturage
--- (on veut savoir le jour ET l'heure de départ).
--- Le code client envoie maintenant un ISO timestamp complet.
+-- Migration 094 : s'assurer que departure_time est bien TIMESTAMPTZ
+-- Si la colonne est déjà TIMESTAMPTZ (cas probable), cette migration est un no-op.
+-- Si elle est encore TIME, la conversion est appliquée.
 
-ALTER TABLE public.carpooling_trips
-  ALTER COLUMN departure_time TYPE TIMESTAMPTZ
-  USING CASE
-    WHEN departure_time IS NOT NULL THEN
-      (CURRENT_DATE + departure_time)::TIMESTAMPTZ
-    ELSE NULL
-  END;
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'carpooling_trips'
+      AND column_name = 'departure_time'
+      AND data_type = 'time without time zone'
+  ) THEN
+    ALTER TABLE public.carpooling_trips
+      ALTER COLUMN departure_time TYPE TIMESTAMPTZ
+      USING (CURRENT_DATE + departure_time)::TIMESTAMPTZ;
+  END IF;
+END $$;
