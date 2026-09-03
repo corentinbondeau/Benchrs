@@ -362,8 +362,8 @@ export default function RosterPage() {
                          );
                        }}
                        onClick={(e) => e.stopPropagation()}
-                       className="h-8 rounded-md border-0 bg-transparent text-xs cursor-pointer"
-                       title="Modifier le rôle"
+                        className="h-8 rounded-md border border-input bg-background px-2 text-xs cursor-pointer"
+                        title="Modifier le rôle"
                      >
                        <option value="player">Joueur</option>
                        <option value="coach">Coach</option>
@@ -391,8 +391,8 @@ export default function RosterPage() {
                            }));
                          }}
                          onClick={(e) => e.stopPropagation()}
-                         className="h-8 rounded-md border-0 bg-transparent text-xs cursor-pointer"
-                         title="Modifier le statut de mutation"
+                          className="h-8 rounded-md border border-input bg-background px-2 text-xs cursor-pointer"
+                          title="Modifier le statut de mutation"
                        >
                          <option value="">Non muté</option>
                          <option value="mute">Muté</option>
