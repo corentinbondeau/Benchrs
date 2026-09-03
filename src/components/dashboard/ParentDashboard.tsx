@@ -20,6 +20,8 @@ import {
   Check,
   X,
   TrendingUp,
+  Car,
+  Users,
 } from "lucide-react";
 import type { Profile, Event, Attendance } from "@/types";
 
@@ -28,11 +30,22 @@ interface ChildProfile extends Profile {
   position: string | null;
 }
 
+interface CarpoolTrip {
+  id: string;
+  total_seats: number;
+  departure_time: string | null;
+  departure_location: string | null;
+  driver: { first_name: string; last_name: string } | null;
+  event: { title: string; event_date: string } | null;
+  bookings: { id: string; seats_taken: number }[];
+}
+
 interface ParentData {
   child: ChildProfile | null;
   nextEvent: Event | null;
   attendanceRate: number | null;
   pendingConvs: (Attendance & { event: Event })[];
+  carpoolTrips: CarpoolTrip[];
   noChild: boolean;
 }
 
@@ -54,6 +67,7 @@ export function ParentDashboard() {
         nextEvent: null,
         attendanceRate: null,
         pendingConvs: [],
+        carpoolTrips: [],
         noChild: false,
       };
 
@@ -114,11 +128,31 @@ export function ParentDashboard() {
         (a) => a.status === "present" || a.status === "late"
       ).length;
 
+      // Covoiturage de la semaine
+      const now = new Date();
+      const todayStart = new Date(now);
+      todayStart.setHours(0, 0, 0, 0);
+      const weekEnd = new Date(todayStart);
+      weekEnd.setDate(weekEnd.getDate() + 7);
+
+      const { data: carpoolData } = await supabase
+        .from("carpooling_trips")
+        .select("id, total_seats, departure_time, departure_location, driver:profiles!carpooling_trips_driver_id_fkey(first_name, last_name), event:events!carpooling_trips_event_id_fkey(title, event_date), bookings:carpooling_bookings(id, seats_taken)")
+        .eq("team_id", currentTeam!.id)
+        .order("created_at", { ascending: false });
+
+      const carpoolTrips = ((carpoolData || []) as unknown as CarpoolTrip[]).filter((t) => {
+        if (!t.event?.event_date) return false;
+        const ed = new Date(t.event.event_date);
+        return ed >= todayStart && ed <= weekEnd;
+      });
+
       return {
         child: (childProfile as ChildProfile | null) || null,
         nextEvent: (nextEventRes.data as Event | null) || null,
         attendanceRate: total > 0 ? Math.round((present / total) * 100) : 0,
         pendingConvs: (convsRes.data as (Attendance & { event: Event })[]) || [],
+        carpoolTrips,
         noChild: false,
       };
     },
@@ -129,6 +163,7 @@ export function ParentDashboard() {
   const nextEvent = data?.nextEvent ?? null;
   const attendanceRate = data?.attendanceRate ?? null;
   const pendingConvs = data?.pendingConvs ?? [];
+  const carpoolTrips = data?.carpoolTrips ?? [];
   const noChild = data?.noChild ?? false;
 
   if (!currentTeam) return null;
@@ -409,6 +444,59 @@ export function ParentDashboard() {
                 </div>
               ))}
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Covoiturage de la semaine */}
+      {carpoolTrips.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Car className="h-4 w-4 text-[var(--color-primary-blue)]" />
+              Covoiturage cette semaine
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {carpoolTrips.map((trip) => {
+              const seatsTaken = (trip.bookings || []).reduce((s, b) => s + (b.seats_taken || 1), 0);
+              const seatsAvailable = Math.max(0, trip.total_seats - seatsTaken);
+              const driverRaw = Array.isArray(trip.driver) ? trip.driver[0] : trip.driver;
+              const driverName = driverRaw ? `${driverRaw.first_name} ${driverRaw.last_name}` : "Inconnu";
+              const eventRaw = Array.isArray(trip.event) ? trip.event[0] : trip.event;
+              const eventDate = eventRaw?.event_date ? new Date(eventRaw.event_date) : null;
+              return (
+                <div key={trip.id} className="flex items-center gap-3 rounded-lg bg-muted/50 p-3">
+                  <Car className="h-5 w-5 text-muted-foreground shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{eventRaw?.title || "Événement"}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {eventDate && eventDate.toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" })}
+                      {eventDate && ` à ${eventDate.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`}
+                      {" · "}Conducteur : {driverName}
+                    </p>
+                    {trip.departure_time && (
+                      <p className="text-xs text-muted-foreground">
+                        Départ {new Date(trip.departure_time).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                        {trip.departure_location && ` — ${trip.departure_location}`}
+                      </p>
+                    )}
+                  </div>
+                  <div className={`flex items-center gap-1 text-xs font-semibold rounded-full px-2 py-1 ${seatsAvailable > 0 ? "bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-400" : "bg-red-100 text-red-700 dark:bg-red-950/30 dark:text-red-400"}`}>
+                    <Users className="h-3 w-3" />
+                    {seatsAvailable > 0 ? `${seatsAvailable} place${seatsAvailable > 1 ? "s" : ""}` : "Complet"}
+                  </div>
+                </div>
+              );
+            })}
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full text-xs"
+              onClick={() => router.push("/carpooling")}
+            >
+              Voir tous les trajets
+            </Button>
           </CardContent>
         </Card>
       )}

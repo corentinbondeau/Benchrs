@@ -12,7 +12,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Car, Plus, MapPin, Users, Clock, Calendar, UserPlus, UserMinus, Trash2, ChevronDown, ChevronUp } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -208,15 +207,20 @@ export default function CarpoolingPage() {
             </DialogHeader>
             <form onSubmit={handleCreate} className="space-y-4">
               <div className="space-y-2">
-                <Label>Evenement *</Label>
-                <Select value={form.eventId} onValueChange={(v) => setForm({ ...form, eventId: v ?? "" })}>
-                  <SelectTrigger><SelectValue placeholder="Selectionner un evenement" /></SelectTrigger>
-                  <SelectContent>
-                    {events.map((e) => (
-                      <SelectItem key={e.id} value={e.id}>{e.title} - {new Date(e.event_date).toLocaleDateString("fr-FR")}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label>Événement *</Label>
+                <select
+                  value={form.eventId}
+                  onChange={(e) => setForm({ ...form, eventId: e.target.value })}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  required
+                >
+                  <option value="">Sélectionner un événement</option>
+                  {events.map((e) => (
+                    <option key={e.id} value={e.id}>
+                      {e.title} — {new Date(e.event_date).toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" })} à {new Date(e.event_date).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div className="space-y-2">
                 <Label>Places disponibles (hors conducteur)</Label>
@@ -242,7 +246,11 @@ export default function CarpoolingPage() {
         </Dialog>
       </div>
 
-      {trips.length === 0 ? (
+      {trips.filter((t) => {
+        if (!t.event?.event_date) return true;
+        const d = new Date(); d.setHours(0, 0, 0, 0);
+        return new Date(t.event.event_date) >= d;
+      }).length === 0 ? (
         <EmptyState
           icon={Car}
           title="Aucun trajet propose"
@@ -250,7 +258,11 @@ export default function CarpoolingPage() {
         />
       ) : (
         <div className="space-y-3">
-          {trips.map((trip) => {
+          {trips.filter((t) => {
+            if (!t.event?.event_date) return true;
+            const d = new Date(); d.setHours(0, 0, 0, 0);
+            return new Date(t.event.event_date) >= d;
+          }).map((trip) => {
             const { seatsTaken, seatsAvailable, isFull, isMyTrip, myBooking, bookings } = getTripStats(trip);
             const isExpanded = expandedTrip === trip.id;
             const eventDate = trip.event?.event_date ? new Date(trip.event.event_date) : null;
