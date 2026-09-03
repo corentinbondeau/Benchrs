@@ -269,6 +269,8 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
   const [editingVmi, setEditingVmi] = useState(false);
   const [vmiInput, setVmiInput] = useState("");
   const [editingShirt, setEditingShirt] = useState(false);
+  const [editingBody, setEditingBody] = useState(false);
+  const [bodyForm, setBodyForm] = useState({ height: "", weight: "" });
   const [shirtInput, setShirtInput] = useState("");
   const [editingAttributes, setEditingAttributes] = useState(false);
   const [preferredFootInput, setPreferredFootInput] = useState("");
@@ -952,7 +954,7 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
                       </button>
                     )}
                   </p>
-                  {(profile.preferred_foot || profile.height_cm || profile.weight_kg || (profile.secondary_positions?.length ?? 0) > 0) && (
+                  {(profile.preferred_foot || profile.height_cm || profile.weight_kg || (profile.secondary_positions?.length ?? 0) > 0 || isCoach || isParentOfPlayer || playerId === user?.id) && (
                     <p className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-white/60">
                       {profile.preferred_foot && (
                         <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2 py-0.5">
@@ -960,14 +962,56 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
                           Pied {profile.preferred_foot.toLowerCase()}
                         </span>
                       )}
-                      {(isCoach || isParentOfPlayer || playerId === user?.id) && profile.height_cm && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2 py-0.5">
-                          {profile.height_cm} cm
-                        </span>
+                      {(isCoach || isParentOfPlayer || playerId === user?.id) && !editingBody && (
+                        <>
+                          <button
+                            className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2 py-0.5 hover:bg-white/25 transition-colors"
+                            onClick={() => { setEditingBody(true); setBodyForm({ height: profile.height_cm?.toString() || "", weight: profile.weight_kg?.toString() || "" }); }}
+                          >
+                            {profile.height_cm ? `${profile.height_cm} cm` : "Taille ?"}
+                          </button>
+                          <button
+                            className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2 py-0.5 hover:bg-white/25 transition-colors"
+                            onClick={() => { setEditingBody(true); setBodyForm({ height: profile.height_cm?.toString() || "", weight: profile.weight_kg?.toString() || "" }); }}
+                          >
+                            {profile.weight_kg ? `${profile.weight_kg} kg` : "Poids ?"}
+                          </button>
+                        </>
                       )}
-                      {(isCoach || isParentOfPlayer || playerId === user?.id) && profile.weight_kg && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2 py-0.5">
-                          {profile.weight_kg} kg
+                      {(isCoach || isParentOfPlayer || playerId === user?.id) && editingBody && (
+                        <span className="inline-flex items-center gap-1.5">
+                          <input
+                            type="number"
+                            placeholder="cm"
+                            value={bodyForm.height}
+                            onChange={(e) => setBodyForm((f) => ({ ...f, height: e.target.value }))}
+                            className="w-14 rounded bg-white/20 px-1.5 py-0.5 text-xs text-white placeholder:text-white/40 outline-none"
+                          />
+                          <input
+                            type="number"
+                            step="0.1"
+                            placeholder="kg"
+                            value={bodyForm.weight}
+                            onChange={(e) => setBodyForm((f) => ({ ...f, weight: e.target.value }))}
+                            className="w-14 rounded bg-white/20 px-1.5 py-0.5 text-xs text-white placeholder:text-white/40 outline-none"
+                          />
+                          <button
+                            className="rounded-full bg-green-500 p-0.5 text-white"
+                            onClick={async () => {
+                              const supabase = createClient();
+                              await supabase.from("profiles").update({
+                                height_cm: bodyForm.height ? parseInt(bodyForm.height) : null,
+                                weight_kg: bodyForm.weight ? parseFloat(bodyForm.weight) : null,
+                              }).eq("id", playerId);
+                              setEditingBody(false);
+                              setProfile((p) => p ? { ...p, height_cm: bodyForm.height ? parseInt(bodyForm.height) : null, weight_kg: bodyForm.weight ? parseFloat(bodyForm.weight) : null } : p);
+                            }}
+                          >
+                            <Check className="h-3 w-3" />
+                          </button>
+                          <button className="rounded-full bg-red-500 p-0.5 text-white" onClick={() => setEditingBody(false)}>
+                            <X className="h-3 w-3" />
+                          </button>
                         </span>
                       )}
                     </p>
