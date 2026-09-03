@@ -41,8 +41,8 @@ export default function FormDropPage() {
     const players = await fetchTeamActivePlayers(teamId);
 
     const [attendRes, rpeRes, eventsRes] = await Promise.all([
-      supabase.from("attendances").select("*").eq("team_id", teamId),
-      supabase.from("session_rpe").select("*").eq("team_id", teamId),
+      supabase.from("attendances").select("id, event_id, user_id, status, team_id").eq("team_id", teamId),
+      supabase.from("session_rpe").select("id, event_id, player_id, team_id, rpe, form_level, session_duration").eq("team_id", teamId),
       supabase
         .from("events")
         .select("id, event_date, type")

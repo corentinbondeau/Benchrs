@@ -99,7 +99,7 @@ async function fetchNextEvent(teamId: string): Promise<unknown | null> {
   todayStart.setHours(0, 0, 0, 0);
   const { data } = await supabase
     .from("events")
-    .select("*")
+    .select("id, type, title, opponent, event_date, status, location, score_us, score_them, match_result")
     .eq("team_id", teamId)
     .in("status", ["upcoming", "ongoing"])
     .gte("event_date", todayStart.toISOString())
@@ -125,7 +125,7 @@ async function fetchPendingConvocations(teamId: string): Promise<PendingConvocat
       .maybeSingle(),
     supabase
       .from("profiles")
-      .select("*")
+      .select("id, first_name, last_name")
       .eq("role", "player")
       .eq("is_active", true)
       .maybeSingle(),
@@ -143,7 +143,7 @@ async function fetchPendingConvocations(teamId: string): Promise<PendingConvocat
   const parentIds = [...new Set(links.map((l) => l.parent_id))];
   const parentResult = await supabase
     .from("profiles")
-    .select("*")
+    .select("id, first_name, last_name")
     .in("id", parentIds.length > 0 ? parentIds : ["00000000-0000-0000-0000-000000000000"])
     .maybeSingle();
 
@@ -347,7 +347,7 @@ async function fetchRecentResults(teamId: string): Promise<unknown[]> {
   const supabase = createClient();
   const { data, error } = await supabase
     .from("events")
-    .select("*")
+    .select("id, type, title, event_date, status, score_us, score_them, match_result, opponent")
     .eq("team_id", teamId)
     .eq("type", "match")
     .eq("status", "completed")

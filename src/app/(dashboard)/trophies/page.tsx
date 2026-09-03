@@ -75,12 +75,14 @@ export default function TrophiesPage() {
         .from("motm_votes")
         .select("*, candidate:profiles!motm_votes_candidate_id_fkey(first_name, last_name)")
         .eq("team_id", currentTeam!.id)
-        .order("created_at", { ascending: false }),
+        .order("created_at", { ascending: false })
+        .limit(100),
       supabase
         .from("trophies")
         .select("*, recipient:profiles!trophies_awarded_to_fkey(first_name, last_name)")
         .eq("team_id", currentTeam!.id)
-        .order("created_at", { ascending: false }),
+        .order("created_at", { ascending: false })
+        .limit(100),
       supabase
         .from("profiles")
         .select("*")

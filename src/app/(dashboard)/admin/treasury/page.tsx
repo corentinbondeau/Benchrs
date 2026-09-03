@@ -95,7 +95,7 @@ export default function TreasuryPage() {
     const [membersRes, cotisRes, txRes] = await Promise.all([
       supabase.from("team_members").select("user_id").eq("team_id", currentTeam.id).in("role", ["player"]),
       supabase.from("cotisations").select("*").eq("team_id", currentTeam.id).eq("season", season),
-      supabase.from("treasury_transactions").select("*").eq("team_id", currentTeam.id).order("txn_date", { ascending: false }),
+      supabase.from("treasury_transactions").select("*").eq("team_id", currentTeam.id).order("txn_date", { ascending: false }).limit(500),
     ]);
     let profiles: Profile[] = [];
     const memberIds = (membersRes.data || []).map((m) => m.user_id);

@@ -79,6 +79,7 @@ export default function GalleryPage() {
       .select("*")
       .eq("team_id", currentTeam!.id)
       .order("created_at", { ascending: false })
+      .limit(200)
       .then(async ({ data }) => {
         const rows = (data as GalleryMedia[]) || [];
         const signed = await signList(supabase, "gallery", rows, (m) => ({

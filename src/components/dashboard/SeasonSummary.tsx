@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useTeam } from "@/lib/team";
 import { useQueryCache } from "@/lib/queryCache";
@@ -16,7 +17,7 @@ interface SeasonStats {
   cleanSheets: number;
 }
 
-export function SeasonSummary() {
+function SeasonSummaryInner() {
   const { currentTeam } = useTeam();
   const { data: stats, loading } = useQueryCache<SeasonStats | null>(
     currentTeam ? `stats:season:${currentTeam.id}` : null,
@@ -132,3 +133,5 @@ export function SeasonSummary() {
     </Card>
   );
 }
+
+export const SeasonSummary = memo(SeasonSummaryInner);

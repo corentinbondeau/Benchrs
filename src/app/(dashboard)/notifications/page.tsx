@@ -79,10 +79,11 @@ export default function NotificationsPage() {
     const supabase = createClient();
     const { data } = await supabase
       .from("notifications")
-      .select("*")
+      .select("id, user_id, title, body, type, is_read, team_id, created_at, url")
       .eq("user_id", user.id)
       .eq("team_id", currentTeam.id)
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .limit(100);
     return (data as Notification[]) || [];
   }, [user?.id, currentTeam?.id]);
 

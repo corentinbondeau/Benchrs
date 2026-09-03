@@ -194,7 +194,7 @@ function TimelineSection({ events, players }: { events: LiveEvent[]; players: Li
 
           return (
             <li
-              key={idx}
+              key={`${ev.event_type}-${ev.minute}-${idx}`}
               className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm ${isOpponent ? "bg-white/5 opacity-60" : "bg-white/10"}`}
             >
               <span className="w-8 text-right text-xs font-mono text-white/50 shrink-0">{minute}</span>
@@ -232,8 +232,8 @@ function LineupSection({ lineups, players }: { lineups: LiveLineup[]; players: L
         <div className="mb-3">
           <p className="text-xs text-white/50 mb-1.5">Titulaires</p>
           <ul className="space-y-1">
-            {starters.map((l, idx) => (
-              <li key={idx} className="flex items-center gap-2 text-sm text-white/85">
+            {starters.map((l) => (
+              <li key={l.player_id} className="flex items-center gap-2 text-sm text-white/85">
                 <span className="text-xs text-white/40 w-16 shrink-0">{l.position || ""}</span>
                 <span>{formatPlayer(l.player_id)}</span>
               </li>
@@ -245,8 +245,8 @@ function LineupSection({ lineups, players }: { lineups: LiveLineup[]; players: L
         <div>
           <p className="text-xs text-white/50 mb-1.5">Remplaçants</p>
           <ul className="space-y-1">
-            {subs.map((l, idx) => (
-              <li key={idx} className="flex items-center gap-2 text-sm text-white/60">
+            {subs.map((l) => (
+              <li key={l.player_id} className="flex items-center gap-2 text-sm text-white/60">
                 <span className="text-xs text-white/30 w-16 shrink-0">{l.position || ""}</span>
                 <span>{formatPlayer(l.player_id)}</span>
               </li>
@@ -287,8 +287,8 @@ function StatsSection({ stats, players }: { stats: LiveStat[]; players: LivePlay
             </tr>
           </thead>
           <tbody>
-            {activeStats.map((s, idx) => (
-              <tr key={idx} className="border-b border-white/5 text-white/80">
+            {activeStats.map((s) => (
+              <tr key={s.player_id} className="border-b border-white/5 text-white/80">
                 <td className="py-2 pr-2">{getPlayerName(s.player_id)}</td>
                 <td className="py-2 text-center tabular-nums">{s.goals || "—"}</td>
                 <td className="py-2 text-center tabular-nums">{s.assists || "—"}</td>

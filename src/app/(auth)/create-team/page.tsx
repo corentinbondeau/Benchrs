@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -181,7 +182,7 @@ export default function CreateTeamPage() {
   return (
     <Card className="w-full max-w-md">
       <CardHeader className="text-center">
-          <img src="/favicon.png" alt="Benchrs" className="h-12 w-12 mx-auto mb-2" />
+          <Image src="/favicon.png" alt="Benchrs" width={48} height={48} className="mx-auto mb-2" />
         <CardTitle className="text-2xl">
           {mode === "comite" ? "Rejoindre le comité" : "Créer votre équipe"}
         </CardTitle>

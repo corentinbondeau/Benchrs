@@ -120,7 +120,8 @@ export default function CotisationsPage() {
       .from("cotisations")
       .select("*")
       .eq("team_id", currentTeam.id)
-      .eq("season", season);
+      .eq("season", season)
+      .limit(200);
     setCotisations((c as Cotisation[]) || []);
     setLoading(false);
   }, [currentTeam?.id, season]);

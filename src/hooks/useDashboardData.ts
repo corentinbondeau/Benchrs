@@ -57,7 +57,7 @@ async function fetchPlayerData(
     // Events de la team à venir
     supabase
       .from("events")
-      .select("*")
+      .select("id, type, title, event_date, status, opponent, location, score_us, score_them, match_result")
       .eq("team_id", teamId)
       .in("status", ["upcoming", "ongoing"])
       .gte("event_date", new Date().toISOString())
@@ -67,7 +67,7 @@ async function fetchPlayerData(
     trainingIds.length > 0
       ? supabase
           .from("attendances")
-          .select("*")
+          .select("id, event_id, user_id, status, team_id, created_at")
           .eq("user_id", userId)
           .eq("team_id", teamId)
           .in("event_id", trainingIds)
@@ -75,7 +75,7 @@ async function fetchPlayerData(
     // Match stats du joueur
     supabase
       .from("match_stats")
-      .select("*")
+      .select("id, event_id, player_id, team_id, goals, assists, yellow_cards, red_cards, clean_sheet, saves, minutes_played")
       .eq("player_id", userId)
       .eq("team_id", teamId),
   ]);
@@ -117,7 +117,7 @@ async function fetchParentData(
   // Étape 2 : profil de l'enfant
   const { data: childProfile } = await supabase
     .from("profiles")
-    .select("*")
+    .select("id, first_name, last_name, avatar_url, role, is_active, position, shirt_number")
     .eq("id", childId)
     .single();
 
@@ -134,7 +134,7 @@ async function fetchParentData(
   const [eventsRes, convocationsRes] = await Promise.all([
     supabase
       .from("events")
-      .select("*")
+      .select("id, type, title, event_date, status, opponent, location, score_us, score_them, match_result")
       .eq("team_id", teamId)
       .in("status", ["upcoming", "ongoing"])
       .gte("event_date", new Date().toISOString())
@@ -142,7 +142,7 @@ async function fetchParentData(
       .limit(10),
     supabase
       .from("attendances")
-      .select("*, event:events!attendances_event_id_fkey(*)")
+      .select("id, event_id, user_id, status, team_id, created_at, event:events!attendances_event_id_fkey(id, title, event_date, type, status)")
       .eq("user_id", childId)
       .eq("team_id", teamId)
       .eq("status", "pending")

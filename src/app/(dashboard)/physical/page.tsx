@@ -258,6 +258,7 @@ export default function PhysicalPreparationPage() {
       {/* Tabs */}
       <div className="flex gap-1 rounded-lg border p-0.5 bg-muted/30">
         <button
+          type="button"
           className={`flex-1 px-4 py-1.5 text-xs font-medium rounded-md transition-colors ${tab === "vma" ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
           onClick={() => setTab("vma")}
         >
@@ -265,6 +266,7 @@ export default function PhysicalPreparationPage() {
           Tableau VMA
         </button>
         <button
+          type="button"
           className={`flex-1 px-4 py-1.5 text-xs font-medium rounded-md transition-colors ${tab === "docs" ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
           onClick={() => setTab("docs")}
         >
@@ -273,6 +275,7 @@ export default function PhysicalPreparationPage() {
         </button>
         {isCoach && (
           <button
+            type="button"
             className={`flex-1 px-4 py-1.5 text-xs font-medium rounded-md transition-colors ${tab === "tracking" ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
             onClick={() => setTab("tracking")}
           >
@@ -349,7 +352,7 @@ export default function PhysicalPreparationPage() {
                 <div className="space-y-2">
                   {documents.map((doc) => (
                     <Card key={doc.id}>
-                      <div className="cursor-pointer" onClick={() => setPreviewDoc(previewDoc === doc.id ? null : doc.id)}>
+                      <button type="button" className="cursor-pointer w-full text-left" onClick={() => setPreviewDoc(previewDoc === doc.id ? null : doc.id)}>
                         <CardContent className="p-4 flex items-center justify-between">
                           <div className="flex items-center gap-3 min-w-0">
                             <FileText className="h-5 w-5 text-[var(--color-royal)] shrink-0" />
@@ -369,7 +372,7 @@ export default function PhysicalPreparationPage() {
                             )}
                           </div>
                         </CardContent>
-                      </div>
+                      </button>
                       {previewDoc === doc.id && (
                         <div className="px-4 pb-4">
                           <iframe
@@ -419,6 +422,7 @@ export default function PhysicalPreparationPage() {
                             <div className="flex items-center justify-center gap-1">
                               <span>{s.title}</span>
                               <button
+                                type="button"
                                 className="text-destructive hover:text-destructive/80"
                                 onClick={() => deleteSession(s.id)}
                               >

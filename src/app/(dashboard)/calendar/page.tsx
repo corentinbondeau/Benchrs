@@ -824,9 +824,10 @@ export default function CalendarPage() {
                     {dayEvents.slice(0, 2).map((event) => {
                       const attCount = attendanceCounts[event.id];
                       return (
-                        <div
+                        <button
                           key={event.id}
-                          className={`text-[10px] truncate rounded px-1 py-0.5 border cursor-pointer hover:opacity-80 flex items-center gap-1 ${getEventBadgeColor(event)}`}
+                          type="button"
+                          className={`text-[10px] truncate rounded px-1 py-0.5 border cursor-pointer hover:opacity-80 flex items-center gap-1 w-full text-left ${getEventBadgeColor(event)}`}
                           onClick={(e) => {
                             e.stopPropagation();
                             selectEvent(event);
@@ -843,7 +844,7 @@ export default function CalendarPage() {
                               {attCount.present}/{attCount.total}
                             </span>
                           )}
-                        </div>
+                        </button>
                       );
                     })}
                     {dayEvents.length > 2 && (
@@ -879,7 +880,7 @@ export default function CalendarPage() {
             {sortedEvents.map((event) => {
               const attCount = attendanceCounts[event.id];
               return (
-                <div key={event.id} className={`rounded-lg border border-l-[3px] ${getEventBorderColor(event)} p-4 flex items-start gap-3 cursor-pointer hover:bg-muted/50 transition-colors`} onClick={() => selectEvent(event)}>
+                <button key={event.id} type="button" className={`w-full text-left rounded-lg border border-l-[3px] ${getEventBorderColor(event)} p-4 flex items-start gap-3 cursor-pointer hover:bg-muted/50 transition-colors`} onClick={() => selectEvent(event)}>
                   <div className="flex flex-col items-center min-w-[48px]">
                     <span className="text-xs text-muted-foreground uppercase">
                       {new Date(event.event_date).toLocaleDateString("fr-FR", { month: "short" })}
@@ -936,7 +937,7 @@ export default function CalendarPage() {
                       <Bell className="h-4 w-4" />
                     </Button>
                   </div>
-                </div>
+                </button>
               );
             })}
           </div>
@@ -968,9 +969,10 @@ export default function CalendarPage() {
                       {dayEvents.map((event) => {
                         const attCount = attendanceCounts[event.id];
                         return (
-                          <div
+                          <button
                             key={event.id}
-                            className={`flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm group relative cursor-pointer hover:bg-muted/50 rounded-lg px-2 py-1.5 -mx-2 transition-colors border-l-[3px] ${getEventBorderColor(event)} pl-3`}
+                            type="button"
+                            className={`w-full text-left flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm group relative cursor-pointer hover:bg-muted/50 rounded-lg px-2 py-1.5 -mx-2 transition-colors border-l-[3px] ${getEventBorderColor(event)} pl-3`}
                             onClick={() => selectEvent(event)}
                           >
                             <Badge variant="outline" className={`${getEventBadgeColor(event)} flex items-center gap-1`}>
@@ -1000,7 +1002,7 @@ export default function CalendarPage() {
                                 {attCount.present}/{attCount.total}
                               </span>
                             )}
-                          </div>
+                          </button>
                         );
                       })}
                     </div>

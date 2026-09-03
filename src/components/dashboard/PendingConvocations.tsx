@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { memo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { authFetch } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth";
@@ -30,7 +30,7 @@ type PendingData =
   | { role: "coach"; items: CoachPendingItem[] }
   | { role: "player"; items: (Attendance & { event: Event })[] };
 
-export function PendingConvocations() {
+function PendingConvocationsInner() {
   const { user } = useAuth();
   const { currentTeam, userRole } = useTeam();
   const router = useRouter();
@@ -439,3 +439,5 @@ export function PendingConvocations() {
     </Card>
   );
 }
+
+export const PendingConvocations = memo(PendingConvocationsInner);

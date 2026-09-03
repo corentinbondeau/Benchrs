@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useTeam } from "@/lib/team";
 import { useRouter } from "next/navigation";
@@ -55,7 +56,7 @@ function weekRange(): { start: Date; end: Date } {
   return { start, end };
 }
 
-export function CoachWeekOverview() {
+function CoachWeekOverviewInner() {
   const router = useRouter();
   const { currentTeam } = useTeam();
 
@@ -345,6 +346,8 @@ export function CoachWeekOverview() {
     </Card>
   );
 }
+
+export const CoachWeekOverview = memo(CoachWeekOverviewInner);
 
 function weekStartLabel(): string {
   const { start } = weekRange();

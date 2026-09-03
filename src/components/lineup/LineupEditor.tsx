@@ -558,7 +558,7 @@ export function LineupEditor({
                   const player = pid ? playerById(pid) : null;
                   return (
                     <div
-                      key={i}
+                      key={`slot-${i}`}
                       className="absolute z-10 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center cursor-pointer"
                       style={{ left: `${slot.x}%`, top: `${slot.y}%` }}
                       onClick={() => setPickingSlot(slotKey)}
