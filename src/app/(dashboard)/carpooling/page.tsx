@@ -280,6 +280,8 @@ export default function CarpoolingPage() {
                           <span className="flex items-center gap-1">
                             <Calendar className="h-3 w-3" />
                             {eventDate.toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" })}
+                            {" à "}
+                            {eventDate.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
                           </span>
                         )}
                         {trip.departure_time && (
