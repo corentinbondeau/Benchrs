@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useTeam } from "@/lib/team";
+import { useSelectedChild } from "@/lib/useSelectedChild";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -40,6 +41,10 @@ export default function CarpoolingPage() {
   const [form, setForm] = useState({ eventId: "", seats: "4", departureLocation: "", departureTime: "", notes: "" });
 
   const isCoach = userRole === "coach" || userRole === "owner";
+  const isParent = userRole === "parent";
+  const { children, selectedChildId } = useSelectedChild(currentTeam?.id);
+  // Si parent : inscrire l'enfant comme passager. Sinon : l'utilisateur lui-même.
+  const passengerId = isParent && selectedChildId ? selectedChildId : user?.id;
 
   if (!currentTeam) {
     return <div className="flex items-center justify-center h-64"><p className="text-muted-foreground">Chargement...</p></div>;
@@ -107,11 +112,12 @@ export default function CarpoolingPage() {
   }
 
   async function joinTrip(tripId: string) {
+    if (!passengerId) return;
     setBookingInProgress(tripId);
     const supabase = createClient();
     const { error } = await supabase.from("carpooling_bookings").insert({
       trip_id: tripId,
-      passenger_id: user!.id,
+      passenger_id: passengerId,
       role: "passenger",
       seats_taken: 1,
       status: "confirmed",
@@ -131,13 +137,14 @@ export default function CarpoolingPage() {
   }
 
   async function leaveTrip(tripId: string) {
+    if (!passengerId) return;
     setBookingInProgress(tripId);
     const supabase = createClient();
     const { error } = await supabase
       .from("carpooling_bookings")
       .delete()
       .eq("trip_id", tripId)
-      .eq("passenger_id", user!.id)
+      .eq("passenger_id", passengerId)
       .eq("team_id", currentTeam!.id);
     setBookingInProgress(null);
     if (error) {
@@ -166,7 +173,7 @@ export default function CarpoolingPage() {
     const seatsAvailable = Math.max(0, trip.total_seats - seatsTaken);
     const isFull = seatsAvailable === 0;
     const isMyTrip = trip.driver_id === user?.id;
-    const myBooking = bookings.find((b) => b.passenger_id === user?.id);
+    const myBooking = bookings.find((b) => b.passenger_id === passengerId || b.passenger_id === user?.id);
     return { seatsTaken, seatsAvailable, isFull, isMyTrip, myBooking, bookings };
   }
 
@@ -397,7 +404,7 @@ export default function CarpoolingPage() {
                         </Avatar>
                         <span className="text-sm flex-1">
                           {b.passenger?.first_name} {b.passenger?.last_name}
-                          {b.passenger_id === user?.id && <span className="text-[var(--color-primary-blue)] text-xs ml-1">(vous)</span>}
+                          {(b.passenger_id === user?.id || b.passenger_id === passengerId) && <span className="text-[var(--color-primary-blue)] text-xs ml-1">(vous)</span>}
                         </span>
                         <span className="text-xs text-muted-foreground">
                           {b.seats_taken || 1} place{(b.seats_taken || 1) > 1 ? "s" : ""}
