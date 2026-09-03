@@ -380,11 +380,12 @@ export default function RosterPage() {
                              .from("team_members")
                              .update({ mute_status: newMuteStatus })
                              .eq("id", memberIds[profile.id]);
-                           if (error) {
-                             toast.error("Impossible de modifier le statut de mutation");
-                             return;
-                           }
-                           toast.success("Statut de mutation modifié");
+                            if (error) {
+                              console.error("[roster] mute_status update error:", error.message, error.code, error.details, "memberId:", memberIds[profile.id]);
+                              toast.error(`Impossible de modifier le statut : ${error.message}`);
+                              return;
+                            }
+                            toast.success("Statut de mutation modifié");
                            setMuteStatuses((prev) => ({
                              ...prev,
                              [profile.id]: newMuteStatus,
