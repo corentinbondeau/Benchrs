@@ -287,7 +287,7 @@ export default function CarpoolingPage() {
                         {trip.departure_time && (
                           <span className="flex items-center gap-1">
                             <Clock className="h-3 w-3" />
-                            Départ {trip.departure_time.includes("T") ? new Date(trip.departure_time).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) : trip.departure_time.slice(0, 5)}
+                            Départ {new Date(trip.departure_time).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
                           </span>
                         )}
                         {trip.departure_location && (
