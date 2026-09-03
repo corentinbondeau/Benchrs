@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { authFetch } from "@/lib/api-client";
 import { useTeam } from "@/lib/team";
@@ -55,6 +55,29 @@ function formatDate(dateStr: string) {
   });
 }
 
+/**
+ * Construit un affichage "Prénom + initiale(s) du nom" pour différencier les homonymes.
+ * Prénom unique → juste le prénom. Sinon → Prénom + première(s) lettre(s) du nom.
+ */
+function buildDisplayName(
+  player: { first_name: string; last_name: string },
+  allPlayers: { first_name: string; last_name: string }[]
+): string {
+  const sameFirst = allPlayers.filter((p) => p.first_name === player.first_name);
+  if (sameFirst.length <= 1) return player.first_name;
+  const ln = player.last_name || "";
+  for (let len = 1; len <= ln.length; len++) {
+    const prefix = ln.slice(0, len).toLowerCase();
+    const conflicts = sameFirst.filter(
+      (p) => p !== player && (p.last_name || "").slice(0, len).toLowerCase() === prefix
+    );
+    if (conflicts.length === 0) {
+      return `${player.first_name} ${ln.charAt(0).toUpperCase()}${ln.slice(1, len)}.`;
+    }
+  }
+  return `${player.first_name} ${ln}`;
+}
+
 export function LineupEditor({
   eventId,
   teamId,
@@ -94,6 +117,16 @@ export function LineupEditor({
 
   const availablePlayers = presentPlayers.filter((p) => !assignedPlayerIds.has(p.id));
   const benchSize = Math.max(0, presentPlayers.length - matchFormat);
+
+  // Noms d'affichage : Prénom seul si unique, Prénom + initiale(s) du nom si homonymes
+  const displayNameMap = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const p of presentPlayers) {
+      m.set(p.id, buildDisplayName(p, presentPlayers));
+    }
+    return m;
+  }, [presentPlayers]);
+  const dn = (id: string) => displayNameMap.get(id) ?? "";
 
   function assignToSlot(slotKey: string, playerId: string) {
     if (slotKey.startsWith("bench-")) {
@@ -527,7 +560,7 @@ export function LineupEditor({
                             {player.id === captainId && <Crown className="ml-0.5 h-3 w-3" />}
                           </div>
                           <span className="mt-0.5 max-w-[64px] truncate text-[9px] font-medium text-white/90 drop-shadow text-center block">
-                            {player.first_name.charAt(0)}. {player.last_name}
+                            {dn(player.id)}
                           </span>
                         </div>
                       ) : (
@@ -571,7 +604,7 @@ export function LineupEditor({
                             {player.shirt_number ?? "?"}
                           </span>
                           <span className="truncate font-medium text-sm flex-1">
-                            {player.first_name} {player.last_name}
+                            {dn(player.id)}
                           </span>
                         </div>
                       ) : (
@@ -600,10 +633,10 @@ export function LineupEditor({
                       draggable
                       onDragStart={(e) => onDragStartPlayer(e, p.id)}
                       className="flex items-center gap-1.5 rounded-full border bg-muted/50 px-2.5 py-1 text-xs cursor-grab active:cursor-grabbing hover:bg-accent transition-colors"
-                      title={`${p.first_name} ${p.last_name} — glissez sur le terrain ou le banc`}
+                      title={`${dn(p.id)} — glissez sur le terrain ou le banc`}
                     >
                       <span className="font-bold">{p.shirt_number ?? "?"}</span>
-                      <span className="truncate max-w-[80px]">{p.last_name}</span>
+                      <span className="truncate max-w-[80px]">{dn(p.id)}</span>
                     </div>
                   ))}
                 </div>
@@ -635,7 +668,7 @@ export function LineupEditor({
                         className="flex w-full items-center gap-2.5 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive hover:bg-destructive/10 transition-colors"
                         onClick={() => removeFromSlot(pickingSlot)}
                       >
-                        <span>Retirer {currentPlayer.first_name} {currentPlayer.last_name}</span>
+                        <span>Retirer {dn(currentPlayer.id)}</span>
                       </button>
                       {!pickingSlot.startsWith("bench-") && (
                         <button
@@ -663,7 +696,7 @@ export function LineupEditor({
                       <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold">
                         {p.shirt_number ?? "?"}
                       </span>
-                      <span className="truncate font-medium">{p.first_name} {p.last_name}</span>
+                      <span className="truncate font-medium">{dn(p.id)}</span>
                     </button>
                   ))}
                 </>
