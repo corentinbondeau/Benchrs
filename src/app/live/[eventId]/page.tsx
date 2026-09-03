@@ -131,14 +131,23 @@ function TimelineSection({ events, players }: { events: LiveEvent[]; players: Li
           const mainPlayer = getPlayerName(ev.player_id);
           const relatedPlayer = getPlayerName(ev.related_player_id);
 
-          let description = mainPlayer;
-          if (ev.event_type === "goal" && relatedPlayer) {
+          const isOpponent = ev.event_type === "opponent_goal";
+          let description: string;
+          if (isOpponent) {
+            description = "But adverse";
+          } else if (ev.event_type === "goal" && relatedPlayer) {
             description = `${mainPlayer} (pass. ${relatedPlayer})`;
+          } else if (ev.event_type === "goal") {
+            description = mainPlayer;
           } else if (ev.event_type === "substitution" && relatedPlayer) {
             description = `${mainPlayer} → ${relatedPlayer}`;
+          } else if (ev.event_type === "yellow_card" || ev.event_type === "red_card") {
+            description = mainPlayer;
+          } else if (ev.event_type === "injury") {
+            description = mainPlayer || ev.notes || "Blessure";
+          } else {
+            description = mainPlayer || ev.notes || ev.event_type;
           }
-
-          const isOpponent = ev.event_type === "opponent_goal";
 
           return (
             <li
@@ -148,7 +157,7 @@ function TimelineSection({ events, players }: { events: LiveEvent[]; players: Li
               <span className="w-8 text-right text-xs font-mono text-white/50 shrink-0">{minute}</span>
               <span className="text-base leading-none">{icon}</span>
               <span className="flex-1 text-white/90">
-                {description || ev.notes || ev.event_type}
+                {description}
               </span>
             </li>
           );
