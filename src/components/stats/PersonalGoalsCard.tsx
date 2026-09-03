@@ -181,7 +181,6 @@ export function PersonalGoalsCard({ playerId }: Props) {
       .select("id")
       .eq("parent_id", user.id)
       .eq("student_id", playerId)
-      .eq("team_id", currentTeam.id)
       .maybeSingle()
       .then(({ data }) => {
         setIsParent(!!data);
