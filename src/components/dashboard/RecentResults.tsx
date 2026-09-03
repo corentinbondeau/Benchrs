@@ -17,34 +17,39 @@ interface FeedData {
 function RecentResults() {
   const router = useRouter();
   const { currentTeam } = useTeam();
+  const teamId = currentTeam?.id;
   const { data, loading } = useQueryCache<FeedData>(
-    currentTeam ? `events:feed:${currentTeam.id}` : null,
+    teamId ? `events:feed:${teamId}` : null,
     async () => {
       const supabase = createClient();
       const nowISO = new Date().toISOString();
-      const [upcomingRes, resultsRes] = await Promise.all([
-        supabase
-          .from("events")
-          .select("id, title, type, event_date, opponent, status")
-          .eq("team_id", currentTeam!.id)
-          .in("status", ["upcoming", "ongoing"])
-          .gte("event_date", nowISO)
-          .order("event_date", { ascending: true })
-          .limit(5),
-        supabase
-          .from("events")
-          .select("id, title, type, event_date, score_us, score_them, opponent, match_result")
-          .eq("team_id", currentTeam!.id)
-          .eq("type", "match")
-          .eq("status", "completed")
-          .not("score_us", "is", null)
-          .order("event_date", { ascending: false })
-          .limit(5),
-      ]);
-      return {
-        upcoming: (upcomingRes.data as Event[]) || [],
-        results: (resultsRes.data as Event[]) || [],
-      };
+      try {
+        const [upcomingRes, resultsRes] = await Promise.all([
+          supabase
+            .from("events")
+            .select("id, title, type, event_date, opponent, status")
+            .eq("team_id", teamId!)
+            .in("status", ["upcoming", "ongoing"])
+            .gte("event_date", nowISO)
+            .order("event_date", { ascending: true })
+            .limit(5),
+          supabase
+            .from("events")
+            .select("id, title, type, event_date, score_us, score_them, opponent, match_result")
+            .eq("team_id", teamId!)
+            .eq("type", "match")
+            .eq("status", "completed")
+            .not("score_us", "is", null)
+            .order("event_date", { ascending: false })
+            .limit(5),
+        ]);
+        return {
+          upcoming: (upcomingRes.data as Event[]) || [],
+          results: (resultsRes.data as Event[]) || [],
+        };
+      } catch {
+        return { upcoming: [], results: [] };
+      }
     },
     { ttl: 60_000 }
   );
