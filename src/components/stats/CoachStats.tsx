@@ -499,13 +499,13 @@ export function CoachStats() {
                   {candidates.map((p) => (
                     <div
                       key={p.player_id}
-                      className="flex items-center gap-2 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-sm"
+                      className="flex items-center gap-2 rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30 px-3 py-2 text-sm"
                     >
-                      <RefreshCw className="h-3.5 w-3.5 shrink-0 text-blue-600" />
-                      <span className="flex-1 truncate font-medium">
+                      <RefreshCw className="h-3.5 w-3.5 shrink-0 text-blue-600 dark:text-blue-400" />
+                      <span className="flex-1 truncate font-medium text-blue-900 dark:text-blue-100">
                         {p.first_name} {p.last_name}
                       </span>
-                      <span className="text-xs text-muted-foreground shrink-0">
+                      <span className="text-xs text-blue-600 dark:text-blue-400 shrink-0">
                         {p.minutes}&apos; · {p.matches} m
                       </span>
                     </div>
