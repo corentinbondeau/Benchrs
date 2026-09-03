@@ -32,6 +32,8 @@ const HISTORICAL_POSITIONS = [
   "Défenseur central",
   "Latéral droit",
   "Latéral gauche",
+  "Piston droit",
+  "Piston gauche",
   "Milieu défensif",
   "Milieu central",
   "Milieu offensif",
@@ -41,15 +43,15 @@ const HISTORICAL_POSITIONS = [
 ];
 
 describe("POSITIONS — anti-corruption des données en base", () => {
-  it("est strictement égal (valeurs ET ordre) aux 10 libellés historiques", () => {
+  it("est strictement égal (valeurs ET ordre) aux 12 libellés historiques", () => {
     expect(POSITIONS).toEqual(HISTORICAL_POSITIONS);
   });
 });
 
 describe("POSITION_KEYS / POSITION_LABELS — bijection", () => {
-  it("contient exactement 10 clés, sans doublon", () => {
-    expect(POSITION_KEYS.length).toBe(10);
-    expect(new Set(POSITION_KEYS).size).toBe(10);
+  it("contient exactement 12 clés, sans doublon", () => {
+    expect(POSITION_KEYS.length).toBe(12);
+    expect(new Set(POSITION_KEYS).size).toBe(12);
   });
 
   it("chaque clé possède un libellé, et chaque libellé historique a une clé", () => {
@@ -61,7 +63,7 @@ describe("POSITION_KEYS / POSITION_LABELS — bijection", () => {
       expect(labels).toContain(label);
     }
     // Bijection stricte : mêmes ensembles, sans doublon de libellé
-    expect(new Set(labels).size).toBe(10);
+    expect(new Set(labels).size).toBe(12);
   });
 });
 
@@ -77,10 +79,12 @@ describe("POSITION_FAMILY — ligne de jeu (garant du regroupement gardien/défe
     expect(gkFamilyMembers).toEqual(["GK"]);
   });
 
-  it("regroupe les postes défensifs (latéraux + défenseur central) dans DEF", () => {
+  it("regroupe les postes défensifs (latéraux + pistons + défenseur central) dans DEF", () => {
     expect(POSITION_FAMILY["DC"]).toBe("DEF");
     expect(POSITION_FAMILY["LD"]).toBe("DEF");
     expect(POSITION_FAMILY["LG"]).toBe("DEF");
+    expect(POSITION_FAMILY["PD"]).toBe("DEF");
+    expect(POSITION_FAMILY["PG"]).toBe("DEF");
   });
 
   it("regroupe les postes offensifs (ailiers + buteur) dans ATT", () => {

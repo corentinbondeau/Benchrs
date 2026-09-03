@@ -26,7 +26,7 @@ type AddPlayerForm = {
   email: string;
 };
 
-const POSITIONS = ["Gardien", "Défenseur", "Milieu", "Attaquant"];
+import { POSITIONS } from "@/lib/positions";
 
 type Player = {
   id: string;

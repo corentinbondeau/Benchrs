@@ -36,7 +36,7 @@ type AddPlayerForm = {
   email: string;
 };
 
-const POSITIONS = ["Gardien", "Défenseur", "Milieu", "Attaquant"];
+import { POSITIONS } from "@/lib/positions";
 
 export default function RosterPage() {
   const { user } = useAuth();
