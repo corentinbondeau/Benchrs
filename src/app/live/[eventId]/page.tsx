@@ -109,7 +109,7 @@ function TimelineSection({ events, players }: { events: LiveEvent[]; players: Li
     if (!playerId) return "";
     const p = players.find((pl) => pl.id === playerId);
     if (!p) return "Inconnu";
-    return `${p.first_name} ${p.last_name}`;
+    return p.first_name;
   }
 
   if (events.length === 0) {
@@ -176,7 +176,7 @@ function LineupSection({ lineups, players }: { lineups: LiveLineup[]; players: L
     const p = getPlayer(playerId);
     if (!p) return "Inconnu";
     const num = p.shirt_number !== null ? `#${p.shirt_number} ` : "";
-    return `${num}${p.first_name} ${p.last_name}`;
+    return `${num}${p.first_name}`;
   }
 
   const starters = lineups.filter((l) => l.is_starter);
@@ -221,7 +221,7 @@ function StatsSection({ stats, players }: { stats: LiveStat[]; players: LivePlay
   function getPlayerName(playerId: string): string {
     const p = players.find((pl) => pl.id === playerId);
     if (!p) return "Inconnu";
-    return `${p.first_name} ${p.last_name}`;
+    return p.first_name;
   }
 
   const activeStats = stats
