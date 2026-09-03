@@ -73,12 +73,25 @@ export default function CarpoolingPage() {
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     const supabase = createClient();
+
+    // Combiner la date de l'événement avec l'heure saisie pour créer un timestamp
+    let departureTime: string | null = null;
+    if (form.departureTime) {
+      const selectedEvent = events.find((ev) => ev.id === form.eventId);
+      if (selectedEvent) {
+        const eventDate = new Date(selectedEvent.event_date);
+        const [hours, minutes] = form.departureTime.split(":").map(Number);
+        eventDate.setHours(hours, minutes, 0, 0);
+        departureTime = eventDate.toISOString();
+      }
+    }
+
     const { error } = await supabase.from("carpooling_trips").insert({
       event_id: form.eventId,
       driver_id: user!.id,
       total_seats: parseInt(form.seats),
       departure_location: form.departureLocation || null,
-      departure_time: form.departureTime || null,
+      departure_time: departureTime,
       notes: form.notes || null,
       team_id: currentTeam!.id,
     });
@@ -272,7 +285,7 @@ export default function CarpoolingPage() {
                         {trip.departure_time && (
                           <span className="flex items-center gap-1">
                             <Clock className="h-3 w-3" />
-                            Depart {trip.departure_time.slice(0, 5)}
+                            Départ {trip.departure_time.includes("T") ? new Date(trip.departure_time).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) : trip.departure_time.slice(0, 5)}
                           </span>
                         )}
                         {trip.departure_location && (
