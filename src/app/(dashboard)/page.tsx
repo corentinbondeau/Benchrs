@@ -148,6 +148,8 @@ export default function DashboardPage() {
     <div className="section-gap">
       <TodayHeader name={user?.profile?.first_name || ""} />
 
+      <MatchDayBanner />
+
       <OnboardingTip
         tipKey="dashboard-welcome"
         title="Bienvenue sur Benchrs !"

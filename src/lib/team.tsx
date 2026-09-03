@@ -13,6 +13,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth";
 import type { Team, TeamMemberRole } from "@/types";
+import { TeamThemeContext } from "@/lib/teamThemeContext";
 
 export interface ClubMembership {
   club_id: string;
@@ -273,9 +274,19 @@ export function TeamProvider({ children }: { children: ReactNode }) {
     [currentTeam, teams, userRole, clubMemberships, switchTeam, loading, refreshTeams]
   );
 
+  const themeValue = useMemo(
+    () => ({
+      colorPrimary: currentTeam?.color_primary ?? "var(--color-primary-blue)",
+      colorSecondary: currentTeam?.color_secondary ?? "var(--color-gold)",
+    }),
+    [currentTeam]
+  );
+
   return (
     <TeamContext.Provider value={contextValue}>
-      {children}
+      <TeamThemeContext.Provider value={themeValue}>
+        {children}
+      </TeamThemeContext.Provider>
     </TeamContext.Provider>
   );
 }

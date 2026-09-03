@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useTeam } from "@/lib/team";
 import { ContentSkeleton } from "@/components/ui/content-skeleton";
+import { TeamThemeApplier } from "@/components/layout/TeamThemeApplier";
 
 export function TeamGuard({ children }: { children: React.ReactNode }) {
   const { teams, clubMemberships, loading } = useTeam();
@@ -23,5 +24,5 @@ export function TeamGuard({ children }: { children: React.ReactNode }) {
     return null;
   }
 
-  return <>{children}</>;
+  return <TeamThemeApplier>{children}</TeamThemeApplier>;
 }
