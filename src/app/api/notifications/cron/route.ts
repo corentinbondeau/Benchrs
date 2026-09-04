@@ -19,17 +19,10 @@ export async function GET(req: Request) {
   const supabase = createAdminClient();
   const now = new Date().toISOString();
 
-  // Fenêtre quotidienne : entre 19h et 21h UTC (une seule exécution par jour)
-  const nowHour = new Date().getUTCHours();
-  const isDailyWindow = nowHour >= 19 && nowHour <= 21;
-
   // --- ÉTAPE 1 : Delivery first — livre TOUTES les notifs pending existantes ---
-  // Doit être la PREMIÈRE opération après l'auth, avant toute création.
-  // Garantit que les notifications déjà en attente sont livrées même si les
-  // étapes de création suivantes échouent ou timeout.
   const { sent, delivered, skipped } = await deliverPendingNotifications(supabase);
 
-  // --- ÉTAPE 2 : Auto-convocations — TOUJOURS (les convocations sont sensibles au timing) ---
+  // --- ÉTAPE 2 : Auto-convocations ---
   let autoConvocationsResult = { eventsProcessed: 0, notificationsCreated: 0 };
   try {
     autoConvocationsResult = await createAutoConvocations(supabase);
@@ -37,9 +30,8 @@ export async function GET(req: Request) {
     console.error("[notifications/cron] createAutoConvocations error:", err);
   }
 
-  // --- ÉTAPES 3-9 : Création des notifications — uniquement dans la fenêtre quotidienne 19-21h UTC ---
-  const creationResults = isDailyWindow
-    ? await Promise.allSettled([
+  // --- ÉTAPES 3-9 : Création des notifications quotidiennes ---
+  const creationResults = await Promise.allSettled([
         // Rappels la veille
         sendRappels(supabase, now),
         // Digest hebdomadaire (lundi uniquement)
@@ -56,28 +48,23 @@ export async function GET(req: Request) {
         sendCongrats(supabase, now),
         // Relance combinée RPE / analyse de séance
         sendSessionReminders(supabase, now),
-      ])
-    : null;
+      ]);
 
   // Logger les erreurs individuelles des étapes parallèles
   const labels = ["rappels", "digests", "echeances", "relances", "equite", "cotisations", "felicitations", "relances_seance"];
-  if (creationResults) {
-    for (let i = 0; i < creationResults.length; i++) {
-      if (creationResults[i].status === "rejected") {
-        console.error(`[notifications/cron] ${labels[i]} error:`, (creationResults[i] as PromiseRejectedResult).reason);
-      }
+  for (let i = 0; i < creationResults.length; i++) {
+    if (creationResults[i].status === "rejected") {
+      console.error(`[notifications/cron] ${labels[i]} error:`, (creationResults[i] as PromiseRejectedResult).reason);
     }
   }
 
   // Extraire les compteurs de création
   const getCount = (idx: number): number => {
-    if (!creationResults) return 0;
     const r = creationResults[idx];
     return r.status === "fulfilled" && typeof r.value === "number" ? r.value : 0;
   };
 
-  const creation = isDailyWindow
-    ? {
+  const creation = {
         rappels: getCount(0),
         digests: getCount(1),
         echeances: getCount(2),
@@ -86,8 +73,7 @@ export async function GET(req: Request) {
         cotisations: getCount(5),
         felicitations: getCount(6),
         relances_seance: getCount(7),
-      }
-    : null;
+      };
 
   // --- ÉTAPE FINALE — Livrer les notifications créées pendant ce cycle ---
   // (delivery first + delivery last = pas de notification orpheline 24h)
