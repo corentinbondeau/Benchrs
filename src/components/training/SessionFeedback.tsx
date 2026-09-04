@@ -94,6 +94,8 @@ export function SessionFeedback({
       .select("id, event_date")
       .eq("team_id", teamId)
       .eq("type", "training")
+      .neq("status", "cancelled")
+      .lte("event_date", new Date().toISOString())
       .order("event_date", { ascending: false })
       .limit(10);
     const ids = (events || []).map((e) => (e as { id: string }).id);

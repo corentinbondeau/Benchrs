@@ -223,12 +223,12 @@ export function CoachStats() {
   const sortedMinutes = [...playerMinutes].sort((a, b) => b.minutes - a.minutes);
 
   const bilan = [
-    { icon: Trophy, label: "Victoires", value: wins, color: "text-green-600", bg: "bg-green-50" },
-    { icon: Minus, label: "Nuls", value: draws, color: "text-amber-600", bg: "bg-amber-50" },
-    { icon: Frown, label: "Défaites", value: losses, color: "text-red-600", bg: "bg-red-50" },
-    { icon: Target, label: "Buts marqués", value: goalsFor, color: "text-[var(--color-gold)]", bg: "bg-amber-50" },
-    { icon: Shield, label: "Buts encaissés", value: goalsAgainst, color: "text-blue-600", bg: "bg-blue-50" },
-    { icon: TrendingUp, label: "Différence", value: goalDiff > 0 ? `+${goalDiff}` : goalDiff, color: goalDiff >= 0 ? "text-green-600" : "text-red-600", bg: goalDiff >= 0 ? "bg-green-50" : "bg-red-50" },
+    { icon: Trophy, label: "Victoires", value: wins, color: "text-green-600 dark:text-green-400", bg: "bg-green-50 dark:bg-green-950/30" },
+    { icon: Minus, label: "Nuls", value: draws, color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-50 dark:bg-amber-950/30" },
+    { icon: Frown, label: "Défaites", value: losses, color: "text-red-600 dark:text-red-400", bg: "bg-red-50 dark:bg-red-950/30" },
+    { icon: Target, label: "Buts marqués", value: goalsFor, color: "text-[var(--color-gold)]", bg: "bg-amber-50 dark:bg-amber-950/30" },
+    { icon: Shield, label: "Buts encaissés", value: goalsAgainst, color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-50 dark:bg-blue-950/30" },
+    { icon: TrendingUp, label: "Différence", value: goalDiff > 0 ? `+${goalDiff}` : goalDiff, color: goalDiff >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400", bg: goalDiff >= 0 ? "bg-green-50 dark:bg-green-950/30" : "bg-red-50 dark:bg-red-950/30" },
   ];
 
   return (
@@ -338,8 +338,8 @@ export function CoachStats() {
         </CardHeader>
         <CardContent>
           {minPlayingMinutes > 0 && sortedMinutes.some((p) => p.minutes < minPlayingMinutes) && (
-            <div className="mb-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
-              <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" />
+            <div className="mb-3 flex items-start gap-2 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 p-3 text-xs text-amber-900 dark:text-amber-200">
+              <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
               <p>
                 <span className="font-semibold">Attention équité :</span>{" "}
                 {sortedMinutes
@@ -362,7 +362,7 @@ export function CoachStats() {
                 return (
                   <div
                     key={p.player_id}
-                    className={`flex items-center gap-3 rounded-lg px-1 ${underThreshold ? "bg-amber-50" : ""}`}
+                    className={`flex items-center gap-3 rounded-lg px-1 ${underThreshold ? "bg-amber-50 dark:bg-amber-950/30" : ""}`}
                   >
                     <span className="w-32 truncate text-sm font-medium shrink-0">
                       {p.first_name} {p.last_name}
