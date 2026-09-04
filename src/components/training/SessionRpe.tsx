@@ -291,7 +291,7 @@ export function SessionRpe({
                   <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                   <XAxis dataKey="label" tick={{ fontSize: 9, fill: "currentColor" }} tickLine={false} axisLine={false} className="text-muted-foreground" />
                   <YAxis tick={{ fontSize: 9, fill: "currentColor" }} tickLine={false} axisLine={false} width={44} className="text-muted-foreground" />
-                  <Tooltip />
+                  <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12, color: "hsl(var(--foreground))" }} />
                   <Line
                     type="monotone"
                     dataKey="charge"
