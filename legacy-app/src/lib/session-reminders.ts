@@ -237,13 +237,15 @@ export async function sendSessionReminders(
       }
     }
 
-    const refIds = [...recipientIds].map((uid) => `seance-relance:${ev.id}:${uid}`);
+    // Deux types de reference_id selon le moment de la relance
+    const refIdsSoir = [...recipientIds].map((uid) => `seance-relance:${ev.id}:${uid}`);
+    const refIdsMatin = [...recipientIds].map((uid) => `seance-relance-matin:${ev.id}:${uid}`);
 
     const { data: existingData, error: existingError } = await supabase
       .from("notifications")
       .select("reference_id")
       .eq("type", "relance_seance")
-      .in("reference_id", refIds);
+      .in("reference_id", [...refIdsSoir, ...refIdsMatin]);
 
     if (existingError) {
       console.error("[session-reminders] notifications error:", existingError);
@@ -254,30 +256,45 @@ export async function sendSessionReminders(
       ((existingData || []) as { reference_id: string }[]).map((n) => n.reference_id)
     );
 
-    // Programmer la relance pour le lendemain matin 7h (Europe/Paris) de la séance
+    // Deux relances avec des reference_id distincts :
+    // 1) Le soir même (immédiate) — créée dès que la séance est passée
+    // 2) Le lendemain matin — créée seulement si le joueur n'a toujours
+    //    pas répondu (il est encore dans `missing` au cycle suivant du cron)
     const eventDate = new Date(ev.event_date);
-    const nextMorning = new Date(eventDate);
-    nextMorning.setDate(nextMorning.getDate() + 1);
-    nextMorning.setHours(7, 0, 0, 0);
-    // Ajuster pour le fuseau Europe/Paris (+1h hiver, +2h été) → on vise ~7h local
-    // Approximation : stocker en UTC, le cron à 20h UTC livrera les notifications
-    // dont scheduled_for <= now. Si scheduled_for = lendemain 5h UTC (= 7h Paris été),
-    // le cron de 20h UTC le jour suivant les livrera.
-    const scheduledFor = nextMorning.getTime() <= Date.now() ? now : nextMorning.toISOString();
+    const hoursSinceEvent = (nowDate.getTime() - eventDate.getTime()) / (1000 * 60 * 60);
 
     for (const uid of recipientIds) {
-      const referenceId = `seance-relance:${ev.id}:${uid}`;
-      if (existingRefs.has(referenceId)) continue;
-      allRows.push({
-        user_id: uid,
-        team_id: ev.team_id,
-        type: "relance_seance",
-        title: "Analyse de séance à compléter",
-        body: "Merci de renseigner ton RPE et/ou ton analyse de séance pour l'entraînement passé.",
-        reference_id: referenceId,
-        url: `/trainings/${ev.id}`,
-        scheduled_for: scheduledFor,
-      });
+      // Relance soir : immédiate, dès que la séance est passée
+      const refSoir = `seance-relance:${ev.id}:${uid}`;
+      if (!existingRefs.has(refSoir)) {
+        allRows.push({
+          user_id: uid,
+          team_id: ev.team_id,
+          type: "relance_seance",
+          title: "Analyse de séance à compléter",
+          body: "Merci de renseigner ton RPE et/ou ton analyse de séance pour l'entraînement passé.",
+          reference_id: refSoir,
+          url: `/trainings/${ev.id}`,
+          scheduled_for: now,
+        });
+      }
+      // Relance matin : seulement si la séance date de plus de 8h
+      // (le joueur n'a pas répondu le soir, le cron du lendemain le relance)
+      if (hoursSinceEvent >= 8) {
+        const refMatin = `seance-relance-matin:${ev.id}:${uid}`;
+        if (!existingRefs.has(refMatin)) {
+          allRows.push({
+            user_id: uid,
+            team_id: ev.team_id,
+            type: "relance_seance",
+            title: "N'oublie pas ton RPE !",
+            body: "Tu n'as pas encore renseigné ton RPE pour l'entraînement d'hier. Ça ne prend que 10 secondes.",
+            reference_id: refMatin,
+            url: `/trainings/${ev.id}`,
+            scheduled_for: now,
+          });
+        }
+      }
     }
   }
 
