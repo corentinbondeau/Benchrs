@@ -105,12 +105,23 @@ export async function createAutoConvocations(
 
     const activeIds = (profiles || []).map((p: { id: string }) => p.id);
 
-    // 3. Récupérer les parents des joueurs actifs
-    const parentLinks = activeIds.length > 0
+    // Exclure les joueurs blessés
+    const { data: activeInjuries } = await supabase
+      .from("injuries")
+      .select("player_id")
+      .eq("team_id", teamId)
+      .eq("status", "active");
+    const injuredIds = new Set(
+      (activeInjuries || []).map((i) => (i as { player_id: string }).player_id)
+    );
+    const healthyIds = activeIds.filter((id) => !injuredIds.has(id));
+
+    // 3. Récupérer les parents des joueurs sains (non blessés)
+    const parentLinks = healthyIds.length > 0
       ? await supabase
           .from("parent_student")
           .select("parent_id, student_id")
-          .in("student_id", activeIds)
+          .in("student_id", healthyIds)
       : { data: [] };
 
     const parentIds = [
@@ -121,8 +132,8 @@ export async function createAutoConvocations(
       ),
     ];
 
-    // Liste complète des destinataires (joueurs actifs + parents)
-    const allUserIds = [...new Set([...activeIds, ...parentIds])];
+    // Liste complète des destinataires (joueurs sains + leurs parents)
+    const allUserIds = [...new Set([...healthyIds, ...parentIds])];
 
     if (allUserIds.length === 0) {
       await supabase
@@ -179,7 +190,7 @@ export async function createAutoConvocations(
     }
 
     // 6. Créer les lignes attendance (ensureAttendanceRows gère le dedup interne)
-    await ensureAttendanceRows(ev.id, teamId, activeIds);
+    await ensureAttendanceRows(ev.id, teamId, healthyIds);
 
     // 7. Marquer l'événement comme convoqué
     await supabase

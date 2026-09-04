@@ -23,6 +23,9 @@ import {
   CalendarDays,
   Check,
   ClipboardList,
+  ExternalLink,
+  FileText,
+  FileUp,
   Loader2,
   MapPin,
   PenLine,
@@ -67,6 +70,7 @@ export default function MeetingsPage() {
   const [signFor, setSignFor] = useState<ParentMeeting | null>(null);
   const [notifyingId, setNotifyingId] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [uploadingPdf, setUploadingPdf] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     const supabase = createClient();
@@ -239,6 +243,43 @@ export default function MeetingsPage() {
     }
   }
 
+  async function handleUploadPdf(meetingId: string, file?: File | null) {
+    if (!file || !currentTeam) return;
+    if (file.type !== "application/pdf") {
+      toast.error("Seuls les fichiers PDF sont acceptés");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("Le fichier ne doit pas dépasser 10 Mo");
+      return;
+    }
+    setUploadingPdf(meetingId);
+    const supabase = createClient();
+    const path = `meetings/${currentTeam.id}/${meetingId}/${Date.now()}_${file.name}`;
+    const { error: uploadError } = await supabase.storage
+      .from("gallery")
+      .upload(path, file, { contentType: "application/pdf", upsert: true });
+    if (uploadError) {
+      toast.error("Erreur lors de l'envoi du PDF");
+      setUploadingPdf(null);
+      return;
+    }
+    const { data: { publicUrl } } = supabase.storage.from("gallery").getPublicUrl(path);
+    const { error: updateError } = await supabase
+      .from("parent_meetings")
+      .update({ report_pdf_url: publicUrl })
+      .eq("id", meetingId);
+    setUploadingPdf(null);
+    if (updateError) {
+      toast.error("Erreur lors de l'enregistrement");
+      return;
+    }
+    toast.success("PDF du compte-rendu ajouté");
+    setMeetings((prev) =>
+      prev.map((m) => m.id === meetingId ? { ...m, report_pdf_url: publicUrl } : m)
+    );
+  }
+
   if (!currentTeam) {
     return <div className="flex items-center justify-center h-64"><p className="text-muted-foreground">Chargement...</p></div>;
   }
@@ -374,16 +415,58 @@ export default function MeetingsPage() {
                       </div>
                     )}
                     {isCoach && (
-                      <div className="space-y-2 mt-2">
-                        <Input placeholder="Point du compte-rendu" value={minutesFor?.id === m.id ? minuteLabel : ""} onChange={(e) => { setMinutesFor(m); setMinuteLabel(e.target.value); }} className="text-sm h-8" />
-                        <Textarea placeholder="Contenu du point..." value={minutesFor?.id === m.id ? minuteContent : ""} onChange={(e) => { setMinutesFor(m); setMinuteContent(e.target.value); }} className="text-sm" rows={2} />
-                        <Button size="sm" className="h-8 text-xs" onClick={addMinute} disabled={!minuteLabel.trim() || !minuteContent.trim()}>
-                          Ajouter au compte-rendu
-                        </Button>
+                       <div className="space-y-2 mt-2">
+                         <Input placeholder="Point du compte-rendu" value={minutesFor?.id === m.id ? minuteLabel : ""} onChange={(e) => { setMinutesFor(m); setMinuteLabel(e.target.value); }} className="text-sm h-8" />
+                         <Textarea placeholder="Contenu du point..." value={minutesFor?.id === m.id ? minuteContent : ""} onChange={(e) => { setMinutesFor(m); setMinuteContent(e.target.value); }} className="text-sm" rows={2} />
+                         <Button size="sm" className="h-8 text-xs" onClick={addMinute} disabled={!minuteLabel.trim() || !minuteContent.trim()}>
+                           Ajouter au compte-rendu
+                         </Button>
+                       </div>
+                     )}
+                    {isCoach && (
+                      <div className="flex items-center gap-2 mt-2">
+                        <label className="flex items-center gap-1.5 cursor-pointer rounded-lg border border-dashed border-border px-3 py-2 text-xs text-muted-foreground hover:bg-muted/50 transition-colors">
+                          <FileUp className="h-3.5 w-3.5" />
+                          {uploadingPdf === m.id ? "Envoi en cours..." : "Joindre un PDF"}
+                          <input
+                            type="file"
+                            accept=".pdf"
+                            className="hidden"
+                            onChange={(e) => handleUploadPdf(m.id, e.target.files?.[0])}
+                            disabled={uploadingPdf === m.id}
+                          />
+                        </label>
                       </div>
                     )}
-                  </div>
-                )}
+                    {m.report_pdf_url && (
+                      <div className="flex items-center gap-2 mt-2">
+                        <a
+                          href={m.report_pdf_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1.5 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 px-3 py-2 text-xs text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-950/50 transition-colors"
+                        >
+                          <FileText className="h-3.5 w-3.5" />
+                          Compte-rendu PDF
+                          <ExternalLink className="h-3 w-3 ml-auto" />
+                        </a>
+                        {isCoach && (
+                          <button
+                            className="text-red-500 hover:text-red-700 text-xs ml-1"
+                            onClick={async () => {
+                              const supabase = createClient();
+                              await supabase.from("parent_meetings").update({ report_pdf_url: null }).eq("id", m.id);
+                              setMeetings((prev) => prev.map((mt) => mt.id === m.id ? { ...mt, report_pdf_url: null } : mt));
+                              toast.success("PDF retiré");
+                            }}
+                          >
+                            Retirer
+                          </button>
+                        )}
+                      </div>
+                    )}
+                   </div>
+                 )}
 
                 {/* Signatures */}
                 <div className="rounded-lg bg-muted/40 p-3">

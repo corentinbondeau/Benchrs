@@ -474,11 +474,23 @@ async function sendAttendanceReminders(supabase: ReturnType<typeof createAdminCl
     const activeIds = (profiles || []).map((p) => p.id);
     if (activeIds.length === 0) continue;
 
+    // Exclure les joueurs blessés des relances de convocation
+    const { data: activeInjuriesRelance } = await supabase
+      .from("injuries")
+      .select("player_id")
+      .eq("team_id", ev.team_id)
+      .eq("status", "active");
+    const injuredIdsRelance = new Set(
+      (activeInjuriesRelance || []).map((i) => (i as { player_id: string }).player_id)
+    );
+    const healthyActiveIds = activeIds.filter((id) => !injuredIdsRelance.has(id));
+    if (healthyActiveIds.length === 0) continue;
+
     const { data: links } = await supabase
       .from("parent_student")
       .select("parent_id")
       .eq("team_id", ev.team_id)
-      .in("student_id", activeIds);
+      .in("student_id", healthyActiveIds);
     const parentIds = [...new Set((links || []).map((l) => (l as { parent_id: string }).parent_id))];
 
     const isMatch = ev.type === "match";
@@ -492,7 +504,7 @@ async function sendAttendanceReminders(supabase: ReturnType<typeof createAdminCl
       minute: "2-digit",
     });
 
-    for (const uid of activeIds) {
+    for (const uid of healthyActiveIds) {
       const ref = `relance:${ev.id}:${uid}`;
       const { data: existing } = await supabase
         .from("notifications")

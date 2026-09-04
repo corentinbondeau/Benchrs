@@ -55,7 +55,7 @@ export default function CarpoolingPage() {
     Promise.all([
       supabase
         .from("carpooling_trips")
-        .select("*, event:events!carpooling_trips_event_id_fkey(*), driver:profiles!carpooling_trips_driver_id_fkey(first_name, last_name, avatar_url), bookings:carpooling_bookings(*, passenger:profiles!carpooling_bookings_passenger_id_fkey(first_name, last_name, avatar_url))")
+        .select("*, event:events!carpooling_trips_event_id_fkey(*), driver:profiles!carpooling_trips_driver_id_fkey(first_name, last_name, avatar_url, city), bookings:carpooling_bookings(*, passenger:profiles!carpooling_bookings_passenger_id_fkey(first_name, last_name, avatar_url, city))")
         .eq("team_id", teamId)
         .order("created_at", { ascending: false }),
       supabase
@@ -290,6 +290,7 @@ export default function CarpoolingPage() {
                       </p>
                       <p className="text-xs text-muted-foreground mt-0.5">
                         {trip.driver?.first_name} {trip.driver?.last_name}
+                        {trip.driver?.city && <span className="ml-1">· {trip.driver.city}</span>}
                         {isMyTrip && <span className="text-[var(--color-primary-blue)] ml-1">(vous)</span>}
                       </p>
 
@@ -416,6 +417,7 @@ export default function CarpoolingPage() {
                         </Avatar>
                         <span className="text-sm flex-1">
                           {b.passenger?.first_name} {b.passenger?.last_name}
+                          {b.passenger?.city && <span className="text-xs text-muted-foreground ml-1">· {b.passenger.city}</span>}
                           {(b.passenger_id === user?.id || b.passenger_id === passengerId) && <span className="text-[var(--color-primary-blue)] text-xs ml-1">(vous)</span>}
                         </span>
                         <span className="text-xs text-muted-foreground">

@@ -187,7 +187,18 @@ export async function sendSessionReminders(
       continue;
     }
 
-    const activePlayerIds = ((profilesData || []) as { id: string }[]).map((p) => p.id);
+    const activeProfileIds = ((profilesData || []) as { id: string }[]).map((p) => p.id);
+
+    // Exclure les joueurs blessés des relances RPE/séance
+    const { data: activeInjuriesRpe } = await supabase
+      .from("injuries")
+      .select("player_id")
+      .eq("team_id", ev.team_id)
+      .eq("status", "active");
+    const injuredIdsRpe = new Set(
+      (activeInjuriesRpe || []).map((i) => (i as { player_id: string }).player_id)
+    );
+    const activePlayerIds = activeProfileIds.filter((id) => !injuredIdsRpe.has(id));
 
     const missing = computeMissingResponders({
       attendances,

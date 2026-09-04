@@ -61,6 +61,7 @@ export default function SettingsPage() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
+  const [city, setCity] = useState("");
   const [position, setPosition] = useState("");
   const [shirtNumber, setShirtNumber] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
@@ -83,6 +84,7 @@ export default function SettingsPage() {
       setFirstName(p.first_name || "");
       setLastName(p.last_name || "");
       setPhone(p.phone || "");
+      setCity(p.city || "");
       setPosition(p.position || "");
       setShirtNumber(p.shirt_number?.toString() || "");
       setDateOfBirth(p.date_of_birth || "");
@@ -154,6 +156,7 @@ export default function SettingsPage() {
     (firstName !== (user.profile as Profile).first_name ||
       lastName !== (user.profile as Profile).last_name ||
       phone !== ((user.profile as Profile).phone || "") ||
+      city !== ((user.profile as Profile).city || "") ||
       position !== ((user.profile as Profile).position || "") ||
       shirtNumber !== ((user.profile as Profile).shirt_number?.toString() || "") ||
       dateOfBirth !== ((user.profile as Profile).date_of_birth || "") ||
@@ -176,6 +179,7 @@ export default function SettingsPage() {
         first_name: firstName.trim(),
         last_name: lastName.trim(),
         phone: phone.trim() || null,
+        city: city.trim() || null,
         position: position || null,
         shirt_number: shirtNumber ? parseInt(shirtNumber) : null,
         date_of_birth: dateOfBirth || null,
@@ -331,6 +335,14 @@ export default function SettingsPage() {
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="06 12 34 56 78"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Ville</Label>
+              <Input
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                placeholder="Ex : Lille, Camphin-en-Pévèle..."
               />
             </div>
             <div className="space-y-2">

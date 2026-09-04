@@ -74,7 +74,7 @@ export function ConvocationsDialog({ event, open, onOpenChange }: ConvocationsDi
       .eq("id", event.id)
       .single();
 
-    const playersData = await fetchTeamActivePlayers(currentTeam.id);
+    const playersData = await fetchTeamActivePlayers(currentTeam.id, ["player"], { excludeInjured: true });
 
     const { data: attData } = await supabase
       .from("attendances")

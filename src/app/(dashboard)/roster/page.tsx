@@ -89,7 +89,7 @@ export default function RosterPage() {
 
       const { data: profiles } = await supabase
         .from("profiles")
-        .select("id, first_name, last_name, role, position, shirt_number, date_of_birth, phone, vma, vmi, avatar_url")
+        .select("id, first_name, last_name, role, position, shirt_number, date_of_birth, phone, vma, vmi, avatar_url, city")
         .in("id", rows.map((r) => r.user_id))
         .order("last_name", { ascending: true });
 
@@ -150,7 +150,7 @@ export default function RosterPage() {
         }
         const { data: profiles } = await supabase
           .from("profiles")
-          .select("id, first_name, last_name, role, position, shirt_number, date_of_birth, phone, vma, vmi, avatar_url")
+          .select("id, first_name, last_name, role, position, shirt_number, date_of_birth, phone, vma, vmi, avatar_url, city")
           .in("id", rows.map((r) => r.user_id))
           .order("last_name", { ascending: true });
         setAllProfiles(
@@ -305,6 +305,9 @@ export default function RosterPage() {
                 <div className="flex-1 min-w-0">
                    <p className="font-semibold text-[15px]">
                      {profile.first_name} {profile.last_name}
+                     {!isPlayer && !isCoach && profile.city && (
+                       <span className="text-xs text-muted-foreground"> · {profile.city}</span>
+                     )}
                    </p>
                    <div className="flex items-center gap-1.5 flex-wrap">
                      <p className="text-sm text-muted-foreground">

@@ -73,6 +73,7 @@ export interface Profile {
   allergies?: string | null;
   licence_number?: string | null;
   emergency_contacts?: EmergencyContact[] | null;
+  city?: string | null;
   team_id: string | null;
   onboarding_completed_at?: string | null;
   created_at: string;
@@ -833,6 +834,7 @@ export interface ParentMeeting {
   status: "planned" | "done" | "cancelled";
   created_by: string | null;
   created_at: string;
+  report_pdf_url?: string | null;
 }
 
 export interface MeetingSignature {
