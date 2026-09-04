@@ -20,12 +20,11 @@ export function CityRequiredGuard() {
   const [city, setCity] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const isParent = userRole === "parent";
+  const mustFill = userRole === "parent" || userRole === "coach" || userRole === "owner";
   const profile = user?.profile as Profile | undefined;
   const hasCity = !!profile?.city?.trim();
 
-  // Ne rien afficher si ce n'est pas un parent ou si la ville est déjà renseignée
-  if (!isParent || hasCity || !profile) return null;
+  if (!mustFill || hasCity || !profile) return null;
 
   async function handleSave() {
     if (!city.trim()) {
