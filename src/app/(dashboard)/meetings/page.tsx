@@ -254,30 +254,29 @@ export default function MeetingsPage() {
       return;
     }
     setUploadingPdf(meetingId);
-    const supabase = createClient();
-    const path = `meetings/${currentTeam.id}/${meetingId}/${Date.now()}_${file.name}`;
-    const { error: uploadError } = await supabase.storage
-      .from("gallery")
-      .upload(path, file, { contentType: "application/pdf", upsert: true });
-    if (uploadError) {
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("meetingId", meetingId);
+      formData.append("teamId", currentTeam.id);
+      const res = await authFetch("/api/meetings/upload-pdf", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "Erreur lors de l'envoi du PDF");
+        return;
+      }
+      toast.success("PDF du compte-rendu ajouté");
+      setMeetings((prev) =>
+        prev.map((m) => m.id === meetingId ? { ...m, report_pdf_url: data.url } : m)
+      );
+    } catch {
       toast.error("Erreur lors de l'envoi du PDF");
+    } finally {
       setUploadingPdf(null);
-      return;
     }
-    const { data: { publicUrl } } = supabase.storage.from("gallery").getPublicUrl(path);
-    const { error: updateError } = await supabase
-      .from("parent_meetings")
-      .update({ report_pdf_url: publicUrl })
-      .eq("id", meetingId);
-    setUploadingPdf(null);
-    if (updateError) {
-      toast.error("Erreur lors de l'enregistrement");
-      return;
-    }
-    toast.success("PDF du compte-rendu ajouté");
-    setMeetings((prev) =>
-      prev.map((m) => m.id === meetingId ? { ...m, report_pdf_url: publicUrl } : m)
-    );
   }
 
   if (!currentTeam) {

@@ -3,10 +3,8 @@ import { useEffect, useState } from "react";
 import { WifiOff } from "lucide-react";
 
 export function OfflineBanner() {
-  // Initialisation via lazy initializer pour éviter un setState synchrone dans useEffect
-  const [offline, setOffline] = useState<boolean>(
-    typeof navigator !== "undefined" ? !navigator.onLine : false
-  );
+  // Ne jamais afficher au premier render — ne réagir qu'aux vrais événements offline/online
+  const [offline, setOffline] = useState(false);
 
   useEffect(() => {
     const goOffline = () => setOffline(true);
