@@ -6,6 +6,7 @@ import {
   forbidden,
   isTeamCoach,
 } from "@/lib/api-auth";
+import { deliverPendingNotifications } from "@/lib/deliver-notifications";
 
 export const dynamic = "force-dynamic";
 
@@ -60,6 +61,7 @@ export async function POST(req: Request) {
   const userIds = [...new Set([cotisation.player_id, ...parentIds])];
 
   const playerName = profile ? `${profile.first_name} ${profile.last_name}` : "un joueur";
+  const now = new Date().toISOString();
   const { error } = await supabase.from("notifications").insert(
     userIds.map((uid: string) => ({
       user_id: uid,
@@ -69,12 +71,19 @@ export async function POST(req: Request) {
       body: `Le solde de la cotisation de ${playerName} (saison ${cotisation.season}) s'élève à ${remaining.toFixed(2)} €. Pensez à régulariser.`,
       reference_id: `relance:${cotisation.id}`,
       url: "/admin/treasury",
-      delivered_at: new Date().toISOString(),
+      scheduled_for: now,
     }))
   );
   if (error) {
     console.error("[treasury/relance] insert error:", error);
     return NextResponse.json({ error: "Erreur lors de l'envoi" }, { status: 500 });
+  }
+
+  // Livrer les notifications immédiatement (push)
+  try {
+    await deliverPendingNotifications(supabase);
+  } catch (deliverErr) {
+    console.error("[treasury/relance] delivery error:", deliverErr);
   }
 
   return NextResponse.json({ ok: true, sent: userIds.length });
