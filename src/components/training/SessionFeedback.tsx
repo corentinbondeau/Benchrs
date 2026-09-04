@@ -261,11 +261,11 @@ export function SessionFeedback({
             )}
             {history.length > 0 && (
               <div className="rounded-lg bg-muted/40 p-3">
-                <p className="text-xs font-medium flex items-center gap-1.5 mb-2 text-muted-foreground">
+                <p className="text-xs font-medium flex items-center gap-1.5 mb-4 text-muted-foreground">
                   <TrendingUp className="h-3.5 w-3.5" />
                   Moyenne des notes (10 dernières séances)
                 </p>
-                <div className="flex items-end gap-1.5 h-20">
+                <div className="flex items-end gap-1.5 h-24">
                   {history.map((h, i) => (
                     <div key={i} className="flex-1 flex flex-col items-center gap-1">
                       <span className="text-[10px] font-semibold text-foreground">{h.avg > 0 ? h.avg.toFixed(1) : "—"}</span>

@@ -288,9 +288,9 @@ export function SessionRpe({
             ) : (
               <ResponsiveContainer width="100%" height={150}>
                 <LineChart data={chart} margin={{ top: 5, right: 5, left: -18, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                  <XAxis dataKey="label" tick={{ fontSize: 9 }} tickLine={false} axisLine={false} />
-                  <YAxis tick={{ fontSize: 9 }} tickLine={false} axisLine={false} width={44} />
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                  <XAxis dataKey="label" tick={{ fontSize: 9, fill: "currentColor" }} tickLine={false} axisLine={false} className="text-muted-foreground" />
+                  <YAxis tick={{ fontSize: 9, fill: "currentColor" }} tickLine={false} axisLine={false} width={44} className="text-muted-foreground" />
                   <Tooltip />
                   <Line
                     type="monotone"
