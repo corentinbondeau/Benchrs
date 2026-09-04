@@ -8,6 +8,12 @@ export function createClient() {
 }
 
 export async function getSessionAccessToken(): Promise<string | null> {
-  const { data } = await createClient().auth.getSession();
-  return data.session?.access_token ?? null;
+  const supabase = createClient();
+  // Tenter un refresh si le token est expiré
+  const { data } = await supabase.auth.getSession();
+  if (!data.session) {
+    const { data: refreshed } = await supabase.auth.refreshSession();
+    return refreshed.session?.access_token ?? null;
+  }
+  return data.session.access_token;
 }
