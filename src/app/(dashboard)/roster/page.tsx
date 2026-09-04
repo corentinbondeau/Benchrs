@@ -305,7 +305,7 @@ export default function RosterPage() {
                 <div className="flex-1 min-w-0">
                    <p className="font-semibold text-[15px]">
                      {profile.first_name} {profile.last_name}
-                     {!isPlayer && !isCoach && profile.city && (
+                     {!isPlayer && profile.city && (
                        <span className="text-xs text-muted-foreground"> · {profile.city}</span>
                      )}
                    </p>
