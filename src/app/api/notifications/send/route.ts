@@ -218,25 +218,28 @@ export async function POST(req: Request) {
       .select("endpoint, p256dh, auth")
       .in("user_id", pushUserIds);
 
-    let sent = 0;
-    for (const sub of (subscriptions || []) as { endpoint: string; p256dh: string; auth: string }[]) {
-      try {
-        await webpush.sendNotification(
-          { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-          JSON.stringify({ title, body: notifBody, url: url || "/" })
-        );
-        sent++;
-      } catch (err) {
-        console.error("[notifications/send] push failed for", sub.endpoint, err);
-        const statusCode = (err as { statusCode?: number })?.statusCode;
-        if (statusCode === 404 || statusCode === 410) {
-          await supabase
-            .from("push_subscriptions")
-            .delete()
-            .eq("endpoint", sub.endpoint);
-        }
-      }
-    }
+    const jsonPayload = JSON.stringify({ title, body: notifBody, url: url || "/" });
+    const pushResults = await Promise.allSettled(
+      (subscriptions || [] as { endpoint: string; p256dh: string; auth: string }[]).map(
+        (sub: { endpoint: string; p256dh: string; auth: string }) =>
+          webpush
+            .sendNotification(
+              { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+              jsonPayload
+            )
+            .catch(async (err) => {
+              console.error("[notifications/send] push failed for", sub.endpoint, err);
+              const statusCode = (err as { statusCode?: number })?.statusCode;
+              if (statusCode === 404 || statusCode === 410) {
+                await supabase
+                  .from("push_subscriptions")
+                  .delete()
+                  .eq("endpoint", sub.endpoint);
+              }
+            })
+      )
+    );
+    const sent = pushResults.filter((r) => r.status === "fulfilled").length;
 
     return NextResponse.json({ ok: true, sent });
   } catch (err) {

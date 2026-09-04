@@ -7,7 +7,7 @@ import {
   type RpeRow,
   type FeedbackRow,
 } from "@/lib/session-reminders";
-import { deliverPendingNotifications } from "@/lib/deliver-notifications";
+import { sendPushDirect } from "@/lib/send-push-direct";
 
 export const dynamic = "force-dynamic";
 
@@ -161,6 +161,9 @@ export async function POST(
       reference_id: `seance-relance:${eventRow.id}:${uid}:${now}`,
       url: `/trainings/${eventRow.id}`,
       scheduled_for: now,
+      // Marquer delivered_at à l'insertion : le push est envoyé directement
+      // (pas de passage par le cron). Évite un UPDATE séparé.
+      delivered_at: now,
     }));
 
     if (rows.length === 0) {
@@ -176,12 +179,20 @@ export async function POST(
       );
     }
 
-    // Livrer immédiatement les notifications créées (push direct, sans attendre le cron)
+    // Envoyer le push directement aux destinataires (sans passer par le cron)
     try {
-      await deliverPendingNotifications(supabase);
-    } catch (deliverErr) {
+      await sendPushDirect(
+        supabase,
+        [...recipientIds],
+        {
+          title: "Analyse de séance à compléter",
+          body: "Merci de renseigner ton RPE et/ou ton analyse de séance pour l'entraînement passé.",
+          url: `/trainings/${eventRow.id}`,
+        }
+      );
+    } catch (pushErr) {
       // Non-bloquant : la livraison sera reprise par le cron si elle échoue
-      console.error("[remind-session] deliverPendingNotifications error:", deliverErr);
+      console.error("[remind-session] sendPushDirect error:", pushErr);
     }
 
     return NextResponse.json({ ok: true, reminded: rows.length });

@@ -6,7 +6,7 @@ import {
   forbidden,
   isTeamCoach,
 } from "@/lib/api-auth";
-import { deliverPendingNotifications } from "@/lib/deliver-notifications";
+import { sendPushDirect } from "@/lib/send-push-direct";
 
 export const dynamic = "force-dynamic";
 
@@ -62,16 +62,20 @@ export async function POST(req: Request) {
 
   const playerName = profile ? `${profile.first_name} ${profile.last_name}` : "un joueur";
   const now = new Date().toISOString();
+  const notifBody = `Le solde de la cotisation de ${playerName} (saison ${cotisation.season}) s'élève à ${remaining.toFixed(2)} €. Pensez à régulariser.`;
   const { error } = await supabase.from("notifications").insert(
     userIds.map((uid: string) => ({
       user_id: uid,
       team_id: teamId,
       type: "relance",
       title: "Relance cotisation",
-      body: `Le solde de la cotisation de ${playerName} (saison ${cotisation.season}) s'élève à ${remaining.toFixed(2)} €. Pensez à régulariser.`,
+      body: notifBody,
       reference_id: `relance:${cotisation.id}`,
       url: "/admin/treasury",
       scheduled_for: now,
+      // Marquer delivered_at à l'insertion : le push est envoyé directement
+      // (pas de passage par le cron). Évite un UPDATE séparé.
+      delivered_at: now,
     }))
   );
   if (error) {
@@ -79,11 +83,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Erreur lors de l'envoi" }, { status: 500 });
   }
 
-  // Livrer les notifications immédiatement (push)
+  // Envoyer le push directement aux destinataires (sans passer par le cron)
   try {
-    await deliverPendingNotifications(supabase);
-  } catch (deliverErr) {
-    console.error("[treasury/relance] delivery error:", deliverErr);
+    await sendPushDirect(supabase, userIds, {
+      title: "Relance cotisation",
+      body: notifBody,
+      url: "/admin/treasury",
+    });
+  } catch (pushErr) {
+    console.error("[treasury/relance] sendPushDirect error:", pushErr);
   }
 
   return NextResponse.json({ ok: true, sent: userIds.length });

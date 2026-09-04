@@ -154,32 +154,41 @@ export async function deliverPendingNotifications(
       continue;
     }
 
-    // Tenter l'envoi push pour chaque souscription
+    // Tenter l'envoi push pour chaque souscription (en parallèle)
     const url = resolveUrl(notif);
-    for (const sub of subs) {
-      try {
-        await webpush.sendNotification(
-          { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-          JSON.stringify({ title: notif.title, body: notif.body, url })
-        );
-        console.log(
-          `[deliver-notifications] sent:ok notif=${notif.id} user=${notif.user_id} endpoint=${sub.endpoint}`
-        );
-        sent++;
-      } catch (err) {
-        console.error(
-          `[deliver-notifications] sent:failed notif=${notif.id} user=${notif.user_id} endpoint=${sub.endpoint}`,
-          err
-        );
-        const statusCode = (err as { statusCode?: number })?.statusCode;
-        if (statusCode === 404 || statusCode === 410) {
-          await supabase
-            .from("push_subscriptions")
-            .delete()
-            .eq("endpoint", sub.endpoint);
-        }
-      }
-    }
+    const pushPayload = JSON.stringify({ title: notif.title, body: notif.body, url });
+    const pushResults = await Promise.allSettled(
+      subs.map((sub) =>
+        webpush
+          .sendNotification(
+            { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+            pushPayload
+          )
+          .then(() => {
+            console.log(
+              `[deliver-notifications] sent:ok notif=${notif.id} user=${notif.user_id} endpoint=${sub.endpoint}`
+            );
+            return true;
+          })
+          .catch(async (err) => {
+            console.error(
+              `[deliver-notifications] sent:failed notif=${notif.id} user=${notif.user_id} endpoint=${sub.endpoint}`,
+              err
+            );
+            const statusCode = (err as { statusCode?: number })?.statusCode;
+            if (statusCode === 404 || statusCode === 410) {
+              await supabase
+                .from("push_subscriptions")
+                .delete()
+                .eq("endpoint", sub.endpoint);
+            }
+            return false;
+          })
+      )
+    );
+    sent += pushResults.filter(
+      (r) => r.status === "fulfilled" && r.value === true
+    ).length;
 
     // Marquer delivered dans tous les cas (push envoyé ou non)
     deliveredIds.push(notif.id);

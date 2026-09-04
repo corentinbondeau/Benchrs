@@ -331,7 +331,8 @@ describe("sendSessionReminders", () => {
   const now = new Date().toISOString();
 
   // =========================================================================
-  // CAS 8 — NOMINAL : 1 event training passé, 1 joueur manquant → 1 notification
+  // CAS 8 — NOMINAL : 1 event training passé, 1 joueur manquant → 2 notifications
+  //         (soir immédiate + lendemain matin si >8h depuis la séance)
   // =========================================================================
   it("insère une notification relance_seance pour un joueur manquant sur un entraînement passé", async () => {
     const event = makeEvent();
@@ -349,19 +350,16 @@ describe("sendSessionReminders", () => {
 
     expect(supabase._notificationsInsertMock).toHaveBeenCalled();
     const insertedRows: unknown[] = supabase._notificationsInsertMock.mock.calls[0][0];
-    expect(insertedRows).toHaveLength(1);
-    const row = insertedRows[0] as {
-      type: string;
-      reference_id: string;
-      url: string;
-      team_id: string;
-      user_id: string;
-    };
+    // 2 notifications : soir (immédiate) + matin (lendemain, car >8h depuis la séance)
+    expect(insertedRows).toHaveLength(2);
+    const refs = (insertedRows as { reference_id: string }[]).map((r) => r.reference_id);
+    expect(refs).toContain(`seance-relance:${event.id}:player-1`);
+    expect(refs).toContain(`seance-relance-matin:${event.id}:player-1`);
+    const row = insertedRows[0] as { type: string; url: string; team_id: string };
     expect(row.type).toBe("relance_seance");
-    expect(row.reference_id).toBe(`seance-relance:${event.id}:player-1`);
     expect(row.url).toBe(`/trainings/${event.id}`);
     expect(row.team_id).toBe("team-1");
-    expect(count).toBe(1);
+    expect(count).toBe(2);
   });
 
   // =========================================================================
@@ -378,6 +376,7 @@ describe("sendSessionReminders", () => {
       teamSettings: [{ team_id: "team-1", rpe_reminders_enabled: true }],
       existingNotifications: [
         { reference_id: `seance-relance:${event.id}:player-1` },
+        { reference_id: `seance-relance-matin:${event.id}:player-1` },
       ],
     });
 
@@ -407,15 +406,16 @@ describe("sendSessionReminders", () => {
 
     expect(supabase._notificationsInsertMock).toHaveBeenCalled();
     const insertedRows: unknown[] = supabase._notificationsInsertMock.mock.calls[0][0];
-    expect(insertedRows).toHaveLength(2);
+    // 4 notifications : (soir + matin) × (joueur + parent)
+    expect(insertedRows).toHaveLength(4);
 
     const refIds = insertedRows.map((r) => (r as { reference_id: string }).reference_id);
-    // Clé de dédup distincte par destinataire : joueur et parent ont chacun leur propre userId
     expect(refIds).toContain(`seance-relance:${event.id}:player-1`);
     expect(refIds).toContain(`seance-relance:${event.id}:parent-1`);
-    expect(new Set(refIds).size).toBe(2); // pas de clé partagée entre les deux destinataires
+    expect(refIds).toContain(`seance-relance-matin:${event.id}:player-1`);
+    expect(refIds).toContain(`seance-relance-matin:${event.id}:parent-1`);
 
-    expect(count).toBe(2);
+    expect(count).toBe(4);
   });
 
   // =========================================================================
@@ -478,7 +478,8 @@ describe("sendSessionReminders", () => {
     const count = await sendSessionReminders(supabase, now);
 
     expect(supabase._notificationsInsertMock).toHaveBeenCalled();
-    expect(count).toBe(1);
+    // 2 notifications : soir + matin (séance d'hier, >8h)
+    expect(count).toBe(2);
   });
 
   // =========================================================================
