@@ -24,8 +24,8 @@ export default function DashboardLayout({
     <AuthProvider>
       <TeamProvider>
         <UniversalOnboarding />
-        <CityRequiredGuard />
         <TeamGuard>
+          <CityRequiredGuard />
           <PushNotificationInit />
           <div className="flex h-screen overflow-hidden bg-background">
             {!isMobile && <Sidebar />}
