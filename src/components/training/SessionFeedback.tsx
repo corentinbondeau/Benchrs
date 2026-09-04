@@ -268,12 +268,12 @@ export function SessionFeedback({
                 <div className="flex items-end gap-1.5 h-20">
                   {history.map((h, i) => (
                     <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                      <span className="text-[10px] font-semibold">{h.avg > 0 ? h.avg.toFixed(1) : "—"}</span>
+                      <span className="text-[10px] font-semibold text-foreground">{h.avg > 0 ? h.avg.toFixed(1) : "—"}</span>
                       <div
                         className={`w-full rounded-t ${h.avg > 0 ? "bg-[var(--color-royal)]" : "bg-muted-foreground/20"}`}
                         style={{ height: `${Math.max(h.avg * 8, h.avg > 0 ? 4 : 2)}px` }}
                       />
-                      <span className="text-[9px] text-muted-foreground">{h.label}</span>
+                      <span className="text-[9px] text-foreground/60">{h.label}</span>
                     </div>
                   ))}
                 </div>
