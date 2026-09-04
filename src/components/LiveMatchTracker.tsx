@@ -807,6 +807,15 @@ export function LiveMatchTracker({
         ? ` : ${ev.score_us}-${ev.score_them}`
         : "";
     notifyLive(`🏁 Match terminé${scoreStr}`);
+
+    // Notification post-match : noter les joueurs et voter pour l'homme du match
+    // Envoyée avec un léger délai pour ne pas fusionner avec la notification de fin
+    setTimeout(() => {
+      notifyLive(
+        "⭐ Note tes coéquipiers et vote pour l'homme du match !",
+        "Donne ta note et choisis le meilleur joueur du match."
+      );
+    }, 3000);
   }
 
   async function reopenMatch() {
