@@ -254,6 +254,17 @@ export async function sendSessionReminders(
       ((existingData || []) as { reference_id: string }[]).map((n) => n.reference_id)
     );
 
+    // Programmer la relance pour le lendemain matin 7h (Europe/Paris) de la séance
+    const eventDate = new Date(ev.event_date);
+    const nextMorning = new Date(eventDate);
+    nextMorning.setDate(nextMorning.getDate() + 1);
+    nextMorning.setHours(7, 0, 0, 0);
+    // Ajuster pour le fuseau Europe/Paris (+1h hiver, +2h été) → on vise ~7h local
+    // Approximation : stocker en UTC, le cron à 20h UTC livrera les notifications
+    // dont scheduled_for <= now. Si scheduled_for = lendemain 5h UTC (= 7h Paris été),
+    // le cron de 20h UTC le jour suivant les livrera.
+    const scheduledFor = nextMorning.getTime() <= Date.now() ? now : nextMorning.toISOString();
+
     for (const uid of recipientIds) {
       const referenceId = `seance-relance:${ev.id}:${uid}`;
       if (existingRefs.has(referenceId)) continue;
@@ -265,7 +276,7 @@ export async function sendSessionReminders(
         body: "Merci de renseigner ton RPE et/ou ton analyse de séance pour l'entraînement passé.",
         reference_id: referenceId,
         url: `/trainings/${ev.id}`,
-        scheduled_for: now,
+        scheduled_for: scheduledFor,
       });
     }
   }
