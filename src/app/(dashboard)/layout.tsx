@@ -8,6 +8,7 @@ import TopBar from "@/components/layout/TopBar";
 import BottomNav from "@/components/layout/BottomNav";
 import { PushNotificationInit } from "@/components/PushNotificationInit";
 import { UniversalOnboarding } from "@/components/onboarding/UniversalOnboarding";
+import { CityRequiredGuard } from "@/components/CityRequiredGuard";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useOfflineSync } from "@/lib/useOfflineQueue";
 
@@ -23,6 +24,7 @@ export default function DashboardLayout({
     <AuthProvider>
       <TeamProvider>
         <UniversalOnboarding />
+        <CityRequiredGuard />
         <TeamGuard>
           <PushNotificationInit />
           <div className="flex h-screen overflow-hidden bg-background">

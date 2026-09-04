@@ -63,6 +63,10 @@ vi.mock("@/components/onboarding/UniversalOnboarding", () => ({
   UniversalOnboarding: () => null,
 }));
 
+vi.mock("@/components/CityRequiredGuard", () => ({
+  CityRequiredGuard: () => null,
+}));
+
 // ─── Import SUT (après les mocks) ───────────────────────────────────────────
 import DashboardLayout from "@/app/(dashboard)/layout";
 
