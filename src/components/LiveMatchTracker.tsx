@@ -69,6 +69,10 @@ interface LiveMatchTrackerProps {
   endedAt: string | null;
   halftimeAt: string | null;
   resumedAt: string | null;
+  /** Ids des titulaires de la composition (pour restreindre les choix de substitution) */
+  starterIds?: string[];
+  /** Ids des remplaçants de la composition (pour restreindre les choix de substitution) */
+  benchIds?: string[];
   onMatchUpdate: (patch: LiveMatchPatch) => void;
   onStatsChange: () => void;
   /** Durée d'une mi-temps en minutes. Défaut : 45 */
@@ -235,6 +239,8 @@ export function LiveMatchTracker({
   endedAt,
   halftimeAt,
   resumedAt,
+  starterIds,
+  benchIds,
   onMatchUpdate,
   onStatsChange,
   halfDuration = 45,
@@ -242,9 +248,9 @@ export function LiveMatchTracker({
 }: LiveMatchTrackerProps) {
   const [events, setEvents] = useState<MatchEventRecord[]>([]);
   const [loading, setLoading] = useState(true);
-const [dialogType, setDialogType] = useState<LiveEventType | null>(null);
-const [ownGoalSide, setOwnGoalSide] = useState<"our" | "opponent">("our");
-const [minute, setMinute] = useState("");
+  const [dialogType, setDialogType] = useState<LiveEventType | null>(null);
+  const [ownGoalSide, setOwnGoalSide] = useState<"our" | "opponent">("our");
+  const [minute, setMinute] = useState("");
   const [saving, setSaving] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const [busyLive, setBusyLive] = useState(false);
@@ -259,6 +265,12 @@ const [minute, setMinute] = useState("");
   }, [onStatsChange]);
 
   const playerList = useMemo(() => sortedPlayers(players), [players]);
+
+  // Substitution contrainte par la composition : le sortant doit être titulaire,
+  // l'entrant doit être remplaçant — seulement si la composition est remplie.
+  const lineupFilled = (starterIds?.length ?? 0) > 0;
+  const subOutCandidates = lineupFilled ? starterIds : undefined;
+  const subInCandidates = lineupFilled ? benchIds : undefined;
 
   const startMs = startedAt ? new Date(startedAt).getTime() : null;
   const halftimeMs = halftimeAt ? new Date(halftimeAt).getTime() : null;
@@ -909,8 +921,12 @@ const [minute, setMinute] = useState("");
     name: string,
     label: string,
     allowEmpty: boolean,
-    emptyLabel = "Aucun"
+    emptyLabel = "Aucun",
+    candidateIds?: string[] | null
   ) {
+    const candidates = candidateIds
+      ? playerList.filter((p) => candidateIds.includes(p.id))
+      : playerList;
     return (
       <div className="space-y-1.5">
         <Label className="text-xs">{label}</Label>
@@ -919,9 +935,10 @@ const [minute, setMinute] = useState("");
           defaultValue=""
           className="flex h-9 w-full rounded-lg border border-input bg-transparent px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
         >
+          {candidates.length === 0 && <option value="">Aucun disponible</option>}
           {allowEmpty && <option value="">{emptyLabel}</option>}
           {!allowEmpty && <option value="">Choisir un joueur</option>}
-          {playerList.map((p) => (
+          {candidates.map((p) => (
             <option key={p.id} value={p.id}>
               {p.first_name} {p.last_name}
               {p.shirt_number ? ` (#${p.shirt_number})` : ""}
@@ -982,8 +999,13 @@ const [minute, setMinute] = useState("");
         renderPlayerSelect("player_id", pickerLabel("joueur"), false)}
       {dialogType === "substitution" && (
         <>
-          {renderPlayerSelect("player_id", "Joueur sortant", false)}
-          {renderPlayerSelect("related_player_id", "Joueur entrant", false)}
+          {lineupFilled && (
+            <p className="text-xs text-muted-foreground rounded-lg bg-muted/50 px-3 py-2">
+              Le remplaçant est restreint à la composition : titulaires pour le sortant, remplaçants pour l&apos;entrant.
+            </p>
+          )}
+          {renderPlayerSelect("player_id", "Joueur sortant", false, "Aucun", subOutCandidates)}
+          {renderPlayerSelect("related_player_id", "Joueur entrant", false, "Aucun", subInCandidates)}
         </>
       )}
       <div className="space-y-1.5">

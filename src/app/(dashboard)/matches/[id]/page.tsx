@@ -610,6 +610,8 @@ export default function MatchDetailPage() {
   const fd = formation?.formation_data as FormationData | null;
   const positions = fd?.positions || [];
   const captainId = fd?.captain_id;
+  const starterIds = positions.map((p) => p.player_id).filter((id): id is string => Boolean(id));
+  const benchIds = (fd?.bench || []).filter((id): id is string => Boolean(id));
 
   const statsWithProfiles = playerStats.map((ps) => ({
     ...ps,
@@ -1300,6 +1302,8 @@ export default function MatchDetailPage() {
           endedAt={match.match_ended_at ?? null}
           halftimeAt={match.match_halftime_at ?? null}
           resumedAt={match.match_resumed_at ?? null}
+          starterIds={starterIds}
+          benchIds={benchIds}
           onMatchUpdate={(patch) =>
             setMatch((prev) => (prev ? { ...prev, ...patch } : prev))
           }
