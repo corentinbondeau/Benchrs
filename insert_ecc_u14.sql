@@ -4,6 +4,13 @@
 -- Script idempotent : rejouable sans créer de doublon.
 -- NOTE : la ligne auth.identities est OBLIGATOIRE, sinon GoTrue renvoie
 --        400 "Invalid login credentials" au login.
+--
+-- Diagnostics en bas de sortie (onglet Messages du SQL Editor) :
+--   "X joueur(s) ajouté(s), Y déjà existant(s), Z en échec"
+--   + un WARNING par ligne en échec avec le message d'erreur exact.
+-- Le script ne plante jamais : une ligne en échec est signalée et on continue.
+
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 DO $$
 DECLARE
@@ -12,8 +19,19 @@ DECLARE
   v_player_id UUID;
   v_email TEXT;
   v_created INTEGER := 0;
+  v_skipped INTEGER := 0;
+  v_failed INTEGER := 0;
+  v_has_instance_id BOOLEAN;
   r RECORD;
 BEGIN
+  -- Détecte si le schéma auth.users de cette instance possède encore la
+  -- colonne instance_id (retirée dans les schémas récents). Erreur "column
+  -- instance_id does not exist" = c'est elle le problème, et ce bloc la gère.
+  SELECT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'auth' AND table_name = 'users' AND column_name = 'instance_id'
+  ) INTO v_has_instance_id;
+
   -- Club ECC
   SELECT id INTO v_club_id FROM clubs WHERE name = 'ECC';
   IF v_club_id IS NULL THEN
@@ -50,49 +68,75 @@ BEGIN
 
     -- Idempotence : on saute les comptes déjà présents
     IF EXISTS (SELECT 1 FROM auth.users WHERE email = v_email) THEN
+      v_skipped := v_skipped + 1;
       CONTINUE;
     END IF;
 
-    v_player_id := gen_random_uuid();
+    -- Chaque joueur dans un sous-bloc : une erreur sur une ligne est loggée
+    -- (WARNING) et on passe au suivant, sans faire échouer tout le script.
+    BEGIN
+      v_player_id := gen_random_uuid();
 
-    INSERT INTO auth.users (
-      id, instance_id, email, encrypted_password, email_confirmed_at,
-      raw_app_meta_data, raw_user_meta_data, aud, role,
-      created_at, updated_at, confirmation_sent_at, is_sso_user
-    )
-    VALUES (
-      v_player_id,
-      '00000000-0000-0000-0000-000000000000',
-      v_email,
-      crypt('Sportplus2024!', gen_salt('bf')),
-      now(),
-      '{"provider":"email","providers":["email"]}',
-      jsonb_build_object('first_name', r.first_name, 'last_name', r.last_name),
-      'authenticated', 'authenticated',
-      now(), now(), now(), false
-    );
+      IF v_has_instance_id THEN
+        INSERT INTO auth.users (
+          id, instance_id, email, encrypted_password, email_confirmed_at,
+          raw_app_meta_data, raw_user_meta_data, aud, role,
+          created_at, updated_at, confirmation_sent_at, is_sso_user
+        )
+        VALUES (
+          v_player_id,
+          '00000000-0000-0000-0000-000000000000',
+          v_email,
+          crypt('Sportplus2024!', gen_salt('bf')),
+          now(),
+          '{"provider":"email","providers":["email"]}',
+          jsonb_build_object('first_name', r.first_name, 'last_name', r.last_name),
+          'authenticated', 'authenticated',
+          now(), now(), now(), false
+        );
+      ELSE
+        INSERT INTO auth.users (
+          id, email, encrypted_password, email_confirmed_at,
+          raw_app_meta_data, raw_user_meta_data, aud, role,
+          created_at, updated_at, confirmation_sent_at, is_sso_user
+        )
+        VALUES (
+          v_player_id,
+          v_email,
+          crypt('Sportplus2024!', gen_salt('bf')),
+          now(),
+          '{"provider":"email","providers":["email"]}',
+          jsonb_build_object('first_name', r.first_name, 'last_name', r.last_name),
+          'authenticated', 'authenticated',
+          now(), now(), now(), false
+        );
+      END IF;
 
-    -- OBLIGATOIRE : sans cette identité, le login renvoie 400
-    INSERT INTO auth.identities (id, user_id, provider_id, identity_data, provider, created_at, updated_at)
-    VALUES (
-      gen_random_uuid(),
-      v_player_id,
-      v_player_id::text,
-      jsonb_build_object('sub', v_player_id::text, 'email', v_email, 'email_verified', true, 'phone_verified', false),
-      'email',
-      now(), now()
-    );
+      -- OBLIGATOIRE : sans cette identité, le login renvoie 400
+      INSERT INTO auth.identities (id, user_id, provider_id, identity_data, provider, created_at, updated_at)
+      VALUES (
+        gen_random_uuid(),
+        v_player_id,
+        v_player_id::text,
+        jsonb_build_object('sub', v_player_id::text, 'email', v_email, 'email_verified', true, 'phone_verified', false),
+        'email',
+        now(), now()
+      );
 
-    INSERT INTO profiles (id, role, first_name, last_name, position, shirt_number, is_active, team_id)
-    VALUES (v_player_id, 'player', r.first_name, r.last_name, r.position, r.shirt_number, true, v_team_id);
+      INSERT INTO profiles (id, role, first_name, last_name, position, shirt_number, is_active, team_id)
+      VALUES (v_player_id, 'player', r.first_name, r.last_name, r.position, r.shirt_number, true, v_team_id);
 
-    INSERT INTO team_members (team_id, user_id, role)
-    VALUES (v_team_id, v_player_id, 'player');
+      INSERT INTO team_members (team_id, user_id, role)
+      VALUES (v_team_id, v_player_id, 'player');
 
-    v_created := v_created + 1;
+      v_created := v_created + 1;
+    EXCEPTION WHEN OTHERS THEN
+      RAISE WARNING 'ÉCHEC création % (%) : %', r.first_name, v_email, SQLERRM;
+      v_failed := v_failed + 1;
+    END;
   END LOOP;
 
-  RAISE NOTICE '% joueur(s) inséré(s) pour U100 (les comptes déjà existants ont été ignorés)', v_created;
+  RAISE NOTICE '% joueur(s) ajouté(s), % déjà existant(s) (ignoré(s)), % en échec — équipe U100', v_created, v_skipped, v_failed;
   RAISE NOTICE 'Mot de passe pour tous : Sportplus2024!';
 END;
 $$;
