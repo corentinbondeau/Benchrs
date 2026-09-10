@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Save, Share2, Shield, User, ClipboardList, Loader2 } from "lucide-react";
+import { ArrowLeft, Save, Share2, Shield, User, ClipboardList, Loader2, Lock } from "lucide-react";
 import { toast } from "sonner";
 import type { Event, Formation, FormationData } from "@/types";
 
@@ -114,6 +114,7 @@ export default function FeuilleMatchPage() {
   const fd = formation?.formation_data as FormationData | null;
   const positions = fd?.positions || [];
   const captainId = fd?.captain_id;
+  const compositionHidden = !isCoach && formation?.visibility === "coach";
   const starters: LineupEntry[] = [];
   for (const pos of positions) {
     const player = lineups.find((l) => l.player_id === pos.player_id)?.profile;
@@ -220,6 +221,23 @@ export default function FeuilleMatchPage() {
         </CardContent>
       </Card>
 
+      {compositionHidden ? (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Shield className="h-4 w-4 text-[var(--color-royal)]" />
+              Composition
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="py-6 text-center">
+            <Lock className="h-6 w-6 mx-auto mb-2 text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">
+              La composition n&apos;est visible que par les coachs.
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+      <>
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
@@ -274,7 +292,10 @@ export default function FeuilleMatchPage() {
           )}
         </CardContent>
       </Card>
+      </>
+      )}
 
+      {!compositionHidden && (
       <Button
         className="w-full bg-[#25D366] hover:bg-[#1fb355] text-white font-semibold h-11"
         onClick={shareWhatsApp}
@@ -282,6 +303,7 @@ export default function FeuilleMatchPage() {
         <Share2 className="h-4 w-4 mr-2" />
         Partager sur WhatsApp
       </Button>
+      )}
     </div>
   );
 }

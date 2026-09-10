@@ -22,6 +22,7 @@ import { Crown } from "lucide-react";
 import { toast } from "sonner";
 import { hapticSuccess } from "@/lib/haptic";
 import type { Profile, Event, Formation, FormationData } from "@/types";
+import { VisibilityPicker, type FicheVisibility } from "@/components/training/FicheVisibilityPicker";
 import { ALL_FORMATIONS, FORMATIONS_BY_FORMAT } from "@/lib/lineup/formations";
 import { autoCompose as autoComposePure } from "@/lib/lineup/autoCompose";
 import { toMatchLineupRows } from "@/lib/lineup/toMatchLineups";
@@ -107,6 +108,7 @@ export function LineupEditor({
   const [pickingSlot, setPickingSlot] = useState<string | null>(null);
   const [captainId, setCaptainId] = useState<string | null>(null);
   const [muteStatusMap, setMuteStatusMap] = useState<Record<string, string | null>>({});
+  const [visibility, setVisibility] = useState<FicheVisibility>("team");
 
   // Formations disponibles pour le format courant
   const availableFormationNames = FORMATIONS_BY_FORMAT[matchFormat] ?? FORMATIONS_BY_FORMAT[11];
@@ -354,8 +356,12 @@ export function LineupEditor({
           setBenchAssignments(newBench);
         }
         setCaptainId(fd.captain_id || null);
+        if (existingFormation.visibility) {
+          setVisibility(existingFormation.visibility as FicheVisibility);
+        }
       } else {
         resetAssignments();
+        setVisibility("team");
       }
 
       setLoadingPlayers(false);
@@ -414,6 +420,7 @@ export function LineupEditor({
         .update({
           name: formationName,
           formation_data: formationData,
+          visibility,
         })
         .eq("id", loadedFormationId)
         .select()
@@ -435,6 +442,7 @@ export function LineupEditor({
           created_by: userId || null,
           is_default: true,
           team_id: teamId,
+          visibility,
         })
         .select()
         .single();
@@ -763,6 +771,10 @@ export function LineupEditor({
                 >
                   {pdfLoading ? "Génération..." : "Exporter PDF"}
                 </Button>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground font-medium">Visible par :</span>
+                  <VisibilityPicker value={visibility} onChange={setVisibility} />
+                </div>
               </>
             )}
             {isCoach && (

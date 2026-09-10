@@ -39,6 +39,8 @@ import { computeMinutesPlayed, type Substitution } from "@/lib/stats/computeMinu
 export type LiveEventType =
   | "goal"
   | "opponent_goal"
+  | "own_goal"
+  | "opponent_own_goal"
   | "yellow_card"
   | "red_card"
   | "substitution"
@@ -98,6 +100,20 @@ const EVENT_TYPE_CONFIG: Record<LiveEventType, EventTypeConfig> = {
     iconClass: "text-red-600",
     badgeClass: "bg-red-100 text-red-700 border-red-200",
   },
+  own_goal: {
+    label: "Contre son camp",
+    shortLabel: "CSC",
+    icon: Goal,
+    iconClass: "text-orange-600",
+    badgeClass: "bg-orange-100 text-orange-700 border-orange-200",
+  },
+  opponent_own_goal: {
+    label: "CSC adverse",
+    shortLabel: "CSC adv.",
+    icon: Goal,
+    iconClass: "text-purple-600",
+    badgeClass: "bg-purple-100 text-purple-700 border-purple-200",
+  },
   yellow_card: {
     label: "Carton jaune",
     shortLabel: "Jaune",
@@ -131,6 +147,8 @@ const EVENT_TYPE_CONFIG: Record<LiveEventType, EventTypeConfig> = {
 const EVENT_ORDER: LiveEventType[] = [
   "goal",
   "opponent_goal",
+  "own_goal",
+  "opponent_own_goal",
   "yellow_card",
   "red_card",
   "substitution",
@@ -165,6 +183,18 @@ function eventSummary(ev: MatchEventRecord, players: Profile[]) {
       return {
         text: "But de l'équipe adverse",
         detail: ev.notes || null,
+      };
+    case "own_goal":
+      return {
+        text: main
+          ? `Contre son camp de ${main}`
+          : "Contre son camp",
+        detail: ev.notes || null,
+      };
+    case "opponent_own_goal":
+      return {
+        text: ev.notes ? `CSC adverse — ${ev.notes}` : "CSC adverse",
+        detail: null,
       };
     case "yellow_card":
       return { text: main ? `Carton jaune pour ${main}` : "Carton jaune", detail: ev.notes || null };
@@ -213,8 +243,9 @@ export function LiveMatchTracker({
 }: LiveMatchTrackerProps) {
   const [events, setEvents] = useState<MatchEventRecord[]>([]);
   const [loading, setLoading] = useState(true);
-  const [dialogType, setDialogType] = useState<LiveEventType | null>(null);
-  const [minute, setMinute] = useState("");
+const [dialogType, setDialogType] = useState<LiveEventType | null>(null);
+const [ownGoalSide, setOwnGoalSide] = useState<"our" | "opponent">("our");
+const [minute, setMinute] = useState("");
   const [saving, setSaving] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const [busyLive, setBusyLive] = useState(false);
@@ -384,8 +415,12 @@ export function LiveMatchTracker({
       .eq("event_id", eventId)
       .eq("team_id", teamId);
     const rows = (data || []) as { event_type: string }[];
-    const us = rows.filter((r) => r.event_type === "goal").length;
-    const them = rows.filter((r) => r.event_type === "opponent_goal").length;
+    const us = rows.filter(
+      (r) => r.event_type === "goal" || r.event_type === "opponent_own_goal"
+    ).length;
+    const them = rows.filter(
+      (r) => r.event_type === "opponent_goal" || r.event_type === "own_goal"
+    ).length;
     const { error } = await supabase
       .from("events")
       .update({ score_us: us, score_them: them })
@@ -433,7 +468,7 @@ export function LiveMatchTracker({
     minute: number | null,
     relatedPlayerId?: string | null
   ) {
-    if (!["goal", "opponent_goal", "yellow_card", "red_card", "injury", "substitution"].includes(eventType)) {
+    if (!["goal", "opponent_goal", "own_goal", "opponent_own_goal", "yellow_card", "red_card", "injury", "substitution"].includes(eventType)) {
       return;
     }
     const p = playerList.find((pl) => pl.id === playerId);
@@ -442,15 +477,27 @@ export function LiveMatchTracker({
     let title = "";
     switch (eventType) {
       case "goal": {
-        const us = events.filter((e) => e.event_type === "goal").length + 1;
-        const them = events.filter((e) => e.event_type === "opponent_goal").length;
+        const us = events.filter((e) => e.event_type === "goal" || e.event_type === "opponent_own_goal").length + 1;
+        const them = events.filter((e) => e.event_type === "opponent_goal" || e.event_type === "own_goal").length;
         title = `⚽ But de ${name || "notre équipe"}${minStr} — ${us}-${them}`;
         break;
       }
       case "opponent_goal": {
-        const us = events.filter((e) => e.event_type === "goal").length;
-        const them = events.filter((e) => e.event_type === "opponent_goal").length + 1;
+        const us = events.filter((e) => e.event_type === "goal" || e.event_type === "opponent_own_goal").length;
+        const them = events.filter((e) => e.event_type === "opponent_goal" || e.event_type === "own_goal").length + 1;
         title = `But adverse${minStr} — ${us}-${them}`;
+        break;
+      }
+      case "own_goal": {
+        const us = events.filter((e) => e.event_type === "goal" || e.event_type === "opponent_own_goal").length;
+        const them = events.filter((e) => e.event_type === "opponent_goal" || e.event_type === "own_goal").length + 1;
+        title = `😅 Contre son camp de ${name || "notre équipe"}${minStr} — ${us}-${them}`;
+        break;
+      }
+      case "opponent_own_goal": {
+        const us = events.filter((e) => e.event_type === "goal" || e.event_type === "opponent_own_goal").length + 1;
+        const them = events.filter((e) => e.event_type === "opponent_goal" || e.event_type === "own_goal").length;
+        title = `😅 CSC adverse${minStr} — ${us}-${them}`;
         break;
       }
       case "yellow_card":
@@ -635,13 +682,24 @@ export function LiveMatchTracker({
     const playerId = fd.get("player_id")?.toString() || null;
     const relatedPlayerId = fd.get("related_player_id")?.toString() || null;
     const notes = fd.get("notes")?.toString().trim() || null;
+    const opponentName = fd.get("opponent_name")?.toString().trim() || "";
 
     if (minute !== null && (Number.isNaN(minute) || minute < 0 || minute > 120)) {
       toast.error("La minute doit être comprise entre 0 et 120");
       return;
     }
 
-    if (["goal", "yellow_card", "red_card", "injury"].includes(eventType) && !playerId) {
+    let actualType = eventType;
+    let insertNotes = notes;
+
+    if (eventType === "own_goal" && ownGoalSide === "opponent") {
+      actualType = "opponent_own_goal";
+      if (!opponentName) {
+        toast.error("Indiquez le nom du joueur adverse");
+        return;
+      }
+      insertNotes = opponentName;
+    } else if (["goal", "own_goal", "yellow_card", "red_card", "injury"].includes(eventType) && !playerId) {
       toast.error("Sélectionnez un joueur");
       return;
     }
@@ -658,11 +716,11 @@ export function LiveMatchTracker({
     const { error } = await supabase.from("match_events").insert({
       event_id: eventId,
       team_id: teamId,
-      event_type: eventType,
-      player_id: playerId,
+      event_type: actualType,
+      player_id: actualType === "opponent_own_goal" ? null : playerId,
       related_player_id: relatedPlayerId || null,
       minute,
-      notes,
+      notes: insertNotes,
       created_by: userId || null,
     });
     setSaving(false);
@@ -672,16 +730,16 @@ export function LiveMatchTracker({
       return;
     }
 
-    toast.success(`${EVENT_TYPE_CONFIG[eventType].label} ajouté`);
+    toast.success(`${EVENT_TYPE_CONFIG[actualType].label} ajouté`);
     setDialogType(null);
     fetchEvents();
-    if (eventType === "goal" || eventType === "opponent_goal") {
+    if (actualType === "goal" || actualType === "opponent_goal" || actualType === "own_goal" || actualType === "opponent_own_goal") {
       syncScore();
     }
-    if (["goal", "yellow_card", "red_card", "substitution"].includes(eventType)) {
+    if (["goal", "yellow_card", "red_card", "substitution"].includes(actualType)) {
       syncStats();
     }
-    notifyLiveEvent(eventType, playerId, minute, relatedPlayerId);
+    notifyLiveEvent(actualType, actualType === "opponent_own_goal" ? null : playerId, minute, relatedPlayerId);
   }
 
   async function handleDelete(id: string, eventType: string) {
@@ -696,7 +754,7 @@ export function LiveMatchTracker({
     }
     toast.success("Événement supprimé");
     fetchEvents();
-    if (eventType === "goal" || eventType === "opponent_goal") {
+    if (eventType === "goal" || eventType === "opponent_goal" || eventType === "own_goal" || eventType === "opponent_own_goal") {
       syncScore();
     }
     if (["goal", "yellow_card", "red_card", "substitution"].includes(eventType)) {
@@ -851,6 +909,7 @@ export function LiveMatchTracker({
 
   function openDialog(type: LiveEventType) {
     setMinute(startMs !== null ? String(currentMinute) : "");
+    setOwnGoalSide("our");
     setDialogType(type);
   }
 
@@ -888,6 +947,50 @@ export function LiveMatchTracker({
           {renderPlayerSelect("player_id", "Buteur", false)}
           {renderPlayerSelect("related_player_id", "Passeur décisif (facultatif)", true, "Sans passeur")}
         </>
+      )}
+      {dialogType === "own_goal" && (
+        <div className="space-y-3">
+          <p className="text-sm text-muted-foreground rounded-lg bg-orange-50 dark:bg-orange-950/30 px-3 py-2">
+            Un CSC d&apos;un de nos joueurs est comptabilisé pour l&apos;adversaire
+            ; un CSC d&apos;un joueur adverse est comptabilisé pour nous.
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setOwnGoalSide("our")}
+              className={`flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                ownGoalSide === "our"
+                  ? "border-orange-300 bg-orange-50 text-orange-700 dark:bg-orange-950/30 dark:text-orange-300"
+                  : "border-border bg-card text-muted-foreground hover:bg-muted/50"
+              }`}
+            >
+              Notre joueur
+            </button>
+            <button
+              type="button"
+              onClick={() => setOwnGoalSide("opponent")}
+              className={`flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                ownGoalSide === "opponent"
+                  ? "border-purple-300 bg-purple-50 text-purple-700 dark:bg-purple-950/30 dark:text-purple-300"
+                  : "border-border bg-card text-muted-foreground hover:bg-muted/50"
+              }`}
+            >
+              Joueur adverse
+            </button>
+          </div>
+          {ownGoalSide === "our" ? (
+            renderPlayerSelect("player_id", "Joueur concerné", false)
+          ) : (
+            <div className="space-y-1.5">
+              <Label className="text-xs">Joueur adverse</Label>
+              <Input
+                name="opponent_name"
+                placeholder="Ex : Dupont"
+                className="h-9"
+              />
+            </div>
+          )}
+        </div>
       )}
       {dialogType === "opponent_goal" && (
         <p className="text-sm text-muted-foreground rounded-lg bg-muted/50 px-3 py-2">
@@ -1055,7 +1158,7 @@ export function LiveMatchTracker({
       </CardHeader>
       <CardContent>
         {canEdit && (
-          <div className="mb-4 grid grid-cols-3 sm:grid-cols-6 gap-2">
+          <div className="mb-4 grid grid-cols-4 sm:grid-cols-8 gap-2">
             {EVENT_ORDER.map((type) => {
               const cfg = EVENT_TYPE_CONFIG[type];
               return (

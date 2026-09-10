@@ -270,6 +270,7 @@ export interface Formation {
   created_by: string | null;
   is_default: boolean;
   team_id: string;
+  visibility?: "coach" | "team";
   created_at: string;
 }
 

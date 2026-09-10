@@ -96,6 +96,8 @@ function eventIcon(type: string): string {
   switch (type) {
     case "goal": return "⚽";
     case "opponent_goal": return "⚽";
+    case "own_goal": return "😅";
+    case "opponent_own_goal": return "😅";
     case "yellow_card": return "🟨";
     case "red_card": return "🟥";
     case "substitution": return "🔄";
@@ -178,6 +180,10 @@ function TimelineSection({ events, players }: { events: LiveEvent[]; players: Li
           let description: string;
           if (isOpponent) {
             description = "But adverse";
+          } else if (ev.event_type === "own_goal") {
+            description = `CSC — ${mainPlayer}`;
+          } else if (ev.event_type === "opponent_own_goal") {
+            description = ev.notes ? `CSC adverse — ${ev.notes}` : "CSC adverse";
           } else if (ev.event_type === "goal" && relatedPlayer) {
             description = `${mainPlayer} (pass. ${relatedPlayer})`;
           } else if (ev.event_type === "goal") {

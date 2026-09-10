@@ -1015,6 +1015,23 @@ export default function MatchDetailPage() {
             />
           </CardContent>
         </Card>
+      ) : formation?.visibility === "coach" && !isCoach ? (
+        positions.length > 0 && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Shield className="h-4 w-4 text-[var(--color-royal)]" />
+                Composition
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="py-6 text-center">
+              <Lock className="h-6 w-6 mx-auto mb-2 text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">
+                La composition n&apos;est visible que par les coachs.
+              </p>
+            </CardContent>
+          </Card>
+        )
       ) : (
         positions.length > 0 && (
           <Card>

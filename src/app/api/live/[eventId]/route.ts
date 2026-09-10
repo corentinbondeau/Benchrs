@@ -35,7 +35,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ eventId:
   const halfDuration = (settings as { half_duration?: number } | null)?.half_duration ?? 45;
 
   // Charger les données enrichies du match en parallèle
-  const [eventsRes, playersRes, statsRes, lineupsRes] = await Promise.all([
+  const [eventsRes, playersRes, statsRes, lineupsRes, formationRes] = await Promise.all([
     admin
       .from("match_events")
       .select("event_type, player_id, related_player_id, minute, notes")
@@ -56,7 +56,19 @@ export async function GET(req: Request, { params }: { params: Promise<{ eventId:
       .select("player_id, position, is_starter")
       .eq("event_id", eventId)
       .eq("team_id", event.team_id),
+    admin
+      .from("formations")
+      .select("visibility")
+      .eq("event_id", eventId)
+      .eq("team_id", event.team_id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
   ]);
+
+  // Composition coach-only → non exposée sur la page publique
+  const formationVisibility = (formationRes.data as { visibility?: string } | null)?.visibility ?? "team";
+  const lineups = formationVisibility === "coach" ? [] : (lineupsRes.data || []);
 
   return NextResponse.json({
     id: event.id,
@@ -76,6 +88,6 @@ export async function GET(req: Request, { params }: { params: Promise<{ eventId:
     events: eventsRes.data || [],
     players: playersRes.data?.map((m) => (m as { profiles: unknown }).profiles) || [],
     stats: statsRes.data || [],
-    lineups: lineupsRes.data || [],
+    lineups,
   });
 }
