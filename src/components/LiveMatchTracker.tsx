@@ -681,7 +681,6 @@ const [minute, setMinute] = useState("");
     const playerId = fd.get("player_id")?.toString() || null;
     const relatedPlayerId = fd.get("related_player_id")?.toString() || null;
     const notes = fd.get("notes")?.toString().trim() || null;
-    const opponentName = fd.get("opponent_name")?.toString().trim() || "";
 
     if (minute !== null && (Number.isNaN(minute) || minute < 0 || minute > 120)) {
       toast.error("La minute doit être comprise entre 0 et 120");
@@ -689,11 +688,9 @@ const [minute, setMinute] = useState("");
     }
 
     let actualType = eventType;
-    let insertNotes = notes;
 
     if (eventType === "own_goal" && ownGoalSide === "opponent") {
       actualType = "opponent_own_goal";
-      if (opponentName) insertNotes = opponentName;
     } else if (["goal", "own_goal", "yellow_card", "red_card", "injury"].includes(eventType) && !playerId) {
       toast.error("Sélectionnez un joueur");
       return;
@@ -715,7 +712,7 @@ const [minute, setMinute] = useState("");
       player_id: actualType === "opponent_own_goal" ? null : playerId,
       related_player_id: relatedPlayerId || null,
       minute,
-      notes: insertNotes,
+      notes,
       created_by: userId || null,
     });
     setSaving(false);
@@ -973,18 +970,7 @@ const [minute, setMinute] = useState("");
               Joueur adverse
             </button>
           </div>
-          {ownGoalSide === "our" ? (
-            renderPlayerSelect("player_id", "Joueur concerné", false)
-          ) : (
-            <div className="space-y-1.5">
-              <Label className="text-xs">Joueur adverse (facultatif)</Label>
-              <Input
-                name="opponent_name"
-                placeholder="Ex : Dupont"
-                className="h-9"
-              />
-            </div>
-          )}
+          {ownGoalSide === "our" && renderPlayerSelect("player_id", "Joueur concerné", false)}
         </div>
       )}
       {dialogType === "opponent_goal" && (
