@@ -693,11 +693,7 @@ const [minute, setMinute] = useState("");
 
     if (eventType === "own_goal" && ownGoalSide === "opponent") {
       actualType = "opponent_own_goal";
-      if (!opponentName) {
-        toast.error("Indiquez le nom du joueur adverse");
-        return;
-      }
-      insertNotes = opponentName;
+      if (opponentName) insertNotes = opponentName;
     } else if (["goal", "own_goal", "yellow_card", "red_card", "injury"].includes(eventType) && !playerId) {
       toast.error("Sélectionnez un joueur");
       return;
@@ -981,7 +977,7 @@ const [minute, setMinute] = useState("");
             renderPlayerSelect("player_id", "Joueur concerné", false)
           ) : (
             <div className="space-y-1.5">
-              <Label className="text-xs">Joueur adverse</Label>
+              <Label className="text-xs">Joueur adverse (facultatif)</Label>
               <Input
                 name="opponent_name"
                 placeholder="Ex : Dupont"
