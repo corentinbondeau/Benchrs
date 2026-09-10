@@ -383,7 +383,8 @@ export default function MatchDetailPage() {
         starterIds,
         undefined,
         match.match_halftime_at ?? null,
-        match.match_resumed_at ?? null
+        match.match_resumed_at ?? null,
+        halfDuration
       );
     }
 

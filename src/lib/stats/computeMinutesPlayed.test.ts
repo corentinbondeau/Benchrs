@@ -91,9 +91,9 @@ describe("computeMinutesPlayed", () => {
     expect(result.size).toBe(0);
   });
 
-  it("exclut la pause mi-temps du calcul quand halftimeAt et resumedAt sont fournis", () => {
-    // Match : 15:00 → mi-temps 15:30 → reprise 15:45 → fin 16:15
-    // Temps brut = 75 min, temps effectif = 30 + 30 = 60 min
+  it("match terminé → durée complète du chrono, quel que soit le temps réel (avec pause mi-temps)", () => {
+    // Match réel : 15:00 → mi-temps 15:30 → reprise 15:45 → fin 16:15
+    // (temps réel effectif = 60 min, mais le chrono de match affiche 90')
     const result = computeMinutesPlayed(
       "2025-01-01T15:00:00Z",
       "2025-01-01T16:15:00Z",
@@ -103,6 +103,55 @@ describe("computeMinutesPlayed", () => {
       "2025-01-01T15:30:00Z",
       "2025-01-01T15:45:00Z"
     );
+    expect(result.get("player1")).toBe(90);
+  });
+
+  it("2e mi-temps en cours → 1ère clôturée à 45 + temps de la 2e (chrono)", () => {
+    // Début 15:00, mi-temps 15:30, reprise 15:40, maintenant 15:55 → 45 + 15
+    const now = new Date("2025-01-01T15:55:00Z");
+    const result = computeMinutesPlayed(
+      "2025-01-01T15:00:00Z",
+      null,
+      [],
+      ["player1"],
+      now.getTime(),
+      "2025-01-01T15:30:00Z",
+      "2025-01-01T15:40:00Z"
+    );
     expect(result.get("player1")).toBe(60);
+  });
+
+  it("1re mi-temps en cours → plafonné à la durée de mi-temps même si le temps réel dépasse", () => {
+    // Bug empêché : temps de jeu basé sur le temps réel (50 min) au lieu du chrono (45')
+    const now = new Date("2025-01-01T15:50:00Z");
+    const start = new Date("2025-01-01T15:00:00Z");
+
+    const result = computeMinutesPlayed(
+      start.toISOString(),
+      null,
+      [],
+      ["player1"],
+      now.getTime()
+    );
+
+    expect(result.get("player1")).toBe(45);
+  });
+
+  it("respecte une durée de mi-temps personnalisée (format 5/7/8)", () => {
+    // halfDuration = 25 → FULL = 50
+    const start = new Date("2025-01-01T15:00:00Z");
+    const end = new Date("2025-01-01T15:50:00Z");
+
+    const result = computeMinutesPlayed(
+      start.toISOString(),
+      end.toISOString(),
+      [],
+      ["player1"],
+      undefined,
+      undefined,
+      undefined,
+      25
+    );
+    expect(result.get("player1")).toBe(50);
   });
 });
