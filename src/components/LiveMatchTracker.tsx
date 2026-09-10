@@ -599,13 +599,19 @@ export function LiveMatchTracker({
         playerIn: r.related_player_id!,
       }));
     const subInIds = new Set(subs.map((s) => s.playerIn));
-    const starterIds = players.map((p) => p.id).filter((id) => !subInIds.has(id));
+    // Composition renseignée → les titulaires réels démarrent à 0, les
+    // remplaçants du banc n'apparaissent pas => 0 minute sauf entrée.
+    // Sinon fallback : tous les présents sauf les entrants (composition absente).
+    const lineupOk = (starterIds?.length ?? 0) > 0;
+    const starterIdsForMinutes = lineupOk
+      ? (starterIds ?? [])
+      : players.map((p) => p.id).filter((id) => !subInIds.has(id));
     const effectiveEndedAt = endedAtOverride !== undefined ? endedAtOverride : endedAt;
     const minutesMap = computeMinutesPlayed(
       startedAt,
       effectiveEndedAt,
       subs,
-      starterIds,
+      starterIdsForMinutes,
       undefined,
       halftimeAt,
       resumedAt,

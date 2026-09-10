@@ -373,9 +373,21 @@ export default function MatchDetailPage() {
   function initStatsForm() {
     // Calculer les minutes si le match a démarré et qu'elles ne sont pas en base
     let minutesMap = new Map<string, number>();
+    let hasLineup = false;
     if (match?.match_started_at) {
+      const fdData = formation?.formation_data as FormationData | null;
+      const lineupStarters = (fdData?.positions || [])
+        .map((p) => p.player_id)
+        .filter((id): id is string => Boolean(id));
+      hasLineup = lineupStarters.length > 0;
+
       const subInIds = new Set(matchSubstitutions.map((s) => s.playerIn));
-      const starterIds = presentPlayers.map((p) => p.id).filter((id) => !subInIds.has(id));
+      // Si la composition est renseignée : les titulaires réels démarrent à 0,
+      // les remplaçants du banc n'apparaissent pas => 0 minute sauf entrée.
+      // Sinon fallback : tous les présents sauf les entrants (composition absente).
+      const starterIds = hasLineup
+        ? lineupStarters
+        : presentPlayers.map((p) => p.id).filter((id) => !subInIds.has(id));
       minutesMap = computeMinutesPlayed(
         match.match_started_at,
         match.match_ended_at ?? null,
@@ -392,12 +404,17 @@ export default function MatchDetailPage() {
 
     for (const p of presentPlayers) {
       const existing = playerStats.find((s) => s.player_id === p.id);
+      const computed = minutesMap.get(p.id);
+      // Composition renseignée → un joueur hors map est resté sur le banc :
+      // on écrase l'ancienne valeur en base par 0 plutôt que de la conserver.
+      let minutes = computed ?? existing?.minutes_played ?? 0;
+      if (hasLineup && computed === undefined) minutes = 0;
       form[p.id] = {
         goals: existing?.goals || 0,
         assists: existing?.assists || 0,
         yellow_cards: existing?.yellow_cards || 0,
         red_cards: existing?.red_cards || 0,
-        minutes_played: minutesMap.get(p.id) ?? existing?.minutes_played ?? 0,
+        minutes_played: minutes,
       };
     }
 

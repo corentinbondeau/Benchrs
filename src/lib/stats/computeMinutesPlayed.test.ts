@@ -54,6 +54,68 @@ describe("computeMinutesPlayed", () => {
     expect(result.get("player2")).toBe(30);
   });
 
+  it("remplaçant jamais entré (sur le banc) → 0 minute, pas la durée totale", () => {
+    // Bug empêché : le remplaçant présent dans la convocation mais resté sur le
+    // banc était crédité de 90 minutes comme un titulaire (starterIds = tous les présents)
+    const start = new Date("2025-01-01T15:00:00Z");
+    const end = new Date("2025-01-01T16:30:00Z");
+
+    // Seul player1 est titulaire ; player2 est sur le banc, jamais entré
+    const result = computeMinutesPlayed(
+      start.toISOString(),
+      end.toISOString(),
+      [],
+      ["player1"]
+    );
+
+    expect(result.get("player1")).toBe(90);
+    expect(result.get("player2")).toBeUndefined();
+  });
+
+  it("joueur entré à 60 puis ressorti à 75 → 15 minutes (allers-retours cumulés)", () => {
+    // Bug empêché : le calcul naïf écrasait la durée (30) au lieu de la cumuler
+    // => player2 crédité de 30 ou 75 au lieu de 15
+    const start = new Date("2025-01-01T15:00:00Z");
+    const end = new Date("2025-01-01T16:30:00Z");
+
+    const result = computeMinutesPlayed(
+      start.toISOString(),
+      end.toISOString(),
+      [
+        { minute: 60, playerOut: "player1", playerIn: "player2" },
+        { minute: 75, playerOut: "player2", playerIn: "player3" },
+      ],
+      ["player1"]
+    );
+
+    // player2 : 60→75 = 15 ; player3 : 75→90 = 15 ; player1 : 0→60 = 60
+    expect(result.get("player1")).toBe(60);
+    expect(result.get("player2")).toBe(15);
+    expect(result.get("player3")).toBe(15);
+  });
+
+  it("titulaire sorti puis rentré plus tard → cumul de ses 2 segments", () => {
+    // Coach fait revenir un titulaire sorti à la 60e : il rejoue
+    const start = new Date("2025-01-01T15:00:00Z");
+    const end = new Date("2025-01-01T16:30:00Z");
+
+    const result = computeMinutesPlayed(
+      start.toISOString(),
+      end.toISOString(),
+      [
+        { minute: 60, playerOut: "player1", playerIn: "player2" },
+        { minute: 80, playerOut: "player3", playerIn: "player1" },
+      ],
+      ["player1", "player3"]
+    );
+
+    // player1 : 0→60 + 80→90 = 60 + 10 = 70
+    expect(result.get("player1")).toBe(70);
+    // player2 : 60→90 = 30 ; player3 : 0→80 = 80
+    expect(result.get("player2")).toBe(30);
+    expect(result.get("player3")).toBe(80);
+  });
+
   // ─── P1 — Dégradation gracieuse ──────────────────────────────────────────
 
   it("match non commencé (startedAt null) → Map vide", () => {

@@ -12,6 +12,13 @@ export interface Substitution {
  *  - 2e mi-temps en cours → 1ère mi-temps clôturée à `halfDuration` + temps de la 2e
  *  - mi-temps → 1ère clôturée à `halfDuration`
  *  - 1re mi-temps en cours → temps écoulé plafonné à `halfDuration`
+ *
+ * Temps de jeu = somme des segments passés sur le terrain :
+ *  - les titulaires (`starterIds`) démarrent à la minute 0
+ *  - une substitution clôt le segment du sortant à `sub.minute` et ouvre celui
+ *    de l'entrant à `sub.minute`
+ *  - tout joueur encore sur le terrain à la fin est clôturé à `totalMinutes`
+ *  - un remplaçant jamais entré n'apparaît PAS dans la Map (=> 0 minute)
  */
 export function computeMinutesPlayed(
   startedAt: string | null,
@@ -51,20 +58,41 @@ export function computeMinutesPlayed(
 
   totalMinutes = Math.max(0, Math.min(totalMinutes, FULL));
 
-  const minutes = new Map<string, number>();
+  const clamp = (m: number) => Math.max(0, Math.min(m, totalMinutes));
 
-  // Tous les titulaires jouent la durée complète par défaut
+  // Joueur → minute de début de son segment actuel (0 pour les titulaires)
+  const onPitch = new Map<string, number>();
   for (const id of starterIds) {
-    minutes.set(id, totalMinutes);
+    if (!onPitch.has(id)) onPitch.set(id, 0);
   }
 
-  // Appliquer les substitutions
-  for (const sub of substitutions) {
-    // Le sortant n'a joué que jusqu'à la minute de la substitution
-    minutes.set(sub.playerOut, Math.min(sub.minute, totalMinutes));
-    // L'entrant joue de la minute de sub jusqu'à la fin
-    minutes.set(sub.playerIn, Math.max(totalMinutes - sub.minute, 0));
+  const played = new Map<string, number>();
+
+  const closeSegment = (id: string, atMinute: number) => {
+    const segStart = onPitch.get(id);
+    if (segStart === undefined) return;
+    const m = clamp(atMinute);
+    played.set(id, (played.get(id) ?? 0) + Math.max(0, m - segStart));
+    onPitch.delete(id);
+  };
+
+  const openSegment = (id: string, atMinute: number) => {
+    // Ne pas rouvrir un segment pour un joueur déjà sur le terrain
+    if (onPitch.has(id)) return;
+    onPitch.set(id, clamp(atMinute));
+  };
+
+  // Les substitutions sont appliquées en ordre chronologique
+  const subs = [...substitutions].sort((a, b) => a.minute - b.minute);
+  for (const sub of subs) {
+    closeSegment(sub.playerOut, sub.minute);
+    openSegment(sub.playerIn, sub.minute);
   }
 
-  return minutes;
+  // Clôture des segments restants à la fin du match
+  for (const [id, segStart] of onPitch) {
+    played.set(id, (played.get(id) ?? 0) + Math.max(0, totalMinutes - segStart));
+  }
+
+  return played;
 }
