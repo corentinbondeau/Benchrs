@@ -42,6 +42,8 @@ export interface LineupEditorProps {
   userId: string | null; // -> created_by à l'insert
   isCoach: boolean;
   showEventPicker?: boolean; // true = Tactiques (défaut) · false = fiche match
+  /** Affiche le sélecteur de formation (dispositif), indépendamment du sélecteur de match. Défaut : showEventPicker */
+  showFormationPicker?: boolean;
   events?: MatchEventOption[]; // requis si showEventPicker
   onEventChange?: (id: string) => void;
   onSaved?: (formation: Formation) => void; // rafraîchissement de la fiche match
@@ -86,6 +88,7 @@ export function LineupEditor({
   userId,
   isCoach,
   showEventPicker = true,
+  showFormationPicker,
   events = [],
   onEventChange,
   onSaved,
@@ -113,6 +116,7 @@ export function LineupEditor({
   // Formations disponibles pour le format courant
   const availableFormationNames = FORMATIONS_BY_FORMAT[matchFormat] ?? FORMATIONS_BY_FORMAT[11];
   const currentPositions = ALL_FORMATIONS[formationName] || ALL_FORMATIONS[availableFormationNames[0]] || ALL_FORMATIONS["4-3-3"];
+  const showFormation = showFormationPicker ?? showEventPicker;
 
   const assignedPlayerIds = new Set([
     ...Object.values(assignments),
@@ -485,62 +489,66 @@ export function LineupEditor({
 
   return (
     <div className="space-y-4">
-      {showEventPicker && (
+      {(showEventPicker || showFormation) && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Match</label>
-            <Select
-              value={selectedEventId}
-              onValueChange={(v) => {
-                setSelectedEventId(v ?? "");
-                onEventChange?.(v ?? "");
-              }}
-            >
-              <SelectTrigger className="w-full h-11">
-                <SelectValue placeholder="Sélectionner un match">
-                  {(v) => {
-                    if (!v) return "Sélectionner un match";
-                    const ev = events.find((e) => e.id === v);
-                    return ev
-                      ? `${ev.title}${ev.opponent ? ` vs ${ev.opponent}` : ""}`
-                      : v;
-                  }}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {events.map((ev) => (
-                  <SelectItem key={ev.id} value={ev.id}>
-                    {ev.title}
-                    {ev.opponent ? ` vs ${ev.opponent}` : ""} —{" "}
-                    {formatDate(ev.event_date)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {showEventPicker && (
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Match</label>
+              <Select
+                value={selectedEventId}
+                onValueChange={(v) => {
+                  setSelectedEventId(v ?? "");
+                  onEventChange?.(v ?? "");
+                }}
+              >
+                <SelectTrigger className="w-full h-11">
+                  <SelectValue placeholder="Sélectionner un match">
+                    {(v) => {
+                      if (!v) return "Sélectionner un match";
+                      const ev = events.find((e) => e.id === v);
+                      return ev
+                        ? `${ev.title}${ev.opponent ? ` vs ${ev.opponent}` : ""}`
+                        : v;
+                    }}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {events.map((ev) => (
+                    <SelectItem key={ev.id} value={ev.id}>
+                      {ev.title}
+                      {ev.opponent ? ` vs ${ev.opponent}` : ""} —{" "}
+                      {formatDate(ev.event_date)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Formation</label>
-            <Select
-              value={formationName}
-              onValueChange={(v) => {
-                setFormationName(v ?? "4-3-3");
-                setAssignments({});
-                setBenchAssignments({});
-              }}
-            >
-              <SelectTrigger className="w-full h-11">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {availableFormationNames.map((f) => (
-                  <SelectItem key={f} value={f}>
-                    {f}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {showFormation && (
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Formation</label>
+              <Select
+                value={formationName}
+                onValueChange={(v) => {
+                  setFormationName(v ?? "4-3-3");
+                  setAssignments({});
+                  setBenchAssignments({});
+                }}
+              >
+                <SelectTrigger className="w-full h-11">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableFormationNames.map((f) => (
+                    <SelectItem key={f} value={f}>
+                      {f}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </div>
       )}
 

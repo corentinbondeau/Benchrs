@@ -1008,6 +1008,7 @@ export default function MatchDetailPage() {
               userId={user?.id ?? ""}
               isCoach
               showEventPicker={false}
+              showFormationPicker
               onSaved={() => {
                 reloadLineupData();
               }}
