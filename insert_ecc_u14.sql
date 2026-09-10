@@ -1,4 +1,4 @@
--- Insère les 14 joueurs de l'équipe U14 (club ECC)
+-- Insère les 14 joueurs de l'équipe U100 (club ECC)
 -- À exécuter dans le SQL Editor de Supabase (Dashboard > SQL Editor)
 --
 -- Script idempotent : rejouable sans créer de doublon.
@@ -20,11 +20,11 @@ BEGIN
     INSERT INTO clubs (name) VALUES ('ECC') RETURNING id INTO v_club_id;
   END IF;
 
-  -- Équipe U14
-  SELECT id INTO v_team_id FROM teams WHERE name = 'U14' AND club_id = v_club_id;
+  -- Équipe U100
+  SELECT id INTO v_team_id FROM teams WHERE name = 'U100' AND club_id = v_club_id;
   IF v_team_id IS NULL THEN
     INSERT INTO teams (club_id, name, invite_code)
-    VALUES (v_club_id, 'U14', 'cf231b36ea9d')
+    VALUES (v_club_id, 'U100', 'p1n8cz0ktgzh')
     RETURNING id INTO v_team_id;
   END IF;
 
@@ -92,7 +92,7 @@ BEGIN
     v_created := v_created + 1;
   END LOOP;
 
-  RAISE NOTICE '% joueur(s) inséré(s) pour U14 (les comptes déjà existants ont été ignorés)', v_created;
+  RAISE NOTICE '% joueur(s) inséré(s) pour U100 (les comptes déjà existants ont été ignorés)', v_created;
   RAISE NOTICE 'Mot de passe pour tous : Sportplus2024!';
 END;
 $$;
