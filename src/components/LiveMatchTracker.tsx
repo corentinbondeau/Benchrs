@@ -148,7 +148,6 @@ const EVENT_ORDER: LiveEventType[] = [
   "goal",
   "opponent_goal",
   "own_goal",
-  "opponent_own_goal",
   "yellow_card",
   "red_card",
   "substitution",
@@ -1158,7 +1157,7 @@ const [minute, setMinute] = useState("");
       </CardHeader>
       <CardContent>
         {canEdit && (
-          <div className="mb-4 grid grid-cols-4 sm:grid-cols-8 gap-2">
+          <div className="mb-4 grid grid-cols-4 sm:grid-cols-7 gap-2">
             {EVENT_ORDER.map((type) => {
               const cfg = EVENT_TYPE_CONFIG[type];
               return (
