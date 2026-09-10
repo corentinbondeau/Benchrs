@@ -266,11 +266,31 @@ export function LiveMatchTracker({
 
   const playerList = useMemo(() => sortedPlayers(players), [players]);
 
-  // Substitution contrainte par la composition : le sortant doit être titulaire,
-  // l'entrant doit être remplaçant — seulement si la composition est remplie.
+  // Substitution contrainte par la composition ET suivie tout le match : l'état
+  // actuel est dérivé de l'historique des changements (qui est sur le terrain).
+  // Titulaire sorti → redevient un entrant ; remplaçant entré → devient un sortant.
+  const lineupPool = [...new Set([...(starterIds ?? []), ...(benchIds ?? [])])];
   const lineupFilled = (starterIds?.length ?? 0) > 0;
-  const subOutCandidates = lineupFilled ? starterIds : undefined;
-  const subInCandidates = lineupFilled ? benchIds : undefined;
+  const sortByIdsShirt = (ids: string[]) =>
+    ids
+      .map((id) => playerList.find((p) => p.id === id))
+      .filter((p): p is Profile => Boolean(p))
+      .sort((a, b) => (a.shirt_number ?? 999) - (b.shirt_number ?? 999))
+      .map((p) => p.id);
+  const onPitchIds = (() => {
+    const pitch = new Set(starterIds ?? []);
+    for (const ev of events) {
+      if (ev.event_type === "substitution") {
+        if (ev.player_id) pitch.delete(ev.player_id);
+        if (ev.related_player_id) pitch.add(ev.related_player_id);
+      }
+    }
+    return pitch;
+  })();
+  const subOutCandidates = lineupFilled ? sortByIdsShirt([...onPitchIds]) : undefined;
+  const subInCandidates = lineupFilled
+    ? sortByIdsShirt(lineupPool.filter((id) => !onPitchIds.has(id)))
+    : undefined;
 
   const startMs = startedAt ? new Date(startedAt).getTime() : null;
   const halftimeMs = halftimeAt ? new Date(halftimeAt).getTime() : null;
