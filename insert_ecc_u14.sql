@@ -5,14 +5,32 @@
 -- NOTE : la ligne auth.identities est OBLIGATOIRE, sinon GoTrue renvoie
 --        400 "Invalid login credentials" au login.
 --
--- Diagnostics en bas de sortie (onglet Messages du SQL Editor) :
---   "X joueur(s) ajouté(s), Y déjà existant(s), Z en échec"
+-- POURQUOI UNE FONCTION SECURITY DEFINER :
+--   Les policies RLS interdisent les INSERT hors du contexte du user lui-même
+--   (profiles : WITH CHECK auth.uid() = id ; team_members : rôles limités).
+--   Une session SQL Editor normale n'est PAS superuser → les inserts profiles
+--   sont rejetés silencieusement. La fonction ci-dessous est créée par postgres
+--   (le SQL Editor standard) et s'exécute AVEC les droits de postgres :
+--   la RLS est contournée, exactement comme les helpers SECURITY DEFINER de
+--   l'application (is_global_coach, user_team_ids, RPC VMA/VMI, ...).
+--   search_path est figé à l'exécution pour éviter les attaques de hijacking.
+--
+-- Diagnostics en bas de sortie (onglet Messages) :
+--   "X joueur(s) ajouté(s), Y déjà existant(s) (ignoré(s)), Z en échec"
 --   + un WARNING par ligne en échec avec le message d'erreur exact.
--- Le script ne plante jamais : une ligne en échec est signalée et on continue.
+-- Un échec sur une ligne n'arrête pas le script.
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
-DO $$
+-- ============================================================
+-- Fonction d'insert : SECURITY DEFINER (owner postgres) -> RLS désactivée
+-- ============================================================
+CREATE OR REPLACE FUNCTION public.seed_u100_players()
+RETURNS TEXT
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
 DECLARE
   v_club_id UUID;
   v_team_id UUID;
@@ -25,23 +43,22 @@ DECLARE
   r RECORD;
 BEGIN
   -- Détecte si le schéma auth.users de cette instance possède encore la
-  -- colonne instance_id (retirée dans les schémas récents). Erreur "column
-  -- instance_id does not exist" = c'est elle le problème, et ce bloc la gère.
+  -- colonne instance_id (retirée dans les schémas récents).
   SELECT EXISTS (
     SELECT 1 FROM information_schema.columns
     WHERE table_schema = 'auth' AND table_name = 'users' AND column_name = 'instance_id'
   ) INTO v_has_instance_id;
 
   -- Club ECC
-  SELECT id INTO v_club_id FROM clubs WHERE name = 'ECC';
+  SELECT id INTO v_club_id FROM public.clubs WHERE name = 'ECC';
   IF v_club_id IS NULL THEN
-    INSERT INTO clubs (name) VALUES ('ECC') RETURNING id INTO v_club_id;
+    INSERT INTO public.clubs (name) VALUES ('ECC') RETURNING id INTO v_club_id;
   END IF;
 
   -- Équipe U100
-  SELECT id INTO v_team_id FROM teams WHERE name = 'U100' AND club_id = v_club_id;
+  SELECT id INTO v_team_id FROM public.teams WHERE name = 'U100' AND club_id = v_club_id;
   IF v_team_id IS NULL THEN
-    INSERT INTO teams (club_id, name, invite_code)
+    INSERT INTO public.teams (club_id, name, invite_code)
     VALUES (v_club_id, 'U100', 'p1n8cz0ktgzh')
     RETURNING id INTO v_team_id;
   END IF;
@@ -123,10 +140,10 @@ BEGIN
         now(), now()
       );
 
-      INSERT INTO profiles (id, role, first_name, last_name, position, shirt_number, is_active, team_id)
+      INSERT INTO public.profiles (id, role, first_name, last_name, position, shirt_number, is_active, team_id)
       VALUES (v_player_id, 'player', r.first_name, r.last_name, r.position, r.shirt_number, true, v_team_id);
 
-      INSERT INTO team_members (team_id, user_id, role)
+      INSERT INTO public.team_members (team_id, user_id, role)
       VALUES (v_team_id, v_player_id, 'player');
 
       v_created := v_created + 1;
@@ -136,7 +153,13 @@ BEGIN
     END;
   END LOOP;
 
-  RAISE NOTICE '% joueur(s) ajouté(s), % déjà existant(s) (ignoré(s)), % en échec — équipe U100', v_created, v_skipped, v_failed;
-  RAISE NOTICE 'Mot de passe pour tous : Sportplus2024!';
+  RETURN v_created || ' joueur(s) ajouté(s), ' || v_skipped || ' déjà existant(s) (ignoré(s)), '
+         || v_failed || ' en échec — équipe U100 (mot de passe : Sportplus2024!)';
 END;
 $$;
+
+-- ============================================================
+-- Exécution : elle tourne SECURITY DEFINER (postgres) => RLS contournée,
+-- les profiles/team_members sont bien créés même hors user authentifié.
+-- ============================================================
+SELECT public.seed_u100_players() AS resultat;
