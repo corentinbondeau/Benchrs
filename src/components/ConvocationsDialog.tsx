@@ -117,7 +117,8 @@ export function ConvocationsDialog({ event, open, onOpenChange }: ConvocationsDi
     });
     const data = await res.json().catch(() => null);
     if (!res.ok) {
-      toast.error(data?.error || "Erreur lors de l'envoi");
+      const detail = data?.detail ? ` — ${data.detail}` : "";
+      toast.error(`${data?.error || "Erreur lors de l'envoi"}${detail}`);
       return;
     }
     toast.success(`${userIds.length} notification(s) envoyée(s)`);
