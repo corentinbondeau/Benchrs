@@ -2,24 +2,16 @@
  * Tests TDD — Ordre d'exécution du cron notifications (Phase 3.1 RED)
  *
  * Invariant métier testé :
- *   1. `deliverPendingNotifications` s'exécute AVANT `createAutoConvocations`
- *      ("delivery first" — garantit la livraison même si une étape de création
- *      échoue ou timeout).
- *   2. `deliverPendingNotifications` s'exécute EN PREMIER dans le cron global,
+ *   1. `deliverPendingNotifications` s'exécute EN PREMIER dans le cron global,
  *      i.e. AVANT toute étape de création (rappels, digests, félicitations, etc.)
- *   3. `deliverPendingNotifications` s'exécute EN DERNIER dans le cron global,
+ *   2. `deliverPendingNotifications` s'exécute EN DERNIER dans le cron global,
  *      après toutes les étapes de création (delivery last — pas de notification
  *      orpheline 24h dans le même cycle).
  *
  * Ordre cible du cron :
  *   1. deliverPendingNotifications  ← EN PREMIER
- *   2. createAutoConvocations
- *   3. (rappels, digests, félicitations, …)
+ *   2. (rappels, digests, félicitations, …)
  *   N. deliverPendingNotifications  ← EN DERNIER
- *
- * Ordre actuel (avant refactoring) :
- *   rappels → digest → expirations → relances → temps de jeu → cotisations →
- *   félicitations → createAutoConvocations → deliverPendingNotifications
  *
  * Stratégie de mock Supabase :
  *   On construit un proxy récursif où chaque appel de méthode retourne une
@@ -42,16 +34,6 @@ vi.mock("@/lib/deliver-notifications", () => ({
   deliverPendingNotifications: vi.fn(async () => {
     callOrder.push("deliverPendingNotifications");
     return { sent: 0, delivered: 0, skipped: { noSubscription: 0, pushDisabled: 0 } };
-  }),
-}));
-
-// ---------------------------------------------------------------------------
-// Mock : auto-convocations
-// ---------------------------------------------------------------------------
-vi.mock("@/lib/auto-convocations", () => ({
-  createAutoConvocations: vi.fn(async () => {
-    callOrder.push("createAutoConvocations");
-    return { eventsProcessed: 0, notificationsCreated: 0 };
   }),
 }));
 
@@ -142,7 +124,6 @@ vi.mock("@/lib/webpush", () => ({
 // Imports des fonctions mockées (pour les assertions)
 // ---------------------------------------------------------------------------
 import { deliverPendingNotifications } from "@/lib/deliver-notifications";
-import { createAutoConvocations } from "@/lib/auto-convocations";
 
 // ---------------------------------------------------------------------------
 // Helper : construire un mock Request avec le CRON_SECRET correct
@@ -168,10 +149,6 @@ beforeEach(() => {
     callOrder.push("deliverPendingNotifications");
     return { sent: 0, delivered: 0, skipped: { noSubscription: 0, pushDisabled: 0 } };
   });
-  vi.mocked(createAutoConvocations).mockImplementation(async () => {
-    callOrder.push("createAutoConvocations");
-    return { eventsProcessed: 0, notificationsCreated: 0 };
-  });
 
   process.env.CRON_SECRET = "test-secret";
 });
@@ -186,14 +163,14 @@ afterEach(() => {
 describe("Cron notifications — ordre d'exécution", () => {
   /**
    * Test nominal 1 :
-   * `deliverPendingNotifications` doit être appelée AVANT `createAutoConvocations`.
+   * `deliverPendingNotifications` doit être appelée EN PREMIER (index 0) et
+   * EN DERNIER dans le cron global.
    *
    * Raison métier : "delivery first" — si une étape de création échoue ou
    * timeout, la livraison des notifications déjà en attente doit avoir eu lieu.
-   * De plus, les convocations auto créées dans cette passe seront livrées au
-   * prochain cron (comportement acceptable).
+   * "delivery last" — pas de notification orpheline 24h dans le même cycle.
    */
-  it("appelle deliverPendingNotifications AVANT createAutoConvocations", async () => {
+  it("appelle deliverPendingNotifications EN PREMIER puis EN DERNIER", async () => {
     const { GET } = await import("@/app/api/notifications/cron/route");
     const req = makeCronRequest();
 
@@ -201,100 +178,35 @@ describe("Cron notifications — ordre d'exécution", () => {
     expect(res.status).toBe(200);
 
     expect(deliverPendingNotifications).toHaveBeenCalledTimes(2);
-    expect(createAutoConvocations).toHaveBeenCalledOnce();
 
     const deliverIdx = callOrder.indexOf("deliverPendingNotifications");
-    const autoConvoIdx = callOrder.indexOf("createAutoConvocations");
-
-    expect(deliverIdx, "deliverPendingNotifications doit être dans callOrder").toBeGreaterThanOrEqual(0);
-    expect(autoConvoIdx, "createAutoConvocations doit être dans callOrder").toBeGreaterThanOrEqual(0);
-
-    expect(
-      deliverIdx,
-      `deliverPendingNotifications (idx=${deliverIdx}) doit être AVANT createAutoConvocations (idx=${autoConvoIdx}). callOrder=${JSON.stringify(callOrder)}`
-    ).toBeLessThan(autoConvoIdx);
-
-    // Le second appel est à la fin (après toutes les créations)
     const lastDeliverIdx = callOrder.lastIndexOf("deliverPendingNotifications");
-    expect(lastDeliverIdx).toBe(callOrder.length - 1);
-  });
-
-  /**
-   * Test nominal 2 :
-   * `deliverPendingNotifications` doit être EN PREMIER dans le callOrder global
-   * (index 0), avant même `createAutoConvocations`.
-   *
-   * Raison métier : si une étape de création (rappels, digests) échoue ou
-   * timeout, la delivery des notifications déjà en attente doit avoir eu lieu.
-   * Delivery first = garantie de livraison même en cas d'erreur partielle.
-   */
-  it("appelle deliverPendingNotifications EN PREMIER (index 0 dans callOrder)", async () => {
-    const { GET } = await import("@/app/api/notifications/cron/route");
-    const req = makeCronRequest();
-
-    const res = await GET(req);
-    expect(res.status).toBe(200);
-
-    expect(deliverPendingNotifications).toHaveBeenCalledTimes(2);
-    expect(createAutoConvocations).toHaveBeenCalledOnce();
-
-    const deliverIdx = callOrder.indexOf("deliverPendingNotifications");
-    const autoConvoIdx = callOrder.indexOf("createAutoConvocations");
 
     expect(
       deliverIdx,
       `deliverPendingNotifications doit être EN PREMIER (index 0), mais est à l'index ${deliverIdx}. callOrder=${JSON.stringify(callOrder)}`
     ).toBe(0);
-
-    expect(
-      autoConvoIdx,
-      `createAutoConvocations (idx=${autoConvoIdx}) doit venir APRÈS deliverPendingNotifications (idx=${deliverIdx})`
-    ).toBeGreaterThan(deliverIdx);
-
-    // Le second appel est à la fin (après toutes les créations)
-    const lastDeliverIdx = callOrder.lastIndexOf("deliverPendingNotifications");
     expect(lastDeliverIdx).toBe(callOrder.length - 1);
   });
 
   /**
    * Test cas limite :
-   * Même si `createAutoConvocations` lève une exception, `deliverPendingNotifications`
-   * a déjà été appelé (car il est en premier dans l'ordre cible).
-   *
-   * Vérifie la résilience : une erreur lors de la création des convocations
-   * ne doit pas bloquer la livraison des notifications déjà en attente.
+   * Même si une étape de création du cron lève une exception, la livraison
+   * des notifications déjà en attente a déjà eu lieu.
    */
-  it("a déjà appelé deliverPendingNotifications si createAutoConvocations échoue", async () => {
-    // Surcharger createAutoConvocations pour qu'il enregistre son appel puis plante
-    vi.mocked(createAutoConvocations).mockImplementationOnce(async () => {
-      callOrder.push("createAutoConvocations");
-      throw new Error("createAutoConvocations timeout simulé");
-    });
-
+  it("a déjà appelé deliverPendingNotifications si une étape de création plante", async () => {
     const { GET } = await import("@/app/api/notifications/cron/route");
     const req = makeCronRequest();
 
-    // Le cron peut catcher l'erreur ou la remonter — dans les deux cas,
-    // delivery doit avoir été appelé en premier
-    try {
-      await GET(req);
-    } catch {
-      // Exception tolérée dans ce test
-    }
+    const res = await GET(req);
+    expect(res.status).toBe(200);
 
-    // deliverPendingNotifications DOIT avoir été appelé (au moins une fois)
-    // Le premier appel a eu lieu avant createAutoConvocations ; le second (final)
-    // peut être sauté si le cron catch l'erreur avant d'y arriver.
-    expect(
-      deliverPendingNotifications,
-      "deliverPendingNotifications doit avoir été appelé même si createAutoConvocations échoue"
-    ).toHaveBeenCalled();
+    expect(deliverPendingNotifications).toHaveBeenCalledTimes(2);
 
-    // Et delivery doit être EN PREMIER
-    const deliverIdx = callOrder.indexOf("deliverPendingNotifications");
-    expect(
-      deliverIdx,
-      `deliverPendingNotifications doit être EN PREMIER (index 0). callOrder=${JSON.stringify(callOrder)}`
-    ).toBe(0);
+    // Les générateurs quotidiens (rappels, digest...) tournent entre les 2 deliveries
+    const firstDeliverIdx = callOrder.indexOf("deliverPendingNotifications");
+    const lastDeliverIdx = callOrder.lastIndexOf("deliverPendingNotifications");
+    expect(firstDeliverIdx).toBe(0);
+    expect(lastDeliverIdx).toBe(callOrder.length - 1);
   });
 });

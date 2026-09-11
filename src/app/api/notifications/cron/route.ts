@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { deliverPendingNotifications } from "@/lib/deliver-notifications";
-import { createAutoConvocations } from "@/lib/auto-convocations";
 import { currentSeasonLabel, seasonDateRange } from "@/lib/goals";
 import { sendSessionReminders } from "@/lib/session-reminders";
 
@@ -22,15 +21,7 @@ export async function GET(req: Request) {
   // --- ÉTAPE 1 : Delivery first — livre TOUTES les notifs pending existantes ---
   const { sent, delivered, skipped } = await deliverPendingNotifications(supabase);
 
-  // --- ÉTAPE 2 : Auto-convocations ---
-  let autoConvocationsResult = { eventsProcessed: 0, notificationsCreated: 0 };
-  try {
-    autoConvocationsResult = await createAutoConvocations(supabase);
-  } catch (err) {
-    console.error("[notifications/cron] createAutoConvocations error:", err);
-  }
-
-  // --- ÉTAPES 3-9 : Création des notifications quotidiennes ---
+  // --- ÉTAPES 2-8 : Création des notifications quotidiennes ---
   const creationResults = await Promise.allSettled([
         // Rappels la veille
         sendRappels(supabase, now),
@@ -85,7 +76,6 @@ export async function GET(req: Request) {
   const result = {
     ok: true,
     delivery: { sent, delivered, skipped },
-    autoConvocations: autoConvocationsResult,
     creation,
     finalDelivery: { sent: finalDelivery.sent, delivered: finalDelivery.delivered, skipped: finalDelivery.skipped },
     durationMs,
