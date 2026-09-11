@@ -329,8 +329,9 @@ export default function CalendarPage() {
   }
 
   function handleCreateOpenChange(open: boolean) {
-    if (open && players.length > 0) {
-      setForm((prev) => ({ ...prev, selected_player_ids: players.map((p) => p.id) }));
+    // Pas d'auto-pré-sélection : le coach coche lui-même les joueurs à convoquer.
+    if (open) {
+      setForm((prev) => ({ ...prev, selected_player_ids: [] }));
     }
     setCreateOpen(open);
   }
