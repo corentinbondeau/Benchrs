@@ -431,14 +431,30 @@ export default function RosterPage() {
         />
       )}
       {/* Page header */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold">Equipe</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            {players.length} joueur{players.length > 1 ? "s" : ""} &middot; {currentTeam.name}
-          </p>
+      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <div className="flex items-start justify-between gap-4 w-full md:w-auto">
+          <div>
+            <h1 className="text-2xl font-bold">Equipe</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              {players.length} joueur{players.length > 1 ? "s" : ""} &middot; {currentTeam.name}
+            </p>
+          </div>
+          {isOwner && (
+            <button
+              type="button"
+              onClick={() => setManaging((m) => !m)}
+              className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-colors md:hidden ${
+                managing
+                  ? "border-transparent bg-[var(--color-primary-blue)] text-white"
+                  : "border-border text-muted-foreground hover:bg-muted/50"
+              }`}
+            >
+              <SlidersHorizontal className="h-3.5 w-3.5" />
+              {managing ? "Terminer" : "Gérer"}
+            </button>
+          )}
         </div>
-        <div className="flex flex-wrap items-center justify-end gap-2 shrink-0 max-w-[80%]">
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
           {canAddPlayer && (
             <button
               type="button"
@@ -473,20 +489,6 @@ export default function RosterPage() {
                 PDF
               </button>
             </>
-          )}
-          {isOwner && (
-            <button
-              type="button"
-              onClick={() => setManaging((m) => !m)}
-              className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-colors md:hidden ${
-                managing
-                  ? "border-transparent bg-[var(--color-primary-blue)] text-white"
-                  : "border-border text-muted-foreground hover:bg-muted/50"
-              }`}
-            >
-              <SlidersHorizontal className="h-3.5 w-3.5" />
-              {managing ? "Terminer" : "Gérer"}
-            </button>
           )}
         </div>
       </div>
