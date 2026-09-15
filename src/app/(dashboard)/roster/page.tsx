@@ -438,7 +438,7 @@ export default function RosterPage() {
             {players.length} joueur{players.length > 1 ? "s" : ""} &middot; {currentTeam.name}
           </p>
         </div>
-        <div className="flex gap-2 shrink-0">
+        <div className="flex flex-wrap items-center justify-end gap-2 shrink-0 max-w-[80%]">
           {canAddPlayer && (
             <button
               type="button"
