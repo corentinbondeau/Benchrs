@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useTeam } from "@/lib/team";
 import { useQueryCache } from "@/lib/queryCache";
+import { fetchPlayedMatches } from "@/lib/attendance/playedMatches";
 import NextEventCard from "@/components/dashboard/NextEventCard";
 import { PendingConvocations } from "@/components/dashboard/PendingConvocations";
 import { NextSessionCheckIn } from "@/components/dashboard/NextSessionCheckIn";
@@ -58,7 +59,7 @@ export function PlayerDashboard() {
       const matchStats = statsRes.data || [];
       const goals = matchStats.reduce((sum, s) => sum + (s.goals || 0), 0);
       const assists = matchStats.reduce((sum, s) => sum + (s.assists || 0), 0);
-      const matchesPlayed = matchStats.length;
+      const matchesPlayed = (await fetchPlayedMatches(currentTeam!.id, user!.id)).length;
 
       return { attendanceRate, goals, assists, matchesPlayed };
     },

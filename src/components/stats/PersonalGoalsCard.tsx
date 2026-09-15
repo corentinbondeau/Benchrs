@@ -21,6 +21,7 @@ import {
 } from "@/lib/goals";
 import type { GoalCategory, PersonalGoal } from "@/types";
 import { computeAttendanceRate } from "@/lib/attendance/computeAttendanceRate";
+import { fetchPlayedMatches } from "@/lib/attendance/playedMatches";
 
 interface Props {
   playerId: string;
@@ -112,7 +113,7 @@ export function PersonalGoalsCard({ playerId }: Props) {
         const trainingIds = (trainingEvents || []).map((e) => e.id as string);
 
         if (eventIds.length > 0 || trainingIds.length > 0) {
-          const [{ data: stats }, { data: atts }] = await Promise.all([
+          const [{ data: stats }, { data: atts }, playedMatches] = await Promise.all([
             eventIds.length > 0
               ? supabase
                   .from("match_stats")
@@ -129,25 +130,27 @@ export function PersonalGoalsCard({ playerId }: Props) {
                   .eq("team_id", teamId)
                   .in("event_id", trainingIds)
               : Promise.resolve({ data: [] as unknown[] }),
+            fetchPlayedMatches(teamId, pid, {
+              minDate: range.start.toISOString(),
+              maxDate: range.end.toISOString(),
+            }),
           ]);
 
           let goals = 0;
           let assists = 0;
           let minutes = 0;
-          const matchEvents = new Set<string>();
           for (const s of stats || []) {
             const row = s as { event_id: string; goals: number; assists: number; minutes_played: number };
             goals += row.goals || 0;
             assists += row.assists || 0;
             minutes += row.minutes_played || 0;
-            matchEvents.add(row.event_id);
           }
           const attendanceRows = (atts || []) as { status: string; event_id: string }[];
           const attendanceRate = computeAttendanceRate(attendanceRows, trainingIds);
           progress = {
             goals,
             assists,
-            matches: matchEvents.size,
+            matches: playedMatches.length,
             minutes,
             assiduite: attendanceRate ?? 0,
           };

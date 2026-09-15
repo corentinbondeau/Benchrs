@@ -75,6 +75,7 @@ import { EmergencyInfoCard } from "@/components/stats/EmergencyInfoCard";
 import { DisciplineCard } from "@/components/stats/DisciplineCard";
 import { MedicalRecordCard } from "@/components/stats/MedicalRecordCard";
 import { POSITIONS } from "@/lib/positions";
+import { fetchPlayedMatches, fetchTeamPlayedMatchCounts } from "@/lib/attendance/playedMatches";
 import { buildProfileAttributesPayload } from "@/lib/profile/buildProfileAttributesPayload";
 interface PlayerStats {
   player_id: string;
@@ -382,6 +383,8 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
         }
       }
 
+      const playedMatches = await fetchPlayedMatches(team.id, playerId);
+
       let attendanceRate = 0;
       if (attendanceData && attendanceData.length > 0) {
         const present = attendanceData.filter((a) => a.status === "present" || a.status === "late").length;
@@ -396,7 +399,7 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
         shirt_number: profile.shirt_number,
         total_goals: totalGoals,
         total_assists: totalAssists,
-        matches_played: matchStats?.length || 0,
+        matches_played: playedMatches.length,
         total_minutes: totalMinutes,
         attendance_rate: attendanceRate,
         yellow_cards: yellowCards,
@@ -439,8 +442,17 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
         if (!bySeason[sk]) bySeason[sk] = { goals: 0, assists: 0, matches: 0, minutes: 0 };
         bySeason[sk].goals += r.goals;
         bySeason[sk].assists += r.assists;
-        bySeason[sk].matches += 1;
         bySeason[sk].minutes += r.minutes_played;
+      }
+      const matchesBySeason: Record<string, number> = {};
+      for (const pm of playedMatches) {
+        const sk = seasonKey(pm.event_date);
+        if (!sk) continue;
+        matchesBySeason[sk] = (matchesBySeason[sk] || 0) + 1;
+      }
+      for (const [sk, n] of Object.entries(matchesBySeason)) {
+        if (!bySeason[sk]) bySeason[sk] = { goals: 0, assists: 0, matches: n, minutes: 0 };
+        else bySeason[sk].matches = n;
       }
       setSeasonTotals(bySeason);
       setCurrentSeason(seasonKey(new Date().toISOString()) || "");
@@ -501,6 +513,7 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
         e.minutes += (s.minutes_played as number) || 0;
         e.matches += 1;
       }
+      const teamPlayedCounts = await fetchTeamPlayedMatchCounts(team.id);
       const attAgg = new Map<string, { total: number; present: number }>();
       for (const a of teamAttData || []) {
         const uid = a.user_id as string;
@@ -513,15 +526,21 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
       const pv = agg.get(playerId) || { goals: 0, assists: 0, matches: 0, minutes: 0 };
       const pa = attAgg.get(playerId);
       const playerPresence = pa && pa.total > 0 ? (pa.present / pa.total) * 100 : 0;
+      const playerMatches = teamPlayedCounts[playerId] || 0;
 
-      let tGoals = 0, tAssists = 0, tMatches = 0, tMinutes = 0, count = 0;
+      let tGoals = 0, tAssists = 0, tMinutes = 0, count = 0;
       for (const [pid, e] of agg) {
         if (pid === playerId) continue;
         tGoals += e.goals;
         tAssists += e.assists;
-        tMatches += e.matches;
         tMinutes += e.minutes;
         count++;
+      }
+      let tMatches = 0, playedCount = 0;
+      for (const [pid, n] of Object.entries(teamPlayedCounts)) {
+        if (pid === playerId) continue;
+        tMatches += n;
+        playedCount++;
       }
       let sumPresence = 0, presenceCount = 0;
       for (const [uid, e] of attAgg) {
@@ -532,15 +551,16 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
         }
       }
       const avg = count > 0
-        ? { goals: tGoals / count, assists: tAssists / count, matches: tMatches / count, minutes: tMinutes / count }
-        : { goals: 0, assists: 0, matches: 0, minutes: 0 };
+        ? { goals: tGoals / count, assists: tAssists / count, minutes: tMinutes / count }
+        : { goals: 0, assists: 0, minutes: 0 };
+      const avgMatches = playedCount > 0 ? tMatches / playedCount : 0;
       const avgPresence = presenceCount > 0 ? sumPresence / presenceCount : 0;
 
       const metrics = [
         { label: "Buts", player: pv.goals, avg: avg.goals },
         { label: "Passes", player: pv.assists, avg: avg.assists },
         { label: "Minutes", player: pv.minutes, avg: avg.minutes },
-        { label: "Matchs", player: pv.matches, avg: avg.matches },
+        { label: "Matchs", player: playerMatches, avg: avgMatches },
         { label: "Présence", player: playerPresence, avg: avgPresence },
       ];
       setRadarData(
