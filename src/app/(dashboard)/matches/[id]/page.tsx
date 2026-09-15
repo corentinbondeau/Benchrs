@@ -646,8 +646,9 @@ export default function MatchDetailPage() {
 
   let myPresence: MyPresenceInfo | undefined;
   if (!isCoach && user?.id) {
+    // Un joueur ne peut répondre que s'il a une convocation (ligne attendances existante).
     if (userRole === "player") {
-      const me = matchPlayers.find((p) => p.profile.id === user.id);
+      const me = matchPlayers.find((p) => p.profile.id === user.id && !!p.attendanceId);
       if (me) {
         myPresence = {
           label: "Ma présence",
@@ -656,7 +657,7 @@ export default function MatchDetailPage() {
         };
       }
     } else if (userRole === "parent" && childId) {
-      const child = matchPlayers.find((p) => p.profile.id === childId);
+      const child = matchPlayers.find((p) => p.profile.id === childId && !!p.attendanceId);
       if (child) {
         myPresence = {
           label: `Présence de ${child.profile.first_name}`,

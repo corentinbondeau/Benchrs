@@ -212,8 +212,9 @@ export default function TrainingDetailPage() {
 
   let myPresence: MyPresenceInfo | undefined;
   if (!isCoach && user?.id) {
+    // Un joueur ne peut répondre que s'il a une convocation (ligne attendances existante).
     if (userRole === "player") {
-      const me = players.find((p) => p.profile.id === user.id);
+      const me = players.find((p) => p.profile.id === user.id && !!p.attendanceId);
       if (me) {
         myPresence = {
           label: "Ma présence",
@@ -222,7 +223,7 @@ export default function TrainingDetailPage() {
         };
       }
     } else if (userRole === "parent" && childId) {
-      const child = players.find((p) => p.profile.id === childId);
+      const child = players.find((p) => p.profile.id === childId && !!p.attendanceId);
       if (child) {
         myPresence = {
           label: `Présence de ${child.profile.first_name}`,
