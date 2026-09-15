@@ -30,6 +30,7 @@ import {
   LogOut,
   Crown,
   X,
+  SlidersHorizontal,
 } from "lucide-react";
 import { normalizeFffNumber } from "@/lib/clubs";
 import type { TeamMember, Profile } from "@/types";
@@ -44,6 +45,7 @@ export default function MembersSection({ isOwner }: MembersSectionProps) {
 
   const [members, setMembers] = useState<(TeamMember & { profile?: Profile })[]>([]);
   const [loading, setLoading] = useState(true);
+  const [managingRoles, setManagingRoles] = useState(false);
   const [clubMembers, setClubMembers] = useState<{ id: string; user_id: string; role: string; profile?: Profile }[]>([]);
   const [clubTeamsList, setClubTeamsList] = useState<{ id: string; name: string }[]>([]);
   const [canManageClub, setCanManageClub] = useState(false);
@@ -377,10 +379,24 @@ export default function MembersSection({ isOwner }: MembersSectionProps) {
       {/* Members */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5" />
-            Membres ({members.length})
-          </CardTitle>
+          <div className="flex items-center justify-between gap-2">
+            <CardTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              Membres ({members.length})
+            </CardTitle>
+            {isOwner && members.some((m) => m.role !== "owner") && (
+              <Button
+                type="button"
+                size="sm"
+                variant={managingRoles ? "default" : "outline"}
+                className={`md:hidden ${managingRoles ? "bg-[var(--color-primary-blue)] text-white" : ""}`}
+                onClick={() => setManagingRoles((m) => !m)}
+              >
+                <SlidersHorizontal className="h-3.5 w-3.5 mr-1" />
+                {managingRoles ? "Terminer" : "Gérer"}
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -411,7 +427,7 @@ export default function MembersSection({ isOwner }: MembersSectionProps) {
                       {member.role === "owner" ? "Coach principal" : member.role === "coach" ? "Coach" : member.role === "parent" ? "Parent" : "Joueur"}
                     </span>
                     {isOwner && member.user_id !== user?.id && member.role !== "owner" && (
-                      <div className="flex items-center gap-2">
+                      <div className={`items-center gap-2 ${managingRoles ? "flex" : "hidden md:flex"}`}>
                         <select
                           value={member.role}
                           onChange={async (e) => {

@@ -6,7 +6,7 @@ import { authFetch } from "@/lib/api-client";
 import { useTeam } from "@/lib/team";
 import { useAuth } from "@/lib/auth";
 import Link from "next/link";
-import { Shield, Users, Baby, ChevronRight, FileText, Download, Loader2, MessageCircle, UserPlus } from "lucide-react";
+import { Shield, Users, Baby, ChevronRight, FileText, Download, Loader2, MessageCircle, UserPlus, SlidersHorizontal } from "lucide-react";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/ui/empty-state";
 import type { Profile } from "@/types";
@@ -50,6 +50,7 @@ export default function RosterPage() {
   const [muteStatuses, setMuteStatuses] = useState<Record<string, string | null>>({});
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState<"csv" | "pdf" | null>(null);
+  const [managing, setManaging] = useState(false);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [addForm, setAddForm] = useState<AddPlayerForm>({
     firstName: "",
@@ -349,7 +350,7 @@ export default function RosterPage() {
                   </Link>
                 )}
                 {isOwner && profile.id !== user?.id && memberIds[profile.id] && (
-                   <div className="flex items-center border border-l-0 bg-card rounded-r-xl px-2 gap-1">
+                   <div className={`items-center border border-l-0 bg-card px-2 gap-1 ${managing ? "flex rounded-r-xl" : "hidden md:flex md:rounded-r-xl"}`}>
                      <select
                        value={profile.role === "coach" ? "coach" : profile.role === "parent" ? "parent" : "player"}
                        onChange={async (e) => {
@@ -472,6 +473,20 @@ export default function RosterPage() {
                 PDF
               </button>
             </>
+          )}
+          {isOwner && (
+            <button
+              type="button"
+              onClick={() => setManaging((m) => !m)}
+              className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-colors md:hidden ${
+                managing
+                  ? "border-transparent bg-[var(--color-primary-blue)] text-white"
+                  : "border-border text-muted-foreground hover:bg-muted/50"
+              }`}
+            >
+              <SlidersHorizontal className="h-3.5 w-3.5" />
+              {managing ? "Terminer" : "Gérer"}
+            </button>
           )}
         </div>
       </div>
