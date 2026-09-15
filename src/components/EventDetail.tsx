@@ -342,14 +342,16 @@ export function AttendanceLists({
   parentLinks?: ReminderParentLink[];
   onRemindDone?: () => void;
 }) {
-  const present = players.filter((p) => p.status === "present");
-  const late = players.filter((p) => p.status === "late");
-  const absent = players.filter((p) => p.status === "absent");
-  const excused = players.filter((p) => p.status === "excused");
-  const waiting = players.filter(
+  // Dénominateur = joueurs CONVOQUÉS (ayant une ligne attendances), pas tous les actifs.
+  const convoked = players.filter((p) => p.attendanceId !== null);
+  const present = convoked.filter((p) => p.status === "present");
+  const late = convoked.filter((p) => p.status === "late");
+  const absent = convoked.filter((p) => p.status === "absent");
+  const excused = convoked.filter((p) => p.status === "excused");
+  const waiting = convoked.filter(
     (p) => p.attendanceId !== null && (p.status === null || p.status === "pending")
   );
-  const total = players.length;
+  const total = convoked.length;
 
   const canRemindAll = isCoach && !!event && !!teamId;
   const reminderTargets = canRemindAll
@@ -396,7 +398,7 @@ export function AttendanceLists({
       <CardContent>
         {total === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-4">
-            Aucun joueur actif
+            Aucun joueur convoqué
           </p>
         ) : (
           <div className="space-y-4">
