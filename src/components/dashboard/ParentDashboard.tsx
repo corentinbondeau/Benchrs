@@ -7,6 +7,7 @@ import { useTeam } from "@/lib/team";
 import { useRouter } from "next/navigation";
 import { useQueryCache, clearQueryCache } from "@/lib/queryCache";
 import RecentResults from "@/components/dashboard/RecentResults";
+import { WeekMatchAvailability } from "@/components/dashboard/WeekMatchAvailability";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -447,6 +448,9 @@ export function ParentDashboard() {
           </CardContent>
         </Card>
       )}
+
+      {/* Disponibilité avant match de la semaine */}
+      <WeekMatchAvailability playerId={child?.id ?? null} />
 
       {/* Covoiturage de la semaine */}
       {carpoolTrips.length > 0 && (

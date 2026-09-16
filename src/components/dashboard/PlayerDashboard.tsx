@@ -7,6 +7,7 @@ import { useQueryCache } from "@/lib/queryCache";
 import { fetchPlayedMatches } from "@/lib/attendance/playedMatches";
 import NextEventCard from "@/components/dashboard/NextEventCard";
 import { PendingConvocations } from "@/components/dashboard/PendingConvocations";
+import { WeekMatchAvailability } from "@/components/dashboard/WeekMatchAvailability";
 import { NextSessionCheckIn } from "@/components/dashboard/NextSessionCheckIn";
 import { LastSessionFeedback } from "@/components/dashboard/LastSessionFeedback";
 import RecentResults from "@/components/dashboard/RecentResults";
@@ -99,6 +100,9 @@ export function PlayerDashboard() {
 
       {/* P0: Pending convocations */}
       <PendingConvocations />
+
+      {/* P0: Disponibilités avant match de la semaine */}
+      <WeekMatchAvailability playerId={user?.id ?? null} />
 
       {/* P1: Check-in de forme pour la prochaine séance */}
       <NextSessionCheckIn />
