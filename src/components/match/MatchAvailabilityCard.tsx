@@ -129,7 +129,11 @@ export function MatchAvailabilityCard({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Erreur");
-      toast.success(`Sondage envoyé à ${data.recipients} personne(s)`);
+      if (data.recipients === 0) {
+        toast.success("Tout le monde a déjà répondu");
+      } else {
+        toast.success(`Rappel envoyé à ${data.recipients} personne(s) restante(s)`);
+      }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Erreur lors de l'envoi");
     } finally {

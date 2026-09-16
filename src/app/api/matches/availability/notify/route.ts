@@ -64,13 +64,27 @@ export async function POST(req: Request) {
     if (activeIds.length === 0) {
       return NextResponse.json({ error: "Aucun joueur actif" }, { status: 400 });
     }
+
+    // Filtrer les joueurs qui ont déjà répondu au sondage
+    const { data: alreadyResponded } = await supabase
+      .from("match_availability")
+      .select("player_id")
+      .eq("event_id", eventId)
+      .in("player_id", activeIds);
+    const respondedSet = new Set((alreadyResponded || []).map((r) => r.player_id));
+    const unrespondedIds = activeIds.filter((id) => !respondedSet.has(id));
+    if (unrespondedIds.length === 0) {
+      return NextResponse.json({ ok: true, recipients: 0, sent: 0, message: "Tout le monde a déjà répondu" });
+    }
+
+    // Parents uniquement des joueurs n'ayant pas encore répondu
     const { data: links } = await supabase
       .from("parent_student")
       .select("parent_id")
       .eq("team_id", teamId)
-      .in("student_id", activeIds);
+      .in("student_id", unrespondedIds);
     const parentIds = [...new Set((links || []).map((l) => (l as { parent_id: string }).parent_id))];
-    const userIds = [...new Set([...activeIds, ...parentIds])];
+    const userIds = [...new Set([...unrespondedIds, ...parentIds])];
 
     const dateLabel = new Date(event.event_date).toLocaleDateString("fr-FR", {
       weekday: "long",
