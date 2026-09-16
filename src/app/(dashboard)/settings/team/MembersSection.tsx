@@ -427,7 +427,7 @@ export default function MembersSection({ isOwner }: MembersSectionProps) {
                       {member.role === "owner" ? "Coach principal" : member.role === "coach" ? "Coach" : member.role === "parent" ? "Parent" : "Joueur"}
                     </span>
                     {isOwner && member.user_id !== user?.id && member.role !== "owner" && (
-                      <div className={`items-center gap-2 ${managingRoles ? "flex" : "hidden md:flex"}`}>
+                       <div className={`items-center gap-2 ${managingRoles ? "flex" : "max-md:hidden md:flex"}`}>
                         <select
                           value={member.role}
                           onChange={async (e) => {

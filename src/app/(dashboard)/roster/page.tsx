@@ -350,7 +350,7 @@ export default function RosterPage() {
                   </Link>
                 )}
                 {isOwner && profile.id !== user?.id && memberIds[profile.id] && (
-                   <div className={`items-center border border-l-0 bg-card px-2 gap-1 ${managing ? "flex rounded-r-xl" : "hidden md:flex md:rounded-r-xl"}`}>
+                   <div className={`items-center border border-l-0 bg-card px-2 gap-1 ${managing ? "flex rounded-r-xl" : "max-md:hidden md:flex md:rounded-r-xl"}`}>
                      <select
                        value={profile.role === "coach" ? "coach" : profile.role === "parent" ? "parent" : "player"}
                        onChange={async (e) => {
