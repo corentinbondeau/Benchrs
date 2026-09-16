@@ -6,7 +6,7 @@ import { authFetch } from "@/lib/api-client";
 import { useTeam } from "@/lib/team";
 import { useAuth } from "@/lib/auth";
 import Link from "next/link";
-import { Shield, Users, Baby, ChevronRight, FileText, Download, Loader2, MessageCircle, UserPlus, SlidersHorizontal } from "lucide-react";
+import { Shield, Users, Baby, FileText, Download, Loader2, MessageCircle, UserPlus, MoreHorizontal } from "lucide-react";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/ui/empty-state";
 import type { Profile } from "@/types";
@@ -19,12 +19,12 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 
-type Section = { key: "coach" | "player" | "parent"; label: string; icon: typeof Shield };
+type Section = { key: "coach" | "player" | "parent"; label: string; icon: typeof Shield; color: string; bg: string };
 
 const SECTIONS: Section[] = [
-  { key: "coach", label: "Coachs", icon: Shield },
-  { key: "player", label: "Joueurs", icon: Users },
-  { key: "parent", label: "Parents", icon: Baby },
+  { key: "coach", label: "Coachs", icon: Shield, color: "text-amber-600", bg: "bg-amber-100" },
+  { key: "player", label: "Joueurs", icon: Users, color: "text-[var(--color-primary-blue)]", bg: "bg-blue-100" },
+  { key: "parent", label: "Parents", icon: Baby, color: "text-emerald-600", bg: "bg-emerald-100" },
 ];
 
 type AddPlayerForm = {
@@ -134,7 +134,6 @@ export default function RosterPage() {
       toast.success("Joueur créé avec succès");
       setAddDialogOpen(false);
       setAddForm({ firstName: "", lastName: "", dateOfBirth: "", position: "", shirtNumber: "", hasEmail: false, email: "" });
-      // Recharger la liste
       const supabase = createClient();
       const { data: rows } = await supabase
           .from("team_members")
@@ -255,7 +254,7 @@ export default function RosterPage() {
     return (
       <div className="section-gap">
         <div>
-          <h1 className="text-2xl font-bold">Équipe</h1>
+          <h1 className="text-2xl font-bold">Equipe</h1>
           <p className="text-sm text-muted-foreground mt-1">{currentTeam?.name || "Chargement..."}</p>
         </div>
         <div className="space-y-2">
@@ -274,145 +273,126 @@ export default function RosterPage() {
     if (profiles.length === 0) return null;
 
     return (
-      <div>
-        <div className="flex items-center gap-2 pt-2 pb-3">
-          <Icon className="h-4 w-4 text-muted-foreground" />
-          <h3 className="font-semibold text-[11px] text-muted-foreground uppercase tracking-widest">
+      <div className="rounded-xl border border-border bg-card overflow-hidden">
+        <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
+          <Icon className={`h-4 w-4 ${section.color}`} />
+          <h3 className="font-semibold text-sm">
             {section.label}
           </h3>
-          <span className="text-[11px] text-muted-foreground/50">({profiles.length})</span>
+          <span className="text-xs text-muted-foreground">{profiles.length}</span>
         </div>
-        <div className="space-y-1.5">
+        <div className="divide-y divide-border">
           {profiles.map((profile) => {
             const initials = `${profile.first_name[0]}${profile.last_name[0]}`;
             const isPlayer = section.key === "player";
-            const isCoach = section.key === "coach";
-            const cardClass = "flex items-center gap-3 rounded-xl bg-card border p-4";
-            const inner = (
-              <>
-                <div
-                  className={`flex h-12 w-12 items-center justify-center rounded-full text-base font-bold shrink-0 ${
-                    isCoach
-                      ? "bg-amber-100 text-amber-700"
-                      : isPlayer
-                      ? "bg-blue-100 text-blue-700"
-                      : "bg-green-100 text-green-700"
-                  }`}
-                >
-                  {isPlayer && profile.shirt_number
-                    ? profile.shirt_number
-                    : initials}
-                </div>
-                <div className="flex-1 min-w-0">
-                   <p className="font-semibold text-[15px]">
-                     {profile.first_name} {profile.last_name}
-                     {!isPlayer && profile.city && (
-                       <span className="text-xs text-muted-foreground"> · {profile.city}</span>
-                     )}
-                   </p>
-                   <div className="flex items-center gap-1.5 flex-wrap">
-                     <p className="text-sm text-muted-foreground">
-                       {isPlayer
-                         ? (profile.position || "Joueur")
-                         : section.label.slice(0, -1)}
-                     </p>
-                     {isPlayer && muteStatuses[profile.id] === "mute" && (
-                       <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
-                         Muté
-                       </span>
-                     )}
-                     {isPlayer && muteStatuses[profile.id] === "mute_hors_periode" && (
-                       <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-600">
-                         Muté HP
-                       </span>
-                     )}
-                   </div>
-                 </div>
-                <ChevronRight className="h-5 w-5 text-muted-foreground/40 shrink-0" />
-              </>
-            );
             return (
-              <div key={profile.id} className="flex items-stretch gap-0">
-                <Link
-                  href={`/stats/${profile.id}`}
-                  className={`${cardClass} flex-1 min-w-0 active:scale-[0.98] transition-transform touch-manipulation`}
-                >
-                  {inner}
-                </Link>
-                {isPlayer && (userRole === "coach" || userRole === "owner") && (
-                  <Link
-                    href={`/chat?player=${profile.id}`}
-                    className="flex items-center justify-center border border-l-0 bg-card px-3 text-[var(--color-royal)] hover:bg-muted/50"
-                    aria-label="Discuter avec les parents"
-                    title="Discuter avec les parents"
+              <div key={profile.id} className="flex items-center gap-3 px-4 py-3">
+                <Link href={`/stats/${profile.id}`} className="flex items-center gap-3 flex-1 min-w-0 active:opacity-70 transition-opacity">
+                  <div
+                    className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold shrink-0 ${section.bg} ${section.color}`}
                   >
-                    <MessageCircle className="h-5 w-5" />
-                  </Link>
-                )}
-                {isOwner && profile.id !== user?.id && memberIds[profile.id] && (
-                   <div className={`items-center border border-l-0 bg-card px-2 gap-1 ${managing ? "flex rounded-r-xl" : "max-md:hidden md:flex md:rounded-r-xl"}`}>
-                     <select
-                       value={profile.role === "coach" ? "coach" : profile.role === "parent" ? "parent" : "player"}
-                       onChange={async (e) => {
-                         e.stopPropagation();
-                         const newRole = e.target.value;
-                         const supabase = createClient();
-                         const { error } = await supabase
-                           .from("team_members")
-                           .update({ role: newRole })
-                           .eq("id", memberIds[profile.id]);
-                         if (error) {
-                           toast.error("Impossible de modifier le rôle");
-                           return;
-                         }
-                         toast.success(`Rôle modifié`);
-                         setAllProfiles((prev) =>
-                           prev.map((p) =>
-                             p.id === profile.id ? { ...p, role: newRole as Profile["role"] } : p
-                           )
-                         );
-                       }}
-                       onClick={(e) => e.stopPropagation()}
-                        className="h-8 rounded-md border border-input bg-background px-2 text-xs cursor-pointer"
+                    {isPlayer && profile.shirt_number ? profile.shirt_number : initials}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm truncate">
+                      {profile.first_name} {profile.last_name}
+                    </p>
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-xs text-muted-foreground truncate">
+                        {isPlayer ? (profile.position || "Joueur") : section.label.slice(0, -1)}
+                      </p>
+                      {!isPlayer && profile.city && (
+                        <span className="text-xs text-muted-foreground">· {profile.city}</span>
+                      )}
+                      {isPlayer && muteStatuses[profile.id] === "mute" && (
+                        <span className="inline-flex items-center rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">
+                          Muté
+                        </span>
+                      )}
+                      {isPlayer && muteStatuses[profile.id] === "mute_hors_periode" && (
+                        <span className="inline-flex items-center rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold text-red-600">
+                          Muté HP
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </Link>
+
+                {/* Action buttons */}
+                <div className="flex items-center gap-1 shrink-0">
+                  {isPlayer && (userRole === "coach" || userRole === "owner") && (
+                    <Link
+                      href={`/chat?player=${profile.id}`}
+                      className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted transition-colors"
+                      title="Discuter avec les parents"
+                    >
+                      <MessageCircle className="h-4 w-4" />
+                    </Link>
+                  )}
+                  {isOwner && profile.id !== user?.id && memberIds[profile.id] && (
+                    <div className={`items-center gap-1 ${managing ? "flex" : "max-md:hidden md:flex"}`}>
+                      <select
+                        value={profile.role === "coach" ? "coach" : profile.role === "parent" ? "parent" : "player"}
+                        onChange={async (e) => {
+                          e.stopPropagation();
+                          const newRole = e.target.value;
+                          const supabase = createClient();
+                          const { error } = await supabase
+                            .from("team_members")
+                            .update({ role: newRole })
+                            .eq("id", memberIds[profile.id]);
+                          if (error) {
+                            toast.error("Impossible de modifier le rôle");
+                            return;
+                          }
+                          toast.success(`Rôle modifié`);
+                          setAllProfiles((prev) =>
+                            prev.map((p) =>
+                              p.id === profile.id ? { ...p, role: newRole as Profile["role"] } : p
+                            )
+                          );
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                        className="h-8 rounded-lg border border-input bg-background px-2 text-xs cursor-pointer"
                         title="Modifier le rôle"
-                     >
-                       <option value="player">Joueur</option>
-                       <option value="coach">Coach</option>
-                       <option value="parent">Parent</option>
-                     </select>
-                     {isPlayer && (
-                       <select
-                         value={muteStatuses[profile.id] ?? ""}
-                         onChange={async (e) => {
-                           e.stopPropagation();
-                           const newMuteStatus = e.target.value || null;
-                           const supabase = createClient();
-                           const { error } = await supabase
-                             .from("team_members")
-                             .update({ mute_status: newMuteStatus })
-                             .eq("id", memberIds[profile.id]);
+                      >
+                        <option value="player">Joueur</option>
+                        <option value="coach">Coach</option>
+                        <option value="parent">Parent</option>
+                      </select>
+                      {isPlayer && (
+                        <select
+                          value={muteStatuses[profile.id] ?? ""}
+                          onChange={async (e) => {
+                            e.stopPropagation();
+                            const newMuteStatus = e.target.value || null;
+                            const supabase = createClient();
+                            const { error } = await supabase
+                              .from("team_members")
+                              .update({ mute_status: newMuteStatus })
+                              .eq("id", memberIds[profile.id]);
                             if (error) {
-                              console.error("[roster] mute_status update error:", error.message, error.code, error.details, "memberId:", memberIds[profile.id]);
                               toast.error(`Impossible de modifier le statut : ${error.message}`);
                               return;
                             }
                             toast.success("Statut de mutation modifié");
-                           setMuteStatuses((prev) => ({
-                             ...prev,
-                             [profile.id]: newMuteStatus,
-                           }));
-                         }}
-                         onClick={(e) => e.stopPropagation()}
-                          className="h-8 rounded-md border border-input bg-background px-2 text-xs cursor-pointer"
+                            setMuteStatuses((prev) => ({
+                              ...prev,
+                              [profile.id]: newMuteStatus,
+                            }));
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                          className="h-8 rounded-lg border border-input bg-background px-2 text-xs cursor-pointer"
                           title="Modifier le statut de mutation"
-                       >
-                         <option value="">Non muté</option>
-                         <option value="mute">Muté</option>
-                         <option value="mute_hors_periode">Muté HP</option>
-                       </select>
-                     )}
-                   </div>
-                 )}
+                        >
+                          <option value="">Non muté</option>
+                          <option value="mute">Muté</option>
+                          <option value="mute_hors_periode">Muté HP</option>
+                        </select>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             );
           })}
@@ -427,7 +407,7 @@ export default function RosterPage() {
         <OnboardingTip
           tipKey="roster-invite"
           title="Invitez vos joueurs"
-          description="Invitez vos joueurs en partageant le code d'invitation dans Paramètres > Équipe."
+          description="Invitez vos joueurs en partageant le code d'invitation dans Paramètres > Equipe."
         />
       )}
       {/* Page header */}
@@ -449,7 +429,7 @@ export default function RosterPage() {
                   : "border-border text-muted-foreground hover:bg-muted/50"
               }`}
             >
-              <SlidersHorizontal className="h-3.5 w-3.5" />
+              <MoreHorizontal className="h-3.5 w-3.5" />
               {managing ? "Terminer" : "Gérer"}
             </button>
           )}
@@ -501,7 +481,9 @@ export default function RosterPage() {
           action={canAddPlayer ? { label: "Ajouter un joueur", onClick: () => setAddDialogOpen(true) } : undefined}
         />
       ) : (
-        SECTIONS.map((section) => <RoleSection key={section.key} section={section} />)
+        <div className="space-y-4">
+          {SECTIONS.map((section) => <RoleSection key={section.key} section={section} />)}
+        </div>
       )}
 
       {/* Dialog ajout joueur */}
