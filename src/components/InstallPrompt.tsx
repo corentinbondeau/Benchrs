@@ -6,8 +6,9 @@ import { X } from "lucide-react";
 
 export function InstallPrompt() {
   const { canInstall, isIOS, isStandalone, promptInstall } = useInstallPrompt();
-  const [show, setShow] = useState(false);
-  const [dismissed, setDismissed] = useState(false);
+  const [dismissed, setDismissed] = useState(
+    () => typeof window !== "undefined" && !!sessionStorage.getItem("benchrs:install-dismissed")
+  );
 
   useEffect(() => {
     if ("serviceWorker" in navigator) {
@@ -15,15 +16,7 @@ export function InstallPrompt() {
     }
   }, []);
 
-  useEffect(() => {
-    // Vérifier si déjà refusé dans cette session
-    if (typeof window !== "undefined" && sessionStorage.getItem("benchrs:install-dismissed")) {
-      setDismissed(true);
-      return;
-    }
-    // Afficher si : prompt natif dispo OU iOS non installé
-    setShow(!isStandalone && !dismissed && (canInstall || isIOS));
-  }, [canInstall, isIOS, isStandalone, dismissed]);
+  const show = !isStandalone && !dismissed && (canInstall || isIOS);
 
   const handleDismiss = () => {
     setDismissed(true);
@@ -35,7 +28,7 @@ export function InstallPrompt() {
   const handleInstall = async () => {
     const accepted = await promptInstall();
     if (accepted) {
-      setShow(false);
+      setDismissed(true);
     }
   };
 

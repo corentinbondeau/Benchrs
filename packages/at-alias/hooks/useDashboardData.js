@@ -10,6 +10,7 @@
 // 2. setup.ts (exécuté par Vitest avant les tests) expose les modules mockés via globalThis.__vitestBridge__
 // 3. Ce bridge utilise globalThis.__vitestBridge__ dans useEffect (asynchrone, après setup.ts)
 
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const React = require("react");
 const { useState, useEffect } = React;
 

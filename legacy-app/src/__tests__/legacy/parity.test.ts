@@ -2,9 +2,9 @@ import { describe, it, expect, afterEach } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
-import { checkLegacyParity } from "../../../scripts/check-legacy-parity.mjs";
+import { checkLegacyParity } from "../../../../scripts/check-legacy-parity.mjs";
 
-const REPO_ROOT = path.resolve(__dirname, "../../..");
+const REPO_ROOT = path.resolve(__dirname, "../../../..");
 
 /**
  * Garde-fou de parité src/ <-> legacy-app/src/.

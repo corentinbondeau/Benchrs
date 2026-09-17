@@ -420,15 +420,17 @@ export function useDashboardData(role: "coach" | "owner"): CoachDashboardData {
   useEffect(() => {
     // Sans équipe → reset
     if (!teamId) {
-      setState({
-        nextEvent: null,
-        pendingConvocations: null,
-        weekOverview: null,
-        quickStats: null,
-        recentResults: null,
-        loading: false,
-        errors: {},
-      });
+      Promise.resolve().then(() =>
+        setState({
+          nextEvent: null,
+          pendingConvocations: null,
+          weekOverview: null,
+          quickStats: null,
+          recentResults: null,
+          loading: false,
+          errors: {},
+        })
+      );
       return;
     }
 
@@ -436,12 +438,12 @@ export function useDashboardData(role: "coach" | "owner"): CoachDashboardData {
     const cached = cacheKey ? getQueryCache<CoachDashboardData>(cacheKey) : { has: false, data: null };
     if (cached.has && cached.data) {
       // Données disponibles depuis le cache — mise à jour immédiate
-      setState({ ...cached.data, loading: false });
+      Promise.resolve().then(() => { if (cached.data) setState(cached.data); });
       // On ne return pas : on continue pour le revalidation en background
       // (le Promise.all ci-dessous sera exécuté mais n'appellera pas setState si les données sont identiques)
     } else {
       // Pas de cache → indiquer le chargement
-      setState((prev) => ({ ...prev, loading: true }));
+      Promise.resolve().then(() => setState((prev) => ({ ...prev, loading: true })));
     }
 
     const currentTeamId = teamId;

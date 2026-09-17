@@ -116,32 +116,47 @@ export default function SeanceTab() {
   const [generatedAi, setGeneratedAi] = useState<AISession | null>(null);
   const [visibility, setVisibility] = useState<FicheVisibility>("coach");
 
-  if (!currentTeam) {
-    return <div className="flex items-center justify-center h-64"><p className="text-muted-foreground">Chargement de l'équipe...</p></div>;
-  }
-
   const fetchData = useCallback(async () => {
+    const teamId = currentTeam?.id;
+    if (!teamId) return;
     const [sessionsRes, eventsRes] = await Promise.all([
       supabaseRef.current
         .from("training_sessions")
         .select("*")
-        .eq("team_id", currentTeam!.id)
+        .eq("team_id", teamId)
         .order("created_at", { ascending: false }),
       supabaseRef.current
         .from("events")
         .select("*")
-        .eq("team_id", currentTeam!.id)
+        .eq("team_id", teamId)
         .eq("type", "training")
         .order("event_date", { ascending: true }),
     ]);
-    setSessions((sessionsRes.data as TrainingSession[]) || []);
-    setEvents((eventsRes.data as Event[]) || []);
-    setLoading(false);
+    return {
+      sessions: (sessionsRes.data as TrainingSession[]) || [],
+      events: (eventsRes.data as Event[]) || [],
+    };
   }, [currentTeam]);
 
   useEffect(() => {
-    fetchData();
+    fetchData().then((res) => {
+      if (res) {
+        setSessions(res.sessions);
+        setEvents(res.events);
+      }
+      setLoading(false);
+    });
   }, [fetchData]);
+
+  function refresh() {
+    fetchData().then((res) => {
+      if (res) {
+        setSessions(res.sessions);
+        setEvents(res.events);
+      }
+      setLoading(false);
+    });
+  }
 
   useEffect(() => {
     if (!selectedSession?.event_id || !currentTeam) return;
@@ -155,6 +170,10 @@ export default function SeanceTab() {
         setAttendanceCount({ present, total: data.length });
       });
   }, [selectedSession?.event_id, currentTeam]);
+
+  if (!currentTeam) {
+    return <div className="flex items-center justify-center h-64"><p className="text-muted-foreground">Chargement de l&apos;équipe...</p></div>;
+  }
 
   function addExercise() {
     setExercises([
@@ -690,7 +709,7 @@ export default function SeanceTab() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label>Niveau d'expertise du coach IA</Label>
+                      <Label>Niveau d&apos;expertise du coach IA</Label>
                       <Select value={expertise} onValueChange={(v) => setExpertise((v as ExpertiseLevel) ?? "UEFA B")}>
                         <SelectTrigger className="w-full">
                           <SelectValue />

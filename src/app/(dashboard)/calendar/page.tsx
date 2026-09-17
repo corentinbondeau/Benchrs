@@ -72,7 +72,7 @@ function computeRecurrenceDates(eventDate: Date, recurrence: Recurrence, endDate
   if (recurrence === "Aucun") return dates;
   const end = new Date(endDate);
   end.setHours(23, 59, 59, 999);
-  let current = new Date(eventDate);
+  const current = new Date(eventDate);
   while (true) {
     if (recurrence === "weekly") current.setDate(current.getDate() + 7);
     else if (recurrence === "biweekly") current.setDate(current.getDate() + 14);

@@ -385,7 +385,7 @@ export function UniversalOnboarding() {
 
           {currentStep === "coach_tools" && (
             <p className="text-center text-sm text-muted-foreground">
-              Gérez vos convocations, plans d'entraînement, feuilles de match
+              Gérez vos convocations, plans d&apos;entraînement, feuilles de match
               et statistiques d&apos;équipe directement depuis Benchrs.
             </p>
           )}

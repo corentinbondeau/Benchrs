@@ -95,26 +95,22 @@ function writeTeamCache(userId: string, teams: Team[], currentTeam: Team | null)
 export function TeamProvider({ children }: { children: ReactNode }) {
   const { user: authUser, loading: authLoading } = useAuth();
 
-  // Restauration synchrone depuis le cache : calculée une seule fois (ref de premier render)
-  // On utilise useRef pour mémoriser le résultat sans re-déclencher le rendu
-  const initRef = useRef<{ teams: Team[]; currentTeam: Team | null; loading: boolean } | null>(null);
-  if (initRef.current === null) {
+  // Restauration synchrone depuis le cache : calculée une seule fois (lecture paresseuse du premier render)
+  const [initialData] = useState<{ teams: Team[]; currentTeam: Team | null; loading: boolean }>(() => {
     if (authLoading || !authUser) {
-      initRef.current = { teams: [], currentTeam: null, loading: authLoading ? true : false };
-    } else {
-      const cached = readTeamCache(authUser.id);
-      initRef.current = cached
-        ? { teams: cached.teams, currentTeam: cached.currentTeam, loading: false }
-        : { teams: [], currentTeam: null, loading: true };
+      return { teams: [], currentTeam: null, loading: authLoading ? true : false };
     }
-  }
-  const initialState = initRef.current;
+    const cached = readTeamCache(authUser.id);
+    return cached
+      ? { teams: cached.teams, currentTeam: cached.currentTeam, loading: false }
+      : { teams: [], currentTeam: null, loading: true };
+  });
 
-  const [teams, setTeams] = useState<Team[]>(initialState.teams);
-  const [currentTeam, setCurrentTeam] = useState<Team | null>(initialState.currentTeam);
+  const [teams, setTeams] = useState<Team[]>(initialData.teams);
+  const [currentTeam, setCurrentTeam] = useState<Team | null>(initialData.currentTeam);
   const [userRole, setUserRole] = useState<TeamMemberRole | null>(null);
   const [clubMemberships, setClubMemberships] = useState<ClubMembership[]>([]);
-  const [loading, setLoading] = useState(initialState.loading);
+  const [loading, setLoading] = useState(initialData.loading);
   const supabaseRef = useRef(createClient());
 
   const loadTeams = useCallback(async (userId: string) => {
@@ -242,10 +238,12 @@ export function TeamProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (authLoading) return;
     if (!authUserId) {
-      setTeams([]);
-      setCurrentTeam(null);
-      setClubMemberships([]);
-      setLoading(false);
+      Promise.resolve().then(() => {
+        setTeams([]);
+        setCurrentTeam(null);
+        setClubMemberships([]);
+        setLoading(false);
+      });
       return;
     }
     loadTeams(authUserId);

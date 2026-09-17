@@ -238,10 +238,12 @@ export function ParentDashboard() {
     );
   }
 
+  const now = new Date();
+
   const eventDate = nextEvent ? new Date(nextEvent.event_date) : null;
   let countdown = "";
   if (eventDate) {
-    const diffMs = eventDate.getTime() - Date.now();
+    const diffMs = eventDate.getTime() - now.getTime();
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
     const diffHours = Math.floor(
       (diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)
@@ -251,7 +253,6 @@ export function ParentDashboard() {
     else countdown = "Bientôt";
   }
 
-  const now = new Date();
   const dateStr = now.toLocaleDateString("fr-FR", {
     weekday: "long",
     day: "numeric",

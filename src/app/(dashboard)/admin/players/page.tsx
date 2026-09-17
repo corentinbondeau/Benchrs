@@ -43,11 +43,11 @@ export default function AdminPlayersPage() {
       });
   }
 
-  if (!currentTeam) {
-    return <div className="flex items-center justify-center h-64"><p className="text-muted-foreground">Chargement de l'équipe...</p></div>;
-  }
-
   useEffect(() => { if (currentTeam) fetchPlayers(); }, [currentTeam?.id]);
+
+  if (!currentTeam) {
+    return <div className="flex items-center justify-center h-64"><p className="text-muted-foreground">Chargement de l&apos;équipe...</p></div>;
+  }
 
   async function toggleActive(id: string, current: boolean) {
     const supabase = createClient();

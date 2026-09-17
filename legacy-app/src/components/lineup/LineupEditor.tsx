@@ -291,11 +291,13 @@ export function LineupEditor({
   // Fetch present players + existing formation when event changes
   useEffect(() => {
     if (!selectedEventId || !currentTeam) {
-      setPresentPlayers([]);
-      resetAssignments();
+      Promise.resolve().then(() => {
+        setPresentPlayers([]);
+        resetAssignments();
+      });
       return;
     }
-    setLoadingPlayers(true);
+    Promise.resolve().then(() => setLoadingPlayers(true));
 
     Promise.all([
       supabase
@@ -326,7 +328,7 @@ export function LineupEditor({
       // Set present players
       if (attendRes.data) {
         const players = attendRes.data
-          .map((a: any) => a.profile as unknown as Profile | null)
+          .map((a: { profile: unknown }) => a.profile as unknown as Profile | null)
           .filter((p): p is Profile => p !== null);
         setPresentPlayers(players);
       } else {
@@ -415,7 +417,7 @@ export function LineupEditor({
 
     const bench: (string | null)[] = Array.from({ length: benchSize }, (_, i) => benchAssignments[`bench-${i}`] || null);
 
-    const formationData: Record<string, any> = { positions, bench };
+    const formationData = { positions, bench } as unknown as FormationData;
     if (captainId) formationData.captain_id = captainId;
 
     if (loadedFormationId) {
@@ -433,7 +435,7 @@ export function LineupEditor({
         toast.error("Erreur lors de la mise à jour");
       } else {
         toast.success("Feuillet mis à jour");
-        await syncMatchLineups(formationData as FormationData);
+        await syncMatchLineups(formationData);
         onSaved?.(data as unknown as Formation);
       }
     } else {
@@ -453,9 +455,9 @@ export function LineupEditor({
       if (error) {
         toast.error("Erreur lors de la création");
       } else {
-        setLoadedFormationId((data as any)?.id || null);
+        setLoadedFormationId((data as { id: string } | null)?.id || null);
         toast.success("Feuillet enregistré");
-        await syncMatchLineups(formationData as FormationData);
+        await syncMatchLineups(formationData);
         onSaved?.(data as unknown as Formation);
       }
     }

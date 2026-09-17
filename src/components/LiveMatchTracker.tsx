@@ -1120,7 +1120,7 @@ export function LiveMatchTracker({
                   disabled={busyLive}
                 >
                   {busyLive ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-                  Coup d'envoi
+                  Coup d&apos;envoi
                 </Button>
               ) : phase === "playing" && !halftimeAt ? (
                 <Button

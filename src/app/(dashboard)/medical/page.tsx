@@ -40,15 +40,13 @@ export default function MedicalPage() {
   const { children, selectedChildId } = useSelectedChild(currentTeam?.id);
   const canReport = isCoach || isParent;
 
-  if (!currentTeam) {
-    return <div className="flex items-center justify-center h-64"><p className="text-muted-foreground">Chargement de l&apos;équipe...</p></div>;
-  }
-
   function fetchData() {
     const supabase = createClient();
+    const teamId = currentTeam?.id;
+    if (!teamId) return;
     Promise.all([
-      supabase.from("injuries").select("*, player:profiles!injuries_player_id_fkey(first_name, last_name)").eq("team_id", currentTeam!.id).order("created_at", { ascending: false }),
-      supabase.from("team_members").select("user_id, profiles!inner(id, first_name, last_name, shirt_number, is_active)").eq("team_id", currentTeam!.id).eq("role", "player"),
+      supabase.from("injuries").select("*, player:profiles!injuries_player_id_fkey(first_name, last_name)").eq("team_id", teamId).order("created_at", { ascending: false }),
+      supabase.from("team_members").select("user_id, profiles!inner(id, first_name, last_name, shirt_number, is_active)").eq("team_id", teamId).eq("role", "player"),
     ]).then(([injuriesRes, membersRes]) => {
       setInjuries((injuriesRes.data as InjuryWithPlayer[]) || []);
       const teamPlayers = ((membersRes.data || []) as unknown as { profiles: Profile }[])
@@ -61,6 +59,10 @@ export default function MedicalPage() {
   }
 
   useEffect(() => { fetchData(); }, []);
+
+  if (!currentTeam) {
+    return <div className="flex items-center justify-center h-64"><p className="text-muted-foreground">Chargement de l&apos;équipe...</p></div>;
+  }
 
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();

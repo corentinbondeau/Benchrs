@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useTeam } from "@/lib/team";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -25,11 +25,12 @@ export default function ColorsSection({ isOwner }: ColorsSectionProps) {
   const [colorSecondary, setColorSecondary] = useState("#1E40AF");
   const [savingColors, setSavingColors] = useState(false);
 
-  useEffect(() => {
-    if (!currentTeam) return;
+  const [loadedTeamColorId, setLoadedTeamColorId] = useState<string | null>(null);
+  if (currentTeam && loadedTeamColorId !== currentTeam.id) {
+    setLoadedTeamColorId(currentTeam.id);
     setColorPrimary(currentTeam.color_primary || "#EAB308");
     setColorSecondary(currentTeam.color_secondary || "#1E40AF");
-  }, [currentTeam]);
+  }
 
   async function saveColors() {
     if (!currentTeam) return;

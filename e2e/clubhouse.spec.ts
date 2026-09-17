@@ -23,6 +23,21 @@ const COACH_EMAIL = process.env.E2E_COACH_EMAIL ?? "";
 const COACH_PASSWORD = process.env.E2E_COACH_PASSWORD ?? "";
 
 /**
+ * Les tests authentifiés de ce fichier nécessitent un compte coach de test
+ * (E2E_COACH_EMAIL / E2E_COACH_PASSWORD) ainsi que les variables Supabase.
+ * En l'absence de ces variables (ex. CI sans secrets dédiés), on saute
+ * proprement le fichier au lieu d'échouer sur un throw dans loginAsCoach.
+ */
+const HAS_E2E_CREDENTIALS = Boolean(
+  SUPABASE_URL && SUPABASE_ANON_KEY && COACH_EMAIL && COACH_PASSWORD
+);
+
+test.skip(
+  !HAS_E2E_CREDENTIALS,
+  "Tests authentifiés ignorés : E2E_COACH_EMAIL / E2E_COACH_PASSWORD (et variables Supabase) requis."
+);
+
+/**
  * Effectue un login Supabase via l'API REST et injecte les cookies de session
  * dans le contexte Playwright. Cela évite de passer par la page de login UI.
  */

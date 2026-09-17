@@ -31,15 +31,13 @@ export default function TasksPage() {
 
   const isCoach = userRole === "coach" || userRole === "owner";
 
-  if (!currentTeam) {
-    return <div className="flex items-center justify-center h-64"><p className="text-muted-foreground">Chargement de l'équipe...</p></div>;
-  }
-
   function fetchData() {
     const supabase = createClient();
+    const teamId = currentTeam?.id;
+    if (!teamId) return;
     Promise.all([
-      supabase.from("tasks").select("*, event:events(*), assignee:profiles!tasks_assigned_to_fkey(first_name, last_name)").eq("team_id", currentTeam!.id).order("created_at", { ascending: false }),
-      supabase.from("events").select("*").eq("team_id", currentTeam!.id).order("event_date", { ascending: true }),
+      supabase.from("tasks").select("*, event:events(*), assignee:profiles!tasks_assigned_to_fkey(first_name, last_name)").eq("team_id", teamId).order("created_at", { ascending: false }),
+      supabase.from("events").select("*").eq("team_id", teamId).order("event_date", { ascending: true }),
       supabase.from("profiles").select("*").eq("role", "player").eq("is_active", true).order("last_name"),
     ]).then(([tasksRes, eventsRes, playersRes]) => {
       setTasks((tasksRes.data as TaskWithDetails[]) || []);
@@ -50,6 +48,10 @@ export default function TasksPage() {
   }
 
   useEffect(() => { fetchData(); }, []);
+
+  if (!currentTeam) {
+    return <div className="flex items-center justify-center h-64"><p className="text-muted-foreground">Chargement de l&apos;équipe...</p></div>;
+  }
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();

@@ -44,10 +44,6 @@ export default function TrophiesPage() {
   const { currentTeam, userRole } = useTeam();
   const isCoach = userRole === "coach" || userRole === "owner";
 
-  if (!currentTeam) {
-    return <div className="flex items-center justify-center h-64"><p className="text-muted-foreground">Chargement de l'équipe...</p></div>;
-  }
-
   const [votes, setVotes] = useState<(MotmVote & { candidate?: Profile })[]>([]);
   const [trophies, setTrophies] = useState<(TrophyItem & { recipient?: Profile })[]>([]);
   const [players, setPlayers] = useState<Profile[]>([]);
@@ -70,17 +66,19 @@ export default function TrophiesPage() {
 
   const fetchData = useCallback(async () => {
     const supabase = createClient();
+    const teamId = currentTeam?.id;
+    if (!teamId) return null;
     const [votesRes, trophiesRes, playersRes, eventsRes] = await Promise.all([
       supabase
         .from("motm_votes")
         .select("*, candidate:profiles!motm_votes_candidate_id_fkey(first_name, last_name)")
-        .eq("team_id", currentTeam!.id)
+        .eq("team_id", teamId)
         .order("created_at", { ascending: false })
         .limit(100),
       supabase
         .from("trophies")
         .select("*, recipient:profiles!trophies_awarded_to_fkey(first_name, last_name)")
-        .eq("team_id", currentTeam!.id)
+        .eq("team_id", teamId)
         .order("created_at", { ascending: false })
         .limit(100),
       supabase
@@ -92,18 +90,35 @@ export default function TrophiesPage() {
       supabase
         .from("events")
         .select("*")
-        .eq("team_id", currentTeam!.id)
+        .eq("team_id", teamId)
         .order("event_date", { ascending: false }),
     ]);
 
-    setVotes((votesRes.data as (MotmVote & { candidate?: Profile })[]) || []);
-    setTrophies((trophiesRes.data as (TrophyItem & { recipient?: Profile })[]) || []);
-    setPlayers((playersRes.data as Profile[]) || []);
-    setEvents((eventsRes.data as Event[]) || []);
-    setLoading(false);
+    return {
+      votes: (votesRes.data as (MotmVote & { candidate?: Profile })[]) || [],
+      trophies: (trophiesRes.data as (TrophyItem & { recipient?: Profile })[]) || [],
+      players: (playersRes.data as Profile[]) || [],
+      events: (eventsRes.data as Event[]) || [],
+    };
   }, []);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => {
+    fetchData().then(refreshFromData);
+  }, [fetchData]);
+
+  function refreshFromData(res: { votes: (MotmVote & { candidate?: Profile })[]; trophies: (TrophyItem & { recipient?: Profile })[]; players: Profile[]; events: Event[] } | null) {
+    if (res) {
+      setVotes(res.votes);
+      setTrophies(res.trophies);
+      setPlayers(res.players);
+      setEvents(res.events);
+    }
+    setLoading(false);
+  }
+
+  function refresh() {
+    fetchData().then(refreshFromData);
+  }
 
   async function handleCreateVoteSession() {
     if (!voteSessionTitle.trim()) {
@@ -131,7 +146,7 @@ export default function TrophiesPage() {
     setVoteSessionOpen(false);
     setVoteSessionTitle("");
     setVoteSessionEndDate("");
-    fetchData();
+    refresh();
   }
 
   async function handleVote(sessionEventId: string, candidateId: string) {
@@ -149,7 +164,7 @@ export default function TrophiesPage() {
       if (existing.candidate_id === user.id) {
         await supabase.from("motm_votes").update({ candidate_id: candidateId }).eq("id", existing.id);
         toast.success("Vote enregistré");
-        fetchData();
+        refresh();
         return;
       }
       toast.error("Vous avez déjà voté pour cette session");
@@ -166,14 +181,14 @@ export default function TrophiesPage() {
       return;
     }
     toast.success("Vote enregistré");
-    fetchData();
+    refresh();
   }
 
   async function handleDeleteVoteSession(sessionEventId: string) {
     const supabase = createClient();
     await supabase.from("motm_votes").delete().eq("event_id", sessionEventId);
     toast.success("Session supprimée");
-    fetchData();
+    refresh();
   }
 
   function openCreateTrophy() {
@@ -225,7 +240,7 @@ export default function TrophiesPage() {
       toast.success("Trophée créé");
     }
     setTrophyOpen(false);
-    fetchData();
+    refresh();
   }
 
   async function handleDeleteTrophy(id: string) {
@@ -233,7 +248,7 @@ export default function TrophiesPage() {
     await supabase.from("trophies").delete().eq("id", id);
     toast.success("Trophée supprimé");
     setConfirmDelete(null);
-    fetchData();
+    refresh();
   }
 
   function getEventTitle(sessionEventId: string, title?: string): string {
@@ -255,6 +270,10 @@ export default function TrophiesPage() {
     const existing = voteSessions.get(v.event_id) || [];
     existing.push(v);
     voteSessions.set(v.event_id, existing);
+  }
+
+  if (!currentTeam) {
+    return <div className="flex items-center justify-center h-64"><p className="text-muted-foreground">Chargement de l&apos;équipe...</p></div>;
   }
 
   return (

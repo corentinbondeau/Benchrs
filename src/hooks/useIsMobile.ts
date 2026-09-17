@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useSyncExternalStore } from "react";
 
 /**
  * Hook useIsMobile
@@ -12,25 +12,24 @@ import { useState, useEffect } from "react";
  * - Utilise `window.matchMedia` avec listener de changement pour réactivité
  * - Guard `typeof window !== 'undefined'` pour la compatibilité SSR/jsdom
  */
+
+function subscribe(callback: () => void): () => void {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+    return () => {};
+  }
+  const mq = window.matchMedia("(max-width: 1023px)");
+  const handler = (e: MediaQueryListEvent) => callback();
+  mq.addEventListener("change", handler);
+  return () => mq.removeEventListener("change", handler);
+}
+
+function getSnapshot(): boolean {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+    return false;
+  }
+  return window.matchMedia("(max-width: 1023px)").matches;
+}
+
 export function useIsMobile(): boolean {
-  const [isMobile, setIsMobile] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
-      return;
-    }
-
-    const mq = window.matchMedia("(max-width: 1023px)");
-
-    // Initialisation synchrone avec la valeur courante
-    setIsMobile(mq.matches);
-
-    // Listener de changement de viewport
-    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
-    mq.addEventListener("change", handler);
-
-    return () => mq.removeEventListener("change", handler);
-  }, []);
-
-  return isMobile;
+  return useSyncExternalStore(subscribe, getSnapshot, () => false);
 }

@@ -60,11 +60,15 @@ export function useInstallPrompt(): UseInstallPromptResult {
     useState<BeforeInstallPromptEvent | null>(null);
   const [isIOS, setIsIOS] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
+  const [detected, setDetected] = useState(false);
 
-  useEffect(() => {
+  if (!detected) {
+    setDetected(true);
     setIsIOS(detectIOS());
     setIsStandalone(detectStandalone());
+  }
 
+  useEffect(() => {
     const handler = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e as BeforeInstallPromptEvent);

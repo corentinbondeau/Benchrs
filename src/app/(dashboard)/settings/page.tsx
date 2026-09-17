@@ -78,23 +78,23 @@ export default function SettingsPage() {
 
   const [newPassword, setNewPassword] = useState("");
 
-  useEffect(() => {
-    if (user?.profile) {
-      const p = user.profile as Profile;
-      setFirstName(p.first_name || "");
-      setLastName(p.last_name || "");
-      setPhone(p.phone || "");
-      setCity(p.city || "");
-      setPosition(p.position || "");
-      setShirtNumber(p.shirt_number?.toString() || "");
-      setDateOfBirth(p.date_of_birth || "");
-      setPreferredFoot(p.preferred_foot || "");
-      setHeightCm(p.height_cm?.toString() || "");
-      setWeightKg(p.weight_kg?.toString() || "");
-      setSecondaryPositions(p.secondary_positions || []);
-      setEmailNotifications(p.email_notifications ?? true);
-    }
-  }, [user]);
+  const [loadedProfileId, setLoadedProfileId] = useState<string | null>(null);
+  if (user?.profile && loadedProfileId !== user.profile.id) {
+    const p = user.profile as Profile;
+    setLoadedProfileId(user.profile.id);
+    setFirstName(p.first_name || "");
+    setLastName(p.last_name || "");
+    setPhone(p.phone || "");
+    setCity(p.city || "");
+    setPosition(p.position || "");
+    setShirtNumber(p.shirt_number?.toString() || "");
+    setDateOfBirth(p.date_of_birth || "");
+    setPreferredFoot(p.preferred_foot || "");
+    setHeightCm(p.height_cm?.toString() || "");
+    setWeightKg(p.weight_kg?.toString() || "");
+    setSecondaryPositions(p.secondary_positions || []);
+    setEmailNotifications(p.email_notifications ?? true);
+  }
 
   useEffect(() => {
     if (!user?.id || !currentTeam?.id) return;
@@ -148,7 +148,7 @@ export default function SettingsPage() {
   }
 
   if (!currentTeam) {
-    return <div className="flex items-center justify-center h-64"><p className="text-muted-foreground">Chargement de l'équipe...</p></div>;
+    return <div className="flex items-center justify-center h-64"><p className="text-muted-foreground">Chargement de l&apos;équipe...</p></div>;
   }
 
   const hasProfileChanges =

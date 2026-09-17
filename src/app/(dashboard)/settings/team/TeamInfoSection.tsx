@@ -72,10 +72,15 @@ export default function TeamInfoSection({ isOwner, isCoach }: TeamInfoSectionPro
   const [icsCopied, setIcsCopied] = useState(false);
   const [savedLocations, setSavedLocations] = useState<TeamLocation[]>([]);
 
+  const [loadedTeamInfoId, setLoadedTeamInfoId] = useState<string | null>(null);
+  if (currentTeam && loadedTeamInfoId !== currentTeam.id) {
+    setLoadedTeamInfoId(currentTeam.id);
+    setNewName(currentTeam.name);
+  }
+
   useEffect(() => {
     if (!currentTeam) return;
     const team = currentTeam;
-    setNewName(team.name);
 
     supabase
       .from("weekly_challenge_settings")

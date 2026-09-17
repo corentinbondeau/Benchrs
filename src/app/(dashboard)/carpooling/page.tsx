@@ -45,13 +45,10 @@ export default function CarpoolingPage() {
   // Si parent : inscrire l'enfant comme passager. Sinon : l'utilisateur lui-même.
   const passengerId = isParent && selectedChildId ? selectedChildId : user?.id;
 
-  if (!currentTeam) {
-    return <div className="flex items-center justify-center h-64"><p className="text-muted-foreground">Chargement...</p></div>;
-  }
-
   function fetchData() {
     const supabase = createClient();
-    const teamId = currentTeam!.id;
+    const teamId = currentTeam?.id;
+    if (!teamId) return;
     Promise.all([
       supabase
         .from("carpooling_trips")
@@ -73,6 +70,10 @@ export default function CarpoolingPage() {
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { fetchData(); }, [currentTeam?.id]);
+
+  if (!currentTeam) {
+    return <div className="flex items-center justify-center h-64"><p className="text-muted-foreground">Chargement...</p></div>;
+  }
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();

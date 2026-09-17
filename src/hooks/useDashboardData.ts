@@ -183,11 +183,11 @@ export function useDashboardData<R extends "player" | "parent">(
 
   useEffect(() => {
     if (!teamId || !userId) {
-      setState({ data: null, loading: false, error: null });
+      Promise.resolve().then(() => setState({ data: null, loading: false, error: null }));
       return;
     }
 
-    setState({ data: null, loading: true, error: null });
+    Promise.resolve().then(() => setState({ data: null, loading: true, error: null }));
 
     const currentTeamId = teamId;
     const currentUserId = userId;

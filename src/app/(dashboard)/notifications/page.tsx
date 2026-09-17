@@ -80,7 +80,7 @@ export default function NotificationsPage() {
   const pageRef = useRef(0);
 
   const fetchNotificationsPage = useCallback(async (pageIndex: number) => {
-    if (!user?.id || !currentTeam) return;
+    if (!user?.id || !currentTeam) return null;
     const supabase = createClient();
     const from = pageIndex * PAGE_SIZE;
     const to = from + PAGE_SIZE - 1;
@@ -91,7 +91,10 @@ export default function NotificationsPage() {
       .eq("team_id", currentTeam.id)
       .order("created_at", { ascending: false })
       .range(from, to);
-    const rows = (data as Notification[]) || [];
+    return (data as Notification[]) || [];
+  }, [user?.id, currentTeam?.id]);
+
+  const applyPage = useCallback((pageIndex: number, rows: Notification[]) => {
     if (pageIndex === 0) {
       setNotifications(rows);
       setHasMore(rows.length >= PAGE_SIZE);
@@ -100,21 +103,27 @@ export default function NotificationsPage() {
       if (rows.length < PAGE_SIZE) setHasMore(false);
     }
     setLoading(false);
-  }, [user?.id, currentTeam?.id]);
+  }, []);
+
+  const loadPage = useCallback((pageIndex: number) => {
+    fetchNotificationsPage(pageIndex).then((rows) => {
+      if (rows) applyPage(pageIndex, rows);
+    });
+  }, [fetchNotificationsPage, applyPage]);
 
   const handleLoadMore = useCallback(() => {
     if (!hasMore || loading) return;
     const nextPage = pageRef.current + 1;
     pageRef.current = nextPage;
-    fetchNotificationsPage(nextPage);
-  }, [hasMore, loading, fetchNotificationsPage]);
+    loadPage(nextPage);
+  }, [hasMore, loading, loadPage]);
 
   const sentinelRef = useInfiniteScroll(handleLoadMore, hasMore, loading);
 
   useEffect(() => {
     pageRef.current = 0;
-    fetchNotificationsPage(0);
-  }, [fetchNotificationsPage]);
+    loadPage(0);
+  }, [loadPage]);
 
   const unreadCount = useMemo(() => notifications.filter((n) => !n.is_read).length, [notifications]);
 

@@ -160,7 +160,7 @@ export function WeatherWidget({
   // Géocodage automatique au montage
   useEffect(() => {
     if (location?.trim() && latitude == null && longitude == null && !editing) {
-      geocode(true);
+      Promise.resolve().then(() => geocode(true));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Uniquement au montage

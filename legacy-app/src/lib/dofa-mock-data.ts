@@ -1,7 +1,7 @@
 // Mock data pour tester l'import DOFA localement quand l'API est down
 // A utiliser uniquement en développement!
 
-export const MOCK_CLUBS_DATA: Record<string, any> = {
+export const MOCK_CLUBS_DATA: Record<string, { equipes: unknown }> = {
   "525816": {
     equipes: [
       {
@@ -131,7 +131,12 @@ export function getMockData(query: { fffNumber?: string; clubName?: string; type
     return null;
   }
 
-  const result: any = { equipes: data.equipes };
+  type MockResult = {
+    equipes: unknown;
+    matches?: unknown;
+    standings?: unknown;
+  };
+  const result: MockResult = { equipes: data.equipes };
 
   if (type === "all" || type === "calendar") {
     result.matches = MOCK_MATCHES;

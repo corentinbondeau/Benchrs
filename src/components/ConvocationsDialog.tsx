@@ -65,7 +65,7 @@ export function ConvocationsDialog({ event, open, onOpenChange }: ConvocationsDi
   const locked = isLockedForRole(event.event_date, event.end_date, isCoach);
 
   const fetchData = useCallback(async () => {
-    if (!currentTeam || !event) return;
+    if (!currentTeam || !event) return null;
     const supabase = createClient();
 
     const { data: evt } = await supabase
@@ -82,17 +82,29 @@ export function ConvocationsDialog({ event, open, onOpenChange }: ConvocationsDi
       .eq("event_id", event.id)
       .eq("team_id", currentTeam.id);
 
-    setEventData({
-      ...(evt as Event),
-      attendances: (attData || []) as EventWithAttendances["attendances"],
-    });
-    setPlayers(playersData);
-    setLoading(false);
+    return {
+      eventData: {
+        ...(evt as Event),
+        attendances: (attData || []) as EventWithAttendances["attendances"],
+      } as EventWithAttendances,
+      players: playersData,
+    };
   }, [event?.id, currentTeam]);
 
+  const applyData = useCallback(async (data: Awaited<ReturnType<typeof fetchData>> | null) => {
+    if (!data) return;
+    setEventData(data.eventData);
+    setPlayers(data.players);
+    setLoading(false);
+  }, []);
+
+  const refresh = useCallback(async () => {
+    applyData(await fetchData());
+  }, [fetchData, applyData]);
+
   useEffect(() => {
-    if (open) fetchData();
-  }, [open, fetchData]);
+    if (open) fetchData().then((d) => applyData(d));
+  }, [open, fetchData, applyData]);
 
   async function notifyConvocation(userIds: string[]) {
     if (userIds.length === 0) return;
@@ -155,7 +167,7 @@ export function ConvocationsDialog({ event, open, onOpenChange }: ConvocationsDi
     toast.success(`${ids.length} joueur(s) convoqué(s)`);
     setAddPlayerOpen(false);
     setSelectedNewPlayerIds([]);
-    fetchData();
+    refresh();
     notifyConvocation(ids);
   }
 
@@ -180,7 +192,7 @@ export function ConvocationsDialog({ event, open, onOpenChange }: ConvocationsDi
       return;
     }
     toast.success(`${toInsert.length} joueur(s) convoqué(s)`);
-    fetchData();
+    refresh();
     notifyConvocation(toInsert.map((r) => r.user_id));
   }
 
@@ -196,7 +208,7 @@ export function ConvocationsDialog({ event, open, onOpenChange }: ConvocationsDi
       return;
     }
     toast.success("Statut mis à jour");
-    fetchData();
+    refresh();
   }
 
   async function removeConvocation(attendanceId: string) {
@@ -207,7 +219,7 @@ export function ConvocationsDialog({ event, open, onOpenChange }: ConvocationsDi
     const supabase = createClient();
     await supabase.from("attendances").delete().eq("id", attendanceId);
     toast.success("Convocation supprimée");
-    fetchData();
+    refresh();
   }
 
   async function respondToConvocation(attendanceId: string, status: "present" | "absent", reason?: string) {
@@ -225,7 +237,7 @@ export function ConvocationsDialog({ event, open, onOpenChange }: ConvocationsDi
     }
     hapticSuccess();
     toast.success(status === "present" ? "Présence confirmée" : "Absence signalée");
-    fetchData();
+    refresh();
   }
 
   async function sendConvocationPush() {

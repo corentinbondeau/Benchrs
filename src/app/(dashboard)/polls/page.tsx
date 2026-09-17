@@ -74,10 +74,7 @@ export default function PollsPage() {
 
   useEffect(() => {
     let cancelled = false;
-    if (!currentTeam) {
-      setLoading(false);
-      return;
-    }
+    if (!currentTeam) return;
     loadData()
       .then((res) => {
         if (cancelled) return;
