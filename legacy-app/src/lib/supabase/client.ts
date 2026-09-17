@@ -8,6 +8,15 @@ export function createClient() {
 }
 
 export async function getSessionAccessToken(): Promise<string | null> {
-  const { data } = await createClient().auth.getSession();
-  return data.session?.access_token ?? null;
+  const supabase = createClient();
+  const { data } = await supabase.auth.getSession();
+  const session = data.session;
+  const expiresAt = session?.expires_at;
+  // Token encore valide (marge de 30s) → on le renvoie tel quel.
+  if (session && typeof expiresAt === "number" && expiresAt - 30 > Date.now() / 1000) {
+    return session.access_token;
+  }
+  // Session absente OU token expiré/proche de l'expiration → on force un refresh.
+  const { data: refreshed } = await supabase.auth.refreshSession();
+  return refreshed.session?.access_token ?? null;
 }

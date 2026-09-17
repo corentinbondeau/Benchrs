@@ -22,6 +22,7 @@ import { Crown } from "lucide-react";
 import { toast } from "sonner";
 import { hapticSuccess } from "@/lib/haptic";
 import type { Profile, Event, Formation, FormationData } from "@/types";
+import { VisibilityPicker, type FicheVisibility } from "@/components/training/FicheVisibilityPicker";
 import { ALL_FORMATIONS, FORMATIONS_BY_FORMAT } from "@/lib/lineup/formations";
 import { autoCompose as autoComposePure } from "@/lib/lineup/autoCompose";
 import { toMatchLineupRows } from "@/lib/lineup/toMatchLineups";
@@ -41,6 +42,8 @@ export interface LineupEditorProps {
   userId: string | null; // -> created_by à l'insert
   isCoach: boolean;
   showEventPicker?: boolean; // true = Tactiques (défaut) · false = fiche match
+  /** Affiche le sélecteur de formation (dispositif), indépendamment du sélecteur de match. Défaut : showEventPicker */
+  showFormationPicker?: boolean;
   events?: MatchEventOption[]; // requis si showEventPicker
   onEventChange?: (id: string) => void;
   onSaved?: (formation: Formation) => void; // rafraîchissement de la fiche match
@@ -85,6 +88,7 @@ export function LineupEditor({
   userId,
   isCoach,
   showEventPicker = true,
+  showFormationPicker,
   events = [],
   onEventChange,
   onSaved,
@@ -107,10 +111,12 @@ export function LineupEditor({
   const [pickingSlot, setPickingSlot] = useState<string | null>(null);
   const [captainId, setCaptainId] = useState<string | null>(null);
   const [muteStatusMap, setMuteStatusMap] = useState<Record<string, string | null>>({});
+  const [visibility, setVisibility] = useState<FicheVisibility>("team");
 
   // Formations disponibles pour le format courant
   const availableFormationNames = FORMATIONS_BY_FORMAT[matchFormat] ?? FORMATIONS_BY_FORMAT[11];
   const currentPositions = ALL_FORMATIONS[formationName] || ALL_FORMATIONS[availableFormationNames[0]] || ALL_FORMATIONS["4-3-3"];
+  const showFormation = showFormationPicker ?? showEventPicker;
 
   const assignedPlayerIds = new Set([
     ...Object.values(assignments),
@@ -354,8 +360,12 @@ export function LineupEditor({
           setBenchAssignments(newBench);
         }
         setCaptainId(fd.captain_id || null);
+        if (existingFormation.visibility) {
+          setVisibility(existingFormation.visibility as FicheVisibility);
+        }
       } else {
         resetAssignments();
+        setVisibility("team");
       }
 
       setLoadingPlayers(false);
@@ -414,6 +424,7 @@ export function LineupEditor({
         .update({
           name: formationName,
           formation_data: formationData,
+          visibility,
         })
         .eq("id", loadedFormationId)
         .select()
@@ -435,6 +446,7 @@ export function LineupEditor({
           created_by: userId || null,
           is_default: true,
           team_id: teamId,
+          visibility,
         })
         .select()
         .single();
@@ -477,62 +489,66 @@ export function LineupEditor({
 
   return (
     <div className="space-y-4">
-      {showEventPicker && (
+      {(showEventPicker || showFormation) && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Match</label>
-            <Select
-              value={selectedEventId}
-              onValueChange={(v) => {
-                setSelectedEventId(v ?? "");
-                onEventChange?.(v ?? "");
-              }}
-            >
-              <SelectTrigger className="w-full h-11">
-                <SelectValue placeholder="Sélectionner un match">
-                  {(v) => {
-                    if (!v) return "Sélectionner un match";
-                    const ev = events.find((e) => e.id === v);
-                    return ev
-                      ? `${ev.title}${ev.opponent ? ` vs ${ev.opponent}` : ""}`
-                      : v;
-                  }}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {events.map((ev) => (
-                  <SelectItem key={ev.id} value={ev.id}>
-                    {ev.title}
-                    {ev.opponent ? ` vs ${ev.opponent}` : ""} —{" "}
-                    {formatDate(ev.event_date)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {showEventPicker && (
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Match</label>
+              <Select
+                value={selectedEventId}
+                onValueChange={(v) => {
+                  setSelectedEventId(v ?? "");
+                  onEventChange?.(v ?? "");
+                }}
+              >
+                <SelectTrigger className="w-full h-11">
+                  <SelectValue placeholder="Sélectionner un match">
+                    {(v) => {
+                      if (!v) return "Sélectionner un match";
+                      const ev = events.find((e) => e.id === v);
+                      return ev
+                        ? `${ev.title}${ev.opponent ? ` vs ${ev.opponent}` : ""}`
+                        : v;
+                    }}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {events.map((ev) => (
+                    <SelectItem key={ev.id} value={ev.id}>
+                      {ev.title}
+                      {ev.opponent ? ` vs ${ev.opponent}` : ""} —{" "}
+                      {formatDate(ev.event_date)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Formation</label>
-            <Select
-              value={formationName}
-              onValueChange={(v) => {
-                setFormationName(v ?? "4-3-3");
-                setAssignments({});
-                setBenchAssignments({});
-              }}
-            >
-              <SelectTrigger className="w-full h-11">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {availableFormationNames.map((f) => (
-                  <SelectItem key={f} value={f}>
-                    {f}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {showFormation && (
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Formation</label>
+              <Select
+                value={formationName}
+                onValueChange={(v) => {
+                  setFormationName(v ?? "4-3-3");
+                  setAssignments({});
+                  setBenchAssignments({});
+                }}
+              >
+                <SelectTrigger className="w-full h-11">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableFormationNames.map((f) => (
+                    <SelectItem key={f} value={f}>
+                      {f}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </div>
       )}
 
@@ -763,6 +779,10 @@ export function LineupEditor({
                 >
                   {pdfLoading ? "Génération..." : "Exporter PDF"}
                 </Button>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground font-medium">Visible par :</span>
+                  <VisibilityPicker value={visibility} onChange={setVisibility} />
+                </div>
               </>
             )}
             {isCoach && (

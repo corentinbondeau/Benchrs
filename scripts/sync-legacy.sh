@@ -79,8 +79,12 @@ for rel_root in "${SCOPE_ROOTS[@]}"; do
     esac
   done
 
-  echo "    - $main_dir -> $legacy_dir (rsync --delete${RSYNC_EXCLUDES:+, exclusions appliquées})"
-  rsync -a --delete "${RSYNC_EXCLUDES[@]}" "$main_dir/" "$legacy_dir/"
+  echo "    - $main_dir -> $legacy_dir (rsync --delete${RSYNC_EXCLUDES+:${#RSYNC_EXCLUDES[@]} exclusions})"
+  if [[ ${#RSYNC_EXCLUDES[@]} -gt 0 ]]; then
+    rsync -a --delete "${RSYNC_EXCLUDES[@]}" "$main_dir/" "$legacy_dir/"
+  else
+    rsync -a --delete "$main_dir/" "$legacy_dir/"
+  fi
 done
 
 echo "==> Résumé :"
