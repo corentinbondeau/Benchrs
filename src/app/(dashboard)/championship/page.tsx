@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useTeam } from "@/lib/team";
 import { authFetch } from "@/lib/api-client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { parsePouleUrl } from "@/lib/dofa/poule-url";
 import { parseDofaMatches } from "@/lib/dofa/parse-matches";
 import { extractPouleTeams, type PouleTeam } from "@/lib/dofa/poule-teams";
+import PouleResultsCard, { type PouleMatch } from "@/components/championship/PouleResultsCard";
 
 interface Championship {
   id: string;
@@ -21,6 +22,7 @@ interface Championship {
   season: string;
   level: string | null;
   teams: ChampionshipTeam[];
+  matches?: PouleMatch[];
   dofa_cp_no?: number | null;
   dofa_phase?: number | null;
   dofa_poule?: number | null;
@@ -34,6 +36,8 @@ interface Championship {
 
 interface ChampionshipTeam {
   id: string;
+  cl_no?: number;
+  number?: number;
   team_name: string;
   played: number;
   won: number;
@@ -102,16 +106,27 @@ export default function ChampionshipPage() {
   const [createLevel, setCreateLevel] = useState("");
   const [creating, setCreating] = useState(false);
 
+  const teamId = currentTeam?.id;
+  const loadChampionships = useCallback(async (): Promise<Championship[]> => {
+    if (!teamId) return [];
+    const data = (await authFetch(`/api/championships?team_id=${teamId}`).then((r) => r.json())) as Championship[];
+    return data;
+  }, [teamId]);
+
   useEffect(() => {
-    authFetch(`/api/championships?team_id=${currentTeam!.id}`)
-      .then((r) => r.json())
-      .then((data) => {
-        setChampionships(data);
-        if (data.length > 0) setSelectedId(data[0].id);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
-  }, [currentTeam]);
+    let cancelled = false;
+    loadChampionships().then((data) => {
+      if (cancelled) return;
+      setChampionships(data);
+      if (data.length > 0) {
+        setSelectedId((prev) => (prev && data.some((c) => c.id === prev) ? prev : data[0].id));
+      }
+      setLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [loadChampionships]);
 
   if (!currentTeam) return null;
 
@@ -760,6 +775,7 @@ export default function ChampionshipPage() {
           </div>
 
           {selected && (
+            <>
             <Card>
               <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2 flex-wrap">
@@ -875,6 +891,19 @@ export default function ChampionshipPage() {
                 )}
               </CardContent>
             </Card>
+
+            <PouleResultsCard
+              championshipId={selected.id}
+              teams={selected.teams.map((t) => ({
+                cl_no: t.cl_no ?? 0,
+                number: t.number ?? 0,
+                team_name: t.team_name,
+              }))}
+              matches={selected.matches ?? []}
+              isCoach={isCoach}
+              onChanged={() => loadChampionships().then((data) => setChampionships(data))}
+            />
+            </>
           )}
         </>
       )}

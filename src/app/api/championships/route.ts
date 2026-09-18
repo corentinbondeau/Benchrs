@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAuthUser, unauthorized, forbidden, isTeamMember, isTeamCoach } from "@/lib/api-auth";
-import { computeStandings, isPartialCoverage, resolveStandings } from "@/lib/dofa";
+import { isPartialCoverage, resolveStandings } from "@/lib/dofa";
 import type { DofaMatch } from "@/lib/dofa/parse-matches";
 
 /**
@@ -110,6 +110,8 @@ export async function GET(req: Request) {
 
       const teams = standings.map((row) => ({
         id: `${row.clNo}/${row.number}`,
+        cl_no: row.clNo,
+        number: row.number,
         team_name: row.shortName,
         played: row.played,
         won: row.won,
@@ -120,7 +122,44 @@ export async function GET(req: Request) {
         points: row.points,
       }));
 
-      return { ...c, teams, standings_source, standings_coverage };
+      // Liste brute des matchs de la poule (saisis à la main OU importés),
+      // pour permettre au coach de renseigner les scores des matchs qui
+      // n'impliquent pas son équipe (source = 'manual') puis de voir les
+      // résultats de toute la poule. Mise en forme défensive : les lignes
+      // les plus anciennes peuvent manquer de champs (ex. identité DOFA
+      // absente avant la migration 086), l'UI doit toujours pouvoir les
+      // afficher.
+      const poolMatches = (rows || [])
+        .map((row) => {
+          const r = row as Record<string, unknown>;
+          return {
+            id: typeof r.id === "string" ? r.id : "",
+            matchday: typeof r.matchday_number === "number" ? r.matchday_number : null,
+            home_team: typeof r.home_team === "string" ? r.home_team : "",
+            away_team: typeof r.away_team === "string" ? r.away_team : "",
+            home_cl_no: typeof r.home_cl_no === "number" ? r.home_cl_no : null,
+            home_team_number: typeof r.home_team_number === "number" ? r.home_team_number : null,
+            away_cl_no: typeof r.away_cl_no === "number" ? r.away_cl_no : null,
+            away_team_number: typeof r.away_team_number === "number" ? r.away_team_number : null,
+            home_score: typeof r.home_score === "number" ? r.home_score : null,
+            away_score: typeof r.away_score === "number" ? r.away_score : null,
+            kickoff: typeof r.kickoff === "string" && r.kickoff ? r.kickoff : null,
+            location: typeof r.location === "string" && r.location ? r.location : null,
+            postponed: r.postponed === true,
+            home_is_forfeit: r.home_is_forfeit === true,
+            away_is_forfeit: r.away_is_forfeit === true,
+            source: typeof r.source === "string" ? r.source : (r as Record<string, unknown>).dofa_ma_no != null ? "dofa_import" : "manual",
+            dofa_ma_no: typeof r.dofa_ma_no === "number" ? r.dofa_ma_no : null,
+          };
+        })
+        .sort((a, b) => {
+          if (a.kickoff && b.kickoff) return a.kickoff < b.kickoff ? -1 : a.kickoff > b.kickoff ? 1 : 0;
+          if (a.kickoff) return -1;
+          if (b.kickoff) return 1;
+          return (a.matchday ?? 0) - (b.matchday ?? 0);
+        });
+
+      return { ...c, teams, matches: poolMatches, standings_source, standings_coverage };
     })
   );
 

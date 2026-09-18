@@ -598,7 +598,7 @@ export default function CalendarPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="training">Entraînement</SelectItem>
+                      <SelectItem value="training">Séance</SelectItem>
                       <SelectItem value="match">Match</SelectItem>
                     </SelectContent>
                   </Select>

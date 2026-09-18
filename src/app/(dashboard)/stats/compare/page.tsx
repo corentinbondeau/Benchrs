@@ -121,6 +121,9 @@ export default function ComparePage() {
     return p ? `${p.first_name} ${p.last_name}` : "Joueur";
   };
 
+  const formatValue = (metric: string, v: number) =>
+    metric === "Présence" ? `${v} %` : String(v);
+
   if (!currentTeam) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -196,7 +199,14 @@ export default function ComparePage() {
                       <Radar name={nameOf(playerA)} dataKey="A" stroke="var(--color-royal)" fill="var(--color-royal)" fillOpacity={0.4} />
                       <Radar name={nameOf(playerB)} dataKey="B" stroke="#F6C453" fill="#F6C453" fillOpacity={0.4} />
                       <Legend wrapperStyle={{ fontSize: 12 }} />
-                      <Tooltip />
+                      <Tooltip
+                        formatter={(value, name, item) => {
+                          const row = (item as { payload?: { metric: string; aVal: number; bVal: number }; dataKey?: string | number } | undefined)?.payload;
+                          if (!row) return String(value);
+                          const isA = String((item as { dataKey?: string | number }).dataKey) === "A";
+                          return formatValue(row.metric, isA ? row.aVal : row.bVal);
+                        }}
+                      />
                     </RadarChart>
                   </ResponsiveContainer>
                 </CardContent>
@@ -214,11 +224,11 @@ export default function ComparePage() {
                     return (
                       <div key={m.key} className="grid grid-cols-3 items-center gap-2 px-4 py-2.5 text-center">
                         <p className={`text-sm font-bold ${aWins ? "text-[var(--color-royal)]" : "text-muted-foreground"}`}>
-                          {row.aVal}
+                          {formatValue(m.label, row.aVal)}
                         </p>
                         <p className="text-xs text-muted-foreground">{m.label}</p>
                         <p className={`text-sm font-bold ${bWins ? "text-[var(--color-gold)]" : "text-muted-foreground"}`}>
-                          {row.bVal}
+                          {formatValue(m.label, row.bVal)}
                         </p>
                       </div>
                     );
