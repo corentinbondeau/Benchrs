@@ -160,11 +160,27 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Destinataires hors équipe" }, { status: 403 });
     }
 
+    // Les convocations sont aussi envoyées aux parents liés aux joueurs convoqués.
+    let recipientIds = user_ids as string[];
+    if (notifType === "convocation" && user_ids.length > 0) {
+      const { data: parentLinks } = await supabase
+        .from("parent_student")
+        .select("parent_id")
+        .eq("team_id", team_id)
+        .in("student_id", user_ids);
+      recipientIds = [
+        ...new Set<string>([
+          ...(user_ids as string[]),
+          ...((parentLinks || []) as { parent_id: string }[]).map((l) => l.parent_id),
+        ]),
+      ];
+    }
+
     const now = new Date().toISOString();
     const isScheduled =
       !!scheduled_for && new Date(scheduled_for).getTime() > Date.now();
 
-    const rows = user_ids.map((uid: string) => ({
+    const rows = recipientIds.map((uid: string) => ({
       user_id: uid,
       title,
       body: notifBody,
@@ -200,17 +216,17 @@ export async function POST(req: Request) {
       .select("user_id, push_enabled")
       .eq("type", notifType)
       .eq("team_id", team_id)
-      .in("user_id", user_ids);
+      .in("user_id", recipientIds);
 
     const pushDisabled = new Set(
       ((prefs || []) as { user_id: string; push_enabled: boolean }[])
         .filter((p) => !p.push_enabled)
         .map((p) => p.user_id)
     );
-    const pushUserIds = user_ids.filter((uid: string) => !pushDisabled.has(uid));
+    const pushUserIds = recipientIds.filter((uid: string) => !pushDisabled.has(uid));
 
     if (pushUserIds.length === 0) {
-      return NextResponse.json({ ok: true, sent: 0, skipped: user_ids.length });
+      return NextResponse.json({ ok: true, sent: 0, skipped: recipientIds.length });
     }
 
     const { data: subscriptions } = await supabase

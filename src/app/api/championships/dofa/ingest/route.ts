@@ -302,6 +302,7 @@ export async function POST(req: Request) {
               event_date: action.event.event_date,
               opponent: action.event.opponent,
               location: action.event.location,
+              is_home: action.event.is_home,
               created_by: user.id,
             })
             .select("id")

@@ -173,7 +173,8 @@ export function MatchAvailabilityCard({
   const dispo = players.filter((p) => responses[p.id] === "dispo").length;
   const pasDispo = players.filter((p) => responses[p.id] === "pas_dispo").length;
   const incertain = players.filter((p) => responses[p.id] === "incertain").length;
-  const answered = dispo + pasDispo + incertain;
+  const answered = dispo + pasDispo;
+  const nonRépondu = total - answered - incertain;
   const rate = total > 0 ? Math.round((dispo / total) * 100) : 0;
 
   // Postes manquants : position avec aucun joueur dispo
@@ -262,6 +263,18 @@ export function MatchAvailabilityCard({
               </div>
               <p className="text-[11px] text-muted-foreground mt-1">
                 {answered}/{total} joueur{answered > 1 ? "s" : ""} ont répondu
+                {incertain > 0 && (
+                  <>
+                    {" "}
+                    · {incertain} incertain{incertain > 1 ? "s" : ""}
+                  </>
+                )}
+                {nonRépondu > 0 && (
+                  <>
+                    {" "}
+                    · {nonRépondu} sans réponse{nonRépondu > 1 ? "s" : ""}
+                  </>
+                )}
               </p>
             </div>
 

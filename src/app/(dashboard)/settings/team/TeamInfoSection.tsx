@@ -35,7 +35,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { CHALLENGE_DIFFICULTIES, type ChallengeDifficulty } from "@/lib/challenges/ai-generator";
-import { NAV_TABS } from "@/lib/tabs";
+import { NAV_TABS, TABS_UPDATED_EVENT } from "@/lib/tabs";
 import type { TeamMember, Profile } from "@/types";
 import type { TeamLocation } from "@/components/calendar/LocationPicker";
 
@@ -152,6 +152,7 @@ export default function TeamInfoSection({ isOwner, isCoach }: TeamInfoSectionPro
       setTabVisibility((prev) => ({ ...prev, [key]: !visible }));
       return;
     }
+    window.dispatchEvent(new CustomEvent(TABS_UPDATED_EVENT));
     toast.success(visible ? "Onglet affiché" : "Onglet masqué");
   }
 

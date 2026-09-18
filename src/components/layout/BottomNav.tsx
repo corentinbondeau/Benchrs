@@ -63,7 +63,6 @@ import {
 
 /* ─── More menu items (secondary features) ─── */
 const moreItems = [
-  { key: "stats", href: "/stats", label: "Statistiques", icon: BarChart3 },
   { key: "physical", href: "/physical", label: "Prepa physique", icon: Dumbbell },
   { key: "medical", href: "/medical", label: "Infirmerie", icon: Heart },
   { key: "carpooling", href: "/carpooling", label: "Covoiturage", icon: Car },

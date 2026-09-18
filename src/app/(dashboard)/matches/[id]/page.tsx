@@ -57,11 +57,12 @@ import { MatchFeedback } from "@/components/match/MatchFeedback";
 import { PlayerRatings } from "@/components/match/PlayerRatings";
 import { MatchMvpCard } from "@/components/match/MatchMvpCard";
 import { MatchChecklist } from "@/components/match/MatchChecklist";
+import { SessionRpe } from "@/components/training/SessionRpe";
 import { WeatherWidget } from "@/components/event/WeatherWidget";
 import { TerrainImpraticable } from "@/components/event/TerrainImpraticable";
 import { LockerPlaylist } from "@/components/event/LockerPlaylist";
 import { RecoveryProtocolCard } from "@/components/match/RecoveryProtocolCard";
-import { isEventLocked, isLockedForRole, CONVOCATION_LOCKED_MESSAGE, EVENT_LOCKED_MESSAGE } from "@/lib/event-lock";
+import { isEventLocked, isLockedForRole, CONVOCATION_LOCKED_MESSAGE, EVENT_LOCKED_MESSAGE, getEventDurationMinutes } from "@/lib/event-lock";
 import { filterPresentPlayers } from "@/lib/stats/filterPresentPlayers";
 import { computeMinutesPlayed, type Substitution } from "@/lib/stats/computeMinutesPlayed";
 import { LineupEditor } from "@/components/lineup/LineupEditor";
@@ -688,6 +689,16 @@ export default function MatchDetailPage() {
               {match.opponent && (
                 <p className="text-white/80 text-lg break-words">vs {match.opponent}</p>
               )}
+              {match.type === "match" && match.is_home === true && (
+                <span className="inline-flex items-center rounded-full border border-emerald-300/40 bg-emerald-400/10 px-2.5 py-0.5 text-xs font-medium text-emerald-300">
+                  Domicile
+                </span>
+              )}
+              {match.type === "match" && match.is_home === false && (
+                <span className="inline-flex items-center rounded-full border border-orange-300/40 bg-orange-400/10 px-2.5 py-0.5 text-xs font-medium text-orange-300">
+                  Extérieur
+                </span>
+              )}
               {isCoach && (
                 <div className="flex flex-wrap gap-2 pt-2">
                   <Button
@@ -996,6 +1007,13 @@ export default function MatchDetailPage() {
             childPlayerId={childId ?? undefined}
             presentPlayers={matchPlayers
               .filter((p) => p.status === "present" || p.status === "late")
+              .map((p) => ({
+                id: p.profile.id,
+                first_name: p.profile.first_name,
+                last_name: p.profile.last_name,
+              }))}
+            convokedPlayers={matchPlayers
+              .filter((p) => p.attendanceId !== null)
               .map((p) => ({
                 id: p.profile.id,
                 first_name: p.profile.first_name,
@@ -1361,6 +1379,18 @@ export default function MatchDetailPage() {
         }}
         teamId={currentTeam.id}
         parentLinks={parentLinks}
+      />
+
+      {/* Suivi de charge (RPE) */}
+      <SessionRpe
+        eventId={matchId}
+        teamId={currentTeam.id}
+        isCoach={isCoach}
+        userId={user?.id}
+        userRole={userRole}
+        childId={childId}
+        trainingOver={matchIsOver || matchDate.getTime() < liveNow}
+        durationHint={getEventDurationMinutes(match.event_date, match.end_date) ?? 120}
       />
 
       {match && (

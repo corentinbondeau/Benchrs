@@ -169,7 +169,12 @@ export function SessionRpe({
   }
 
   const chartData = history
-    .filter((h) => h.events?.type === "training" && h.events.event_date && h.rpe != null)
+    .filter(
+      (h) =>
+        (h.events?.type === "training" || h.events?.type === "match") &&
+        h.events.event_date &&
+        h.rpe != null
+    )
     .reduce<Record<string, { label: string; charge: number }>>((acc, h) => {
       const evId = h.event_id;
       const load = h.rpe! * (h.session_duration ?? 90);
@@ -203,7 +208,7 @@ export function SessionRpe({
       <CardContent className="space-y-4">
         {myPlayerId && !isCoach && (
           <div className="space-y-3 rounded-lg border border-dashed p-3">
-            <p className="text-sm font-medium">Intensité perçue de la séance (1-10)</p>
+            <p className="text-sm font-medium">Intensité perçue (1-10)</p>
             <div className="flex flex-wrap gap-1">
               {RPE_OPTIONS.map((n) => (
                 <button
@@ -279,7 +284,7 @@ export function SessionRpe({
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                 Charge d&apos;équipe
               </p>
-              <span className="text-xs text-muted-foreground">Cette séance : {teamTotalLoad}</span>
+              <span className="text-xs text-muted-foreground">Charge de l&apos;événement : {teamTotalLoad}</span>
             </div>
             {chart.length < 2 ? (
               <p className="py-4 text-center text-xs text-muted-foreground">

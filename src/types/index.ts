@@ -140,6 +140,7 @@ export interface Event {
   cancel_reason?: string | null;
   convocations_sent_at?: string | null;
   convocation_lead_days?: number | null;
+  is_home?: boolean | null;
   created_at: string;
   updated_at: string;
 }

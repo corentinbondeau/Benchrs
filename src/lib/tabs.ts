@@ -29,6 +29,9 @@ export const NAV_TABS: NavTab[] = [
 
 export const NAV_TAB_KEYS = NAV_TABS.map((t) => t.key);
 
+/** Déclenché après une modification des onglets masqués (count: reload useHiddenTabs). */
+export const TABS_UPDATED_EVENT = "benchrs:tabs-updated";
+
 /**
  * Onglets masqués par les coachs pour toute l'équipe.
  * Renvoie un Set des clés d'onglets cachés (vide si aucune ligne => tout visible).
@@ -50,6 +53,14 @@ export function useHiddenTabs(teamId?: string): Set<string> {
 
   useEffect(() => {
     load().then(setHidden);
+  }, [load]);
+
+  useEffect(() => {
+    const onTabsUpdated = () => {
+      load().then(setHidden);
+    };
+    window.addEventListener(TABS_UPDATED_EVENT, onTabsUpdated);
+    return () => window.removeEventListener(TABS_UPDATED_EVENT, onTabsUpdated);
   }, [load]);
 
   return hidden;

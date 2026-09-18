@@ -11,8 +11,10 @@ interface Props {
   eventId: string;
   teamId: string;
   userId: string;
-  /** Joueurs présents au match (attendances present/late) */
+  /** Joueurs présents au match (attendances present/late) — sert au droit de voter */
   presentPlayers: { id: string; first_name: string; last_name: string }[];
+  /** Joueurs convoqués au match (attendanceId !== null) — liste des candidats au titre */
+  convokedPlayers: { id: string; first_name: string; last_name: string }[];
   /** ID de l'enfant (si l'utilisateur est un parent) */
   childPlayerId?: string;
 }
@@ -32,7 +34,7 @@ const PODIUM_STYLES = [
   "bg-amber-700 text-white",
 ];
 
-export function MatchMvpCard({ eventId, teamId, userId, presentPlayers, childPlayerId }: Props) {
+export function MatchMvpCard({ eventId, teamId, userId, presentPlayers, convokedPlayers, childPlayerId }: Props) {
   const [votes, setVotes] = useState<Vote[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -44,21 +46,23 @@ export function MatchMvpCard({ eventId, teamId, userId, presentPlayers, childPla
 
   const candidates = useMemo(() => {
     if (isPlayerPresent) {
-      return presentPlayers.filter((p) => p.id !== userId);
+      return convokedPlayers.filter((p) => p.id !== userId);
     }
     if (childPlayerId) {
-      return presentPlayers.filter((p) => p.id !== childPlayerId);
+      return convokedPlayers.filter((p) => p.id !== childPlayerId);
     }
-    return presentPlayers;
-  }, [presentPlayers, userId, isPlayerPresent, childPlayerId]);
+    return convokedPlayers;
+  }, [convokedPlayers, userId, isPlayerPresent, childPlayerId]);
 
   const canVote = isPlayerPresent || Boolean(childPlayerId);
 
   const nameMap = useMemo(() => {
     const m = new Map<string, string>();
-    for (const p of presentPlayers) m.set(p.id, `${p.first_name} ${p.last_name}`);
+    for (const p of [...presentPlayers, ...convokedPlayers]) {
+      m.set(p.id, `${p.first_name} ${p.last_name}`);
+    }
     return m;
-  }, [presentPlayers]);
+  }, [presentPlayers, convokedPlayers]);
 
   const counts = useMemo(() => {
     const c = new Map<string, number>();
@@ -155,8 +159,8 @@ export function MatchMvpCard({ eventId, teamId, userId, presentPlayers, childPla
       <CardContent>
         <p className="text-xs text-muted-foreground mb-4">
           {canVote
-            ? "Vote pour le joueur du match (un seul vote par personne)."
-            : "Les joueurs présents et les parents votent pour le joueur du match."}
+            ? "Vote pour le joueur du match parmi les convoqués (un seul vote par personne)."
+            : "Les joueurs présents et les parents votent parmi les joueurs convoqués."}
         </p>
 
         {canVote && candidates.length > 0 && (
@@ -249,10 +253,10 @@ export function MatchMvpCard({ eventId, teamId, userId, presentPlayers, childPla
           </div>
         )}
 
-        {presentPlayers.length === 0 && (
+        {convokedPlayers.length === 0 && (
           <p className="text-sm text-muted-foreground">
             <Users className="h-3.5 w-3.5 inline mr-1" />
-            Aucun joueur présent pour l&apos;instant.
+            Aucun joueur convoqué pour l&apos;instant.
           </p>
         )}
       </CardContent>

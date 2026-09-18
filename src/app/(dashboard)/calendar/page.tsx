@@ -139,6 +139,7 @@ export default function CalendarPage() {
     convocation_lead_days: "3",
     selected_player_ids: [] as string[],
     cycle_id: "",
+    is_home: true,
   });
 
   const isCoach = userRole === "coach" || userRole === "owner";
@@ -185,7 +186,7 @@ export default function CalendarPage() {
     Promise.all([
       supabase
         .from("events")
-        .select("id, title, event_date, end_date, type, status, location, opponent, score_us, score_them, match_result, team_id, meeting_time")
+        .select("id, title, event_date, end_date, type, status, location, opponent, score_us, score_them, match_result, team_id, meeting_time, is_home")
         .in("team_id", ids)
         .order("event_date", { ascending: true }),
       supabase
@@ -370,6 +371,7 @@ export default function CalendarPage() {
       meeting_time: form.meeting_time || null,
       location: form.location || null,
       opponent: form.type === "match" ? form.opponent || null : null,
+      is_home: form.type === "match" ? form.is_home : null,
       status: "upcoming" as const,
       created_by: user?.id,
       team_id: currentTeam!.id,
@@ -409,6 +411,7 @@ export default function CalendarPage() {
       convocation_lead_days: "3",
       selected_player_ids: [],
       cycle_id: "",
+      is_home: true,
     });
     fetchEvents(
       showAllChildren && childTeamIds.length > 0
@@ -642,6 +645,23 @@ export default function CalendarPage() {
                     <Input value={form.opponent} onChange={(e) => setForm({ ...form, opponent: e.target.value })} placeholder="Nom de l'équipe adverse" />
                   </div>
                 )}
+                {form.type === "match" && (
+                  <div className="space-y-2">
+                    <Label>Domicile / Extérieur</Label>
+                    <Select
+                      value={form.is_home ? "home" : "away"}
+                      onValueChange={(v) => v && setForm({ ...form, is_home: v === "home" })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="home">Domicile</SelectItem>
+                        <SelectItem value="away">Extérieur</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
                 <div className="space-y-2">
                   <Label>Récurrence</Label>
                   <Select value={form.recurrence} onValueChange={(v) => v && setForm({ ...form, recurrence: v as Recurrence })}>
@@ -843,6 +863,12 @@ export default function CalendarPage() {
                           }}
                         >
                           {(() => { const Icon = getEventIcon(event); return <Icon className="h-2.5 w-2.5 shrink-0" />; })()}
+                          {event.is_home === true && (
+                            <span className="shrink-0 text-[9px] font-bold text-emerald-700">D</span>
+                          )}
+                          {event.is_home === false && (
+                            <span className="shrink-0 text-[9px] font-bold text-orange-700">E</span>
+                          )}
                           <span className="truncate">{event.title}</span>
                           {showAllChildren && (
                             <span className="shrink-0 text-[9px] font-semibold uppercase">{(teamMeta[event.team_id]?.teamName || "").slice(0, 3)}</span>
@@ -904,6 +930,12 @@ export default function CalendarPage() {
                         {(() => { const Icon = getEventIcon(event); return <Icon className="h-3 w-3" />; })()}
                         {event.type === "match" ? "Match" : "Entrainement"}
                       </Badge>
+                      {event.type === "match" && event.is_home === true && (
+                        <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200">Domicile</Badge>
+                      )}
+                      {event.type === "match" && event.is_home === false && (
+                        <Badge variant="outline" className="text-[10px] bg-orange-50 text-orange-700 border-orange-200">Extérieur</Badge>
+                      )}
                       {event.status === "cancelled" && (
                         <Badge variant="destructive" className="text-[10px]">Annule</Badge>
                       )}
@@ -988,6 +1020,12 @@ export default function CalendarPage() {
                               {(() => { const Icon = getEventIcon(event); return <Icon className="h-3 w-3" />; })()}
                               {event.type === "match" ? "Match" : "Entrainement"}
                             </Badge>
+                            {event.is_home === true && (
+                              <span className="text-[11px] font-bold text-emerald-700">Domicile</span>
+                            )}
+                            {event.is_home === false && (
+                              <span className="text-[11px] font-bold text-orange-700">Extérieur</span>
+                            )}
                             <span className="font-medium min-w-0 break-words">{event.title}</span>
                             {showAllChildren && (
                               <span className="text-[11px] text-[var(--color-royal)] font-medium">{teamLabel(event)}</span>

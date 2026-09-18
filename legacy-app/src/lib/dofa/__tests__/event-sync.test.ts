@@ -158,6 +158,7 @@ describe("planEventSync — nominal critique (création)", () => {
           event_date: NOMINAL_KICKOFF,
           opponent: "WATTIGNIES FC",
           location: NOMINAL_LOCATION,
+          is_home: true,
         },
       },
     ]);

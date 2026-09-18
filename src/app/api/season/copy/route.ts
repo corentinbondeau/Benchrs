@@ -28,7 +28,7 @@ export async function POST(req: Request) {
   const { data: sourceEvents, error } = await supabase
     .from("events")
     .select(
-      "title, type, opponent, location, meeting_time, travel_time_min, convocation_lead_days, event_date, end_date"
+      "title, type, opponent, location, meeting_time, travel_time_min, convocation_lead_days, event_date, end_date, is_home"
     )
     .eq("team_id", teamId)
     .gte("event_date", `${sourceSeason.slice(0, 4)}-08-01T00:00:00.000Z`)
@@ -55,6 +55,7 @@ export async function POST(req: Request) {
     convocation_lead_days: number | null;
     event_date: string;
     end_date: string | null;
+    is_home: boolean | null;
   }[]).map((ev) => {
     const shifted = new Date(new Date(ev.event_date).getTime() + 365 * 24 * 60 * 60 * 1000);
     const shiftedEnd = ev.end_date
@@ -74,6 +75,7 @@ export async function POST(req: Request) {
       status: "upcoming",
       score_us: null,
       score_them: null,
+      is_home: ev.type === "match" ? ev.is_home : null,
     };
   });
 

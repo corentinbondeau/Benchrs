@@ -51,6 +51,7 @@ export type EventSyncAction =
         event_date: string;
         opponent: string;
         location: string | null;
+        is_home: boolean;
       };
     }
   | {
@@ -78,10 +79,14 @@ function buildLocationString(match: DofaMatch): string | null {
     .join(", ");
 }
 
+/** L'équipe du coach reçoit-elle ce match à domicile ? Identité stricte `clNo` + `number`. */
+function isCoachHome(match: DofaMatch, coachTeam: TeamIdentity): boolean {
+  return match.homeTeam.clNo === coachTeam.clNo && match.homeTeam.number === coachTeam.number;
+}
+
 /** Adversaire du coach : identité par `cl_no` + `number`, jamais par le nom. */
 function resolveOpponentName(match: DofaMatch, coachTeam: TeamIdentity): string {
-  const isHomeCoach =
-    match.homeTeam.clNo === coachTeam.clNo && match.homeTeam.number === coachTeam.number;
+  const isHomeCoach = isCoachHome(match, coachTeam);
   return isHomeCoach ? match.awayTeam.shortName : match.homeTeam.shortName;
 }
 
@@ -128,6 +133,7 @@ export function planEventSync(
           event_date: match.kickoff ?? match.date,
           opponent: resolveOpponentName(match, coachTeam),
           location: buildLocationString(match),
+          is_home: isCoachHome(match, coachTeam),
         },
       });
       continue;

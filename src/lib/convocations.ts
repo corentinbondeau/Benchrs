@@ -37,8 +37,19 @@ export async function ensureAttendanceRows(
     .eq("team_id", teamId);
 
   const existingIds = new Set((existing || []).map((r) => (r as { user_id: string }).user_id));
+
+  // Seuls les joueurs (role 'player') ont une ligne de convocation : les parents
+  // reçoivent la notification mais n'apparaissent jamais dans les présences.
+  const { data: playerRows } = await supabase
+    .from("team_members")
+    .select("user_id")
+    .eq("team_id", teamId)
+    .eq("role", "player")
+    .in("user_id", userIds);
+  const playerIds = new Set((playerRows || []).map((r) => (r as { user_id: string }).user_id));
+
   const toInsert = userIds
-    .filter((uid) => !existingIds.has(uid))
+    .filter((uid) => playerIds.has(uid) && !existingIds.has(uid))
     .map((uid) => ({
       event_id: eventId,
       user_id: uid,

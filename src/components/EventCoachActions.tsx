@@ -7,6 +7,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -149,6 +156,7 @@ export function EventCoachActions({
   const [editMeeting, setEditMeeting] = useState(event.meeting_time?.slice(0, 5) || "");
   const [editLocation, setEditLocation] = useState(event.location || "");
   const [editOpponent, setEditOpponent] = useState(event.opponent || "");
+  const [editIsHome, setEditIsHome] = useState(event.is_home !== false);
 
   useEffect(() => {
     if (!event.recurrence_group_id) return;
@@ -173,6 +181,7 @@ export function EventCoachActions({
     setEditMeeting(event.meeting_time?.slice(0, 5) || "");
     setEditLocation(event.location || "");
     setEditOpponent(event.opponent || "");
+    setEditIsHome(event.is_home !== false);
     setEditOpen(true);
   }
 
@@ -242,6 +251,7 @@ export function EventCoachActions({
       meeting_time: editMeeting || null,
       location: editLocation.trim() || null,
       opponent: isMatch && editOpponent.trim() ? editOpponent.trim() : null,
+      is_home: isMatch ? editIsHome : null,
     };
 
     if (scope === "all" && event.recurrence_group_id) {
@@ -318,6 +328,7 @@ export function EventCoachActions({
       meeting_time: editMeeting || null,
       location: editLocation.trim() || null,
       opponent: isMatch && editOpponent.trim() ? editOpponent.trim() : null,
+      is_home: isMatch ? editIsHome : null,
     });
     setSaving(false);
     setEditOpen(false);
@@ -583,6 +594,20 @@ export function EventCoachActions({
               <div className="space-y-2">
                 <Label>Adversaire</Label>
                 <Input value={editOpponent} onChange={(e) => setEditOpponent(e.target.value)} placeholder="Nom de l'équipe adverse" />
+              </div>
+            )}
+            {isMatch && (
+              <div className="space-y-2">
+                <Label>Domicile / Extérieur</Label>
+                <Select value={editIsHome ? "home" : "away"} onValueChange={(v) => v && setEditIsHome(v === "home")}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="home">Domicile</SelectItem>
+                    <SelectItem value="away">Extérieur</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             )}
             <div className="flex gap-2 pt-1">
