@@ -18,7 +18,10 @@ import type { DofaMatch } from "@/lib/dofa/parse-matches";
  * lignes sont ignorées proprement du calcul plutôt que de risquer une
  * fusion erronée par nom : un ré-import de la poule DOFA les complète.
  */
-function toDofaMatchForStandings(row: Record<string, unknown>): DofaMatch | null {
+function toDofaMatchForStandings(
+  row: Record<string, unknown>,
+  event?: LinkedEventScore
+): DofaMatch | null {
   const homeClNo = row.home_cl_no;
   const homeNumber = row.home_team_number;
   const awayClNo = row.away_cl_no;
@@ -32,6 +35,10 @@ function toDofaMatchForStandings(row: Record<string, unknown>): DofaMatch | null
   ) {
     return null;
   }
+
+  // Un score saisi sur la page Match (événement lié) prime sur le score
+  // importé : l'équipe suivie est le plus souvent suivie côté agenda.
+  const scored = toHomeAwayScores(event);
 
   return {
     maNo: typeof row.dofa_ma_no === "number" ? row.dofa_ma_no : 0,
@@ -48,14 +55,38 @@ function toDofaMatchForStandings(row: Record<string, unknown>): DofaMatch | null
       number: awayNumber,
       shortName: typeof row.away_team === "string" ? row.away_team : "",
     },
-    homeScore: typeof row.home_score === "number" ? row.home_score : null,
-    awayScore: typeof row.away_score === "number" ? row.away_score : null,
-    homeIsForfeit: row.home_is_forfeit === true,
-    awayIsForfeit: row.away_is_forfeit === true,
+    homeScore: scored ? scored.home : typeof row.home_score === "number" ? row.home_score : null,
+    awayScore: scored ? scored.away : typeof row.away_score === "number" ? row.away_score : null,
+    homeIsForfeit: scored ? false : row.home_is_forfeit === true,
+    awayIsForfeit: scored ? false : row.away_is_forfeit === true,
     location: null,
-    seemsPostponed: row.postponed === true,
+    seemsPostponed: scored ? false : row.postponed === true,
     status: null,
   };
+}
+
+/**
+ * Convertit les scores saisis sur la page Match (perspective de l'équipe
+ * suivie : `score_us`/`score_them`, orientation `is_home`) en scores
+ * domicile/extérieur du match de poule. Retourne `null` si l'événement est
+ * absent ou si AUCUN score n'a été saisi (le match n'est alors pas encore
+ * joué côté agenda).
+ *
+ * `is_home` NULL est traité comme domicile (défaut de l'app : les matchs
+ * créés à la main sont marqués à domicile par défaut).
+ */
+interface LinkedEventScore {
+  score_us: number | null;
+  score_them: number | null;
+  is_home: boolean | null;
+}
+
+function toHomeAwayScores(event: LinkedEventScore | undefined): { home: number; away: number } | null {
+  if (!event || event.score_us === null || event.score_them === null) return null;
+  const isHome = event.is_home !== false;
+  return isHome
+    ? { home: event.score_us, away: event.score_them }
+    : { home: event.score_them, away: event.score_us };
 }
 
 export async function GET(req: Request) {
@@ -96,8 +127,35 @@ export async function GET(req: Request) {
         .select("*")
         .eq("championship_id", c.id);
 
-      const matches = (rows || [])
-        .map((row) => toDofaMatchForStandings(row as Record<string, unknown>))
+      const standingsRows = (rows || []) as Record<string, unknown>[];
+
+      // Scores « page Match » des événements liés : l'équipe suivie entre
+      // ses scores dans l'agenda (score_us/score_them + is_home), pas dans
+      // le championnat. Ces scores sont fusionnés à la lecture pour que la
+      // liste des résultats ET le classement reflètent toujours l'état réel.
+      const eventIds = standingsRows
+        .map((r) => (typeof r.event_id === "string" ? r.event_id : null))
+        .filter((id): id is string => id !== null);
+      let eventsById = new Map<string, LinkedEventScore>();
+      if (eventIds.length > 0) {
+        const { data: eventRows } = await supabase
+          .from("events")
+          .select("id, score_us, score_them, is_home")
+          .in("id", eventIds);
+        eventsById = new Map(
+          (eventRows ?? []).map((e: Record<string, unknown>) => [
+            String(e.id),
+            {
+              score_us: typeof e.score_us === "number" ? e.score_us : null,
+              score_them: typeof e.score_them === "number" ? e.score_them : null,
+              is_home: e.is_home === true ? true : e.is_home === false ? false : null,
+            },
+          ])
+        );
+      }
+
+      const matches = standingsRows
+        .map((row) => toDofaMatchForStandings(row, eventsById.get(row.event_id as string)))
         .filter((m): m is DofaMatch => m !== null);
 
       const { rows: standings, source: standings_source } = resolveStandings(
@@ -129,9 +187,10 @@ export async function GET(req: Request) {
       // les plus anciennes peuvent manquer de champs (ex. identité DOFA
       // absente avant la migration 086), l'UI doit toujours pouvoir les
       // afficher.
-      const poolMatches = (rows || [])
-        .map((row) => {
-          const r = row as Record<string, unknown>;
+      const poolMatches = standingsRows
+        .map((r) => {
+          const event = eventsById.get(r.event_id as string);
+          const scored = toHomeAwayScores(event);
           return {
             id: typeof r.id === "string" ? r.id : "",
             matchday: typeof r.matchday_number === "number" ? r.matchday_number : null,
@@ -141,15 +200,16 @@ export async function GET(req: Request) {
             home_team_number: typeof r.home_team_number === "number" ? r.home_team_number : null,
             away_cl_no: typeof r.away_cl_no === "number" ? r.away_cl_no : null,
             away_team_number: typeof r.away_team_number === "number" ? r.away_team_number : null,
-            home_score: typeof r.home_score === "number" ? r.home_score : null,
-            away_score: typeof r.away_score === "number" ? r.away_score : null,
+            home_score: scored ? scored.home : typeof r.home_score === "number" ? r.home_score : null,
+            away_score: scored ? scored.away : typeof r.away_score === "number" ? r.away_score : null,
             kickoff: typeof r.kickoff === "string" && r.kickoff ? r.kickoff : null,
             location: typeof r.location === "string" && r.location ? r.location : null,
-            postponed: r.postponed === true,
-            home_is_forfeit: r.home_is_forfeit === true,
-            away_is_forfeit: r.away_is_forfeit === true,
-            source: typeof r.source === "string" ? r.source : (r as Record<string, unknown>).dofa_ma_no != null ? "dofa_import" : "manual",
+            postponed: scored ? false : r.postponed === true,
+            home_is_forfeit: scored ? false : r.home_is_forfeit === true,
+            away_is_forfeit: scored ? false : r.away_is_forfeit === true,
+            source: typeof r.source === "string" ? r.source : r.dofa_ma_no != null ? "dofa_import" : "manual",
             dofa_ma_no: typeof r.dofa_ma_no === "number" ? r.dofa_ma_no : null,
+            from_agenda: scored !== null,
           };
         })
         .sort((a, b) => {

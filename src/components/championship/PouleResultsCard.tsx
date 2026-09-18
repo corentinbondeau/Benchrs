@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { Plus, Loader2, Check, Trash2 } from "lucide-react";
+import { Plus, Loader2, Check, Trash2, CalendarDays } from "lucide-react";
 
 export interface PoolTeam {
   cl_no: number;
@@ -49,6 +49,8 @@ export interface PouleMatch {
   away_is_forfeit: boolean;
   source: string;
   dofa_ma_no: number | null;
+  /** Le score provient de la page Match (événement lié) : lecture seule ici. */
+  from_agenda?: boolean;
 }
 
 interface PouleResultsCardProps {
@@ -91,6 +93,9 @@ export default function PouleResultsCard({
 }: PouleResultsCardProps) {
   const [drafts, setDrafts] = useState<Record<string, ScoreDraft>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
+
+  // Génération de la poule complète (aller/retour, équipes déjà connues).
+  const [generating, setGenerating] = useState(false);
 
   // Dialog d'ajout manuel.
   const [addOpen, setAddOpen] = useState(false);
@@ -279,6 +284,34 @@ export default function PouleResultsCard({
     }
   }
 
+  async function generatePool() {
+    setGenerating(true);
+    try {
+      const res = await authFetch("/api/championships/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ championship_id: championshipId }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "Erreur lors de la génération de la poule.");
+        return;
+      }
+      if (data.generated > 0) {
+        toast.success(`${data.generated} match(s) de poule généré(s).`);
+      } else if (data.message) {
+        toast.info(data.message);
+      } else {
+        toast.info("La poule est déjà complète.");
+      }
+      await onChanged();
+    } catch {
+      toast.error("Impossible de contacter le serveur. Réessayez.");
+    } finally {
+      setGenerating(false);
+    }
+  }
+
   return (
     <Card>
       <CardHeader className="pb-2">
@@ -290,17 +323,32 @@ export default function PouleResultsCard({
             </Badge>
           </CardTitle>
           {isCoach && (
-            <Dialog
-              open={addOpen}
-              onOpenChange={(open) => {
-                setAddOpen(open);
-                if (!open) resetAdd();
-              }}
-            >
-              <DialogTrigger render={<Button variant="primary" size="sm" />}>
-                <Plus className="h-4 w-4 mr-1" />
-                Ajouter un résultat
-              </DialogTrigger>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={generatePool}
+                disabled={generating}
+                title="Génère le calendrier aller/retour complet de la poule à partir des équipes déjà connues"
+              >
+                {generating ? (
+                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                ) : (
+                  <Plus className="h-4 w-4 mr-1" />
+                )}
+                Générer la poule
+              </Button>
+              <Dialog
+                open={addOpen}
+                onOpenChange={(open) => {
+                  setAddOpen(open);
+                  if (!open) resetAdd();
+                }}
+              >
+                <DialogTrigger render={<Button variant="primary" size="sm" />}>
+                  <Plus className="h-4 w-4 mr-1" />
+                  Ajouter un résultat
+                </DialogTrigger>
               <DialogContent className="sm:max-w-md">
                 <DialogHeader>
                   <DialogTitle>Ajouter un résultat de poule</DialogTitle>
@@ -403,6 +451,7 @@ export default function PouleResultsCard({
                 </div>
               </DialogContent>
             </Dialog>
+            </div>
           )}
         </div>
       </CardHeader>
@@ -428,7 +477,15 @@ export default function PouleResultsCard({
                     <p className="truncate font-medium">{m.home_team}</p>
                     <p className="truncate text-muted-foreground">{m.away_team}</p>
                   </div>
-                  {isCoach ? (
+                  {m.from_agenda && m.home_score != null && m.away_score != null ? (
+                    <div
+                      className="text-right font-semibold whitespace-nowrap shrink-0 flex items-center gap-1"
+                      title="Saisi sur la page Match"
+                    >
+                      {`${m.home_score} - ${m.away_score}`}
+                      <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />
+                    </div>
+                  ) : isCoach ? (
                     <div className="flex items-center gap-1.5 shrink-0">
                       <Input
                         className="w-11 h-8 text-center"
