@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { parsePouleUrl } from "@/lib/dofa/poule-url";
 import { parseDofaMatches } from "@/lib/dofa/parse-matches";
 import { extractPouleTeams, type PouleTeam } from "@/lib/dofa/poule-teams";
+import { parsePouleJournees, type DofaJournee } from "@/lib/dofa/poule-journees";
 import PouleResultsCard, { type PouleMatch } from "@/components/championship/PouleResultsCard";
 
 interface Championship {
@@ -32,6 +33,8 @@ interface Championship {
   standings_coverage?: "full" | "partial";
   standings_source?: "official" | "computed";
   team_name?: string | null;
+  /** Liste officielle des journées du site, collée en second collage. */
+  journees?: DofaJournee[] | null;
 }
 
 interface ChampionshipTeam {
@@ -89,6 +92,14 @@ export default function ChampionshipPage() {
   const [pasteError, setPasteError] = useState<string | null>(null);
   const [pasteImporting, setPasteImporting] = useState(false);
   const [lastImportResult, setLastImportResult] = useState<DofaImportResult | null>(null);
+
+  // Import DOFA — second collage : la liste officielle des journées de la
+  // poule (page `/poule_journees`). Distinct du collage des matchs : le
+  // coach colle les journées en plus, pour étiqueter les résultats par
+  // journée réelle du site.
+  const [journeesInput, setJourneesInput] = useState("");
+  const [journeesError, setJourneesError] = useState<string | null>(null);
+  const [journeesImporting, setJourneesImporting] = useState(false);
 
   // Choix de l'équipe du coach dans la poule — reconstituée à partir du
   // dernier collage (`extractPouleTeams`). Nécessaire pour activer l'agenda
@@ -265,6 +276,88 @@ export default function ChampionshipPage() {
     }
   }
 
+  // Second collage : la liste officielle des journées de la poule.
+  // Parcours cible : le coach ouvre la page « Journées » de l'API DOFA
+  // (`poule_journees`), fait Ctrl+A / Ctrl+C sur le JSON, puis colle ici.
+  // Le serveur (`validateJourneesPayload`) valide la forme (tableau nu ou
+  // enveloppe Hydra) et stocke `{ number, name, date }` par journée dans
+  // `championships.journees` — servent à étiqueter/groupter les résultats.
+  async function handleImportJournees() {
+    if (!selected || selected.dofa_cp_no == null || selected.dofa_phase == null || selected.dofa_poule == null) {
+      setJourneesError("Configurez d'abord la poule de ce championnat ci-dessus.");
+      return;
+    }
+
+    const trimmed = journeesInput.trim();
+    if (!trimmed) {
+      setJourneesError("Collez d'abord le contenu de la page « Journées ».");
+      return;
+    }
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(trimmed);
+    } catch {
+      setJourneesError(
+        "Ce contenu n'est pas un JSON valide. Assurez-vous d'avoir collé le texte de la page « Journées » (Ctrl+A puis Ctrl+C sur cette page, pas sur une autre)."
+      );
+      return;
+    }
+
+    // Pré-validation côté client (même forme que l'import des matchs) :
+    // un JSON inexploitable est détecté AVANT l'appel réseau.
+    const journees = parsePouleJournees(parsed);
+    if (journees.length === 0) {
+      setJourneesError(
+        "Aucune journée valide détectée dans le contenu collé. Vérifiez que c'est bien le JSON de la page « Journées »."
+      );
+      return;
+    }
+
+    // Le serveur re-valide l'enveloppe brute (`validateJourneesPayload`
+    // attend la forme du site, avec `_date`), pas la forme allégée :
+    // on transmet le tableau/les éléments bruts extraits, comme pour les
+    // matchs. `parsed` peut être un tableau nu ou `{ "hydra:member": [] }`.
+    const rawItems = Array.isArray(parsed)
+      ? parsed
+      : parsed && typeof parsed === "object" && Array.isArray((parsed as Record<string, unknown>)["hydra:member"])
+        ? (parsed as Record<string, unknown>)["hydra:member"]
+        : null;
+
+    if (rawItems === null) {
+      setJourneesError(
+        "Le format collé n'est pas reconnu (ni tableau de journées, ni enveloppe attendue)."
+      );
+      return;
+    }
+
+    setJourneesError(null);
+    setJourneesImporting(true);
+    try {
+      const res = await authFetch("/api/championships/journees", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          championship_id: selected.id,
+          journees: rawItems,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setJourneesError(data.error || "L'enregistrement des journées a été refusé par le serveur.");
+        return;
+      }
+      setJourneesInput("");
+      toast.success(`${data.journees?.length ?? journees.length} journée(s) enregistrée(s).`);
+      const refreshed = await authFetch(`/api/championships?team_id=${currentTeam!.id}`).then((r) => r.json());
+      setChampionships(refreshed);
+    } catch {
+      setJourneesError("Erreur de connexion pendant l'enregistrement des journées.");
+    } finally {
+      setJourneesImporting(false);
+    }
+  }
+
   // Persiste le choix de l'équipe du coach dans la poule (dofa_cl_no /
   // dofa_team_number). Le triplet de poule est ré-envoyé avec (contrat de
   // PATCH /api/championships : le triplet est toujours requis), repris de
@@ -363,6 +456,12 @@ export default function ChampionshipPage() {
           `${DOFA_CALENDRIER_BASE}/${selected.dofa_cp_no}/phases/${selected.dofa_phase}/poules/${selected.dofa_poule}/calendrier`
       : null;
 
+  // Lien de la liste officielle des journées de la poule (second collage).
+  const journeesLink =
+    selected && selected.dofa_cp_no != null && selected.dofa_phase != null && selected.dofa_poule != null
+      ? `${DOFA_CALENDRIER_BASE}/${selected.dofa_cp_no}/phases/${selected.dofa_phase}/poules/${selected.dofa_poule}/poule_journees`
+      : null;
+
   if (loading) {
     return (
       <div className="section-gap">
@@ -392,6 +491,7 @@ export default function ChampionshipPage() {
                   setPouleUrlInput("");
                   setPouleSaveError(null);
                   setPasteError(null);
+                  setJourneesError(null);
                   setTeamChoiceError(null);
                 }
               }}
@@ -528,7 +628,7 @@ export default function ChampionshipPage() {
                             {pasteError}
                           </p>
                         )}
-                        <Button
+<Button
                           onClick={handleImportPaste}
                           disabled={pasteImporting || !pasteInput.trim()}
                           className="w-full bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold"
@@ -542,6 +642,69 @@ export default function ChampionshipPage() {
                           )}
                         </Button>
                       </div>
+
+                      {/* Étape 4 (optionnelle) : coller la liste officielle des
+                          journées de la poule. Les résultats sont alors
+                          étiquetés par journée réelle du site (nom + date) au
+                          lieu du numéro brut des matchs. */}
+                      <div className="rounded-lg border border-dashed p-3 space-y-2">
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <Label className="text-sm font-semibold">
+                            Journées de la poule (optionnel)
+                          </Label>
+                          {selected.journees && selected.journees.length > 0 && (
+                            <Badge variant="outline" className="text-xs">
+                              {selected.journees.length} journée(s) enregistrée(s)
+                            </Badge>
+                          )}
+                        </div>
+                        {journeesLink && (
+                          <a
+                            href={journeesLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 text-sm font-medium text-[var(--color-primary-blue)] hover:underline"
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                            Ouvrir les journées de la poule
+                          </a>
+                        )}
+                        <textarea
+                          id="dofa-journees-input"
+                          value={journeesInput}
+                          onChange={(e) => {
+                            setJourneesInput(e.target.value);
+                            setJourneesError(null);
+                          }}
+                          placeholder='{ "hydra:member": [...] }'
+                          className="w-full h-20 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring font-mono"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Ouvrez le lien ci-dessus, sélectionnez tout (Ctrl+A), copiez (Ctrl+C),
+                          puis collez ici (Ctrl+V). Les matchs de la poule seront regroupés par
+                          journée réelle du site.
+                        </p>
+                        {journeesError && (
+                          <p role="alert" className="text-xs text-destructive">
+                            {journeesError}
+                          </p>
+                        )}
+                        <Button
+                          onClick={handleImportJournees}
+                          disabled={journeesImporting || !journeesInput.trim()}
+                          variant="outline"
+                          className="w-full"
+                        >
+                          {journeesImporting ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Enregistrement...
+                            </>
+                          ) : (
+                            "Importer les journées"
+                          )}
+                        </Button>
+                      </div>
+
 
 
                       <Button
@@ -900,6 +1063,7 @@ export default function ChampionshipPage() {
                 team_name: t.team_name,
               }))}
               matches={selected.matches ?? []}
+              journees={selected.journees ?? []}
               isCoach={isCoach}
               onChanged={() => loadChampionships().then((data) => setChampionships(data))}
             />

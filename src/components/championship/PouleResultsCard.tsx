@@ -24,6 +24,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { Plus, Loader2, Check, Trash2, CalendarDays } from "lucide-react";
+import type { DofaJournee } from "@/lib/dofa/poule-journees";
 
 export interface PoolTeam {
   cl_no: number;
@@ -58,6 +59,10 @@ interface PouleResultsCardProps {
   teams: PoolTeam[];
   matches: PouleMatch[];
   isCoach: boolean;
+  /** Liste officielle des journées collée depuis le site (`poule_journees`).
+   *  Quand elle est fournie, les résultats sont groupés/étiquetés par
+   *  journée réelle du site au lieu du numéro brut des matchs. */
+  journees?: DofaJournee[];
   /** Recharge les championnats (classement recalculé côté serveur). */
   onChanged: () => Promise<void> | void;
 }
@@ -89,6 +94,7 @@ export default function PouleResultsCard({
   teams,
   matches,
   isCoach,
+  journees = [],
   onChanged,
 }: PouleResultsCardProps) {
   const [drafts, setDrafts] = useState<Record<string, ScoreDraft>>({});
@@ -312,6 +318,143 @@ export default function PouleResultsCard({
     }
   }
 
+  // ── Groupement par journée réelle du site ─────────────────────────────
+  // Quand la liste officielle des journées (`journees`, collée depuis la
+  // page `/poule_journees`) est fournie, les résultats sont présentés par
+  // journée réelle : chaque groupe porte l'étiquette officielle (nom + date
+  // du site) au lieu du numéro brute des matchs. Toujours conservé hors
+  // groupe pour les matchs sans journée ou hors liste.
+  const journeeByNumber = new Map(journees.map((j) => [j.number, j]));
+
+  interface MatchGroup {
+    matchday: number | null;
+    matches: PouleMatch[];
+  }
+
+  function buildGroups(list: PouleMatch[]): MatchGroup[] {
+    const groups: MatchGroup[] = [];
+    for (const m of list) {
+      const last = groups[groups.length - 1];
+      if (last && last.matchday === m.matchday) {
+        last.matches.push(m);
+      } else {
+        groups.push({ matchday: m.matchday, matches: [m] });
+      }
+    }
+    return groups;
+  }
+
+  function groupTitle(g: MatchGroup): { title: string; date: string | null } {
+    if (g.matchday == null) {
+      return { title: "Matchs sans journée", date: null };
+    }
+    const journee = journeeByNumber.get(g.matchday);
+    if (journee) {
+      const name = journee.name && journee.name !== String(journee.number) ? journee.name : null;
+      return {
+        title: name ?? `Journée ${journee.number}`,
+        date: journee.date ? fmtKickoff(journee.date) : null,
+      };
+    }
+    return { title: `Journée ${g.matchday}`, date: null };
+  }
+
+  const groupMatches = (g: MatchGroup) =>
+    g.matches.map((m) => {
+      const draft = draftOf(m);
+      const busy = busyId === m.id;
+      return (
+        <div key={m.id} className="flex items-center gap-3 px-4 py-2.5 text-sm">
+          <div className="w-16 shrink-0 text-xs text-muted-foreground leading-tight">
+            {fmtKickoff(m.kickoff) && <div>{fmtKickoff(m.kickoff)}</div>}
+          </div>
+          <div className="flex-1 min-w-0 leading-tight">
+            <p className="truncate font-medium">{m.home_team}</p>
+            <p className="truncate text-muted-foreground">{m.away_team}</p>
+          </div>
+          {m.from_agenda && m.home_score != null && m.away_score != null ? (
+            <div
+              className="text-right font-semibold whitespace-nowrap shrink-0 flex items-center gap-1"
+              title="Saisi sur la page Match"
+            >
+              {`${m.home_score} - ${m.away_score}`}
+              <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />
+            </div>
+          ) : isCoach ? (
+            <div className="flex items-center gap-1.5 shrink-0">
+              <Input
+                className="w-11 h-8 text-center"
+                type="number"
+                min={0}
+                inputMode="numeric"
+                disabled={draft.np || busy}
+                value={draft.h}
+                onChange={(e) => updateDraft(m.id, { h: e.target.value })}
+              />
+              <span className="text-muted-foreground">-</span>
+              <Input
+                className="w-11 h-8 text-center"
+                type="number"
+                min={0}
+                inputMode="numeric"
+                disabled={draft.np || busy}
+                value={draft.a}
+                onChange={(e) => updateDraft(m.id, { a: e.target.value })}
+              />
+              <div
+                className="flex items-center gap-1 pl-1 cursor-pointer"
+                title="Match non joué"
+                onClick={() => updateDraft(m.id, { np: !draft.np })}
+              >
+                <Checkbox checked={draft.np} onCheckedChange={() => undefined} />
+              </div>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                title="Enregistrer le score"
+                onClick={() => saveMatch(m)}
+                disabled={busy}
+              >
+                {busy ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Check className="h-3.5 w-3.5" />
+                )}
+              </Button>
+              {m.source === "manual" && (
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  title="Supprimer"
+                  className="text-destructive"
+                  onClick={() => removeMatch(m)}
+                  disabled={busy}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              )}
+            </div>
+          ) : (
+            <div className="text-right font-semibold whitespace-nowrap shrink-0">
+              {m.home_score != null && m.away_score != null ? (
+                `${m.home_score} - ${m.away_score}`
+              ) : (
+                <Badge variant="outline">
+                  {m.postponed
+                    ? "Reporté"
+                    : m.home_is_forfeit || m.away_is_forfeit
+                      ? "Forfait"
+                      : "Non joué"}
+                </Badge>
+              )}
+            </div>
+          )}
+        </div>
+      );
+    });
+
+  const grouped = journees.length > 0 ? buildGroups(matches) : null;
+
   return (
     <Card>
       <CardHeader className="pb-2">
@@ -464,99 +607,116 @@ export default function PouleResultsCard({
           </p>
         ) : (
           <div className="divide-y">
-            {matches.map((m) => {
-              const draft = draftOf(m);
-              const busy = busyId === m.id;
-              return (
-                <div key={m.id} className="flex items-center gap-3 px-4 py-2.5 text-sm">
-                  <div className="w-16 shrink-0 text-xs text-muted-foreground leading-tight">
-                    {m.matchday != null && <div>J{m.matchday}</div>}
-                    {fmtKickoff(m.kickoff) && <div>{fmtKickoff(m.kickoff)}</div>}
-                  </div>
-                  <div className="flex-1 min-w-0 leading-tight">
-                    <p className="truncate font-medium">{m.home_team}</p>
-                    <p className="truncate text-muted-foreground">{m.away_team}</p>
-                  </div>
-                  {m.from_agenda && m.home_score != null && m.away_score != null ? (
-                    <div
-                      className="text-right font-semibold whitespace-nowrap shrink-0 flex items-center gap-1"
-                      title="Saisi sur la page Match"
-                    >
-                      {`${m.home_score} - ${m.away_score}`}
-                      <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />
+            {grouped ? (
+              grouped.map((g) => {
+                const header = groupTitle(g);
+                return (
+                  <div key={g.matchday ?? "null"}>
+                    <div className="flex items-baseline justify-between px-4 py-1.5 bg-muted/40 border-b">
+                      <span className="text-xs font-semibold text-foreground">{header.title}</span>
+                      {header.date && (
+                        <span className="text-xs text-muted-foreground">{header.date}</span>
+                      )}
                     </div>
-                  ) : isCoach ? (
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <Input
-                        className="w-11 h-8 text-center"
-                        type="number"
-                        min={0}
-                        inputMode="numeric"
-                        disabled={draft.np || busy}
-                        value={draft.h}
-                        onChange={(e) => updateDraft(m.id, { h: e.target.value })}
-                      />
-                      <span className="text-muted-foreground">-</span>
-                      <Input
-                        className="w-11 h-8 text-center"
-                        type="number"
-                        min={0}
-                        inputMode="numeric"
-                        disabled={draft.np || busy}
-                        value={draft.a}
-                        onChange={(e) => updateDraft(m.id, { a: e.target.value })}
-                      />
+                    <div className="divide-y">{groupMatches(g)}</div>
+                  </div>
+                );
+              })
+            ) : (
+              matches.map((m) => {
+                const draft = draftOf(m);
+                const busy = busyId === m.id;
+                return (
+                  <div key={m.id} className="flex items-center gap-3 px-4 py-2.5 text-sm">
+                    <div className="w-16 shrink-0 text-xs text-muted-foreground leading-tight">
+                      {m.matchday != null && <div>J{m.matchday}</div>}
+                      {fmtKickoff(m.kickoff) && <div>{fmtKickoff(m.kickoff)}</div>}
+                    </div>
+                    <div className="flex-1 min-w-0 leading-tight">
+                      <p className="truncate font-medium">{m.home_team}</p>
+                      <p className="truncate text-muted-foreground">{m.away_team}</p>
+                    </div>
+                    {m.from_agenda && m.home_score != null && m.away_score != null ? (
                       <div
-                        className="flex items-center gap-1 pl-1 cursor-pointer"
-                        title="Match non joué"
-                        onClick={() => updateDraft(m.id, { np: !draft.np })}
+                        className="text-right font-semibold whitespace-nowrap shrink-0 flex items-center gap-1"
+                        title="Saisi sur la page Match"
                       >
-                        <Checkbox checked={draft.np} onCheckedChange={() => undefined} />
+                        {`${m.home_score} - ${m.away_score}`}
+                        <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        title="Enregistrer le score"
-                        onClick={() => saveMatch(m)}
-                        disabled={busy}
-                      >
-                        {busy ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        ) : (
-                          <Check className="h-3.5 w-3.5" />
-                        )}
-                      </Button>
-                      {m.source === "manual" && (
+                    ) : isCoach ? (
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <Input
+                          className="w-11 h-8 text-center"
+                          type="number"
+                          min={0}
+                          inputMode="numeric"
+                          disabled={draft.np || busy}
+                          value={draft.h}
+                          onChange={(e) => updateDraft(m.id, { h: e.target.value })}
+                        />
+                        <span className="text-muted-foreground">-</span>
+                        <Input
+                          className="w-11 h-8 text-center"
+                          type="number"
+                          min={0}
+                          inputMode="numeric"
+                          disabled={draft.np || busy}
+                          value={draft.a}
+                          onChange={(e) => updateDraft(m.id, { a: e.target.value })}
+                        />
+                        <div
+                          className="flex items-center gap-1 pl-1 cursor-pointer"
+                          title="Match non joué"
+                          onClick={() => updateDraft(m.id, { np: !draft.np })}
+                        >
+                          <Checkbox checked={draft.np} onCheckedChange={() => undefined} />
+                        </div>
                         <Button
                           variant="ghost"
                           size="icon-sm"
-                          title="Supprimer"
-                          className="text-destructive"
-                          onClick={() => removeMatch(m)}
+                          title="Enregistrer le score"
+                          onClick={() => saveMatch(m)}
                           disabled={busy}
                         >
-                          <Trash2 className="h-3.5 w-3.5" />
+                          {busy ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Check className="h-3.5 w-3.5" />
+                          )}
                         </Button>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="text-right font-semibold whitespace-nowrap shrink-0">
-                      {m.home_score != null && m.away_score != null ? (
-                        `${m.home_score} - ${m.away_score}`
-                      ) : (
-                        <Badge variant="outline">
-                          {m.postponed
-                            ? "Reporté"
-                            : m.home_is_forfeit || m.away_is_forfeit
-                              ? "Forfait"
-                              : "Non joué"}
-                        </Badge>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+                        {m.source === "manual" && (
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            title="Supprimer"
+                            className="text-destructive"
+                            onClick={() => removeMatch(m)}
+                            disabled={busy}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="text-right font-semibold whitespace-nowrap shrink-0">
+                        {m.home_score != null && m.away_score != null ? (
+                          `${m.home_score} - ${m.away_score}`
+                        ) : (
+                          <Badge variant="outline">
+                            {m.postponed
+                              ? "Reporté"
+                              : m.home_is_forfeit || m.away_is_forfeit
+                                ? "Forfait"
+                                : "Non joué"}
+                          </Badge>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )}
           </div>
         )}
       </CardContent>

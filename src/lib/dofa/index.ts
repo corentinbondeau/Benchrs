@@ -30,3 +30,10 @@ export {
 export type { StandingRow } from "./standings";
 
 export type { DofaRawMatch, DofaPouleRef, TeamIdentity, DofaTeamRef, DofaTerrain } from "./types";
+
+export { parsePouleJournees, validateJourneesPayload } from "./poule-journees";
+export type {
+  DofaJournee,
+  JourneesValidationResult,
+  JourneesValidationFailureReason,
+} from "./poule-journees";
