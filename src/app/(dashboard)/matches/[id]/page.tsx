@@ -62,7 +62,7 @@ import { WeatherWidget } from "@/components/event/WeatherWidget";
 import { TerrainImpraticable } from "@/components/event/TerrainImpraticable";
 import { LockerPlaylist } from "@/components/event/LockerPlaylist";
 import { RecoveryProtocolCard } from "@/components/match/RecoveryProtocolCard";
-import { isEventLocked, isLockedForRole, CONVOCATION_LOCKED_MESSAGE, EVENT_LOCKED_MESSAGE, getEventDurationMinutes } from "@/lib/event-lock";
+import { isEventLocked, isLockedForRole, CONVOCATION_LOCKED_MESSAGE, EVENT_LOCKED_MESSAGE, getEventDurationMinutes, isRpeFormOpen } from "@/lib/event-lock";
 import { filterPresentPlayers } from "@/lib/stats/filterPresentPlayers";
 import { computeMinutesPlayed, type Substitution } from "@/lib/stats/computeMinutesPlayed";
 import { LineupEditor } from "@/components/lineup/LineupEditor";
@@ -1389,7 +1389,7 @@ export default function MatchDetailPage() {
         userId={user?.id}
         userRole={userRole}
         childId={childId}
-        trainingOver={matchIsOver || matchDate.getTime() < liveNow}
+        trainingOver={isRpeFormOpen(match.event_date, match.end_date, liveNow)}
         durationHint={getEventDurationMinutes(match.event_date, match.end_date) ?? 120}
       />
 

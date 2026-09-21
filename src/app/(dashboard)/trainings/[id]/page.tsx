@@ -34,7 +34,7 @@ import { fetchTeamActivePlayers } from "@/lib/players";
 import { computeMissingResponders } from "@/lib/session-reminders";
 import { SessionRemindersCard } from "@/components/training/SessionRemindersCard";
 import { logActivity } from "@/lib/activity";
-import { isLockedForRole, CONVOCATION_LOCKED_MESSAGE, getEventDurationMinutes } from "@/lib/event-lock";
+import { isLockedForRole, CONVOCATION_LOCKED_MESSAGE, getEventDurationMinutes, isRpeFormOpen } from "@/lib/event-lock";
 import type { AttendanceStatus, Event } from "@/types";
 
 type TrainingEvent = Event & {
@@ -414,7 +414,7 @@ export default function TrainingDetailPage() {
         userId={user?.id}
         userRole={userRole}
         childId={childId}
-        trainingOver={event.status === "completed" || eventDate.getTime() < now}
+        trainingOver={isRpeFormOpen(event.event_date, event.end_date, now)}
         durationHint={getEventDurationMinutes(event.event_date, event.end_date) ?? 90}
       />
 

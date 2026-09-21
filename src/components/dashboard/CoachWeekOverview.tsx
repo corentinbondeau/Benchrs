@@ -73,7 +73,11 @@ function CoachWeekOverviewInner() {
           .select("id, type, title, opponent, event_date, status, convocations_sent_at")
           .eq("team_id", currentTeam.id)
           .in("type", ["match", "training"])
-          .in("status", ["upcoming", "ongoing"])
+          // On garde les évènements déjà joués de la semaine en cours : les
+          // matchs passent en "completed" dès la fin du match alors que les
+          // séances restent "upcoming" — les deux doivent rester listés jusqu'à
+          // la fin de semaine.
+          .in("status", ["upcoming", "ongoing", "completed"])
           .gte("event_date", start.toISOString())
           .lte("event_date", end.toISOString())
           .order("event_date", { ascending: true }),
@@ -243,6 +247,11 @@ function CoachWeekOverviewInner() {
                         )}
                         <span className="min-w-0 flex-1 truncate">
                           {e.type === "match" ? `Match ${e.opponent ? `vs ${e.opponent}` : ""}` : e.title}
+                          {e.status === "completed" && (
+                            <span className="ml-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">
+                              · terminé
+                            </span>
+                          )}
                         </span>
                         <span className="text-xs text-muted-foreground shrink-0">
                           {date.toLocaleDateString("fr-FR", { weekday: "short", day: "numeric" })}

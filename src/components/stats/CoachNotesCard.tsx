@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -94,90 +94,111 @@ export function CoachNotesCard({
   const [entries, setEntries] = useState<MatchEntry[]>([]);
   const [totalMatches, setTotalMatches] = useState(0);
   const [loading, setLoading] = useState(true);
+  const instanceId = useId();
+
+  const load = useCallback(async (): Promise<{
+    entries: MatchEntry[];
+    totalMatches: number;
+  }> => {
+    const supabase = createClient();
+    const [ratingsRes, reportsRes, matchesRes] = await Promise.all([
+      supabase
+        .from("match_ratings")
+        .select(
+          "id, event_id, rater_id, rating, notes, created_at, event:events(id, event_date, opponent, title, score_home, score_away, status), rater:profiles!match_ratings_rater_id_fkey(first_name, last_name)",
+        )
+        .eq("player_id", playerId)
+        .eq("team_id", teamId)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("match_reports")
+        .select("event_id, content")
+        .eq("team_id", teamId),
+      supabase
+        .from("events")
+        .select("id")
+        .eq("team_id", teamId)
+        .eq("type", "match")
+        .eq("status", "completed"),
+    ]);
+
+    const ratings = (ratingsRes.data ?? []) as unknown as RatingRow[];
+    const reports = (reportsRes.data ?? []) as unknown as ReportRow[];
+    const totalMatchCount = (matchesRes.data ?? []).length;
+
+    const reportMap = new Map<string, string>();
+    for (const r of reports) {
+      const summary = (r.content as Record<string, unknown>)?.summary;
+      if (typeof summary === "string" && summary.trim()) {
+        reportMap.set(r.event_id, summary.trim());
+      }
+    }
+
+    const grouped = new Map<string, MatchEntry>();
+    for (const row of ratings) {
+      const ev = row.event;
+      if (!ev) continue;
+      if (!grouped.has(ev.id)) {
+        grouped.set(ev.id, {
+          eventId: ev.id,
+          eventDate: ev.event_date,
+          opponent: ev.opponent,
+          title: ev.title,
+          scoreHome: ev.score_home,
+          scoreAway: ev.score_away,
+          ratings: [],
+          reportSummary: reportMap.get(ev.id) ?? null,
+        });
+      }
+      grouped.get(ev.id)!.ratings.push({
+        rating: Number(row.rating),
+        notes: row.notes,
+        raterName:
+          row.rater
+            ? `${row.rater.first_name} ${row.rater.last_name}`
+            : "Coach",
+      });
+    }
+
+    const sorted = [...grouped.values()].sort((a, b) => {
+      const da = a.eventDate ? new Date(a.eventDate).getTime() : 0;
+      const db = b.eventDate ? new Date(b.eventDate).getTime() : 0;
+      return db - da;
+    });
+
+    return { entries: sorted, totalMatches: totalMatchCount };
+  }, [playerId, teamId]);
 
   useEffect(() => {
     const supabase = createClient();
-    let cancelled = false;
-
-    async function load() {
-      setLoading(true);
-      const [ratingsRes, reportsRes, matchesRes] = await Promise.all([
-        supabase
-          .from("match_ratings")
-          .select(
-            "id, event_id, rater_id, rating, notes, created_at, event:events(id, event_date, opponent, title, score_home, score_away, status), rater:profiles!match_ratings_rater_id_fkey(first_name, last_name)",
-          )
-          .eq("player_id", playerId)
-          .eq("team_id", teamId)
-          .order("created_at", { ascending: false }),
-        supabase
-          .from("match_reports")
-          .select("event_id, content")
-          .eq("team_id", teamId),
-        supabase
-          .from("events")
-          .select("id")
-          .eq("team_id", teamId)
-          .eq("type", "match")
-          .eq("status", "completed"),
-      ]);
-
-      if (cancelled) return;
-
-      const ratings = (ratingsRes.data ?? []) as unknown as RatingRow[];
-      const reports = (reportsRes.data ?? []) as unknown as ReportRow[];
-      const totalMatchCount = (matchesRes.data ?? []).length;
-
-      const reportMap = new Map<string, string>();
-      for (const r of reports) {
-        const summary = (r.content as Record<string, unknown>)?.summary;
-        if (typeof summary === "string" && summary.trim()) {
-          reportMap.set(r.event_id, summary.trim());
-        }
-      }
-
-      const grouped = new Map<string, MatchEntry>();
-      for (const row of ratings) {
-        const ev = row.event;
-        if (!ev) continue;
-        if (!grouped.has(ev.id)) {
-          grouped.set(ev.id, {
-            eventId: ev.id,
-            eventDate: ev.event_date,
-            opponent: ev.opponent,
-            title: ev.title,
-            scoreHome: ev.score_home,
-            scoreAway: ev.score_away,
-            ratings: [],
-            reportSummary: reportMap.get(ev.id) ?? null,
-          });
-        }
-        grouped.get(ev.id)!.ratings.push({
-          rating: Number(row.rating),
-          notes: row.notes,
-          raterName:
-            row.rater
-              ? `${row.rater.first_name} ${row.rater.last_name}`
-              : "Coach",
-        });
-      }
-
-      const sorted = [...grouped.values()].sort((a, b) => {
-        const da = a.eventDate ? new Date(a.eventDate).getTime() : 0;
-        const db = b.eventDate ? new Date(b.eventDate).getTime() : 0;
-        return db - da;
-      });
-
-      setEntries(sorted);
-      setTotalMatches(totalMatchCount);
+    const apply = (res: { entries: MatchEntry[]; totalMatches: number }) => {
+      setEntries(res.entries);
+      setTotalMatches(res.totalMatches);
       setLoading(false);
-    }
-
-    load();
-    return () => {
-      cancelled = true;
     };
-  }, [playerId, teamId]);
+
+    load().then(apply);
+
+    const channel = supabase
+      .channel(`match-ratings:${teamId}:${instanceId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "match_ratings",
+          filter: `player_id=eq.${playerId},team_id=eq.${teamId}`,
+        },
+        () => {
+          load().then(apply);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [load, teamId, playerId, instanceId]);
 
   return (
     <Card>

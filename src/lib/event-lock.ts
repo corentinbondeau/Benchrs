@@ -140,3 +140,39 @@ export function applyDurationToStart(
 
   return new Date(startTime + durationMinutes * 60 * 1000).toISOString();
 }
+
+/**
+ * Fenêtre de saisie du RPE : un joueur peut renseigner son intensité perçue
+ * pendant les 2 jours qui suivent la fin de l'évènement. Passé ce délai, le
+ * formulaire se ferme (les données déjà enregistrées restent consultables
+ * par le coach via l'historique de charge).
+ */
+export const RPE_WINDOW_MS = 2 * 24 * 60 * 60 * 1000;
+
+/**
+ * Le formulaire RPE est-il encore ouvert pour cet évènement ?
+ *
+ * Ouvert dès que l'évènement est terminé (`endDate` si valide, sinon repli
+ * sur `eventDate`) et pendant 2 jours après. Retourne `false` si la date de
+ * début est absente ou invalide.
+ */
+export function isRpeFormOpen(
+  eventDate: string | Date | null | undefined,
+  endDate?: string | Date | null,
+  now: number = Date.now()
+): boolean {
+  if (!eventDate) return false;
+
+  const start = eventDate instanceof Date ? eventDate : new Date(eventDate);
+  const startTime = start.getTime();
+  if (Number.isNaN(startTime)) return false;
+
+  let endTime = startTime;
+  if (endDate) {
+    const end = endDate instanceof Date ? endDate : new Date(endDate);
+    const t = end.getTime();
+    if (!Number.isNaN(t)) endTime = t;
+  }
+
+  return endTime < now && now <= endTime + RPE_WINDOW_MS;
+}
