@@ -43,6 +43,8 @@ interface SessionRpeProps {
   childId: string | null;
   trainingOver: boolean;
   durationHint: number | null;
+  hideAfterSubmit?: boolean;
+  onSubmitted?: () => void;
 }
 
 export function SessionRpe({
@@ -54,6 +56,8 @@ export function SessionRpe({
   childId,
   trainingOver,
   durationHint,
+  hideAfterSubmit = false,
+  onSubmitted,
 }: SessionRpeProps) {
   const [enabled, setEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -153,6 +157,7 @@ export function SessionRpe({
     loadData().then((res) => {
       setMyRpe(res.myRpe);
       setAllRpe(res.allRpe);
+      onSubmitted?.();
     });
   }
 
@@ -165,6 +170,10 @@ export function SessionRpe({
   }
 
   if (!enabled) {
+    return null;
+  }
+
+  if (hideAfterSubmit && myPlayerId && myRpe?.rpe != null) {
     return null;
   }
 

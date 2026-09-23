@@ -20,7 +20,7 @@ export function LastSessionFeedback() {
 
   const key = currentTeam && user?.id ? `last-session:${currentTeam.id}:${user.id}` : null;
 
-  const { data } = useQueryCache<LastSessionData | null>(
+  const { data, revalidate } = useQueryCache<LastSessionData | null>(
     key,
     async () => {
       const supabase = createClient();
@@ -52,7 +52,26 @@ export function LastSessionFeedback() {
       if (!selectedId) return null;
 
       const event = eventRows.find((e) => e.id === selectedId);
-      return event ? { event } : null;
+      if (!event) return null;
+
+      const [rpeRes, fbRes] = await Promise.all([
+        supabase
+          .from("session_rpe")
+          .select("id")
+          .eq("event_id", selectedId)
+          .eq("player_id", user!.id)
+          .maybeSingle(),
+        supabase
+          .from("session_feedback")
+          .select("id")
+          .eq("event_id", selectedId)
+          .eq("player_id", user!.id)
+          .maybeSingle(),
+      ]);
+
+      if (rpeRes.data && fbRes.data) return null;
+
+      return { event };
     },
     { ttl: 60_000 }
   );
@@ -83,6 +102,8 @@ export function LastSessionFeedback() {
         childId={null}
         trainingOver={isRpeFormOpen(event.event_date, event.end_date)}
         durationHint={getEventDurationMinutes(event.event_date, event.end_date) ?? 90}
+        hideAfterSubmit
+        onSubmitted={() => revalidate()}
       />
       <SessionFeedback
         eventId={event.id}
@@ -92,6 +113,8 @@ export function LastSessionFeedback() {
         userRole={userRole}
         childId={null}
         trainingOver={true}
+        hideAfterSubmit
+        onSubmitted={() => revalidate()}
       />
     </div>
   );

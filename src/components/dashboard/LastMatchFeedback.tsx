@@ -19,7 +19,7 @@ export function LastMatchFeedback() {
   const key =
     currentTeam && user?.id ? `last-match-rpe:${currentTeam.id}:${user.id}` : null;
 
-  const { data } = useQueryCache<LastMatchData | null>(
+  const { data, revalidate } = useQueryCache<LastMatchData | null>(
     key,
     async () => {
       if (!currentTeam || !user?.id) return null;
@@ -47,6 +47,14 @@ export function LastMatchFeedback() {
 
       const match = rows.find((e) => isRpeFormOpen(e.event_date, e.end_date));
       if (!match) return null;
+
+      const { data: rpe } = await supabase
+        .from("session_rpe")
+        .select("id")
+        .eq("event_id", match.id)
+        .eq("player_id", user.id)
+        .maybeSingle();
+      if (rpe) return null;
 
       return { event: match };
     },
@@ -79,6 +87,8 @@ export function LastMatchFeedback() {
         childId={null}
         trainingOver={isRpeFormOpen(event.event_date, event.end_date)}
         durationHint={getEventDurationMinutes(event.event_date, event.end_date) ?? 120}
+        hideAfterSubmit
+        onSubmitted={() => revalidate()}
       />
     </div>
   );

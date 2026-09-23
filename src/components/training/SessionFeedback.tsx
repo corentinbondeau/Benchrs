@@ -43,6 +43,8 @@ export function SessionFeedback({
   userRole,
   childId,
   trainingOver,
+  hideAfterSubmit = false,
+  onSubmitted,
 }: {
   eventId: string;
   teamId: string;
@@ -51,6 +53,8 @@ export function SessionFeedback({
   userRole: string | null;
   childId: string | null;
   trainingOver: boolean;
+  hideAfterSubmit?: boolean;
+  onSubmitted?: () => void;
 }) {
   const myPlayerId = userRole === "player" ? (userId ?? null) : childId;
   const [rows, setRows] = useState<SessionFeedbackRow[]>([]);
@@ -151,6 +155,10 @@ export function SessionFeedback({
     );
   }
 
+  if (hideAfterSubmit && myPlayerId && mine) {
+    return null;
+  }
+
   const avg = rows.length
     ? {
         rating: rows.reduce((s, r) => s + (r.rating ?? 0), 0) / rows.length,
@@ -188,6 +196,7 @@ export function SessionFeedback({
         return sortByPlayerName([...next, data as SessionFeedbackRow], players);
       });
       toast.success("Merci pour ton retour !");
+      onSubmitted?.();
     } catch (e) {
       toast.error(String(e));
     } finally {
