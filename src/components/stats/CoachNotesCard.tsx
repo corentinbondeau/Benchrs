@@ -14,19 +14,6 @@ interface RatingRow {
   rating: number;
   notes: string | null;
   created_at: string;
-  event: {
-    id: string;
-    event_date: string | null;
-    opponent: string | null;
-    title: string | null;
-    score_home: number | null;
-    score_away: number | null;
-    status: string;
-  } | null;
-  rater: {
-    first_name: string;
-    last_name: string;
-  } | null;
 }
 
 interface ReportRow {
@@ -96,7 +83,23 @@ export function CoachNotesCard({
   const [loading, setLoading] = useState(true);
   const instanceId = useId();
 
-  const load = useCallback(async (): Promise<{
+  interface MatchEventRow {
+  id: string;
+  event_date: string | null;
+  opponent: string | null;
+  title: string | null;
+  score_home: number | null;
+  score_away: number | null;
+  status: string;
+}
+
+interface ProfileRow {
+  id: string;
+  first_name: string;
+  last_name: string;
+}
+
+const load = useCallback(async (): Promise<{
     entries: MatchEntry[];
     totalMatches: number;
   }> => {
@@ -104,9 +107,7 @@ export function CoachNotesCard({
     const [ratingsRes, reportsRes, matchesRes] = await Promise.all([
       supabase
         .from("match_ratings")
-        .select(
-          "id, event_id, rater_id, rating, notes, created_at, event:events(id, event_date, opponent, title, score_home, score_away, status), rater:profiles!match_ratings_rater_id_fkey(first_name, last_name)",
-        )
+        .select("id, event_id, rater_id, rating, notes, created_at")
         .eq("player_id", playerId)
         .eq("team_id", teamId)
         .order("created_at", { ascending: false }),
@@ -122,9 +123,39 @@ export function CoachNotesCard({
         .eq("status", "completed"),
     ]);
 
-    const ratings = (ratingsRes.data ?? []) as unknown as RatingRow[];
+    const ratings = (ratingsRes.data ?? []) as RatingRow[];
     const reports = (reportsRes.data ?? []) as unknown as ReportRow[];
     const totalMatchCount = (matchesRes.data ?? []).length;
+
+    const rowEventIds = ratings.map((r) => r.event_id);
+    const rowRaterIds = ratings.map((r) => r.rater_id);
+
+    const [eventsRes, ratersRes] = await Promise.all([
+      rowEventIds.length
+        ? supabase.from("events").select(
+            "id, event_date, opponent, title, score_home, score_away, status",
+          ).in("id", rowEventIds)
+        : Promise.resolve<{ data: MatchEventRow[] | null }>({ data: [] }),
+      rowRaterIds.length
+        ? supabase.from("profiles").select("id, first_name, last_name").in(
+            "id",
+            rowRaterIds,
+          )
+        : Promise.resolve<{ data: ProfileRow[] | null }>({ data: [] }),
+    ]);
+
+    const eventById = new Map<string, MatchEventRow>();
+    for (const ev of (eventsRes.data ?? []) as MatchEventRow[]) {
+      eventById.set(ev.id, ev);
+    }
+
+    const raterById = new Map<
+      string,
+      { first_name: string; last_name: string }
+    >();
+    for (const r of (ratersRes.data ?? []) as ProfileRow[]) {
+      raterById.set(r.id, r);
+    }
 
     const reportMap = new Map<string, string>();
     for (const r of reports) {
@@ -136,27 +167,24 @@ export function CoachNotesCard({
 
     const grouped = new Map<string, MatchEntry>();
     for (const row of ratings) {
-      const ev = row.event;
-      if (!ev) continue;
-      if (!grouped.has(ev.id)) {
-        grouped.set(ev.id, {
-          eventId: ev.id,
-          eventDate: ev.event_date,
-          opponent: ev.opponent,
-          title: ev.title,
-          scoreHome: ev.score_home,
-          scoreAway: ev.score_away,
+      const ev = eventById.get(row.event_id);
+      if (!grouped.has(row.event_id)) {
+        grouped.set(row.event_id, {
+          eventId: row.event_id,
+          eventDate: ev?.event_date ?? null,
+          opponent: ev?.opponent ?? null,
+          title: ev?.title ?? null,
+          scoreHome: ev?.score_home ?? null,
+          scoreAway: ev?.score_away ?? null,
           ratings: [],
-          reportSummary: reportMap.get(ev.id) ?? null,
+          reportSummary: reportMap.get(row.event_id) ?? null,
         });
       }
-      grouped.get(ev.id)!.ratings.push({
+      const rater = raterById.get(row.rater_id);
+      grouped.get(row.event_id)!.ratings.push({
         rating: Number(row.rating),
         notes: row.notes,
-        raterName:
-          row.rater
-            ? `${row.rater.first_name} ${row.rater.last_name}`
-            : "Coach",
+        raterName: rater ? `${rater.first_name} ${rater.last_name}` : "Coach",
       });
     }
 
