@@ -4,11 +4,8 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { BookOpen, Star, Check, X, Pencil } from "lucide-react";
-import { toast } from "sonner";
+import { BookOpen, Star, Pencil } from "lucide-react";
+import { MatchNotebookForm } from "@/components/match/MatchNotebookForm";
 import type { PlayerNotebookEntry } from "@/types";
 
 interface NotebookWithEvent extends PlayerNotebookEntry {
@@ -33,29 +30,6 @@ function formatDate(iso: string | null): string {
   return `${d.getDate().toString().padStart(2, "0")}/${(d.getMonth() + 1).toString().padStart(2, "0")}/${d.getFullYear()}`;
 }
 
-function StarRow({ value, onChange }: { value: number; onChange: (v: number) => void }) {
-  return (
-    <div className="flex items-center gap-1">
-      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
-        <button
-          key={n}
-          type="button"
-          onClick={() => onChange(n)}
-          className="p-0.5"
-          aria-label={`${n}/10`}
-        >
-          <Star
-            className={`h-5 w-5 ${
-              n <= value ? "fill-[var(--color-gold)] text-[var(--color-gold)]" : "text-muted-foreground/40"
-            }`}
-          />
-        </button>
-      ))}
-      <span className="ml-1 text-xs font-semibold">{value}/10</span>
-    </div>
-  );
-}
-
 export function PlayerNotebookCard({
   playerId,
   teamId,
@@ -68,11 +42,6 @@ export function PlayerNotebookCard({
   const [entries, setEntries] = useState<NotebookWithEvent[]>([]);
   const [pendingMatches, setPendingMatches] = useState<CompletedMatch[]>([]);
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
-  const [performance, setPerformance] = useState(5);
-  const [notable, setNotable] = useState("");
-  const [improvements, setImprovements] = useState("");
-  const [notes, setNotes] = useState("");
-  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     const supabase = createClient();
@@ -123,49 +92,33 @@ export function PlayerNotebookCard({
   const editedIds = new Set(entries.map((e) => e.event_id));
   const missing = pendingMatches.filter((m) => !editedIds.has(m.event_id));
 
-  function startEdit(match?: CompletedMatch) {
-    if (!match) return;
-    const existing = entries.find((e) => e.event_id === match.event_id);
+  function startEdit(match: CompletedMatch) {
     setEditingEventId(match.event_id);
-    setPerformance(existing?.performance ?? 5);
-    setNotable(existing?.notable_events ?? "");
-    setImprovements(existing?.improvements ?? "");
-    setNotes(existing?.notes ?? "");
   }
 
-  async function handleSave() {
-    if (!editingEventId) return;
-    setSaving(true);
-    try {
-      const supabase = createClient();
-      const payload = {
-        player_id: playerId,
-        team_id: teamId,
-        event_id: editingEventId,
-        performance,
-        notable_events: notable.trim() || null,
-        improvements: improvements.trim() || null,
-        notes: notes.trim() || null,
-      };
-      const { error } = await supabase
-        .from("player_notebook_entries")
-        .upsert(payload, { onConflict: "player_id,event_id" });
-      if (error) throw error;
-      toast.success("Carnet mis à jour");
-      setEditingEventId(null);
-      const { data } = await supabase
-        .from("player_notebook_entries")
-        .select("id, player_id, team_id, event_id, performance, notable_events, improvements, notes, created_at, event:events(id, event_date, opponent, title)")
-        .eq("player_id", playerId)
-        .eq("team_id", teamId)
-        .order("created_at", { ascending: false });
-      setEntries((data || []) as unknown as NotebookWithEvent[]);
-    } catch (e) {
-      toast.error(String(e));
-    } finally {
-      setSaving(false);
-    }
+  async function refreshEntries() {
+    const supabase = createClient();
+    const { data } = await supabase
+      .from("player_notebook_entries")
+      .select("id, player_id, team_id, event_id, performance, notable_events, improvements, notes, created_at, event:events(id, event_date, opponent, title)")
+      .eq("player_id", playerId)
+      .eq("team_id", teamId)
+      .order("created_at", { ascending: false });
+    setEntries((data || []) as unknown as NotebookWithEvent[]);
+    setEditingEventId(null);
   }
+
+  const editingEntry = entries.find((e) => e.event_id === editingEventId);
+  const editingMatch =
+    pendingMatches.find((m) => m.event_id === editingEventId) ||
+    (editingEntry
+      ? {
+          event_id: editingEntry.event_id,
+          event_date: editingEntry.event?.event_date ?? null,
+          opponent: editingEntry.event?.opponent ?? null,
+          title: editingEntry.event?.title ?? null,
+        }
+      : undefined);
 
   return (
     <Card>
@@ -197,56 +150,19 @@ export function PlayerNotebookCard({
           </div>
         )}
 
-        {editingEventId && (
-          <div className="rounded-lg border bg-muted/30 p-3 space-y-3">
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-semibold">
-                {pendingMatches.find((m) => m.event_id === editingEventId)?.opponent ||
-                  entries.find((e) => e.event_id === editingEventId)?.event?.opponent ||
-                  "Match"}
-              </p>
-              <div className="flex gap-1">
-                <Button size="sm" className="h-7" onClick={handleSave} disabled={saving}>
-                  {saving ? "..." : <><Check className="h-3.5 w-3.5 mr-1" /> Enregistrer</>}
-                </Button>
-                <Button size="sm" variant="ghost" className="h-7" onClick={() => setEditingEventId(null)}>
-                  <X className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Ma prestation</Label>
-              <StarRow value={performance} onChange={setPerformance} />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="nbNotable">Ce que j&apos;ai bien fait</Label>
-              <Textarea
-                id="nbNotable"
-                value={notable}
-                onChange={(e) => setNotable(e.target.value)}
-                placeholder="Mes points forts du match..."
-                rows={2}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="nbImprove">Mes axes de progression</Label>
-              <Textarea
-                id="nbImprove"
-                value={improvements}
-                onChange={(e) => setImprovements(e.target.value)}
-                placeholder="Ce que je veux améliorer..."
-                rows={2}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="nbNotes">Mes impressions</Label>
-              <Input
-                id="nbNotes"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Ressenti, contexte..."
-              />
-            </div>
+        {canEdit && editingEventId && editingMatch && (
+          <div>
+            <p className="text-sm font-semibold mb-2">
+              {editingMatch.opponent || editingMatch.title || "Match"}
+            </p>
+            <MatchNotebookForm
+              playerId={playerId}
+              teamId={teamId}
+              eventId={editingEventId}
+              initial={editingEntry ?? null}
+              onSaved={refreshEntries}
+              onCancel={() => setEditingEventId(null)}
+            />
           </div>
         )}
 
