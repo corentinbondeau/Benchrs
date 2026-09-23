@@ -65,6 +65,7 @@ export function WeekMatchAvailability({ playerId }: { playerId: string | null })
         .eq("team_id", currentTeam.id)
         .eq("type", "match")
         .in("status", ["upcoming", "ongoing"])
+        .is("convocations_sent_at", null)
         .gte("event_date", todayStart.toISOString())
         .lte("event_date", weekEnd.toISOString())
         .order("event_date", { ascending: true });

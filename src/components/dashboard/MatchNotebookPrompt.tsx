@@ -4,16 +4,18 @@ import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useTeam } from "@/lib/team";
 import { useQueryCache } from "@/lib/queryCache";
+import { isEventLocked } from "@/lib/event-lock";
 import { MatchNotebookForm } from "@/components/match/MatchNotebookForm";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BookOpen, Check } from "lucide-react";
 
 interface NotebookMatch {
-  event_id: string;
+  id: string;
   event_date: string;
+  end_date?: string | null;
   opponent: string | null;
   title: string | null;
-  status: string;
+  status?: string | null;
 }
 
 interface PromptData {
@@ -40,33 +42,33 @@ export function MatchNotebookPrompt() {
       if (!currentTeam || !user?.id) return null;
       const supabase = createClient();
 
-      const { data: stats } = await supabase
-        .from("match_stats")
-        .select("event_id")
-        .eq("player_id", user.id)
-        .eq("team_id", currentTeam.id);
-
-      const eventIds = (stats || []).map((s) => s.event_id as string);
-      if (eventIds.length === 0) return null;
-
       const { data: events } = await supabase
         .from("events")
-        .select("id, event_date, opponent, title, status")
-        .in("id", eventIds)
-        .eq("status", "completed")
-        .order("event_date", { ascending: false });
+        .select("id, event_date, end_date, opponent, title, status")
+        .eq("team_id", currentTeam.id)
+        .eq("type", "match")
+        .neq("status", "cancelled")
+        .order("event_date", { ascending: false })
+        .limit(10);
 
-      const matches = (events || []) as unknown as NotebookMatch[];
-      if (matches.length === 0) return null;
+      const pastMatches = ((events || []) as unknown as NotebookMatch[]).filter((e) =>
+        isEventLocked(e.event_date, e.end_date)
+      );
+      if (pastMatches.length === 0) return null;
 
-      const { data: entries } = await supabase
+      const eventIds = pastMatches.map((m) => m.id);
+
+      const { data: entriesRes } = await supabase
         .from("player_notebook_entries")
         .select("event_id")
         .eq("player_id", user.id)
-        .in("event_id", matches.map((m) => m.event_id));
+        .in("event_id", eventIds);
 
-      const editedIds = new Set((entries || []).map((e) => e.event_id as string));
-      const match = matches.find((m) => !editedIds.has(m.event_id));
+      const editedIds = new Set(
+        (entriesRes || []).map((e) => e.event_id as string)
+      );
+
+      const match = pastMatches.find((m) => !editedIds.has(m.id));
       if (!match) return null;
 
       return { match };
@@ -97,7 +99,7 @@ export function MatchNotebookPrompt() {
         <MatchNotebookForm
           playerId={user.id}
           teamId={currentTeam.id}
-          eventId={match.event_id}
+          eventId={match.id}
           onSaved={() => revalidate()}
         />
         <button
