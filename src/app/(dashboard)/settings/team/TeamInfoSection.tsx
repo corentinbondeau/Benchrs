@@ -93,11 +93,19 @@ export default function TeamInfoSection({ isOwner, isCoach }: TeamInfoSectionPro
 
     supabase
       .from("team_settings")
-      .select("enable_rpe, min_playing_minutes, half_duration, match_format")
+      .select("enable_rpe")
       .eq("team_id", team.id)
       .maybeSingle()
       .then(({ data }) => {
         setEnableRpe(data?.enable_rpe === true);
+      });
+
+    supabase
+      .from("team_settings")
+      .select("min_playing_minutes, half_duration, match_format")
+      .eq("team_id", team.id)
+      .maybeSingle()
+      .then(({ data }) => {
         setMinPlayingMinutes(data?.min_playing_minutes ?? 0);
         setHalfDuration(data?.half_duration ?? 45);
         setMatchFormat(data?.match_format ?? 11);
