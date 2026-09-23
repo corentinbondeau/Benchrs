@@ -29,8 +29,8 @@ interface MatchEntry {
   ratingDate: string | null;
   opponent: string | null;
   title: string | null;
-  scoreHome: number | null;
-  scoreAway: number | null;
+  scoreUs: number | null;
+  scoreThem: number | null;
   ratings: {
     rating: number;
     notes: string | null;
@@ -89,8 +89,8 @@ export function CoachNotesCard({
   event_date: string | null;
   opponent: string | null;
   title: string | null;
-  score_home: number | null;
-  score_away: number | null;
+  score_us: number | null;
+  score_them: number | null;
   status: string;
 }
 
@@ -134,7 +134,7 @@ const load = useCallback(async (): Promise<{
     const [eventsRes, ratersRes] = await Promise.all([
       rowEventIds.length
         ? supabase.from("events").select(
-            "id, event_date, opponent, title, score_home, score_away, status",
+            "id, event_date, opponent, title, score_us, score_them, status",
           ).in("id", rowEventIds)
         : Promise.resolve<{ data: MatchEventRow[] | null }>({ data: [] }),
       rowRaterIds.length
@@ -176,8 +176,8 @@ const load = useCallback(async (): Promise<{
           ratingDate: row.created_at ?? null,
           opponent: ev?.opponent ?? null,
           title: ev?.title ?? null,
-          scoreHome: ev?.score_home ?? null,
-          scoreAway: ev?.score_away ?? null,
+          scoreUs: ev?.score_us ?? null,
+          scoreThem: ev?.score_them ?? null,
           ratings: [],
           reportSummary: reportMap.get(row.event_id) ?? null,
         });
@@ -257,7 +257,7 @@ const load = useCallback(async (): Promise<{
         ) : (
           <div className="space-y-4">
             {entries.map((entry) => {
-              const result = matchResult(entry.scoreHome, entry.scoreAway);
+              const result = matchResult(entry.scoreUs, entry.scoreThem);
               const borderClass = result ? RESULT_BORDER[result] : "border-l-gray-300";
               const badge = result ? RESULT_BADGE[result] : null;
 
@@ -282,9 +282,9 @@ const load = useCallback(async (): Promise<{
                           {badge.label}
                         </Badge>
                       )}
-                      {entry.scoreHome != null && entry.scoreAway != null && (
+                      {entry.scoreUs != null && entry.scoreThem != null && (
                         <span className="text-sm font-mono font-semibold">
-                          {entry.scoreHome}–{entry.scoreAway}
+                          {entry.scoreUs}–{entry.scoreThem}
                         </span>
                       )}
                     </div>
