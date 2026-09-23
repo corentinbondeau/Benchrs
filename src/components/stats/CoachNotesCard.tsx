@@ -26,6 +26,7 @@ interface ReportRow {
 interface MatchEntry {
   eventId: string;
   eventDate: string | null;
+  ratingDate: string | null;
   opponent: string | null;
   title: string | null;
   scoreHome: number | null;
@@ -172,6 +173,7 @@ const load = useCallback(async (): Promise<{
         grouped.set(row.event_id, {
           eventId: row.event_id,
           eventDate: ev?.event_date ?? null,
+          ratingDate: row.created_at ?? null,
           opponent: ev?.opponent ?? null,
           title: ev?.title ?? null,
           scoreHome: ev?.score_home ?? null,
@@ -189,8 +191,8 @@ const load = useCallback(async (): Promise<{
     }
 
     const sorted = [...grouped.values()].sort((a, b) => {
-      const da = a.eventDate ? new Date(a.eventDate).getTime() : 0;
-      const db = b.eventDate ? new Date(b.eventDate).getTime() : 0;
+      const da = new Date(a.eventDate ?? a.ratingDate ?? 0).getTime();
+      const db = new Date(b.eventDate ?? b.ratingDate ?? 0).getTime();
       return db - da;
     });
 
@@ -288,7 +290,11 @@ const load = useCallback(async (): Promise<{
                     </div>
                   </div>
                   <span className="text-xs text-muted-foreground">
-                    {formatDate(entry.eventDate)}
+                    {entry.eventDate
+                      ? formatDate(entry.eventDate)
+                      : entry.ratingDate
+                        ? `Noté le ${formatDate(entry.ratingDate)}`
+                        : "—"}
                   </span>
 
                   {entry.ratings.map((r, i) => (
