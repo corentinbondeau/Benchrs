@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useTeam } from "@/lib/team";
 import { useQueryCache } from "@/lib/queryCache";
-import { isEventLocked } from "@/lib/event-lock";
+import { isRpeFormOpen } from "@/lib/event-lock";
 import { MatchNotebookForm } from "@/components/match/MatchNotebookForm";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BookOpen, Check } from "lucide-react";
@@ -52,7 +52,7 @@ export function MatchNotebookPrompt() {
         .limit(10);
 
       const pastMatches = ((events || []) as unknown as NotebookMatch[]).filter((e) =>
-        isEventLocked(e.event_date, e.end_date)
+        isRpeFormOpen(e.event_date, e.end_date)
       );
       if (pastMatches.length === 0) return null;
 

@@ -10,6 +10,7 @@ import { PendingConvocations } from "@/components/dashboard/PendingConvocations"
 import { WeekMatchAvailability } from "@/components/dashboard/WeekMatchAvailability";
 import { NextSessionCheckIn } from "@/components/dashboard/NextSessionCheckIn";
 import { LastSessionFeedback } from "@/components/dashboard/LastSessionFeedback";
+import { LastMatchFeedback } from "@/components/dashboard/LastMatchFeedback";
 import { MatchNotebookPrompt } from "@/components/dashboard/MatchNotebookPrompt";
 import RecentResults from "@/components/dashboard/RecentResults";
 import { TrendingUp, Target, Clock, Trophy } from "lucide-react";
@@ -110,6 +111,9 @@ export function PlayerDashboard() {
 
       {/* P1: RPE + feedback of the last past training session */}
       <LastSessionFeedback />
+
+      {/* P1: RPE after the last past match */}
+      <LastMatchFeedback />
 
       {/* P1: Carnet de match — formulaire de réponse après le dernier match joué */}
       <MatchNotebookPrompt />
