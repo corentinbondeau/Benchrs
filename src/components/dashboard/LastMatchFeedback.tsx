@@ -38,6 +38,7 @@ export function LastMatchFeedback() {
         .eq("team_id", currentTeam.id)
         .eq("type", "match")
         .neq("status", "cancelled")
+        .lt("event_date", new Date().toISOString())
         .order("event_date", { ascending: false })
         .limit(10);
 
