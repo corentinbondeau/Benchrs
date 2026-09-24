@@ -42,19 +42,35 @@ vi.mock("@/lib/api-auth", () => ({
 }));
 
 interface JourneesMockState {
-  championship: { id: string; team_id: string } | null;
+  championship: {
+    id: string;
+    team_id: string;
+    dofa_cp_no: number | null;
+    dofa_phase: number | null;
+    dofa_poule: number | null;
+  } | null;
   updateError: { message: string } | null;
+  standingsRows: Array<{ dofa_ma_no: number }>;
+  standingsReadError: { message: string } | null;
+  upsertError: { message: string } | null;
 }
 
 let mockState: JourneesMockState;
 let lastUpdate: Record<string, unknown> | null;
+let lastUpsertRows: Array<Record<string, unknown>> | null;
+let lastUpsertOptions: Record<string, unknown> | null;
 
 function resetMockState() {
   mockState = {
-    championship: { id: "champ-1", team_id: "team-1" },
+    championship: { id: "champ-1", team_id: "team-1", dofa_cp_no: 457592, dofa_phase: 1, dofa_poule: 1 },
     updateError: null,
+    standingsRows: [],
+    standingsReadError: null,
+    upsertError: null,
   };
   lastUpdate = null;
+  lastUpsertRows = null;
+  lastUpsertOptions = null;
 }
 
 vi.mock("@/lib/supabase/admin", () => ({
@@ -74,6 +90,23 @@ vi.mock("@/lib/supabase/admin", () => ({
                 mockState.updateError
                   ? { error: mockState.updateError }
                   : { error: null },
+            };
+          },
+        };
+      }
+      if (table === "championship_standings") {
+        return {
+          select: () => ({
+            eq: () => ({
+              data: mockState.standingsReadError ? null : mockState.standingsRows,
+              error: mockState.standingsReadError,
+            }),
+          }),
+          upsert: (rows: Array<Record<string, unknown>>, options: Record<string, unknown>) => {
+            lastUpsertRows = rows;
+            lastUpsertOptions = options;
+            return {
+              error: mockState.upsertError,
             };
           },
         };
@@ -213,6 +246,132 @@ describe("POST /api/championships/journees — nominal", () => {
     const payload = await res.json();
     expect(JSON.stringify(payload)).not.toContain("connexion perdue");
 
+    consoleSpy.mockRestore();
+  });
+});
+
+// ─── Matchs embarqués dans les journées ───────────────────────────────────────
+
+function embeddedMatch(maNo: number): Record<string, unknown> {
+  return {
+    ma_no: maNo,
+    date: "2026-09-20T00:00:00+00:00",
+    time: "15H00",
+    home: { club: { cl_no: 101 }, number: 1, short_name: "ECC 1" },
+    away: { club: { cl_no: 102 }, number: 1, short_name: "OL 1" },
+    home_score: 2,
+    away_score: 1,
+  };
+}
+
+function journee(number: number, matches: unknown[], cpNo = 457592): Record<string, unknown> {
+  return {
+    number,
+    name: `Journée ${number}`,
+    _date: "2026-09-19T00:00:00+00:00",
+    competition: { cp_no: cpNo, name: "U14 D1", level: "D" },
+    phase: { number: 1, type: "CH", name: "PHASE 1" },
+    poule: { stage_number: 1, name: "POULE A", gp_diff_no_tour: 0 },
+    matchs: matches,
+  };
+}
+
+describe("POST /api/championships/journees — matchs embarqués", () => {
+  it("200 : étiquettes persistées + matchs de toutes les journées upsertés (imported/updated)", async () => {
+    vi.mocked(getAuthUser).mockResolvedValue(makeAuthedUser());
+    vi.mocked(isTeamCoach).mockResolvedValue(true);
+    mockState.standingsRows = [{ dofa_ma_no: 101 }];
+
+    const { POST } = await importRoute();
+    const res = await POST(
+      makeRequest({
+        championship_id: "champ-1",
+        journees: [journee(1, [embeddedMatch(101), embeddedMatch(102)]), journee(2, [])],
+      })
+    );
+    expect(res.status).toBe(200);
+
+    expect(lastUpdate).not.toBeNull();
+    expect(lastUpdate!.journees).toHaveLength(2);
+
+    expect(lastUpsertRows).not.toBeNull();
+    expect(lastUpsertRows).toHaveLength(2);
+    expect(lastUpsertOptions).toEqual({ onConflict: "championship_id,dofa_ma_no" });
+    const byMa = new Map((lastUpsertRows ?? []).map((row) => [row.dofa_ma_no, row]));
+    expect(byMa.get(101)).toMatchObject({
+      championship_id: "champ-1",
+      home_team: "ECC 1",
+      away_team: "OL 1",
+      home_score: 2,
+      away_score: 1,
+      matchday_number: 1,
+      source: "dofa_import",
+    });
+    expect(byMa.get(102)).toEqual(expect.objectContaining({ home_team: "ECC 1" }));
+
+    const payload = await res.json();
+    expect(payload.imported).toBe(1);
+    expect(payload.updated).toBe(1);
+  });
+
+  it("400 si le triplet déclaré des journées ne correspond pas au championnat (ancre anti-injection)", async () => {
+    vi.mocked(getAuthUser).mockResolvedValue(makeAuthedUser());
+    vi.mocked(isTeamCoach).mockResolvedValue(true);
+
+    const { POST } = await importRoute();
+    const res = await POST(
+      makeRequest({
+        championship_id: "champ-1",
+        journees: [journee(1, [embeddedMatch(101)], 999999)],
+      })
+    );
+    expect(res.status).toBe(400);
+    expect(lastUpdate).toBeNull();
+    expect(lastUpsertRows).toBeNull();
+  });
+
+  it("500 générique si la lecture OU l'upsert des matchs échoue, détail jamais divulgué", async () => {
+    vi.mocked(getAuthUser).mockResolvedValue(makeAuthedUser());
+    vi.mocked(isTeamCoach).mockResolvedValue(true);
+    mockState.upsertError = { message: "contrainte unique violée" };
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    const { POST } = await importRoute();
+    const res = await POST(
+      makeRequest({
+        championship_id: "champ-1",
+        journees: [journee(1, [embeddedMatch(101)])],
+      })
+    );
+    expect(res.status).toBe(500);
+
+    const payload = await res.json();
+    expect(JSON.stringify(payload)).not.toContain("contrainte unique violée");
+    consoleSpy.mockRestore();
+  });
+
+  it("étiquetage seul (sans matchs embarqués) : aucun appel standings, compteurs 0", async () => {
+    vi.mocked(getAuthUser).mockResolvedValue(makeAuthedUser());
+    vi.mocked(isTeamCoach).mockResolvedValue(true);
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    const { POST } = await importRoute();
+    const res = await POST(
+      makeRequest({
+        championship_id: "champ-1",
+        journees: [
+          { number: 2, name: "Journée 2", _date: "2026-09-26T00:00:00+00:00" },
+          { number: 1, name: "Journée 1", _date: "2026-09-19T00:00:00+00:00" },
+        ],
+      })
+    );
+    expect(res.status).toBe(200);
+    expect(lastUpsertRows).toBeNull();
+
+    const payload = await res.json();
+    expect(payload.imported).toBe(0);
+    expect(payload.updated).toBe(0);
+    expect(payload.journees).toHaveLength(2);
     consoleSpy.mockRestore();
   });
 });

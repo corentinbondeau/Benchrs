@@ -282,6 +282,10 @@ export default function ChampionshipPage() {
   // Le serveur (`validateJourneesPayload`) valide la forme (tableau nu ou
   // enveloppe Hydra) et stocke `{ number, name, date }` par journée dans
   // `championships.journees` — servent à étiqueter/groupter les résultats.
+  // Si le collage inclut les MATCHES développés de chaque journée (lien
+  // fourni ci-dessous avec `?details[]=matchs`), ils sont en plus importés
+  // en base : tous les matchs de toutes les journées, y compris ceux où
+  // l'équipe suivie ne joue pas.
   async function handleImportJournees() {
     if (!selected || selected.dofa_cp_no == null || selected.dofa_phase == null || selected.dofa_poule == null) {
       setJourneesError("Configurez d'abord la poule de ce championnat ci-dessus.");
@@ -348,7 +352,13 @@ export default function ChampionshipPage() {
         return;
       }
       setJourneesInput("");
-      toast.success(`${data.journees?.length ?? journees.length} journée(s) enregistrée(s).`);
+      const dayCount = data.journees?.length ?? journees.length;
+      const matchCount = (data.imported ?? 0) + (data.updated ?? 0);
+      toast.success(
+        matchCount > 0
+          ? `${dayCount} journée(s) enregistrée(s), ${data.imported} match(s) importé(s), ${data.updated} mis à jour.`
+          : `${dayCount} journée(s) enregistrée(s).`
+      );
       const refreshed = await authFetch(`/api/championships?team_id=${currentTeam!.id}`).then((r) => r.json());
       setChampionships(refreshed);
     } catch {
@@ -457,9 +467,13 @@ export default function ChampionshipPage() {
       : null;
 
   // Lien de la liste officielle des journées de la poule (second collage).
+  // `details[]=matchs` demande au site DOFA de DÉVELOPPER les matchs de
+  // chaque journée dans la réponse : en plus des étiquettes, le collage
+  // ramène alors TOUS les matchs de TOUTES les journées (y compris ceux où
+  // votre équipe ne joue pas), qui sont importés en base.
   const journeesLink =
     selected && selected.dofa_cp_no != null && selected.dofa_phase != null && selected.dofa_poule != null
-      ? `${DOFA_CALENDRIER_BASE}/${selected.dofa_cp_no}/phases/${selected.dofa_phase}/poules/${selected.dofa_poule}/poule_journees`
+      ? `${DOFA_CALENDRIER_BASE}/${selected.dofa_cp_no}/phases/${selected.dofa_phase}/poules/${selected.dofa_poule}/poule_journees?details[]=matchs`
       : null;
 
   if (loading) {
@@ -681,8 +695,9 @@ export default function ChampionshipPage() {
                         />
                         <p className="text-xs text-muted-foreground">
                           Ouvrez le lien ci-dessus, sélectionnez tout (Ctrl+A), copiez (Ctrl+C),
-                          puis collez ici (Ctrl+V). Les matchs de la poule seront regroupés par
-                          journée réelle du site.
+                          puis collez ici (Ctrl+V). Les étiquettes des journées sont enregistrées,
+                          et si la page inclut les matchs de chaque journée, ils sont tous importés
+                          (y compris ceux où votre équipe ne joue pas).
                         </p>
                         {journeesError && (
                           <p role="alert" className="text-xs text-destructive">
@@ -700,7 +715,7 @@ export default function ChampionshipPage() {
                               <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Enregistrement...
                             </>
                           ) : (
-                            "Importer les journées"
+                            "Importer les journées et leurs matchs"
                           )}
                         </Button>
                       </div>
