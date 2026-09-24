@@ -453,27 +453,37 @@ export default function ChampionshipPage() {
       )
     : [];
 
+  // Lien de la saison complète filtrée par clNo (équipe du coach) —
+  // 22 matchs en UNE seule page. Alimente l'agenda (planEventSync filtre
+  // sur cette identité).
   const matchesLink =
     selected && selected.dofa_cp_no != null && selected.dofa_phase != null && selected.dofa_poule != null
       ? selected.dofa_cl_no != null
-        ? // Identité connue : saison complète du club, filtrée par clNo —
-          // 22 matchs en UNE seule page. ⚠️ Ne jamais utiliser `/matchs`
-          // sans filtre : 132 matchs paginés sur 5 pages, cinq collages
-          // seraient inacceptables.
-          `${DOFA_CALENDRIER_BASE}/${selected.dofa_cp_no}/phases/${selected.dofa_phase}/poules/${selected.dofa_poule}/matchs?clNo=${selected.dofa_cl_no}`
+        ? `${DOFA_CALENDRIER_BASE}/${selected.dofa_cp_no}/phases/${selected.dofa_phase}/poules/${selected.dofa_poule}/matchs?clNo=${selected.dofa_cl_no}`
         : // Identité inconnue : la journée à venir (calendrier), suffisante
           // pour découvrir les 12 équipes de la poule.
           `${DOFA_CALENDRIER_BASE}/${selected.dofa_cp_no}/phases/${selected.dofa_phase}/poules/${selected.dofa_poule}/calendrier`
       : null;
 
+  // Lien de TOUS les matchs de la poule, toutes équipes confondues, sur une
+  // SEULE page (`itemsPerPage=500` lève la pagination par défaut de 30).
+  // Un unique collage importe les ~132 matchs réels de la poule : votre
+  // équipe alimente son agenda, et le classement se remplit avec les vrais
+  // matchs de toutes les équipes (indispensable — la page des journées ne
+  // renvoie JAMAIS les matchs).
+  const allMatchesLink =
+    selected && selected.dofa_cp_no != null && selected.dofa_phase != null && selected.dofa_poule != null
+      ? `${DOFA_CALENDRIER_BASE}/${selected.dofa_cp_no}/phases/${selected.dofa_phase}/poules/${selected.dofa_poule}/matchs?itemsPerPage=500`
+      : null;
+
   // Lien de la liste officielle des journées de la poule (second collage).
-  // `details[]=matchs` demande au site DOFA de DÉVELOPPER les matchs de
-  // chaque journée dans la réponse : en plus des étiquettes, le collage
-  // ramène alors TOUS les matchs de TOUTES les journées (y compris ceux où
-  // votre équipe ne joue pas), qui sont importés en base.
+  // Étiquettes UNIQUEMENT (nom + date) : constaté sur le site, la réponse
+  // ne contient aucun match — même avec `?details[]=matchs` (paramètre
+  // accepté mais sans effet). Les matchs, eux, viennent du lien
+  // « tous les matchs de la poule » ci-dessus.
   const journeesLink =
     selected && selected.dofa_cp_no != null && selected.dofa_phase != null && selected.dofa_poule != null
-      ? `${DOFA_CALENDRIER_BASE}/${selected.dofa_cp_no}/phases/${selected.dofa_phase}/poules/${selected.dofa_poule}/poule_journees?details[]=matchs`
+      ? `${DOFA_CALENDRIER_BASE}/${selected.dofa_cp_no}/phases/${selected.dofa_phase}/poules/${selected.dofa_poule}/poule_journees`
       : null;
 
   if (loading) {
@@ -564,9 +574,22 @@ export default function ChampionshipPage() {
                         </div>
                       )}
 
-                      {/* Étape 2 : ouvrir le lien des matchs — la journée à venir tant que
-                          l'équipe n'est pas choisie (pour découvrir la poule), la saison
-                          complète du club en une page une fois l'équipe connue. */}
+                      {/* Étape 2 : ouvrir les liens des matchs. EN PRIORITÉ le
+                          lien « tous les matchs de la poule » (toutes équipes,
+                          une page) : un seul collage rempli le classement et
+                          l'agenda. Le lien « mes matchs » ne filtre que l'équipe
+                          du coach (utile quand celle-ci n'est pas encore choisie). */}
+                      {allMatchesLink && (
+                        <a
+                          href={allMatchesLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--color-primary-blue)] hover:underline"
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                          Ouvrir tous les matchs de la poule (toutes équipes, une page)
+                        </a>
+                      )}
                       {matchesLink && (
                         <a
                           href={matchesLink}
@@ -633,9 +656,16 @@ export default function ChampionshipPage() {
                           className="w-full h-28 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring font-mono"
                         />
                         <p className="text-xs text-muted-foreground">
-                          {selected.dofa_cl_no != null
-                            ? "Ouvrez le lien ci-dessus, sélectionnez tout (Ctrl+A), copiez (Ctrl+C), puis collez ici (Ctrl+V) : votre saison complète sera importée."
-                            : "Ouvrez le lien ci-dessus, sélectionnez tout (Ctrl+A), copiez (Ctrl+C), puis collez ici (Ctrl+V) : Benchrs affichera la liste des équipes de la poule pour que vous cliquiez la vôtre."}
+                          Ouvrez un lien ci-dessus, sélectionnez tout (Ctrl+A), copiez (Ctrl+C),
+                          puis collez ici (Ctrl+V). Avec « tous les matchs de la poule » : les
+                          matchs réels de toutes les équipes sont importés dans le classement,
+                          et votre équipe remplit aussi son agenda automatiquement.{" "}
+                          {selected.dofa_cl_no == null && (
+                            <>
+                              Tant que votre équipe n&apos;est pas choisie, utilisez le calendrier
+                              ci-dessous puis cliquez votre équipe dans la liste.
+                            </>
+                          )}
                         </p>
                         {pasteError && (
                           <p role="alert" className="text-xs text-destructive">
@@ -695,9 +725,10 @@ export default function ChampionshipPage() {
                         />
                         <p className="text-xs text-muted-foreground">
                           Ouvrez le lien ci-dessus, sélectionnez tout (Ctrl+A), copiez (Ctrl+C),
-                          puis collez ici (Ctrl+V). Les étiquettes des journées sont enregistrées,
-                          et si la page inclut les matchs de chaque journée, ils sont tous importés
-                          (y compris ceux où votre équipe ne joue pas).
+                          puis collez ici (Ctrl+V). Seules les étiquettes des journées (nom +
+                          date) sont enregistrées — cette page ne contient pas les matchs. Pour
+                          importer les matchs de toutes les équipes, utilisez le lien « tous les
+                          matchs de la poule » dans l&apos;étape 2 ci-dessus.
                         </p>
                         {journeesError && (
                           <p role="alert" className="text-xs text-destructive">
@@ -715,7 +746,7 @@ export default function ChampionshipPage() {
                               <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Enregistrement...
                             </>
                           ) : (
-                            "Importer les journées et leurs matchs"
+                            "Importer les journées"
                           )}
                         </Button>
                       </div>
