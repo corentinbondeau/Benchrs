@@ -139,9 +139,12 @@ export function EventInfoCard({
 }) {
   const [showRetardReason, setShowRetardReason] = useState(false);
   const [retardReason, setRetardReason] = useState("");
+  const [showAbsenceReason, setShowAbsenceReason] = useState(false);
+  const [absenceReason, setAbsenceReason] = useState("");
   // Coloration OPTIMISTE : le bouton cliqué s'affiche coloré immédiatement,
   // sans attendre l'aller-retour base. Effacé quand l'écriture se termine
-  // (l'état parent `myPresence.status` prend alors le relais).
+  // (l'état parent `myPresence.status` — mis à jour en optimiste par le
+  // caller — prend alors le relais pour garder le bouton coloré).
   const [pendingStatus, setPendingStatus] = useState<"present" | "late" | "absent" | null>(null);
 
   const mapsUrl = location
@@ -165,24 +168,43 @@ export function EventInfoCard({
   function startRespond(status: "present" | "late" | "absent") {
     if (!onRespond) return;
     if (status === "late") {
+      // Motif de retard requis : ouvre la saisie, le bouton se colore déjà.
+      setShowAbsenceReason(false);
       setPendingStatus("late");
       setShowRetardReason(true);
       return;
     }
-    setPendingStatus(status);
-    onRespond(status)
+    if (status === "absent") {
+      // Motif d'absence requis (comme dans l'accueil) : ouvre la saisie.
+      setShowRetardReason(false);
+      setPendingStatus("absent");
+      setShowAbsenceReason(true);
+      return;
+    }
+    setShowRetardReason(false);
+    setShowAbsenceReason(false);
+    setPendingStatus("present");
+    onRespond("present")
       .catch(() => {})
-      .finally(() => setPendingStatus((prev) => (prev === status ? null : prev)));
+      .finally(() => setPendingStatus((prev) => (prev === "present" ? null : prev)));
   }
 
   function confirmRetard() {
     if (!onRespond || !retardReason.trim()) return;
-    setPendingStatus("late");
     onRespond("late", retardReason.trim())
       .catch(() => {})
       .finally(() => setPendingStatus(null));
     setShowRetardReason(false);
     setRetardReason("");
+  }
+
+  function confirmAbsence() {
+    if (!onRespond || !absenceReason.trim()) return;
+    onRespond("absent", absenceReason.trim())
+      .catch(() => {})
+      .finally(() => setPendingStatus(null));
+    setShowAbsenceReason(false);
+    setAbsenceReason("");
   }
 
   return (
@@ -232,7 +254,7 @@ export function EventInfoCard({
             <div className="flex gap-2">
               <ResponseButton
                 active={myPresence.status === "present" || pendingStatus === "present"}
-                activeClass="bg-green-600 text-white border-green-600 hover:bg-green-700"
+                activeClass="bg-green-600 text-white border-green-600 hover:bg-green-700 dark:bg-green-600 dark:border-green-600 dark:text-white dark:hover:bg-green-700"
                 idleClass="border-border bg-background text-foreground hover:bg-muted"
                 onClick={() => startRespond("present")}
               >
@@ -241,7 +263,7 @@ export function EventInfoCard({
               </ResponseButton>
               <ResponseButton
                 active={myPresence.status === "late" || pendingStatus === "late" || showRetardReason}
-                activeClass="bg-amber-500 text-white border-amber-500 hover:bg-amber-600"
+                activeClass="bg-amber-500 text-white border-amber-500 hover:bg-amber-600 dark:bg-amber-500 dark:border-amber-500 dark:text-white dark:hover:bg-amber-600"
                 idleClass="border-border bg-background text-foreground hover:bg-muted"
                 onClick={() => startRespond("late")}
               >
@@ -249,8 +271,8 @@ export function EventInfoCard({
                 Retard
               </ResponseButton>
               <ResponseButton
-                active={myPresence.status === "absent" || pendingStatus === "absent"}
-                activeClass="bg-red-600 text-white border-red-600 hover:bg-red-700"
+                active={myPresence.status === "absent" || pendingStatus === "absent" || showAbsenceReason}
+                activeClass="bg-red-600 text-white border-red-600 hover:bg-red-700 dark:bg-red-600 dark:border-red-600 dark:text-white dark:hover:bg-red-700"
                 idleClass="border-border bg-background text-foreground hover:bg-muted"
                 onClick={() => startRespond("absent")}
               >
@@ -284,6 +306,42 @@ export function EventInfoCard({
                     onClick={() => {
                       setShowRetardReason(false);
                       setRetardReason("");
+                      setPendingStatus((prev) => (prev === "late" ? null : prev));
+                    }}
+                  >
+                    Annuler
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {showAbsenceReason && (
+              <div className="space-y-2 pt-1">
+                <Label className="text-xs">Motif d&apos;absence (obligatoire)</Label>
+                <Input
+                  placeholder="Ex: Malade, examens, famille..."
+                  value={absenceReason}
+                  onChange={(e) => setAbsenceReason(e.target.value)}
+                  className="text-sm h-8"
+                  autoFocus
+                />
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    className="h-7 text-xs bg-red-600 text-white hover:bg-red-700 flex-1"
+                    disabled={!absenceReason.trim()}
+                    onClick={confirmAbsence}
+                  >
+                    Confirmer
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 text-xs flex-1"
+                    onClick={() => {
+                      setShowAbsenceReason(false);
+                      setAbsenceReason("");
+                      setPendingStatus((prev) => (prev === "absent" ? null : prev));
                     }}
                   >
                     Annuler

@@ -549,6 +549,16 @@ export default function MatchDetailPage() {
     const supabase = createClient();
     const existing = matchPlayers.find((p) => p.profile.id === userId);
 
+    // Optimiste : l'état local change AVANT l'écriture pour que le bouton
+    // « Ma présence » reste coloré immédiatement (statut choisi).
+    setMatchPlayers((prev) =>
+      prev.map((p) =>
+        p.profile.id === userId
+          ? { ...p, status, attendanceId: p.attendanceId || "new", absenceReason: reason || null }
+          : p
+      )
+    );
+
     if (existing?.attendanceId) {
       await supabase
         .from("attendances")
@@ -568,14 +578,6 @@ export default function MatchDetailPage() {
         absence_reason: reason || null,
       });
     }
-
-    setMatchPlayers((prev) =>
-      prev.map((p) =>
-        p.profile.id === userId
-          ? { ...p, status, attendanceId: p.attendanceId || "new", absenceReason: reason || null }
-          : p
-      )
-    );
 
     toast.success(
       status === "present"

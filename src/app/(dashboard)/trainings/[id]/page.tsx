@@ -126,6 +126,16 @@ export default function TrainingDetailPage() {
     const supabase = createClient();
     const existing = players.find((p) => p.profile.id === userId);
 
+    // Optimiste : même pattern que matches/[id] — état local d'abord pour que
+    // le bouton « Ma présence » se colore immédiatement au clic.
+    setPlayers((prev) =>
+      prev.map((p) =>
+        p.profile.id === userId
+          ? { ...p, status, attendanceId: p.attendanceId || "new", absenceReason: reason || null }
+          : p
+      )
+    );
+
     if (existing?.attendanceId) {
       await supabase
         .from("attendances")
@@ -145,14 +155,6 @@ export default function TrainingDetailPage() {
         absence_reason: reason || null,
       });
     }
-
-    setPlayers((prev) =>
-      prev.map((p) =>
-        p.profile.id === userId
-          ? { ...p, status, attendanceId: p.attendanceId || "new", absenceReason: reason || null }
-          : p
-      )
-    );
 
     toast.success(
       status === "present"
