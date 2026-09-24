@@ -15,6 +15,7 @@ import { parsePouleUrl } from "@/lib/dofa/poule-url";
 import { parseDofaMatches } from "@/lib/dofa/parse-matches";
 import { extractPouleTeams, type PouleTeam } from "@/lib/dofa/poule-teams";
 import { parsePouleJournees, type DofaJournee } from "@/lib/dofa/poule-journees";
+import { extractDofaPagination, type DofaPagination } from "@/lib/dofa/pagination";
 import PouleResultsCard, { type PouleMatch } from "@/components/championship/PouleResultsCard";
 
 interface Championship {
@@ -92,6 +93,27 @@ export default function ChampionshipPage() {
   const [pasteError, setPasteError] = useState<string | null>(null);
   const [pasteImporting, setPasteImporting] = useState(false);
   const [lastImportResult, setLastImportResult] = useState<DofaImportResult | null>(null);
+
+  // Pagination de la collection collée : le site renvoie les matchs de la
+  // poule PAGE PAR PAGE (30 matchs ≈ 5 journées, `itemsPerPage` ignoré).
+  // L'utilisateur colle chaque page tour à tour ; ce panneau le guide vers
+  // « la page suivante » jusqu'à la dernière (`hydra:view.next` entre
+  // chaque semaine d'import).
+  const [importPagination, setImportPagination] = useState<DofaPagination | null>(null);
+
+  // Compte à rebours du garde-fou d'import (60 s entre deux imports, route
+  // d'ingestion). Multi-pages obligeant à coller page après page, le temps
+  // restant est affiché pour éviter une réponse 429 incompréhensible.
+  const [rateLimitLeft, setRateLimitLeft] = useState(0);
+
+  useEffect(() => {
+    if (rateLimitLeft <= 0) return;
+    const id = setInterval(() => setRateLimitLeft((prev) => Math.max(0, prev - 1)), 1000);
+    return () => clearInterval(id);
+    // Dépend de la « présence » du compte à rebours, pas de sa valeur : on
+    // ne recrée l'intervalle qu'à l'allumage (0→N) et à l'extinction (N→0).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rateLimitLeft > 0]);
 
   // Import DOFA — second collage : la liste officielle des journées de la
   // poule (page `/poule_journees`). Distinct du collage des matchs : le
@@ -262,10 +284,16 @@ export default function ChampionshipPage() {
       const data = await res.json();
       if (!res.ok) {
         setPasteError(data.error || "L'import a été refusé par le serveur. Aucune donnée n'a été modifiée.");
+        // Garde-fou de fréquence (60 s) : on lance le compte à rebours pour
+        // que le prochain collage « page suivante » soit accepté.
+        if (res.status === 429) setRateLimitLeft(60);
         return;
       }
       setLastImportResult(data as DofaImportResult);
       setPasteInput("");
+      // Méta-données Hydra du payload collé : détection d'une page suivante
+      // (collection paginée) pour guider le collage de la page suivante.
+      setImportPagination(extractDofaPagination(parsed));
       toast.success("Import terminé.");
       const refreshed = await authFetch(`/api/championships?team_id=${currentTeam!.id}`).then((r) => r.json());
       setChampionships(refreshed);
@@ -465,12 +493,12 @@ export default function ChampionshipPage() {
           `${DOFA_CALENDRIER_BASE}/${selected.dofa_cp_no}/phases/${selected.dofa_phase}/poules/${selected.dofa_poule}/calendrier`
       : null;
 
-  // Lien de TOUS les matchs de la poule, toutes équipes confondues, sur une
-  // SEULE page (`itemsPerPage=500` lève la pagination par défaut de 30).
-  // Un unique collage importe les ~132 matchs réels de la poule : votre
-  // équipe alimente son agenda, et le classement se remplit avec les vrais
-  // matchs de toutes les équipes (indispensable — la page des journées ne
-  // renvoie JAMAIS les matchs).
+  // Lien de TOUS les matchs de la poule, toutes équipes confondues
+  // (`itemsPerPage=500` est demandé mais le site CAPE/ignore le paramètre :
+  // la réponse réelle est paginée, ~30 matchs par page ≈ 5 journées).
+  // L'import guide alors l'utilisateur page après page (panneau pagination,
+  // `hydra:view.next`) jusqu'à la dernière — indispensable, la page des
+  // journées ne renvoie jamais les matchs.
   const allMatchesLink =
     selected && selected.dofa_cp_no != null && selected.dofa_phase != null && selected.dofa_poule != null
       ? `${DOFA_CALENDRIER_BASE}/${selected.dofa_cp_no}/phases/${selected.dofa_phase}/poules/${selected.dofa_poule}/matchs?itemsPerPage=500`
@@ -517,6 +545,8 @@ export default function ChampionshipPage() {
                   setPasteError(null);
                   setJourneesError(null);
                   setTeamChoiceError(null);
+                  setImportPagination(null);
+                  setRateLimitLeft(0);
                 }
               }}
             >
@@ -576,9 +606,11 @@ export default function ChampionshipPage() {
 
                       {/* Étape 2 : ouvrir les liens des matchs. EN PRIORITÉ le
                           lien « tous les matchs de la poule » (toutes équipes,
-                          une page) : un seul collage rempli le classement et
-                          l'agenda. Le lien « mes matchs » ne filtre que l'équipe
-                          du coach (utile quand celle-ci n'est pas encore choisie). */}
+                          PAGE PAR PAGE — le site tronque à ~30 matchs, le
+                          panneau pagination guide le collage suivant) : un
+                          import complet remplit le classement et l'agenda. Le
+                          lien « mes matchs » ne filtre que l'équipe du coach
+                          (22 matchs en une page, utile pour choisir l'équipe). */}
                       {allMatchesLink && (
                         <a
                           href={allMatchesLink}
@@ -587,7 +619,7 @@ export default function ChampionshipPage() {
                           className="inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--color-primary-blue)] hover:underline"
                         >
                           <ExternalLink className="h-4 w-4" />
-                          Ouvrir tous les matchs de la poule (toutes équipes, une page)
+                          Ouvrir tous les matchs de la poule (toutes équipes)
                         </a>
                       )}
                       {matchesLink && (
@@ -651,15 +683,17 @@ export default function ChampionshipPage() {
                           onChange={(e) => {
                             setPasteInput(e.target.value);
                             setPasteError(null);
+                            setImportPagination(null);
                           }}
                           placeholder='[{ "ma_no": ... }] ou { "hydra:member": [...] }'
                           className="w-full h-28 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring font-mono"
                         />
                         <p className="text-xs text-muted-foreground">
                           Ouvrez un lien ci-dessus, sélectionnez tout (Ctrl+A), copiez (Ctrl+C),
-                          puis collez ici (Ctrl+V). Avec « tous les matchs de la poule » : les
-                          matchs réels de toutes les équipes sont importés dans le classement,
-                          et votre équipe remplit aussi son agenda automatiquement.{" "}
+                          puis collez ici (Ctrl+V). Avec « tous les matchs de la poule » : chaque
+                          page collée importe ses matchs réels (le site pagine, un panneau guide
+                          les pages suivantes) jusqu&apos;à couvrir toutes les équipes ; votre équipe
+                          remplit aussi son agenda automatiquement.{" "}
                           {selected.dofa_cl_no == null && (
                             <>
                               Tant que votre équipe n&apos;est pas choisie, utilisez le calendrier
@@ -674,7 +708,7 @@ export default function ChampionshipPage() {
                         )}
 <Button
                           onClick={handleImportPaste}
-                          disabled={pasteImporting || !pasteInput.trim()}
+                          disabled={pasteImporting || !pasteInput.trim() || rateLimitLeft > 0}
                           className="w-full bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold"
                         >
                           {pasteImporting ? (
@@ -685,6 +719,50 @@ export default function ChampionshipPage() {
                             "Importer les matchs"
                           )}
                         </Button>
+
+                        {rateLimitLeft > 0 && (
+                          <p role="status" className="text-xs font-medium text-amber-700 dark:text-amber-300">
+                            Import déjà effectué il y a moins d&apos;une minute. Réessayez dans{" "}
+                            {rateLimitLeft}s.
+                          </p>
+                        )}
+
+                        {/* Panneau de pagination : la collection collée n'est qu'une
+                            page (le site tronque à ~30 matchs ≈ 5 journées, itemsPerPage
+                            ignoré). L'utilisateur colle tour à tour chaque page ; le
+                            lien mène à la page suivante retournée par hydra:view. */}
+                        {importPagination && importPagination.nextUrl && (
+                          <div className="rounded-lg bg-amber-50 dark:bg-amber-950/40 p-3 border border-amber-300 dark:border-amber-800 text-sm space-y-2">
+                            <div className="flex items-start gap-2">
+                              <AlertTriangle className="h-4 w-4 mt-0.5 text-amber-600 shrink-0" />
+                              <div className="space-y-1">
+                                <p className="font-semibold text-amber-900 dark:text-amber-100">
+                                  Le site renvoie les matchs page par page
+                                </p>
+                                <p className="text-xs text-amber-800 dark:text-amber-200">
+                                  Page {importPagination.currentPage ?? "?"}
+                                  {importPagination.lastPage != null
+                                    ? ` / ${importPagination.lastPage}`
+                                    : ""}{" "}
+                                  importée
+                                  {importPagination.totalItems != null
+                                    ? ` — ${importPagination.pageSize} matchs sur ${importPagination.totalItems} au total`
+                                    : ` — ${importPagination.pageSize} matchs`}
+                                  . Collez tour à tour chaque page jusqu&apos;à la dernière.
+                                </p>
+                                <a
+                                  href={importPagination.nextUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-900 dark:text-amber-100 hover:underline"
+                                >
+                                  <ExternalLink className="h-3.5 w-3.5" />
+                                  Ouvrir la page suivante
+                                </a>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
 
                       {/* Étape 4 (optionnelle) : coller la liste officielle des
@@ -728,7 +806,8 @@ export default function ChampionshipPage() {
                           puis collez ici (Ctrl+V). Seules les étiquettes des journées (nom +
                           date) sont enregistrées — cette page ne contient pas les matchs. Pour
                           importer les matchs de toutes les équipes, utilisez le lien « tous les
-                          matchs de la poule » dans l&apos;étape 2 ci-dessus.
+                          matchs de la poule » (paginé, à coller page par page) dans l&apos;étape 2
+                          ci-dessus.
                         </p>
                         {journeesError && (
                           <p role="alert" className="text-xs text-destructive">
