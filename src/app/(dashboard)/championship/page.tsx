@@ -386,8 +386,8 @@ export default function ChampionshipPage() {
       console.error("[championship] Échec de l'import en une fois:", err);
       setBulkError(
         err instanceof DofaFetchError
-          ? err.message
-          : "Impossible de télécharger les pages restantes depuis votre navigateur (blocage CORS ou réseau). Collez-les une à une avec le panneau « page suivante »."
+          ? `${err.message} — repliez-vous sur le collage page par page ci-dessous (« Ouvrir la page suivante », Ctrl+A, Ctrl+C, coller, « Importer seulement cette page »), ou le panneau « Calendrier / Résultats » ci-dessus.`
+          : "Impossible de télécharger les pages restantes depuis votre navigateur (blocage CORS ou réseau). Utilisez plutôt le collège page par page : « Ouvrir la page suivante », Ctrl+A, Ctrl+C, collez ici puis « Importer seulement cette page ». Répétez jusqu'à la dernière page."
       );
     } finally {
       setBulkImporting(false);
@@ -595,6 +595,20 @@ export default function ChampionshipPage() {
       ? `${DOFA_CALENDRIER_BASE}/${selected.dofa_cp_no}/phases/${selected.dofa_phase}/poules/${selected.dofa_poule}/matchs?itemsPerPage=500`
       : null;
 
+  // Liens BRUTS de la poule : calendrier (matchs à venir) et résultats
+  // (matchs joués). Contrairement à `matchs`, ces deux ressources renvoient
+  // souvent TOUTE leur liste d'un coup (si pagination absente, un seul
+  // collage importe tout) — toujours proposés en secours quand `matchs`
+  // pagine et que le téléchargement auto des pages (navigateur) est bloqué
+  // par CORS / le serveur par Akamai (403).
+  const pouleRegionLinks =
+    selected && selected.dofa_cp_no != null && selected.dofa_phase != null && selected.dofa_poule != null
+      ? {
+          calendrier: `${DOFA_CALENDRIER_BASE}/${selected.dofa_cp_no}/phases/${selected.dofa_phase}/poules/${selected.dofa_poule}/calendrier?itemsPerPage=500`,
+          resultat: `${DOFA_CALENDRIER_BASE}/${selected.dofa_cp_no}/phases/${selected.dofa_phase}/poules/${selected.dofa_poule}/resultat?itemsPerPage=500`,
+        }
+      : null;
+
   // Lien de la liste officielle des journées de la poule (second collage).
   // Étiquettes UNIQUEMENT (nom + date) : constaté sur le site, la réponse
   // ne contient aucun match — même avec `?details[]=matchs` (paramètre
@@ -730,6 +744,43 @@ export default function ChampionshipPage() {
                         </a>
                       )}
 
+                      {/* Liens de secours : si la page « tous les matchs » pagine
+                          et que le téléchargement auto est bloqué (CORS/nav),
+                          le calendrier à venir (+ résultats joués) renvoie
+                          SOUVENT toute sa liste d'un coup → un seul collage
+                          importe autant de matchs que les 5 pages. */}
+                      {pouleRegionLinks && (
+                        <div className="rounded-lg bg-muted/50 border border-border px-3 py-2 text-xs space-y-1">
+                          <p className="font-semibold text-foreground">
+                            Astuce si la liste ci-dessus est paginée (panneau ambre)
+                          </p>
+                          <p className="text-muted-foreground">
+                            Ces deux liens renvoient souvent toute leur liste en une seule
+                            page — collez-les ici comme les autres :
+                          </p>
+                          <div className="flex flex-wrap gap-x-4 gap-y-1 pt-0.5">
+                            <a
+                              href={pouleRegionLinks.calendrier}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1.5 font-medium text-[var(--color-primary-blue)] hover:underline"
+                            >
+                              <ExternalLink className="h-3.5 w-3.5" />
+                              Calendrier (matchs à venir)
+                            </a>
+                            <a
+                              href={pouleRegionLinks.resultat}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1.5 font-medium text-[var(--color-primary-blue)] hover:underline"
+                            >
+                              <ExternalLink className="h-3.5 w-3.5" />
+                              Résultats (matchs joués)
+                            </a>
+                          </div>
+                        </div>
+                      )}
+
                       {/* Liste des équipes de la poule : à cliquer pour choisir/changer
                           d'équipe. Apparaît dès qu'un calendrier a été collé. */}
                       {pouleTeams.length > 0 && (
@@ -794,11 +845,12 @@ export default function ChampionshipPage() {
                         />
                         <p className="text-xs text-muted-foreground">
                           Ouvrez un lien ci-dessus, sélectionnez tout (Ctrl+A), copiez (Ctrl+C),
-                          puis collez ici (Ctrl+V). Seule la page 1 est nécessaire : cliquez
-                          ensuite « Tout importer en une fois » — Benchrs télécharge les pages
-                          restantes depuis votre navigateur et importe tous les matchs de
-                          toutes les équipes en une seule fois ; votre équipe remplit aussi son
-                          agenda automatiquement.{" "}
+                          puis collez ici (Ctrl+V). Si le panneau ambre « page par page »
+                          apparaît, cliquez « Tout importer en une fois » (tente le
+                          téléchargement des pages restantes depuis votre navigateur) — ou
+                          collez chacune des pages suivantes via « Ouvrir la page suivante ».
+                          Si les liens « Calendrier » / « Résultats » ci-dessus renvoient
+                          toute leur liste d&apos;un coup, un seul collage suffit.{" "}
                           {selected.dofa_cl_no == null && (
                             <>
                               Tant que votre équipe n&apos;est pas choisie, utilisez le calendrier
@@ -893,8 +945,11 @@ export default function ChampionshipPage() {
                                   {importPagination.totalItems != null
                                     ? ` — ${importPagination.pageSize} matchs sur ${importPagination.totalItems} au total`
                                     : ` — ${importPagination.pageSize} matchs`}
-                                  . Utilisez « Tout importer en une fois » ci-dessus pour finir en
-                                  un clic, ou collez tour à tour chaque page jusqu&apos;à la dernière.
+                                  . Pour finir : cliquez « Tout importer en une fois »
+                                  ci-dessus, ou collez une à une les pages restantes :
+                                  ouvrez le lien « Ouvrir la page suivante », Ctrl+A,
+                                  Ctrl+C, revenez ici, collez, puis « Importer seulement
+                                  cette page ». Répétez jusqu&apos;à la dernière page.
                                 </p>
                                 <a
                                   href={importPagination.nextUrl}
