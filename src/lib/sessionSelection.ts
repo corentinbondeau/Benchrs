@@ -81,18 +81,18 @@ export function selectLastSession({
 // Règles métier (voir src/lib/__tests__/sessionSelection.test.ts) :
 //   - Seuls les events `type: "training"` sont éligibles.
 //   - Seules les séances à venir comptent : `event_date > now`.
-//   - Fenêtre de 12h : la séance doit avoir lieu dans les CHECK_IN_WINDOW_MS.
+//   - Le check-in est ouvert LE MATIN de la séance : à partir de minuit
+//     (heure locale) du jour de la séance jusqu'au début de la séance.
 //   - Une séance `status: "cancelled"` est ignorée.
 //   - Parmi les séances éligibles, on retient la plus proche (event_date).
 //   - Présence : contrairement à selectLastSession, "pending" est ÉLIGIBLE.
 //     Seuls "absent" et "excused" excluent la séance.
 //   - Absence de ligne attendances pour ce joueur => comportement permissif.
 
-export const CHECK_IN_WINDOW_MS = 12 * 60 * 60 * 1000;
-
 // Fonction pure réutilisée à la fois par selectNextSession (accueil joueur)
 // et par SessionFormCheckIn.tsx (fiche d'entraînement) pour appliquer la
-// même règle de fenêtre de check-in (12h avant la séance).
+// même règle de fenêtre de check-in (le jour de la séance, à partir de
+// minuit heure locale, jusqu'au début de la séance).
 export function isCheckInOpen(
   eventDate: string | null | undefined,
   now: number = Date.now()
@@ -100,7 +100,9 @@ export function isCheckInOpen(
   if (!eventDate) return false;
   const time = new Date(eventDate).getTime();
   if (Number.isNaN(time)) return false;
-  return time > now && time - now <= CHECK_IN_WINDOW_MS;
+  const d = new Date(time);
+  const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  return time > now && now >= dayStart;
 }
 
 const EXCLUDED_ATTENDANCE_STATUSES = new Set(["absent", "excused"]);

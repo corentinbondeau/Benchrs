@@ -141,7 +141,7 @@ export function SessionFormCheckIn({
     return null;
   }
 
-  // Asymétrie intentionnelle : la fenêtre de 12h ne limite que la saisie
+  // Asymétrie intentionnelle : la fenêtre « jour de la séance » ne limite que la saisie
   // joueur/parent. Le coach voit les états de forme déclarés à tout moment
   // (avant, pendant, après la séance) pour ajuster l'intensité et recouper avec le RPE.
   const checkInWindowOpen = isCheckInOpen(eventDate);
