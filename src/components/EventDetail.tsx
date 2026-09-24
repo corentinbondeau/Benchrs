@@ -213,7 +213,10 @@ export function EventInfoCard({
                 <User className="h-3.5 w-3.5 text-[var(--color-royal)]" />
                 {myPresence.label}
               </p>
-              <StatusBadge status={myPresence.status} />
+              {/* `excused` n'a pas de bouton de réponse : le badge latéral est
+                  son seul indicateur. Les autres statuts sont portés par le
+                  fond coloré des boutons (actif = réponse en cours). */}
+              {myPresence.status === "excused" && <StatusBadge status={myPresence.status} />}
             </div>
             <div className="flex gap-2">
               <ResponseButton
