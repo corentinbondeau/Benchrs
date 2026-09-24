@@ -77,3 +77,109 @@ export function extractDofaPagination(data: unknown): DofaPagination {
     nextUrl: nextCandidate ? toAbsolute(nextCandidate) : null,
   };
 }
+
+/** Erreur levée quand le téléchargement des pages restantes échoue (HTTP ou réseau/CORS). */
+export class DofaFetchError extends Error {}
+
+/** Extraits les matchs (tableau nu ou enveloppe Hydra) d'une réponse du site. */
+function extractMatchItems(data: unknown): unknown[] {
+  if (Array.isArray(data)) return data;
+  if (data && typeof data === "object" && Array.isArray((data as Record<string, unknown>)["hydra:member"])) {
+    return (data as Record<string, unknown>)["hydra:member"] as unknown[];
+  }
+  return [];
+}
+
+export interface FetchAllDofaOptions {
+  /** Injection de fetch (tests) — par défaut `window.fetch` (navigateur utilisateur). */
+  fetcher?: (url: string) => Promise<Response>;
+  /** Plafond du nombre total de matchs (aligné sur MAX_INGEST_MATCHES=500). */
+  maxMatches?: number;
+  /** Garde anti-boucle : nombre maximal de pages téléchargées. */
+  maxPages?: number;
+  onProgress?: (page: number, pageSize: number, total: number | null) => void;
+}
+
+export interface FetchAllDofaResult {
+  matches: unknown[];
+  pages: number;
+  total: number | null;
+}
+
+/**
+ * Déroule TOUTES les pages d'une collection paginée à partir de la première
+ * page collée par l'utilisateur, en suivant les liens `hydra:view.next`
+ * retournés par le site. L'IMGÉTORIAL se fait DANS LE NAVIGATEUR de
+ * l'utilisateur : le site DOFA est inaccessible depuis un serveur Benchrs
+ * (403 Akamai sur les IP de datacenter), mais ouvert depuis un navigateur —
+ * c'est ce même mécanisme qui rend le collage manuel possible.
+ *
+ * Combine ensuite tous les matchs en UNE collection pour un seul POST
+ * d'ingestion (contourne le garde-fou des 60 s : une seule écriture).
+ *
+ * Fonction PURE côté décision : ne produit aucune écriture. Lève
+ * `DofaFetchError` si une page suivante est introuvable/impossible à
+ * charger (HTTP, JSON illisible, CORS) — l'appelant retombe alors sur le
+ * collage manuel guidé.
+ */
+export async function fetchAllDofaMatchPages(
+  firstPage: unknown,
+  options: FetchAllDofaOptions = {}
+): Promise<FetchAllDofaResult> {
+  const fetcher = options.fetcher ?? ((url: string) => fetch(url));
+  const maxMatches = options.maxMatches ?? 500;
+  const maxPages = options.maxPages ?? 10;
+  const onProgress = options.onProgress;
+
+  const matches: unknown[] = [];
+  let current = firstPage;
+  let pages = 0;
+  let total: number | null = null;
+
+  while (pages < maxPages) {
+    const items = extractMatchItems(current);
+    matches.push(...items);
+    const pagination = extractDofaPagination(current);
+    if (total === null) total = pagination.totalItems;
+    pages += 1;
+    onProgress?.(pages, items.length, total);
+
+    if (!pagination.nextUrl) break;
+    if (matches.length >= maxMatches) break;
+
+    const res = await fetcher(pagination.nextUrl);
+    if (!res.ok) {
+      throw new DofaFetchError(
+        `Impossible de charger la page ${pages + 1} (HTTP ${res.status}). Collez les pages restantes manuellement : la page précédente est sauvegardée.`
+      );
+    }
+
+    let nextData: unknown = null;
+    try {
+      nextData = await res.json();
+    } catch {
+      throw new DofaFetchError(
+        "Le site a renvoyé une réponse illisible (JSON attendu). Collez les pages restantes manuellement."
+      );
+    }
+
+    // Garde anti-boucle : une page identique à la précédente (pagination qui
+    // ne progresse plus) = fin, sans erreur.
+    if (JSON.stringify(extractDofaPagination(nextData)) === JSON.stringify(pagination)) break;
+    current = nextData;
+  }
+
+  // Déduplication par `ma_no` (chevauchenents de pages éventuels).
+  const seen = new Set<string>();
+  const unique: unknown[] = [];
+  for (const match of matches) {
+    const raw = match as Record<string, unknown> | null;
+    const key = raw && typeof raw.ma_no === "number" ? String(raw.ma_no) : null;
+    if (key === null || !seen.has(key)) {
+      if (key !== null) seen.add(key);
+      unique.push(match);
+    }
+  }
+
+  return { matches: unique.slice(0, maxMatches), pages, total };
+}

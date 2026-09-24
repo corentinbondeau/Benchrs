@@ -15,7 +15,7 @@ import { parsePouleUrl } from "@/lib/dofa/poule-url";
 import { parseDofaMatches } from "@/lib/dofa/parse-matches";
 import { extractPouleTeams, type PouleTeam } from "@/lib/dofa/poule-teams";
 import { parsePouleJournees, type DofaJournee } from "@/lib/dofa/poule-journees";
-import { extractDofaPagination, type DofaPagination } from "@/lib/dofa/pagination";
+import { extractDofaPagination, fetchAllDofaMatchPages, DofaFetchError, type DofaPagination } from "@/lib/dofa/pagination";
 import PouleResultsCard, { type PouleMatch } from "@/components/championship/PouleResultsCard";
 
 interface Championship {
@@ -100,6 +100,14 @@ export default function ChampionshipPage() {
   // « la page suivante » jusqu'à la dernière (`hydra:view.next` entre
   // chaque semaine d'import).
   const [importPagination, setImportPagination] = useState<DofaPagination | null>(null);
+
+  // Import « en une fois » : télécharge toutes les pages restantes depuis le
+  // navigateur (les pages DOFA sont ouvertes côté utilisateur, le serveur est
+  // bloqué par Akamai) puis envoie UN SEUL POST d'ingestion — contourne le
+  // collage page par page et le garde-fou des 60 s.
+  const [bulkImporting, setBulkImporting] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState<{ page: number; total: number | null } | null>(null);
+  const [bulkError, setBulkError] = useState<string | null>(null);
 
   // Compte à rebours du garde-fou d'import (60 s entre deux imports, route
   // d'ingestion). Multi-pages obligeant à coller page après page, le temps
@@ -301,6 +309,89 @@ export default function ChampionshipPage() {
       setPasteError("Erreur de connexion pendant l'import. Aucune donnée n'a été modifiée.");
     } finally {
       setPasteImporting(false);
+    }
+  }
+
+  // Tout importer en une fois : à partir de la PREMIÈRE page collée (qui
+  // porte hydra:view.), le navigateur télécharge les pages restantes de la
+  // collection, puis UN SEUL POST d'ingestion importe tous les matchs
+  // (toutes équipes) — aucune re-colle ni attente de 60 s.
+  async function handleBulkImport() {
+    if (!selected || selected.dofa_cp_no == null || selected.dofa_phase == null || selected.dofa_poule == null) {
+      setBulkError("Configurez d'abord la poule de ce championnat ci-dessus.");
+      return;
+    }
+
+    const trimmed = pasteInput.trim();
+    if (!trimmed) {
+      setBulkError("Collez d'abord la page 1 du lien « tous les matchs de la poule ».");
+      return;
+    }
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(trimmed);
+    } catch {
+      setBulkError("Ce contenu n'est pas un JSON valide.");
+      return;
+    }
+
+    // Vérifie que la collection est bien paginée avant de lancer le déroulé.
+    const pagination = extractDofaPagination(parsed);
+    if (!pagination.nextUrl) {
+      setBulkError("Cette liste est déjà complète (une seule page). Utilisez « Importer les matchs ».");
+      return;
+    }
+
+    setBulkError(null);
+    setBulkImporting(true);
+    setBulkProgress({ page: 1, total: pagination.totalItems ?? pagination.pageSize });
+    try {
+      const { matches, pages } = await fetchAllDofaMatchPages(parsed, {
+        onProgress: (p, _size, t) => setBulkProgress({ page: p, total: t }),
+      });
+
+      // Reconstitue la liste des équipes de la poule depuis l'ensemble des
+      // pages (l'équipe du coach peut être choisie dès maintenant).
+      try {
+        setPouleTeams(extractPouleTeams(parseDofaMatches(matches)));
+      } catch {
+        // Confort uniquement, jamais bloquant.
+      }
+
+      const res = await authFetch("/api/championships/dofa/ingest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          teamId: currentTeam!.id,
+          cpNo: selected.dofa_cp_no,
+          phase: selected.dofa_phase,
+          poule: selected.dofa_poule,
+          matches,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setBulkError(data.error || "L'import a été refusé par le serveur. Aucune donnée n'a été modifiée.");
+        if (res.status === 429) setRateLimitLeft(60);
+        return;
+      }
+
+      setPasteInput("");
+      setImportPagination(null);
+      toast.success(`Import complet : ${pages} page(s), ${matches.length} match(s).`);
+      const refreshed = await authFetch(`/api/championships?team_id=${currentTeam!.id}`).then((r) => r.json());
+      setChampionships(refreshed);
+    } catch (err) {
+      console.error("[championship] Échec de l'import en une fois:", err);
+      setBulkError(
+        err instanceof DofaFetchError
+          ? err.message
+          : "Impossible de télécharger les pages restantes depuis votre navigateur (blocage CORS ou réseau). Collez-les une à une avec le panneau « page suivante »."
+      );
+    } finally {
+      setBulkImporting(false);
+      setBulkProgress(null);
     }
   }
 
@@ -547,6 +638,9 @@ export default function ChampionshipPage() {
                   setTeamChoiceError(null);
                   setImportPagination(null);
                   setRateLimitLeft(0);
+                  setBulkError(null);
+                  setBulkImporting(false);
+                  setBulkProgress(null);
                 }
               }}
             >
@@ -683,17 +777,28 @@ export default function ChampionshipPage() {
                           onChange={(e) => {
                             setPasteInput(e.target.value);
                             setPasteError(null);
-                            setImportPagination(null);
+                            setBulkError(null);
+                            // Détection live d'une collection paginée : le
+                            // bouton « Tout importer en une fois » apparaît dès
+                            // que la page collée annonce une suite (hydra:view).
+                            let pg: DofaPagination | null = null;
+                            try {
+                              pg = extractDofaPagination(JSON.parse(e.target.value));
+                            } catch {
+                              pg = null;
+                            }
+                            setImportPagination(pg);
                           }}
                           placeholder='[{ "ma_no": ... }] ou { "hydra:member": [...] }'
                           className="w-full h-28 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring font-mono"
                         />
                         <p className="text-xs text-muted-foreground">
                           Ouvrez un lien ci-dessus, sélectionnez tout (Ctrl+A), copiez (Ctrl+C),
-                          puis collez ici (Ctrl+V). Avec « tous les matchs de la poule » : chaque
-                          page collée importe ses matchs réels (le site pagine, un panneau guide
-                          les pages suivantes) jusqu&apos;à couvrir toutes les équipes ; votre équipe
-                          remplit aussi son agenda automatiquement.{" "}
+                          puis collez ici (Ctrl+V). Seule la page 1 est nécessaire : cliquez
+                          ensuite « Tout importer en une fois » — Benchrs télécharge les pages
+                          restantes depuis votre navigateur et importe tous les matchs de
+                          toutes les équipes en une seule fois ; votre équipe remplit aussi son
+                          agenda automatiquement.{" "}
                           {selected.dofa_cl_no == null && (
                             <>
                               Tant que votre équipe n&apos;est pas choisie, utilisez le calendrier
@@ -706,15 +811,55 @@ export default function ChampionshipPage() {
                             {pasteError}
                           </p>
                         )}
-<Button
+{/* Bouton principal : quand la liste collée est paginée, « Tout importer
+                          en une fois » télécharge les pages restantes depuis le
+                          navigateur et fait UN SEUL import de tout le poule. */}
+                        {importPagination && importPagination.nextUrl && !bulkImporting && (
+                          <Button
+                            onClick={handleBulkImport}
+                            disabled={bulkImporting || pasteImporting || !pasteInput.trim() || rateLimitLeft > 0}
+                            className="w-full bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold"
+                          >
+                            {bulkImporting ? (
+                              <>
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Téléchargement...
+                              </>
+                            ) : (
+                              <>Tout importer en une fois — {importPagination.totalItems ?? "N"} matchs</>
+                            )}
+                          </Button>
+                        )}
+
+                        {bulkImporting && (
+                          <p role="status" className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            Téléchargement des pages restantes
+                            {bulkProgress ? ` (page ${bulkProgress.page})` : ""}…
+                          </p>
+                        )}
+
+                        {bulkError && (
+                          <p role="alert" className="text-xs text-destructive">
+                            {bulkError}
+                          </p>
+                        )}
+
+                        <Button
                           onClick={handleImportPaste}
-                          disabled={pasteImporting || !pasteInput.trim() || rateLimitLeft > 0}
-                          className="w-full bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold"
+                          variant={importPagination?.nextUrl ? "outline" : "default"}
+                          disabled={pasteImporting || bulkImporting || !pasteInput.trim() || rateLimitLeft > 0}
+                          className={
+                            importPagination?.nextUrl
+                              ? "w-full"
+                              : "w-full bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold"
+                          }
                         >
                           {pasteImporting ? (
                             <>
                               <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Import en cours...
                             </>
+                          ) : importPagination?.nextUrl ? (
+                            `Importer seulement cette page (${importPagination.pageSize} matchs)`
                           ) : (
                             "Importer les matchs"
                           )}
@@ -748,7 +893,8 @@ export default function ChampionshipPage() {
                                   {importPagination.totalItems != null
                                     ? ` — ${importPagination.pageSize} matchs sur ${importPagination.totalItems} au total`
                                     : ` — ${importPagination.pageSize} matchs`}
-                                  . Collez tour à tour chaque page jusqu&apos;à la dernière.
+                                  . Utilisez « Tout importer en une fois » ci-dessus pour finir en
+                                  un clic, ou collez tour à tour chaque page jusqu&apos;à la dernière.
                                 </p>
                                 <a
                                   href={importPagination.nextUrl}
