@@ -135,7 +135,10 @@ export function SeasonPlanCard({
       setEditing(false);
       toast.success("Plan de saison enregistré");
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Erreur lors de l'enregistrement");
+      toast.error(
+        (e instanceof Error ? e.message : (e as { message?: string } | null)?.message) ||
+          "Erreur lors de l'enregistrement"
+      );
     } finally {
       setSavingManual(false);
     }
@@ -174,7 +177,10 @@ export function SeasonPlanCard({
       toast.success(`${inserted} cycle(s) créé(s)${skipped > 0 ? `, ${skipped} déjà existant(s)` : ""}`);
       onApplied();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Erreur lors de la création des cycles");
+      toast.error(
+        (e instanceof Error ? e.message : (e as { message?: string } | null)?.message) ||
+          "Erreur lors de la création des cycles"
+      );
     } finally {
       setApplying(false);
     }

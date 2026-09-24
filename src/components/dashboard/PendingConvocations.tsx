@@ -203,6 +203,10 @@ function PendingConvocationsInner() {
     );
   }
 
+  if ((isCoach && coachItems.length === 0) || (!isCoach && playerAttendances.length === 0)) {
+    return null;
+  }
+
   // Coach view
   if (isCoach) {
     const groupedByEvent = new Map<string, { event: Event; items: CoachPendingItem[] }>();

@@ -184,7 +184,7 @@ export function SessionRpe({
         h.events.event_date &&
         h.rpe != null
     )
-    .reduce<Record<string, { label: string; charge: number }>>((acc, h) => {
+    .reduce<Record<string, { label: string; charge: number; t: number }>>((acc, h) => {
       const evId = h.event_id;
       const load = h.rpe! * (h.session_duration ?? 90);
       const current = acc[evId];
@@ -195,12 +195,12 @@ export function SessionRpe({
           day: "numeric",
           month: "short",
         });
-        acc[evId] = { label: date, charge: load };
+        acc[evId] = { label: date, charge: load, t: new Date(h.events!.event_date).getTime() };
       }
       return acc;
     }, {});
   const chart = Object.values(chartData)
-    .sort((a, b) => a.label.localeCompare(b.label))
+    .sort((a, b) => a.t - b.t)
     .slice(-10);
   const teamTotalLoad = chartData[eventId]
     ? Math.round(chartData[eventId].charge)
