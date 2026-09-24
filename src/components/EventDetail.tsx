@@ -135,10 +135,14 @@ export function EventInfoCard({
   isCoach?: boolean;
   myPresence?: MyPresenceInfo;
   convocationsSent: boolean;
-  onRespond?: (status: "present" | "late" | "absent", reason?: string) => void;
+  onRespond?: (status: "present" | "late" | "absent", reason?: string) => Promise<void>;
 }) {
   const [showRetardReason, setShowRetardReason] = useState(false);
   const [retardReason, setRetardReason] = useState("");
+  // Coloration OPTIMISTE : le bouton cliqué s'affiche coloré immédiatement,
+  // sans attendre l'aller-retour base. Effacé quand l'écriture se termine
+  // (l'état parent `myPresence.status` prend alors le relais).
+  const [pendingStatus, setPendingStatus] = useState<"present" | "late" | "absent" | null>(null);
 
   const mapsUrl = location
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`
@@ -161,15 +165,22 @@ export function EventInfoCard({
   function startRespond(status: "present" | "late" | "absent") {
     if (!onRespond) return;
     if (status === "late") {
+      setPendingStatus("late");
       setShowRetardReason(true);
       return;
     }
-    onRespond(status);
+    setPendingStatus(status);
+    onRespond(status)
+      .catch(() => {})
+      .finally(() => setPendingStatus((prev) => (prev === status ? null : prev)));
   }
 
   function confirmRetard() {
     if (!onRespond || !retardReason.trim()) return;
-    onRespond("late", retardReason.trim());
+    setPendingStatus("late");
+    onRespond("late", retardReason.trim())
+      .catch(() => {})
+      .finally(() => setPendingStatus(null));
     setShowRetardReason(false);
     setRetardReason("");
   }
@@ -220,7 +231,7 @@ export function EventInfoCard({
             </div>
             <div className="flex gap-2">
               <ResponseButton
-                active={myPresence.status === "present"}
+                active={myPresence.status === "present" || pendingStatus === "present"}
                 activeClass="bg-green-600 text-white border-green-600 hover:bg-green-700"
                 idleClass="border-border bg-background text-foreground hover:bg-muted"
                 onClick={() => startRespond("present")}
@@ -229,7 +240,7 @@ export function EventInfoCard({
                 Présent
               </ResponseButton>
               <ResponseButton
-                active={myPresence.status === "late" || showRetardReason}
+                active={myPresence.status === "late" || pendingStatus === "late" || showRetardReason}
                 activeClass="bg-amber-500 text-white border-amber-500 hover:bg-amber-600"
                 idleClass="border-border bg-background text-foreground hover:bg-muted"
                 onClick={() => startRespond("late")}
@@ -238,7 +249,7 @@ export function EventInfoCard({
                 Retard
               </ResponseButton>
               <ResponseButton
-                active={myPresence.status === "absent"}
+                active={myPresence.status === "absent" || pendingStatus === "absent"}
                 activeClass="bg-red-600 text-white border-red-600 hover:bg-red-700"
                 idleClass="border-border bg-background text-foreground hover:bg-muted"
                 onClick={() => startRespond("absent")}
