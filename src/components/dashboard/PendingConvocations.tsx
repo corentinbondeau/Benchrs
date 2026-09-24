@@ -396,20 +396,23 @@ function PendingConvocationsInner() {
                       })}
                     </p>
                   </div>
-                  {pendingAbsentId !== att.id && (
-                    <div className="flex gap-1.5">
-                      <Button size="icon" variant="outline" className="h-8 w-8 text-green-600 hover:bg-green-50" onClick={() => respond(att.id, "present", undefined, att.event?.event_date, att.event?.end_date)} disabled={locked}>
-                        <Check className="h-4 w-4" />
-                      </Button>
-                      <Button size="icon" variant="outline" className="h-8 w-8 text-amber-600 hover:bg-amber-50" onClick={() => respond(att.id, "late", undefined, att.event?.event_date, att.event?.end_date)} disabled={locked}>
-                        <Clock className="h-4 w-4" />
-                      </Button>
-                      <Button size="icon" variant="outline" className="h-8 w-8 text-red-600 hover:bg-red-50" onClick={() => respond(att.id, "absent", undefined, att.event?.event_date, att.event?.end_date)} disabled={locked}>
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  )}
                 </div>
+                {pendingAbsentId !== att.id && (
+                  <div className="grid grid-cols-3 gap-1.5">
+                    <Button size="sm" variant="outline" className="gap-1 border-green-300 bg-green-50 text-green-700 hover:bg-green-100" onClick={() => respond(att.id, "present", undefined, att.event?.event_date, att.event?.end_date)} disabled={locked}>
+                      <Check className="h-3.5 w-3.5" />
+                      Présent
+                    </Button>
+                    <Button size="sm" variant="outline" className="gap-1 border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100" onClick={() => respond(att.id, "late", undefined, att.event?.event_date, att.event?.end_date)} disabled={locked}>
+                      <Clock className="h-3.5 w-3.5" />
+                      Retard
+                    </Button>
+                    <Button size="sm" variant="outline" className="gap-1 border-red-300 bg-red-50 text-red-700 hover:bg-red-100" onClick={() => respond(att.id, "absent", undefined, att.event?.event_date, att.event?.end_date)} disabled={locked}>
+                      <X className="h-3.5 w-3.5" />
+                      Absent
+                    </Button>
+                  </div>
+                )}
                 {pendingAbsentId === att.id && (
                   <div className="space-y-2 pt-1">
                     <Label className="text-xs">Motif d&apos;absence (obligatoire)</Label>

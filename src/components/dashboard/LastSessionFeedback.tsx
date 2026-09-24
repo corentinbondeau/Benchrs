@@ -8,6 +8,7 @@ import { selectLastSession } from "@/lib/sessionSelection";
 import { getEventDurationMinutes, isRpeFormOpen } from "@/lib/event-lock";
 import { SessionRpe } from "@/components/training/SessionRpe";
 import { SessionFeedback } from "@/components/training/SessionFeedback";
+import { reloadAfterSave } from "@/lib/reloadAfterSave";
 import type { Event } from "@/types";
 
 interface LastSessionData {
@@ -20,7 +21,7 @@ export function LastSessionFeedback() {
 
   const key = currentTeam && user?.id ? `last-session:${currentTeam.id}:${user.id}` : null;
 
-  const { data, revalidate } = useQueryCache<LastSessionData | null>(
+  const { data } = useQueryCache<LastSessionData | null>(
     key,
     async () => {
       const supabase = createClient();
@@ -102,8 +103,7 @@ export function LastSessionFeedback() {
         childId={null}
         trainingOver={isRpeFormOpen(event.event_date, event.end_date)}
         durationHint={getEventDurationMinutes(event.event_date, event.end_date) ?? 90}
-        hideAfterSubmit
-        onSubmitted={() => revalidate()}
+        onSubmitted={() => reloadAfterSave()}
       />
       <SessionFeedback
         eventId={event.id}
@@ -113,8 +113,7 @@ export function LastSessionFeedback() {
         userRole={userRole}
         childId={null}
         trainingOver={true}
-        hideAfterSubmit
-        onSubmitted={() => revalidate()}
+        onSubmitted={() => reloadAfterSave()}
       />
     </div>
   );

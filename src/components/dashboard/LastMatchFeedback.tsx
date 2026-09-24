@@ -6,6 +6,7 @@ import { useTeam } from "@/lib/team";
 import { useQueryCache } from "@/lib/queryCache";
 import { isRpeFormOpen, getEventDurationMinutes } from "@/lib/event-lock";
 import { SessionRpe } from "@/components/training/SessionRpe";
+import { reloadAfterSave } from "@/lib/reloadAfterSave";
 import type { Event } from "@/types";
 
 interface LastMatchData {
@@ -19,7 +20,7 @@ export function LastMatchFeedback() {
   const key =
     currentTeam && user?.id ? `last-match-rpe:${currentTeam.id}:${user.id}` : null;
 
-  const { data, revalidate } = useQueryCache<LastMatchData | null>(
+  const { data } = useQueryCache<LastMatchData | null>(
     key,
     async () => {
       if (!currentTeam || !user?.id) return null;
@@ -87,8 +88,7 @@ export function LastMatchFeedback() {
         childId={null}
         trainingOver={isRpeFormOpen(event.event_date, event.end_date)}
         durationHint={getEventDurationMinutes(event.event_date, event.end_date) ?? 120}
-        hideAfterSubmit
-        onSubmitted={() => revalidate()}
+        onSubmitted={() => reloadAfterSave()}
       />
     </div>
   );

@@ -5,6 +5,7 @@ import { useAuth } from "@/lib/auth";
 import { useTeam } from "@/lib/team";
 import { useQueryCache } from "@/lib/queryCache";
 import { isEventLocked } from "@/lib/event-lock";
+import { reloadAfterSave } from "@/lib/reloadAfterSave";
 import { MatchNotebookForm } from "@/components/match/MatchNotebookForm";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BookOpen, Check } from "lucide-react";
@@ -57,22 +58,19 @@ export function MatchNotebookPrompt() {
       );
       if (pastMatches.length === 0) return null;
 
-      const eventIds = pastMatches.map((m) => m.id);
+      const latestMatch = pastMatches[0];
+      if (!latestMatch) return null;
 
       const { data: entriesRes } = await supabase
         .from("player_notebook_entries")
         .select("event_id")
         .eq("player_id", user.id)
-        .in("event_id", eventIds);
+        .eq("event_id", latestMatch.id)
+        .maybeSingle();
 
-      const editedIds = new Set(
-        (entriesRes || []).map((e) => e.event_id as string)
-      );
+      if (entriesRes) return null;
 
-      const match = pastMatches.find((m) => !editedIds.has(m.id));
-      if (!match) return null;
-
-      return { match };
+      return { match: latestMatch };
     },
     { ttl: 60_000 }
   );
@@ -101,7 +99,7 @@ export function MatchNotebookPrompt() {
           playerId={user.id}
           teamId={currentTeam.id}
           eventId={match.id}
-          onSaved={() => revalidate()}
+          onSaved={() => reloadAfterSave()}
         />
         <button
           type="button"

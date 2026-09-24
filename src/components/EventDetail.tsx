@@ -95,11 +95,13 @@ function InfoRow({
 function ResponseButton({
   active,
   activeClass,
+  idleClass,
   onClick,
   children,
 }: {
   active: boolean;
   activeClass: string;
+  idleClass: string;
   onClick: () => void;
   children: ReactNode;
 }) {
@@ -107,7 +109,7 @@ function ResponseButton({
     <Button
       size="sm"
       variant="outline"
-      className={`flex-1 ${active ? activeClass : ""}`}
+      className={`flex-1 ${active ? activeClass : idleClass}`}
       onClick={onClick}
     >
       {children}
@@ -217,6 +219,7 @@ export function EventInfoCard({
               <ResponseButton
                 active={myPresence.status === "present"}
                 activeClass="bg-green-600 text-white border-green-600 hover:bg-green-700"
+                idleClass="border-green-300 bg-green-50 text-green-700 hover:bg-green-100"
                 onClick={() => startRespond("present")}
               >
                 <Check className="h-3.5 w-3.5 mr-1" />
@@ -225,6 +228,7 @@ export function EventInfoCard({
               <ResponseButton
                 active={myPresence.status === "late" || showRetardReason}
                 activeClass="bg-amber-500 text-white border-amber-500 hover:bg-amber-600"
+                idleClass="border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100"
                 onClick={() => startRespond("late")}
               >
                 <Clock className="h-3.5 w-3.5 mr-1" />
@@ -233,6 +237,7 @@ export function EventInfoCard({
               <ResponseButton
                 active={myPresence.status === "absent"}
                 activeClass="bg-red-600 text-white border-red-600 hover:bg-red-700"
+                idleClass="border-red-300 bg-red-50 text-red-700 hover:bg-red-100"
                 onClick={() => startRespond("absent")}
               >
                 <X className="h-3.5 w-3.5 mr-1" />
