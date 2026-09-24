@@ -80,6 +80,7 @@ export function NextSessionCheckIn() {
         userRole={userRole}
         childId={null}
         eventDate={event.event_date}
+        hideAfterSubmit
       />
     </div>
   );

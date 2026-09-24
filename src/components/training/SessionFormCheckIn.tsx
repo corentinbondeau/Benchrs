@@ -37,6 +37,10 @@ interface SessionFormCheckInProps {
   userRole: string | null;
   childId: string | null;
   eventDate: string;
+  /** Cache le widget complet dès que l'utilisateur a enregistré sa forme
+   * (usage accueil/dashboard). Sans ce flag, le formulaire reste éditable
+   * jusqu'à la fin de la fenêtre (usage fiche d'entraînement). */
+  hideAfterSubmit?: boolean;
 }
 
 export function SessionFormCheckIn({
@@ -47,6 +51,7 @@ export function SessionFormCheckIn({
   userRole,
   childId,
   eventDate,
+  hideAfterSubmit = false,
 }: SessionFormCheckInProps) {
   const [enabled, setEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -153,6 +158,15 @@ export function SessionFormCheckIn({
 
   const formRows = allRpe.filter((r) => r.form_level != null);
   const avgForm = formRows.length > 0 ? formRows.reduce((s, r) => s + r.form_level!, 0) / formRows.length : null;
+
+  // Réponse déjà enregistrée par ce joueur/enfant (form_level renseigné).
+  const myRow = myPlayerId ? allRpe.find((r) => r.player_id === myPlayerId) ?? null : null;
+  const alreadySubmitted = !isCoach && myRow?.form_level != null;
+
+  // Accueil : dès que la forme du jour est enregistrée, le widget disparaît.
+  if (hideAfterSubmit && alreadySubmitted) {
+    return null;
+  }
 
   return (
     <Card>
