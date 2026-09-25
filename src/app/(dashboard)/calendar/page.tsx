@@ -37,6 +37,7 @@ import {
   HeartPulse,
   Trophy,
   Dumbbell,
+  AlertTriangle,
 } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ContentSkeleton } from "@/components/ui/content-skeleton";
@@ -267,6 +268,35 @@ export default function CalendarPage() {
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
+
+  // Conflits d'agenda regroupés : en mode fusion, deux événements de la MÊME
+  // équipe de l'ENFANT mais d'équipes différentes le même jour = conflit.
+  const conflictIds = useMemo(() => {
+    if (!showAllChildren || childTeamIds.length === 0) return new Set<string>();
+    const sameChildHasBothTeams = (a: string, b: string) =>
+      (allChildren || []).some((c) => c.team_ids.includes(a) && c.team_ids.includes(b));
+    const byDay = new Map<string, EventWithMeeting[]>();
+    for (const e of events) {
+      if (!e.event_date) continue;
+      const k = new Date(e.event_date).toLocaleDateString("en-CA");
+      const arr = byDay.get(k) || [];
+      arr.push(e);
+      byDay.set(k, arr);
+    }
+    const conflicts = new Set<string>();
+    for (const list of byDay.values()) {
+      for (const e of list) {
+        const clash = list.some(
+          (o) =>
+            o.id !== e.id &&
+            o.team_id !== e.team_id &&
+            sameChildHasBothTeams(e.team_id, o.team_id)
+        );
+        if (clash) conflicts.add(e.id);
+      }
+    }
+    return conflicts;
+  }, [events, showAllChildren, childTeamIds, allChildren]);
 
   function getDaysInMonth(y: number, m: number) {
     return new Date(y, m + 1, 0).getDate();
@@ -870,6 +900,14 @@ export default function CalendarPage() {
                             <span className="shrink-0 text-[9px] font-bold text-orange-700">E</span>
                           )}
                           <span className="truncate">{event.title}</span>
+                          {conflictIds.has(event.id) && (
+                            <span
+                              className="shrink-0 rounded bg-red-600 px-1 text-[9px] font-bold uppercase text-white"
+                              title="Conflit d'agenda ce jour"
+                            >
+                              Conflit
+                            </span>
+                          )}
                           {showAllChildren && (
                             <span className="shrink-0 text-[9px] font-semibold uppercase">{(teamMeta[event.team_id]?.teamName || "").slice(0, 3)}</span>
                           )}
@@ -938,6 +976,12 @@ export default function CalendarPage() {
                       )}
                       {event.status === "cancelled" && (
                         <Badge variant="destructive" className="text-[10px]">Annule</Badge>
+                      )}
+                      {conflictIds.has(event.id) && (
+                        <Badge variant="destructive" className="text-[10px] flex items-center gap-1">
+                          <AlertTriangle className="h-3 w-3" />
+                          Conflit
+                        </Badge>
                       )}
                     </div>
                     <p className="font-semibold text-sm mt-1 truncate">{event.title}</p>

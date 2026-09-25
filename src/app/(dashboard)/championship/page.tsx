@@ -16,6 +16,7 @@ import { parseDofaMatches } from "@/lib/dofa/parse-matches";
 import { extractPouleTeams, type PouleTeam } from "@/lib/dofa/poule-teams";
 import { parsePouleJournees, type DofaJournee } from "@/lib/dofa/poule-journees";
 import { extractDofaPagination, type DofaPagination } from "@/lib/dofa/pagination";
+import { currentSeasonLabel, previousSeasonLabel } from "@/lib/goals";
 import PouleResultsCard, { type PouleMatch } from "@/components/championship/PouleResultsCard";
 
 interface Championship {
@@ -135,7 +136,7 @@ export default function ChampionshipPage() {
   // Création d'un nouveau championnat (nom/saison/niveau uniquement).
   const [createOpen, setCreateOpen] = useState(false);
   const [createName, setCreateName] = useState("");
-  const [createSeason, setCreateSeason] = useState("2025-2026");
+  const [createSeason, setCreateSeason] = useState(() => currentSeasonLabel());
   const [createLevel, setCreateLevel] = useState("");
   const [creating, setCreating] = useState(false);
 
@@ -460,7 +461,7 @@ export default function ChampionshipPage() {
       toast.success("Championnat créé");
       setCreateOpen(false);
       setCreateName("");
-      setCreateSeason("2025-2026");
+      setCreateSeason(currentSeasonLabel());
       setCreateLevel("");
       const data = await authFetch(`/api/championships?team_id=${currentTeam!.id}`).then((r) => r.json());
       setChampionships(data);

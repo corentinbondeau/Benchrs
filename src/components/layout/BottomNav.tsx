@@ -33,70 +33,42 @@ import {
   Plus,
   Settings,
   Settings2,
-  Heart,
-  Car,
-  ListTodo,
-  Swords,
-  Image as ImageIcon,
-  Trophy,
-  Bell,
-  CalendarRange,
-  Flame,
   Building2,
-  Newspaper,
-  Vote,
-  Package,
-  Flag,
-  GitCompareArrows,
-  PiggyBank,
-  MapPin,
-  RefreshCw,
-  TrendingDown,
-  ClipboardList,
-  PartyPopper,
-  Dumbbell,
-  Medal,
-  Wallet,
-  CalendarClock,
-  UserCog,
+  Trophy,
 } from "lucide-react";
+import {
+  NAV_SECTIONS,
+  MORE_NAV,
+  COACH_ADMIN_NAV,
+  COMITE_ONLY_HREFS,
+  CHAT_HREF,
+  SETTINGS_HREF,
+  TEAM_SETTINGS_HREF,
+} from "@/lib/nav";
+import type { NavItem } from "@/lib/nav";
 
-/* ─── More menu items (secondary features) ─── */
-const moreItems = [
-  { key: "physical", href: "/physical", label: "Prepa physique", icon: Dumbbell },
-  { key: "medical", href: "/medical", label: "Infirmerie", icon: Heart },
-  { key: "carpooling", href: "/carpooling", label: "Covoiturage", icon: Car },
-  { key: "tasks", href: "/tasks", label: "Taches", icon: ListTodo },
-  { key: "polls", href: "/polls", label: "Sondages", icon: Vote },
-  { key: "tactics", href: "/tactics", label: "Tactique", icon: Swords, coachOnly: true },
-  { key: "season", href: "/season", label: "Plan de saison", icon: CalendarRange },
-  { key: "challenge", href: "/challenge", label: "Defi de la semaine", icon: Flame },
-  { key: "club", href: "/club", label: "Espace club", icon: Building2, clubOnly: true },
-  { key: "terrains", href: "/club/terrains", label: "Terrains", icon: MapPin, clubOnly: true },
-  { key: "mutations", href: "/club/mutations", label: "Mutations", icon: RefreshCw, clubOnly: true },
-  { key: "clubfeed", href: "/club/feed", label: "Fil du club", icon: Newspaper, clubTeamOnly: true },
-  { key: "gallery", href: "/gallery", label: "Galerie", icon: ImageIcon },
-  { key: "trophies", href: "/trophies", label: "Trophees", icon: Trophy },
-  { key: "championship", href: "/championship", label: "Championnat", icon: Medal },
-  { key: "material", href: "/material", label: "Materiel", icon: Package, coachAndClub: true },
-  { key: "adversaires", href: "/adversaires", label: "Adversaires", icon: Flag },
-  { key: "compare", href: "/stats/compare", label: "Comparer", icon: GitCompareArrows, coachOnly: true },
-  { key: "drop", href: "/stats/drop", label: "Baisse de forme", icon: TrendingDown, coachOnly: true },
-  { key: "tournament", href: "/tournament", label: "Tournois", icon: Trophy },
-  { key: "cotisations", href: "/admin/cotisations", label: "Cotisations", icon: Wallet, clubOnly: true },
-  { key: "treasury", href: "/admin/treasury", label: "Tresorerie", icon: PiggyBank, clubOnly: true },
-  { key: "notifications", href: "/notifications", label: "Notifications", icon: Bell },
-  { key: "meetings", href: "/meetings", label: "Reunions parents", icon: ClipboardList, coachOnly: true },
-  { key: "cagnotte", href: "/cagnotte", label: "Cagnottes", icon: PiggyBank, coachOnly: true },
-  { key: "fin-saison", href: "/fin-saison", label: "Fin de saison", icon: PartyPopper },
+/* ─── Groupes de navigation du menu mobile ─── */
+const navGroups: { key: string; title: string; items: NavItem[] }[] = [
+  ...NAV_SECTIONS,
+  { key: "more", title: "Plus", items: MORE_NAV },
 ];
 
-const comiteOnlyHrefs = new Set(["/club", "/club/feed", "/club/terrains", "/calendar", "/roster", "/stats", "/notifications", "/material", "/admin/cotisations", "/admin/treasury"]);
-
-const coachItems = [
-  { href: "/admin/players", label: "Gestion joueurs", icon: UserCog },
-  { href: "/admin/deadlines", label: "Echeances", icon: CalendarClock },
-];
+function isNavVisible(
+  item: NavItem,
+  isCoach: boolean,
+  hasClubRole: boolean,
+  isComiteOnly: boolean,
+  currentTeam: { club_id: string | null } | null,
+  hiddenTabs: Set<string>
+): boolean {
+  if (item.coachOnly && !isCoach) return false;
+  if (item.clubOnly && !hasClubRole) return false;
+  if (item.coachAndClub && !isCoach && !hasClubRole) return false;
+  if (item.clubTeamOnly && !currentTeam?.club_id && !hasClubRole) return false;
+  if (isComiteOnly && !COMITE_ONLY_HREFS.has(item.href)) return false;
+  if (hiddenTabs.has(item.key)) return false;
+  return true;
+}
 
 function SheetContentInner({ close }: { close: () => void }) {
   const pathname = usePathname();
@@ -112,14 +84,14 @@ function SheetContentInner({ close }: { close: () => void }) {
   const [teamName, setTeamName] = useState("");
   const [fffNumber, setFffNumber] = useState("");
   const [inviteCode, setInviteCode] = useState("");
-  const [joinRole, setJoinRole] = useState<"player" | "parent" | "coach">("player");
+  const [joinRole, setJoinRole] = useState<"player" | "parent">("player");
   const [submitting, setSubmitting] = useState(false);
 
   async function handleCreateTeam() {
     if (!clubName.trim() || !teamName.trim() || !user) return;
     const fff = normalizeFffNumber(fffNumber);
     if (!fff) {
-      toast.error("Numero d'affiliation FFF invalide (6 chiffres requis)");
+      toast.error("Numéro d'affiliation FFF invalide (6 chiffres requis)");
       return;
     }
     setSubmitting(true);
@@ -131,7 +103,7 @@ function SheetContentInner({ close }: { close: () => void }) {
       });
       const data = await res.json();
       if (!res.ok) { toast.error(data.error || "Erreur"); setSubmitting(false); return; }
-      toast.success(`Equipe creee ! Code : ${data.inviteCode}`);
+      toast.success(`Équipe créée ! Code : ${data.inviteCode}`);
       setShowTeamForm(false);
       setClubName(""); setTeamName(""); setFffNumber("");
       localStorage.setItem("selectedTeamId", data.team.id);
@@ -151,7 +123,7 @@ function SheetContentInner({ close }: { close: () => void }) {
       });
       const data = await res.json();
       if (!res.ok) { toast.error(data.error || "Code invalide"); setSubmitting(false); return; }
-      toast.success(data.message || "Equipe rejointe !");
+      toast.success(data.message || "Équipe rejointe !");
       setShowTeamForm(false);
       setInviteCode("");
       localStorage.setItem("selectedTeamId", data.team.id);
@@ -211,7 +183,7 @@ function SheetContentInner({ close }: { close: () => void }) {
                   </>
                 )}
               </div>
-              <Link href="/settings/team" onClick={close} className="text-white/30 hover:text-white shrink-0">
+              <Link href={TEAM_SETTINGS_HREF} onClick={close} className="text-white/30 hover:text-white shrink-0">
                 <Settings2 className="h-4 w-4" />
               </Link>
             </div>
@@ -236,22 +208,21 @@ function SheetContentInner({ close }: { close: () => void }) {
         {showTeamForm && (
           <div className="px-4 py-3 border-b border-white/[0.08] space-y-3">
             <div className="flex gap-1 rounded-lg border border-white/15 p-0.5">
-              <button className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${!joinMode ? "bg-white/15 text-white" : "text-white/50 hover:text-white"}`} onClick={() => { setJoinMode(false); setInviteCode(""); }}>Creer</button>
+              <button className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${!joinMode ? "bg-white/15 text-white" : "text-white/50 hover:text-white"}`} onClick={() => { setJoinMode(false); setInviteCode(""); }}>Créer</button>
               <button className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${joinMode ? "bg-white/15 text-white" : "text-white/50 hover:text-white"}`} onClick={() => { setJoinMode(true); setClubName(""); setTeamName(""); }}>Rejoindre</button>
             </div>
             {joinMode ? (
               <div className="space-y-2.5">
                 <Input value={inviteCode} onChange={(e) => setInviteCode(e.target.value)} placeholder="Code d'invitation" className="bg-white/[0.06] border-white/15 text-white text-sm placeholder:text-white/30 h-9" />
                 <div className="space-y-1">
-                  <Label className="text-white/50 text-xs">Votre role</Label>
-                  <Select value={joinRole} onValueChange={(v) => v && setJoinRole(v as "player" | "parent" | "coach")}>
+                  <Label className="text-white/50 text-xs">Votre rôle</Label>
+                  <Select value={joinRole} onValueChange={(v) => v && setJoinRole(v as "player" | "parent")}>
                     <SelectTrigger className="bg-white/[0.06] border-white/15 text-white text-sm h-9">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="player">Joueur</SelectItem>
                       <SelectItem value="parent">Parent</SelectItem>
-                      <SelectItem value="coach">Coach</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -263,11 +234,11 @@ function SheetContentInner({ close }: { close: () => void }) {
             ) : (
               <div className="space-y-2.5">
                 <Input value={clubName} onChange={(e) => setClubName(e.target.value)} placeholder="Nom du club" className="bg-white/[0.06] border-white/15 text-white text-sm placeholder:text-white/30 h-9" />
-                <Input inputMode="numeric" value={fffNumber} onChange={(e) => setFffNumber(e.target.value)} placeholder="Numero FFF (6 chiffres)" className="bg-white/[0.06] border-white/15 text-white text-sm placeholder:text-white/30 h-9" />
-                <Input value={teamName} onChange={(e) => setTeamName(e.target.value)} placeholder="Nom de l'equipe" className="bg-white/[0.06] border-white/15 text-white text-sm placeholder:text-white/30 h-9" />
+                <Input inputMode="numeric" value={fffNumber} onChange={(e) => setFffNumber(e.target.value)} placeholder="Numéro FFF (6 chiffres)" className="bg-white/[0.06] border-white/15 text-white text-sm placeholder:text-white/30 h-9" />
+                <Input value={teamName} onChange={(e) => setTeamName(e.target.value)} placeholder="Nom de l'équipe" className="bg-white/[0.06] border-white/15 text-white text-sm placeholder:text-white/30 h-9" />
                 <div className="flex gap-2">
                   <Button size="sm" variant="outline" className="text-white border-white/15 hover:bg-white/[0.06]" onClick={() => { setShowTeamForm(false); setClubName(""); setTeamName(""); setFffNumber(""); }}>Annuler</Button>
-                  <Button size="sm" className="bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold" onClick={handleCreateTeam} disabled={!clubName.trim() || !teamName.trim() || submitting}>{submitting ? "..." : "Creer"}</Button>
+                  <Button size="sm" className="bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold" onClick={handleCreateTeam} disabled={!clubName.trim() || !teamName.trim() || submitting}>{submitting ? "..." : "Créer"}</Button>
                 </div>
               </div>
             )}
@@ -275,36 +246,41 @@ function SheetContentInner({ close }: { close: () => void }) {
         )}
 
         {/* Nav items */}
-        <nav className="py-3 px-3 space-y-0.5">
-          {moreItems
-            .filter((item) => {
-              if (item.coachOnly && !isCoach) return false;
-              if ((item as { clubOnly?: boolean }).clubOnly && !hasClubRole) return false;
-              if ((item as { coachAndClub?: boolean }).coachAndClub && !isCoach && !hasClubRole) return false;
-              if ((item as { clubTeamOnly?: boolean }).clubTeamOnly && !currentTeam?.club_id && !hasClubRole) return false;
-              if (isComiteOnly && !comiteOnlyHrefs.has(item.href)) return false;
-              if (hiddenTabs.has(item.key)) return false;
-              return true;
-            })
-            .map((item) => {
-            const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+        <div className="py-3 space-y-1">
+          {navGroups.map((group) => {
+            const filtered = group.items.filter(
+              (item) => isNavVisible(item, isCoach, hasClubRole, isComiteOnly, currentTeam, hiddenTabs)
+            );
+            if (filtered.length === 0) return null;
             return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={close}
-                className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13px] font-medium transition-all duration-150 ${
-                  active
-                    ? "bg-white/[0.12] text-white"
-                    : "text-white/55 hover:bg-white/[0.06] hover:text-white/90"
-                }`}
-              >
-                <item.icon className="h-[18px] w-[18px] shrink-0" />
-                {item.label}
-              </Link>
+              <div key={group.key} className="mt-1 first:mt-0">
+                <p className="px-5 pt-2 pb-1 text-[10px] font-semibold text-white/30 uppercase tracking-widest">
+                  {group.title}
+                </p>
+                <nav className="px-3 space-y-0.5">
+                  {filtered.map((item) => {
+                    const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        onClick={close}
+                        className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13px] font-medium transition-all duration-150 ${
+                          active
+                            ? "bg-white/[0.12] text-white"
+                            : "text-white/55 hover:bg-white/[0.06] hover:text-white/90"
+                        }`}
+                      >
+                        <item.icon className="h-[18px] w-[18px] shrink-0" />
+                        {item.label}
+                      </Link>
+                    );
+                  })}
+                </nav>
+              </div>
             );
           })}
-        </nav>
+        </div>
 
         {isCoach && (
           <>
@@ -313,7 +289,7 @@ function SheetContentInner({ close }: { close: () => void }) {
               Admin
             </p>
             <nav className="pb-3 px-3 space-y-0.5">
-              {coachItems.map((item) => {
+              {COACH_ADMIN_NAV.map((item) => {
                 const active = pathname.startsWith(item.href);
                 return (
                   <Link
@@ -337,12 +313,12 @@ function SheetContentInner({ close }: { close: () => void }) {
 
         <div className="border-t border-white/[0.08] p-3">
           <Link
-            href="/settings"
+            href={SETTINGS_HREF}
             onClick={close}
             className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13px] font-medium text-white/55 hover:bg-white/[0.06] hover:text-white/90 transition-all duration-150"
           >
             <Settings className="h-[18px] w-[18px]" />
-            Parametres
+            Paramètres
           </Link>
         </div>
       </div>
@@ -366,15 +342,15 @@ function BottomNav() {
     ? [
         { href: "/club", label: "Club", icon: Building2 },
         { href: "/calendar", label: "Agenda", icon: Calendar },
-        { href: "/roster", label: "Equipe", icon: Users },
+        { href: "/roster", label: "Équipe", icon: Users },
         { href: "/stats", label: "Perf", icon: BarChart3 },
       ]
     : [
         { href: "/", label: "Accueil", icon: Home },
         { href: "/calendar", label: "Agenda", icon: Calendar },
-        { href: "/roster", label: "Equipe", icon: Users },
+        { href: "/roster", label: "Équipe", icon: Users },
         { href: "/stats", label: "Perf", icon: BarChart3 },
-        { href: "/chat", label: "Messages", icon: MessageSquare },
+        { href: CHAT_HREF, label: "Messages", icon: MessageSquare },
       ];
 
   return (
@@ -388,7 +364,7 @@ function BottomNav() {
 
         {items.map((item) => {
           const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
-          const badge = item.href === "/chat" ? unreadChat : 0;
+          const badge = item.href === CHAT_HREF ? unreadChat : 0;
           return (
             <Link
               key={item.href}

@@ -137,7 +137,7 @@ Règles :
 - Ton toujours constructif, bienveillant et professionnel.
 - Tu réponds UNIQUEMENT par un objet JSON valide (aucun texte avant/après, aucun bloc markdown) avec exactement cette structure :
 {
-  "title": "titre du bilan (ex : Bilan de la saison 2025-2026 de l'ECC U14)",
+  "title": "titre du bilan (ex : Bilan de la saison XXXX-YYYY de l'ECC U14)",
   "summary": "paragraphe synthétique de 4 à 6 phrases : bilan général, progression collective, ambiance",
   "points_forts": ["2 à 4 points forts collectifs observables"],
   "points_faibles": ["2 à 3 points à améliorer, formulés positivement"],

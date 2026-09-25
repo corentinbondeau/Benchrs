@@ -61,6 +61,7 @@ export default function GalleryPage() {
   const [bulkAlbum, setBulkAlbum] = useState("Aucun");
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
+  const [confirmState, setConfirmState] = useState<{ type: "media" | "album" | "bulk"; id?: string } | null>(null);
 
   const PAGE_SIZE = 30;
 
@@ -167,8 +168,15 @@ export default function GalleryPage() {
     fetchAlbums();
   }
 
-  async function handleDeleteMedia(mediaId: string, storagePath: string | null) {
-    if (!confirm("Supprimer cette photo ?")) return;
+  async function handleDeleteMedia(mediaId: string) {
+    setConfirmState({ type: "media", id: mediaId });
+  }
+
+  async function handleDeleteAlbum(albumId: string) {
+    setConfirmState({ type: "album", id: albumId });
+  }
+
+  async function reallyDeleteMedia(mediaId: string) {
     const res = await authFetch("/api/gallery/delete", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -183,8 +191,7 @@ export default function GalleryPage() {
     toast.success("Photo supprimée");
   }
 
-  async function handleDeleteAlbum(albumId: string) {
-    if (!confirm("Supprimer cet album ? Les photos ne seront pas supprimées.")) return;
+  async function reallyDeleteAlbum(albumId: string) {
     const res = await authFetch("/api/albums/delete", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -197,6 +204,33 @@ export default function GalleryPage() {
     }
     setAlbums((prev) => prev.filter((a) => a.id !== albumId));
     toast.success("Album supprimé");
+  }
+
+  async function reallyDeleteBulk() {
+    const ids = Array.from(selectedIds);
+    const res = await authFetch("/api/gallery/delete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mediaIds: ids }),
+    });
+    const data = await res.json();
+    if (data.error) {
+      toast.error(data.error);
+      return;
+    }
+    setMedia((prev) => prev.filter((m) => !selectedIds.has(m.id)));
+    toast.success(`${ids.length} photo${ids.length !== 1 ? "s" : ""} supprimée${ids.length !== 1 ? "s" : ""}`);
+    setSelectedIds(new Set());
+    setSelecting(false);
+  }
+
+  async function confirmAndDelete() {
+    if (!confirmState) return;
+    const { type, id } = confirmState;
+    if (type === "media" && id) await reallyDeleteMedia(id);
+    else if (type === "album" && id) await reallyDeleteAlbum(id);
+    else if (type === "bulk") await reallyDeleteBulk();
+    setConfirmState(null);
   }
 
   async function handleDownload(url: string, filename: string) {
@@ -440,8 +474,10 @@ export default function GalleryPage() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="absolute top-2 right-2 h-8 w-8 bg-black/50 hover:bg-black/70 text-white opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={(e) => { e.stopPropagation(); handleDeleteMedia(item.id, item.storage_path); }}
+                    className="absolute top-2 right-2 h-8 w-8 bg-black/50 hover:bg-black/70 text-white"
+                    onClick={(e) => { e.stopPropagation(); handleDeleteMedia(item.id); }}
+                    aria-label="Supprimer la photo"
+                    title="Supprimer la photo"
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -599,20 +635,7 @@ export default function GalleryPage() {
             size="sm"
             variant="destructive"
             disabled={!selectedIds.size}
-            onClick={async () => {
-              if (!confirm(`Supprimer ${selectedIds.size} photo${selectedIds.size !== 1 ? "s" : ""} ?`)) return;
-              const res = await authFetch("/api/gallery/delete", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ mediaIds: Array.from(selectedIds) }),
-              });
-              const data = await res.json();
-              if (data.error) { toast.error(data.error); return; }
-              setMedia((prev) => prev.filter((m) => !selectedIds.has(m.id)));
-              toast.success(`${selectedIds.size} photo${selectedIds.size !== 1 ? "s" : ""} supprimée${selectedIds.size !== 1 ? "s" : ""}`);
-              setSelectedIds(new Set());
-              setSelecting(false);
-            }}
+            onClick={() => setConfirmState({ type: "bulk" })}
           >
             <Trash2 className="h-4 w-4 mr-1" />
             Supprimer
@@ -667,8 +690,10 @@ export default function GalleryPage() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="absolute top-2 right-2 h-8 w-8 bg-black/50 hover:bg-black/70 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="absolute top-2 right-2 h-8 w-8 bg-black/50 hover:bg-black/70 text-white"
                       onClick={(e) => { e.stopPropagation(); handleDeleteAlbum(album.id); }}
+                      aria-label="Supprimer l'album"
+                      title="Supprimer l'album"
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -774,7 +799,7 @@ export default function GalleryPage() {
                       variant="ghost"
                       size="icon"
                       className="absolute top-2 right-2 h-8 w-8 bg-black/50 hover:bg-black/70 text-white opacity-0 group-hover:opacity-100 transition-opacity"
-                      onClick={(e) => { e.stopPropagation(); handleDeleteMedia(item.id, item.storage_path); }}
+                      onClick={(e) => { e.stopPropagation(); handleDeleteMedia(item.id); }}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -858,6 +883,25 @@ export default function GalleryPage() {
               </Button>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={confirmState !== null} onOpenChange={(open) => { if (!open) setConfirmState(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Confirmer la suppression</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            {confirmState?.type === "album"
+              ? "Supprimer cet album ? Les photos ne seront pas supprimées."
+              : confirmState?.type === "bulk"
+                ? `Supprimer ${selectedIds.size} photo${selectedIds.size !== 1 ? "s" : ""} ? Cette action est irréversible.`
+                : "Voulez-vous vraiment supprimer ce média ? Cette action est irréversible."}
+          </p>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => setConfirmState(null)}>Annuler</Button>
+            <Button variant="destructive" onClick={confirmAndDelete}>Supprimer</Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

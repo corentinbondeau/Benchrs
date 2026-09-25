@@ -44,7 +44,7 @@ export default function RosterPage() {
   const { user } = useAuth();
   const { currentTeam, userRole } = useTeam();
   const isOwner = userRole === "owner";
-  const canAddPlayer = userRole === "owner" || userRole === "coach" || userRole === "parent";
+  const canAddPlayer = userRole === "owner" || userRole === "coach";
   const [allProfiles, setAllProfiles] = useState<Profile[]>([]);
   const [memberIds, setMemberIds] = useState<Record<string, string>>({});
   const [muteStatuses, setMuteStatuses] = useState<Record<string, string | null>>({});

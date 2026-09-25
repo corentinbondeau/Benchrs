@@ -494,6 +494,7 @@ export default function SettingsPage() {
               checked={pushMaster}
               onCheckedChange={togglePushMaster}
               disabled={pushBusy}
+              aria-label="Activer les notifications push"
             />
           </div>
 
@@ -509,6 +510,7 @@ export default function SettingsPage() {
             <Switch
               checked={emailNotifications}
               onCheckedChange={setEmailNotifications}
+              aria-label="Activer les notifications par email"
             />
           </div>
 
@@ -534,6 +536,7 @@ export default function SettingsPage() {
                     checked={!!pushPrefs[t.type]}
                     disabled={!pushMaster}
                     onCheckedChange={(v) => togglePushType(t.type, v)}
+                    aria-label={`Notifications push pour ${t.label}`}
                   />
                 </div>
               ))

@@ -236,7 +236,7 @@ export type BallVariant = "classic" | "motion";
 
 export interface ExerciseSchematicElement {
   id: string;
-  type: "player" | "cone" | "ball" | "arrow" | "zone" | "shape" | "label";
+  type: "player" | "cone" | "ball" | "arrow" | "zone" | "shape" | "label" | "ladder" | "hurdle" | "hoop";
   x: number;
   y: number;
   x2?: number;
@@ -248,6 +248,7 @@ export interface ExerciseSchematicElement {
   arrowVariant?: ArrowVariant;
   ballVariant?: BallVariant;
   shapeKind?: ShapeKind;
+  rotation?: "horizontal" | "vertical";
 }
 
 export interface ExerciseSchematic {

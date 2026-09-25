@@ -34,6 +34,7 @@ import { fetchTeamActivePlayers } from "@/lib/players";
 import { computeMissingResponders } from "@/lib/session-reminders";
 import { SessionRemindersCard } from "@/components/training/SessionRemindersCard";
 import { logActivity } from "@/lib/activity";
+import { saveAttendanceRow } from "@/lib/attendance";
 import { isLockedForRole, CONVOCATION_LOCKED_MESSAGE, getEventDurationMinutes, isRpeFormOpen } from "@/lib/event-lock";
 import type { AttendanceStatus, Event } from "@/types";
 
@@ -123,7 +124,6 @@ export default function TrainingDetailPage() {
       toast.error(CONVOCATION_LOCKED_MESSAGE);
       return;
     }
-    const supabase = createClient();
     const existing = players.find((p) => p.profile.id === userId);
 
     // Optimiste : même pattern que matches/[id] — état local d'abord pour que
@@ -136,25 +136,14 @@ export default function TrainingDetailPage() {
       )
     );
 
-    if (existing?.attendanceId) {
-      await supabase
-        .from("attendances")
-        .update({
-          status,
-          responded_at: new Date().toISOString(),
-          absence_reason: reason || null,
-        })
-        .eq("id", existing.attendanceId);
-    } else {
-      await supabase.from("attendances").insert({
-        event_id: trainingId,
-        user_id: userId,
-        team_id: currentTeam!.id,
-        status,
-        responded_at: new Date().toISOString(),
-        absence_reason: reason || null,
-      });
-    }
+    await saveAttendanceRow({
+      eventId: trainingId,
+      userId,
+      teamId: currentTeam!.id,
+      status,
+      reason,
+      attendanceId: existing?.attendanceId ?? null,
+    });
 
     toast.success(
       status === "present"

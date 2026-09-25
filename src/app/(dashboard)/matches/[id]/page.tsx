@@ -46,6 +46,7 @@ import { ChildSwitcher } from "@/components/ChildSwitcher";
 import { useSelectedChild } from "@/lib/useSelectedChild";
 import { fetchTeamActivePlayers } from "@/lib/players";
 import { logActivity } from "@/lib/activity";
+import { saveAttendanceRow } from "@/lib/attendance";
 import { authFetch } from "@/lib/api-client";
 import { LiveMatchTracker } from "@/components/LiveMatchTracker";
 import { MatchReportCard } from "@/components/match/MatchReportCard";
@@ -546,7 +547,6 @@ export default function MatchDetailPage() {
       toast.error(CONVOCATION_LOCKED_MESSAGE);
       return;
     }
-    const supabase = createClient();
     const existing = matchPlayers.find((p) => p.profile.id === userId);
 
     // Optimiste : l'état local change AVANT l'écriture pour que le bouton
@@ -559,25 +559,14 @@ export default function MatchDetailPage() {
       )
     );
 
-    if (existing?.attendanceId) {
-      await supabase
-        .from("attendances")
-        .update({
-          status,
-          responded_at: new Date().toISOString(),
-          absence_reason: reason || null,
-        })
-        .eq("id", existing.attendanceId);
-    } else {
-      await supabase.from("attendances").insert({
-        event_id: matchId,
-        user_id: userId,
-        team_id: currentTeam!.id,
-        status,
-        responded_at: new Date().toISOString(),
-        absence_reason: reason || null,
-      });
-    }
+    await saveAttendanceRow({
+      eventId: matchId,
+      userId,
+      teamId: currentTeam!.id,
+      status,
+      reason,
+      attendanceId: existing?.attendanceId ?? null,
+    });
 
     toast.success(
       status === "present"
@@ -768,6 +757,45 @@ export default function MatchDetailPage() {
             )}
           </div>
       </div>
+
+      {/* Match en direct — visible dès 30 min avant le coup d'envoi */}
+      {liveReady ? (
+        <LiveMatchTracker
+          eventId={matchId}
+          teamId={currentTeam.id}
+          players={presentPlayers}
+          canEdit={isCoach || userRole === "parent"}
+          isCoach={isCoach}
+          userId={user?.id}
+          eventTitle={match.title}
+          startedAt={match.match_started_at ?? null}
+          endedAt={match.match_ended_at ?? null}
+          halftimeAt={match.match_halftime_at ?? null}
+          resumedAt={match.match_resumed_at ?? null}
+          starterIds={starterIds}
+          benchIds={benchIds}
+          onMatchUpdate={(patch) =>
+            setMatch((prev) => (prev ? { ...prev, ...patch } : prev))
+          }
+          onStatsChange={refreshPlayerStats}
+          halfDuration={halfDuration}
+          onShareLive={shareLiveScore}
+        />
+      ) : (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Radio className="h-4 w-4 text-[var(--color-gold)]" />
+              Match en direct
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">
+              Le suivi en direct sera disponible 30 minutes avant le début du match.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       <DepartureNotifier
         eventId={matchId}
@@ -1324,47 +1352,6 @@ export default function MatchDetailPage() {
         matchOver={matchIsOver}
         url={`/matches/${matchId}`}
       />
-
-
-
-      {/* Match en direct */}
-      {liveReady ? (
-        <LiveMatchTracker
-          eventId={matchId}
-          teamId={currentTeam.id}
-          players={presentPlayers}
-          canEdit={isCoach || userRole === "parent"}
-          isCoach={isCoach}
-          userId={user?.id}
-          eventTitle={match.title}
-          startedAt={match.match_started_at ?? null}
-          endedAt={match.match_ended_at ?? null}
-          halftimeAt={match.match_halftime_at ?? null}
-          resumedAt={match.match_resumed_at ?? null}
-          starterIds={starterIds}
-          benchIds={benchIds}
-          onMatchUpdate={(patch) =>
-            setMatch((prev) => (prev ? { ...prev, ...patch } : prev))
-          }
-          onStatsChange={refreshPlayerStats}
-          halfDuration={halfDuration}
-          onShareLive={shareLiveScore}
-        />
-      ) : (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Radio className="h-4 w-4 text-[var(--color-gold)]" />
-              Match en direct
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              Le suivi en direct sera disponible 30 minutes avant le début du match.
-            </p>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Partie 2 — Liste des présents et absents */}
       <AttendanceLists

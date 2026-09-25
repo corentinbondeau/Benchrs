@@ -14,8 +14,11 @@ import {
 import {
   ArrowRight,
   Circle,
+  CircleDashed,
+  Columns3,
   Eraser,
   MousePointer2,
+  Rows3,
   Shapes,
   Shirt,
   Square,
@@ -32,7 +35,7 @@ import type {
   TeamColor,
 } from "@/types";
 
-type Tool = "select" | "player" | "cone" | "ball" | "arrow" | "zone" | "shape" | "label";
+type Tool = "select" | "player" | "cone" | "ball" | "arrow" | "zone" | "shape" | "label" | "ladder" | "hurdle" | "hoop";
 
 export const SCHEMATIC_VIEWS: Record<SchematicView, { w: number; h: number; aspect: string; label: string }> = {
   full: { w: 300, h: 450, aspect: "2 / 3", label: "Terrain entier" },
@@ -319,6 +322,92 @@ function BallElement({ el, selected }: { el: ExerciseSchematicElement; selected:
   );
 }
 
+function LadderElement({ el, selected }: { el: ExerciseSchematicElement; selected: boolean }) {
+  const vertical = el.rotation === "vertical";
+  const color = el.color || "#FFFFFF";
+  const W = vertical ? 14 : 34;
+  const H = vertical ? 34 : 14;
+  const cx = el.x;
+  const cy = el.y;
+  const x = cx - W / 2;
+  const y = cy - H / 2;
+  const rungs = 5;
+  return (
+    <g>
+      <rect
+        x={x}
+        y={y}
+        width={W}
+        height={H}
+        rx={1.5}
+        fill="none"
+        stroke={color}
+        strokeWidth={2.5}
+      />
+      {Array.from({ length: rungs - 1 }, (_, i) => {
+        const t = (i + 1) / rungs;
+        return vertical ? (
+          <line key={i} x1={cx} y1={y + t * H} x2={cx} y2={y + t * H} stroke={color} strokeWidth={1.5} />
+        ) : (
+          <line key={i} x1={x + t * W} y1={cy} x2={x + t * W} y2={cy} stroke={color} strokeWidth={1.5} />
+        );
+      })}
+      {selected && (
+        <rect x={x - 4} y={y - 4} width={W + 8} height={H + 8} fill="none" stroke="#F6C453" strokeWidth={1.5} strokeDasharray="4 3" />
+      )}
+    </g>
+  );
+}
+
+function HurdleElement({ el, selected }: { el: ExerciseSchematicElement; selected: boolean }) {
+  const vertical = el.rotation === "vertical";
+  const color = el.color || "#FFFFFF";
+  const cx = el.x;
+  const cy = el.y;
+  return (
+    <g>
+      {vertical ? (
+        <>
+          <line x1={cx - 8} y1={cy - 12} x2={cx + 8} y2={cy - 12} stroke={color} strokeWidth={3} />
+          <line x1={cx - 8} y1={cy + 12} x2={cx + 8} y2={cy + 12} stroke={color} strokeWidth={3} />
+          <line x1={cx - 7} y1={cy - 12} x2={cx - 7} y2={cy + 12} stroke={color} strokeWidth={1.5} />
+          <line x1={cx + 7} y1={cy - 12} x2={cx + 7} y2={cy + 12} stroke={color} strokeWidth={1.5} />
+        </>
+      ) : (
+        <>
+          <line x1={cx - 12} y1={cy - 8} x2={cx - 12} y2={cy + 8} stroke={color} strokeWidth={3} />
+          <line x1={cx + 12} y1={cy - 8} x2={cx + 12} y2={cy + 8} stroke={color} strokeWidth={3} />
+          <line x1={cx - 12} y1={cy - 7} x2={cx + 12} y2={cy - 7} stroke={color} strokeWidth={1.5} />
+          <line x1={cx - 12} y1={cy + 7} x2={cx + 12} y2={cy + 7} stroke={color} strokeWidth={1.5} />
+        </>
+      )}
+      {selected && (
+        <circle cx={cx} cy={cy} r={14} fill="none" stroke="#F6C453" strokeWidth={1.5} strokeDasharray="4 3" />
+      )}
+    </g>
+  );
+}
+
+function HoopElement({ el, selected }: { el: ExerciseSchematicElement; selected: boolean }) {
+  const color = el.color || "#FFFFFF";
+  return (
+    <g>
+      <ellipse
+        cx={el.x}
+        cy={el.y}
+        rx={(el.x2 ?? el.x) !== el.x ? Math.max(8, Math.abs(el.x2! - el.x)) : 14}
+        ry={10}
+        fill="none"
+        stroke={color}
+        strokeWidth={4}
+      />
+      {selected && (
+        <circle cx={el.x} cy={el.y} r={Math.max(10, Math.abs((el.x2 ?? el.x) - el.x))} fill="none" stroke="#F6C453" strokeWidth={1.5} strokeDasharray="4 3" />
+      )}
+    </g>
+  );
+}
+
 function ArrowElement({ el, selected }: { el: ExerciseSchematicElement; selected: boolean }) {
   const x1 = el.x;
   const y1 = el.y;
@@ -436,6 +525,9 @@ function RenderElement({
   if (el.type === "player") return <PlayerElement el={el} selected={selected} />;
   if (el.type === "cone") return <ConeElement el={el} selected={selected} />;
   if (el.type === "ball") return <BallElement el={el} selected={selected} />;
+  if (el.type === "ladder") return <LadderElement el={el} selected={selected} />;
+  if (el.type === "hurdle") return <HurdleElement el={el} selected={selected} />;
+  if (el.type === "hoop") return <HoopElement el={el} selected={selected} />;
   if (el.type === "arrow") return <ArrowElement el={el} selected={selected} />;
   if (el.type === "zone") {
     const x = Math.min(el.x, el.x2 ?? el.x);
@@ -481,6 +573,10 @@ function hitTest(x: number, y: number, elements: ExerciseSchematicElement[]) {
       if (Math.hypot(el.x - x, el.y - y) <= r) return el;
     } else if (el.type === "cone") {
       if (x >= el.x - 9 && x <= el.x + 9 && y >= el.y - 11 && y <= el.y + 9) return el;
+    } else if (el.type === "ladder") {
+      if (Math.abs(x - el.x) <= 22 && Math.abs(y - el.y) <= 22) return el;
+    } else if (el.type === "hurdle" || el.type === "hoop") {
+      if (Math.abs(x - el.x) <= 15 && Math.abs(y - el.y) <= 15) return el;
     } else if (el.type === "arrow") {
       if (el.arrowVariant === "curved") {
         const c = arrowControl(el);
@@ -510,6 +606,9 @@ const TOOLS: { id: Tool; label: string; icon: typeof Shirt }[] = [
   { id: "zone", label: "Zone", icon: Square },
   { id: "shape", label: "Forme", icon: Shapes },
   { id: "label", label: "Texte", icon: Type },
+  { id: "ladder", label: "Échelle", icon: Rows3 },
+  { id: "hurdle", label: "Haies", icon: Columns3 },
+  { id: "hoop", label: "Cerceau", icon: CircleDashed },
 ];
 
 function ColorSwatch({
@@ -660,6 +759,18 @@ export function ExerciseSchematicEditor({
     } else if (tool === "ball") {
       const id = crypto.randomUUID();
       addElement({ id, type: "ball", x: pt.x, y: pt.y });
+      setSelectedId(id);
+    } else if (tool === "ladder") {
+      const id = crypto.randomUUID();
+      addElement({ id, type: "ladder", x: pt.x, y: pt.y, color: "#FFFFFF", rotation: "horizontal" });
+      setSelectedId(id);
+    } else if (tool === "hurdle") {
+      const id = crypto.randomUUID();
+      addElement({ id, type: "hurdle", x: pt.x, y: pt.y, color: "#F4D03F", rotation: "horizontal" });
+      setSelectedId(id);
+    } else if (tool === "hoop") {
+      const id = crypto.randomUUID();
+      addElement({ id, type: "hoop", x: pt.x, y: pt.y, color: "#FFFFFF" });
       setSelectedId(id);
     } else if (tool === "label") {
       const id = crypto.randomUUID();
@@ -945,6 +1056,47 @@ export function ExerciseSchematicEditor({
                   </select>
                 </div>
               )}
+              {(selected.type === "ladder" || selected.type === "hurdle" || selected.type === "hoop") && (
+                <>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Couleur</Label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {CONE_COLORS.map((c) => (
+                        <ColorSwatch
+                          key={c.value}
+                          color={c.value}
+                          label={c.label}
+                          active={selected.color === c.value}
+                          onClick={() => updateElement(selected.id, { color: c.value })}
+                        />
+                      ))}
+                      <ColorSwatch
+                        color="#F6C453"
+                        label="Or"
+                        active={selected.color === "#F6C453"}
+                        onClick={() => updateElement(selected.id, { color: "#F6C453" })}
+                      />
+                    </div>
+                  </div>
+                  {selected.type !== "hoop" && (
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Orientation</Label>
+                      <select
+                        value={selected.rotation || "horizontal"}
+                        onChange={(e) =>
+                          updateElement(selected.id, {
+                            rotation: e.target.value as ExerciseSchematicElement["rotation"],
+                          })
+                        }
+                        className="h-8 w-full rounded-lg border border-input bg-transparent px-2 text-sm"
+                      >
+                        <option value="horizontal">Horizontal</option>
+                        <option value="vertical">Vertical</option>
+                      </select>
+                    </div>
+                  )}
+                </>
+              )}
               {selected.type === "zone" && (
                 <div className="space-y-1">
                   <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Libellé (optionnel)</Label>
@@ -1026,7 +1178,7 @@ export function ExerciseSchematicEditor({
             </div>
           )}
           <p className="text-[11px] leading-relaxed text-muted-foreground">
-            Joueurs, cônes, ballons, zones, formes et flèches de déplacement. Plusieurs vues de terrain disponibles.
+            Joueurs, cônes, ballons, échelles, haies, cerceaux, zones, formes et flèches de déplacement. Plusieurs vues de terrain disponibles.
           </p>
         </div>
       </div>

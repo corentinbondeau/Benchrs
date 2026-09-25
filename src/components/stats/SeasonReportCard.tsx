@@ -239,7 +239,7 @@ export function SeasonReportCard({ teamId, isCoach }: { teamId: string; isCoach:
               <Input
                 value={draft.title}
                 onChange={(e) => setDraft((d) => (d ? { ...d, title: e.target.value } : d))}
-                placeholder="Bilan de la saison 2025-2026"
+                placeholder={`Bilan de la saison ${season}`}
               />
             </div>
             <div className="space-y-1.5">

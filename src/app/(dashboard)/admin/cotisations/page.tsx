@@ -44,8 +44,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import type { Profile, Cotisation, PaymentHistory } from "@/types";
-
-const CURRENT_SEASON = "2025-2026";
+import { currentSeasonLabel } from "@/lib/goals";
 
 const PAYMENT_METHODS = [
   "Espèces",
@@ -70,7 +69,7 @@ export default function CotisationsPage() {
   const [players, setPlayers] = useState<Profile[]>([]);
   const [cotisations, setCotisations] = useState<Cotisation[]>([]);
   const [loading, setLoading] = useState(true);
-  const [season, setSeason] = useState(CURRENT_SEASON);
+  const [season, setSeason] = useState(() => currentSeasonLabel());
 
   const [defineOpen, setDefineOpen] = useState(false);
   const [definePlayer, setDefinePlayer] = useState<Profile | null>(null);

@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
+import { ArrowLeft } from "lucide-react";
 import { authFetch } from "@/lib/api-client";
 import { normalizeFffNumber } from "@/lib/clubs";
 import { Button } from "@/components/ui/button";
@@ -66,6 +67,7 @@ function RegisterForm() {
     fffNumber: "",
   });
   const [comiteClub, setComiteClub] = useState<{ id: string; name: string } | null>(null);
+  const [createFffClub, setCreateFffClub] = useState<{ id: string; name: string } | null>(null);
   const [comiteInviteCode, setComiteInviteCode] = useState("");
   const [matchFormat, setMatchFormat] = useState(11);
   const [halfDuration, setHalfDuration] = useState(45);
@@ -73,6 +75,31 @@ function RegisterForm() {
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(true);
   const router = useRouter();
+
+  // Validation FFF en direct (création d'équipe + mode comité) : dès que le
+  // numéro fait 6 chiffres, on interroge l'API publique du club pour donner un
+  // retour immédiat (club reconnu / numéro inconnu).
+  useEffect(() => {
+    if (step !== "team") return;
+    if (teamMode !== "create" && teamMode !== "comite") return;
+    const fff = normalizeFffNumber(formData.fffNumber);
+    if (!fff) return;
+    const t = setTimeout(async () => {
+      let club: { id: string; name: string } | null = null;
+      try {
+        const res = await fetch(`/api/clubs/lookup-public?fffNumber=${fff}`);
+        if (res.ok) {
+          const data = (await res.json()) as { club: { id: string; name: string } | null };
+          club = data.club ?? null;
+        }
+      } catch {
+        return;
+      }
+      if (teamMode === "create") setCreateFffClub(club);
+      else setComiteClub(club);
+    }, 250);
+    return () => clearTimeout(t);
+  }, [formData.fffNumber, teamMode, step]);
 
   useEffect(() => {
     import("@/lib/supabase/client").then(({ createClient }) => {
@@ -108,18 +135,6 @@ function RegisterForm() {
     }
 
     setStep("team");
-  }
-
-  async function handleLookupComiteFff(value: string) {
-    const fff = normalizeFffNumber(value);
-    if (!fff) {
-      setComiteClub(null);
-      return;
-    }
-    const res = await fetch(`/api/clubs/lookup-public?fffNumber=${fff}`);
-    if (!res.ok) return;
-    const { club } = await res.json();
-    setComiteClub(club ?? null);
   }
 
   async function handleSubmitTeam(e: React.FormEvent) {
@@ -316,6 +331,17 @@ function RegisterForm() {
 
   if (step === "team") {
     return (
+      <div className="w-full max-w-md flex flex-col gap-2">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => { setStep("info"); setError(""); }}
+          className="self-start text-white/70 hover:text-white -ml-2"
+        >
+          <ArrowLeft className="mr-1.5 h-4 w-4" />
+          Retour aux informations
+        </Button>
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <Image src="/favicon.png" alt="Benchrs" width={48} height={48} className="mx-auto mb-2" />
@@ -428,14 +454,26 @@ function RegisterForm() {
                     inputMode="numeric"
                     placeholder="501234"
                     value={formData.fffNumber}
-                    onChange={(e) =>
-                      setFormData({ ...formData, fffNumber: e.target.value })
-                    }
+                    onChange={(e) => {
+                      setFormData({ ...formData, fffNumber: e.target.value });
+                      setCreateFffClub(null);
+                    }}
                     required
                   />
                   <p className="text-xs text-muted-foreground">
                     6 chiffres, sur votre licence FFF ou la fiche du club.
                   </p>
+                  {createFffClub ? (
+                    <p className="text-xs text-[var(--color-primary-blue)] font-medium">
+                      Club reconnu : {createFffClub.name} — l&apos;équipe rejoindra ce club.
+                    </p>
+                  ) : (
+                    normalizeFffNumber(formData.fffNumber)?.length === 6 && (
+                      <p className="text-xs text-destructive">
+                        Aucun club trouvé avec ce numéro — une nouvelle entrée sera créée.
+                      </p>
+                    )
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="teamName">Nom de l&apos;équipe</Label>
@@ -498,7 +536,6 @@ function RegisterForm() {
                       setFormData({ ...formData, fffNumber: e.target.value });
                       setComiteClub(null);
                     }}
-                    onBlur={() => handleLookupComiteFff(formData.fffNumber)}
                     required
                   />
                   <p className="text-xs text-muted-foreground">
@@ -601,6 +638,7 @@ function RegisterForm() {
           </CardFooter>
         </form>
       </Card>
+      </div>
     );
   }
 

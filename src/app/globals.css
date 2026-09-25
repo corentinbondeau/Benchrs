@@ -187,6 +187,12 @@
     @apply bg-background text-foreground;
   }
 
+  /* Accessible keyboard focus — visible outline for all focusable elements */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
   /* Typography scale */
   h1 {
     font-size: 2rem;       /* 32px */

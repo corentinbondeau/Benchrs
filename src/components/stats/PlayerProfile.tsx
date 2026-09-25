@@ -61,9 +61,16 @@ import {
   ClipboardList,
   IdCard,
   Pencil,
+  Download,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { EmergencyContact, PlayerPhysicalTest } from "@/types";
+import {
+  renderPlayerSeasonPdf,
+  type PlayerSeasonMatch,
+  type PlayerSeasonStat,
+} from "@/lib/playerSeasonPdf";
 import { PersonalGoalsCard } from "@/components/stats/PersonalGoalsCard";
 import { PlayerPaniniCard } from "@/components/stats/PlayerPaniniCard";
 import { CareerHistoryCard } from "@/components/stats/CareerHistoryCard";
@@ -280,6 +287,7 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
   const [physicalTests, setPhysicalTests] = useState<PlayerPhysicalTest[]>([]);
   const [matchRows, setMatchRows] = useState<MatchRow[]>([]);
   const [currentSeason, setCurrentSeason] = useState("");
+  const [exportingHistory, setExportingHistory] = useState(false);
   const [paniniOpen, setPaniniOpen] = useState(false);
   const [seasonTotals, setSeasonTotals] = useState<Record<string, SeasonTotals>>({});
   const [radarData, setRadarData] = useState<RadarDatum[]>([]);
@@ -837,6 +845,47 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
     { label: "Minutes", cur: cur.minutes, prev: prev?.minutes ?? null },
   ];
 
+  async function handleExportHistory() {
+    if (exportingHistory) return;
+    try {
+      setExportingHistory(true);
+      const matches: PlayerSeasonMatch[] = [...matchRows]
+        .sort((a, b) => (a.event_date ?? "").localeCompare(b.event_date ?? ""))
+        .map((m) => ({
+          event_date: m.event_date,
+          opponent: m.opponent,
+          title: m.title,
+          score_us: m.score_us,
+          score_them: m.score_them,
+          goals: m.goals,
+          assists: m.assists,
+          minutes_played: m.minutes_played,
+        }));
+      const seasonStatItems: PlayerSeasonStat[] = seasonItems.map((i) => ({
+        label: i.label,
+        cur: i.cur,
+        prev: i.prev,
+      }));
+      const buffer = await renderPlayerSeasonPdf({
+        playerName: `${stats?.first_name ?? ""} ${stats?.last_name ?? ""}`.trim() || "Joueur",
+        season: currentSeason,
+        stats: seasonStatItems,
+        matches,
+      });
+      const blob = new Blob([new Uint8Array(buffer)], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `saison-${currentSeason.replace("/", "-")}-${(stats?.first_name ?? "joueur").toLowerCase()}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast.error("Erreur lors de la génération du PDF");
+    } finally {
+      setExportingHistory(false);
+    }
+  }
+
   const vmaTests = physicalTests.filter((t) => t.test_type === "vma");
   const vmiTests = physicalTests.filter((t) => t.test_type === "vmi");
 
@@ -1208,10 +1257,26 @@ export function PlayerProfile({ playerId }: { playerId: string }) {
       {/* Performance par saison */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <TrendingUp className="h-4 w-4 text-[var(--color-royal)]" />
-            Performance — Saison {currentSeason}
-          </CardTitle>
+          <div className="flex items-center justify-between gap-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <TrendingUp className="h-4 w-4 text-[var(--color-royal)]" />
+              Performance — Saison {currentSeason}
+            </CardTitle>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 gap-1.5 text-xs"
+              onClick={handleExportHistory}
+              disabled={exportingHistory || matchRows.length === 0}
+            >
+              {exportingHistory ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Download className="h-3.5 w-3.5" />
+              )}
+              PDF
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           {matchRows.length === 0 ? (

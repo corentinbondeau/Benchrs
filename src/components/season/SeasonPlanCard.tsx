@@ -207,7 +207,7 @@ export function SeasonPlanCard({
               <Input
                 value={draft.title}
                 onChange={(e) => setDraft((d) => ({ ...d, title: e.target.value }))}
-                placeholder="Plan de saison 2025-2026"
+                placeholder={`Plan de saison ${season}`}
               />
             </div>
             <div className="space-y-1.5">

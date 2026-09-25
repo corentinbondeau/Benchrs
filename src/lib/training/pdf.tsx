@@ -728,6 +728,61 @@ function ExerciseSchematicSvg({ schema }: { schema: ExerciseSchematic }) {
         </G>
       );
     }
+    if (el.type === "ladder") {
+      const vertical = el.rotation === "vertical";
+      const color = el.color || "#FFFFFF";
+      const W = vertical ? 14 : 34;
+      const H = vertical ? 34 : 14;
+      const x = el.x - W / 2;
+      const y = el.y - H / 2;
+      const rungs: React.ReactElement[] = [];
+      for (let i = 1; i < 5; i++) {
+        const t = i / 5;
+        rungs.push(
+          vertical ? (
+            <Line key={i} x1={el.x} y1={y + t * H} x2={el.x} y2={y + t * H} stroke={color} strokeWidth={1.5} />
+          ) : (
+            <Line key={i} x1={x + t * W} y1={el.y} x2={x + t * W} y2={el.y} stroke={color} strokeWidth={1.5} />
+          )
+        );
+      }
+      return (
+        <G key={el.id}>
+          <Rect x={x} y={y} width={W} height={H} rx={1.5} fill="none" stroke={color} strokeWidth={2.5} />
+          {rungs}
+        </G>
+      );
+    }
+    if (el.type === "hurdle") {
+      const vertical = el.rotation === "vertical";
+      const color = el.color || "#F4D03F";
+      return (
+        <G key={el.id} stroke={color}>
+          {vertical ? (
+            <>
+              <Line x1={el.x - 8} y1={el.y - 12} x2={el.x + 8} y2={el.y - 12} strokeWidth={3} />
+              <Line x1={el.x - 8} y1={el.y + 12} x2={el.x + 8} y2={el.y + 12} strokeWidth={3} />
+              <Line x1={el.x - 7} y1={el.y - 12} x2={el.x - 7} y2={el.y + 12} strokeWidth={1.5} />
+              <Line x1={el.x + 7} y1={el.y - 12} x2={el.x + 7} y2={el.y + 12} strokeWidth={1.5} />
+            </>
+          ) : (
+            <>
+              <Line x1={el.x - 12} y1={el.y - 8} x2={el.x - 12} y2={el.y + 8} strokeWidth={3} />
+              <Line x1={el.x + 12} y1={el.y - 8} x2={el.x + 12} y2={el.y + 8} strokeWidth={3} />
+              <Line x1={el.x - 12} y1={el.y - 7} x2={el.x + 12} y2={el.y - 7} strokeWidth={1.5} />
+              <Line x1={el.x - 12} y1={el.y + 7} x2={el.x + 12} y2={el.y + 7} strokeWidth={1.5} />
+            </>
+          )}
+        </G>
+      );
+    }
+    if (el.type === "hoop") {
+      const color = el.color || "#FFFFFF";
+      const rx = Math.max(14, Math.abs((el.x2 ?? el.x) - el.x));
+      return (
+        <Ellipse key={el.id} cx={el.x} cy={el.y} rx={rx} ry={10} fill="none" stroke={color} strokeWidth={4} />
+      );
+    }
     if (el.type === "arrow") {
       const x1 = el.x;
       const y1 = el.y;

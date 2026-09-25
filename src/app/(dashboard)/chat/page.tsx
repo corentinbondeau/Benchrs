@@ -35,6 +35,12 @@ interface MessageWithSender extends Omit<ChatMessage, "sender"> {
   sender?: { first_name: string; last_name: string } | null;
 }
 
+function memberMatches(member: Profile, search: string) {
+  const q = search.trim().toLowerCase();
+  if (!q) return true;
+  return `${member.first_name} ${member.last_name}`.toLowerCase().includes(q);
+}
+
 export default function ChatPage() {
   const { user } = useAuth();
   const { currentTeam, userRole } = useTeam();
@@ -57,6 +63,7 @@ export default function ChatPage() {
   const [channelName, setChannelName] = useState("");
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
   const [allMembers, setAllMembers] = useState<Profile[]>([]);
+  const [memberSearch, setMemberSearch] = useState("");
   const [creating, setCreating] = useState(false);
 
   // Channel settings state
@@ -298,6 +305,7 @@ export default function ChatPage() {
     setSelectedChannel(channel.id);
     setChannelName("");
     setSelectedMembers([]);
+    setMemberSearch("");
     setCreateOpen(false);
     setCreating(false);
   }
@@ -534,7 +542,7 @@ export default function ChatPage() {
           placeholder="Votre message..."
           className="flex-1"
         />
-        <Button type="submit" size="icon" className="bg-[var(--color-royal)] text-white" disabled={!newMessage.trim()}>
+        <Button type="submit" size="icon" className="bg-[var(--color-royal)] text-white" disabled={!newMessage.trim()} aria-label="Envoyer le message">
           <Send className="h-4 w-4" />
         </Button>
       </form>
@@ -731,8 +739,38 @@ export default function ChatPage() {
             </div>
             <div className="space-y-2">
               <Label>Membres du canal</Label>
+              <div className="flex items-center justify-between gap-2">
+                <Input
+                  value={memberSearch}
+                  onChange={(e) => setMemberSearch(e.target.value)}
+                  placeholder="Rechercher un membre..."
+                  className="h-8 text-sm"
+                />
+                <div className="flex items-center gap-1 shrink-0">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                    onClick={() =>
+                      setSelectedMembers(allMembers.filter((m) => memberMatches(m, memberSearch)).map((m) => m.id))
+                    }
+                  >
+                    Tout
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                    onClick={() => setSelectedMembers([])}
+                  >
+                    Aucun
+                  </Button>
+                </div>
+              </div>
               <ScrollArea className="h-56 rounded-md border p-2">
-                {allMembers.map((member) => (
+                {allMembers.filter((member) => memberMatches(member, memberSearch)).map((member) => (
                   <label
                     key={member.id}
                     className="flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-muted cursor-pointer"
