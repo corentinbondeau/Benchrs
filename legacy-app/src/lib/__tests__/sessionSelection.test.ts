@@ -337,15 +337,17 @@ describe("selectLastSession", () => {
  *
  * Feature cible : sur l'accueil joueur, proposer le check-in de forme
  * (« Comment te sens-tu aujourd'hui ? ») pour la PROCHAINE séance
- * d'entraînement à venir, dans une fenêtre de 12h avant celle-ci.
+ * d'entraînement à venir, le jour même de la séance (à partir de minuit
+ * heure locale, jusqu'au début de la séance).
  * Contrairement au RPE (après séance), le check-in se remplit AVANT.
  *
  * Règles métier couvertes :
  *   - Seuls les events `type: "training"` sont éligibles (un match plus
  *     proche est ignoré).
  *   - Seules les séances à venir comptent : `event_date > now`.
- *   - Fenêtre de 12h : la séance n'est proposée que si elle a lieu dans les
- *     12h (CHECK_IN_WINDOW_MS). Dans 3h => proposée ; dans 18h => null.
+ *   - Fenêtre « le jour de la séance » : ouverte à partir de minuit
+ *     (heure locale) du jour de la séance (2h avant le matin => proposée ;
+ *     séance demain => null).
  *   - Parmi les séances éligibles, on retient la PLUS PROCHE dans le temps.
  *   - Une séance annulée (`status: "cancelled"`) est ignorée.
  *   - Présence : contrairement à selectLastSession, le statut "pending" est
@@ -357,15 +359,11 @@ describe("selectLastSession", () => {
  *   - Liste d'events vide => null.
  */
 
-import {
-  selectNextSession,
-  CHECK_IN_WINDOW_MS,
-  isCheckInOpen,
-} from "@/lib/sessionSelection";
+import { selectNextSession, isCheckInOpen } from "@/lib/sessionSelection";
 
 describe("selectNextSession", () => {
   // ==== CAS 1 — NOMINAL : une séance training dans 3h et pending => proposée ====
-  it("retourne l'id de la prochaine séance training dans la fenêtre de 12h", () => {
+  it("retourne l'id de la prochaine séance training le jour de la séance", () => {
     const result = selectNextSession({
       events: [
         makeEvent({
@@ -401,9 +399,8 @@ describe("selectNextSession", () => {
     expect(result).toBe("training-in-6h");
   });
 
-  // ==== CAS 3 — LIMITE : séance dans 3h (dans la fenêtre de 12h) => proposée ====
-  it("propose une séance ayant lieu dans 3h (dans la fenêtre de 12h)", () => {
-    expect(CHECK_IN_WINDOW_MS).toBe(12 * 60 * 60 * 1000);
+  // ==== CAS 3 — LIMITE : séance dans 3h (le jour de la séance) => proposée ====
+  it("propose une séance ayant lieu dans 3h (le jour même de la séance)", () => {
     const result = selectNextSession({
       events: [
         makeEvent({
@@ -418,15 +415,16 @@ describe("selectNextSession", () => {
     expect(result).toBe("e1");
   });
 
-  // ==== CAS 4 — LIMITE : séance dans 18h (hors fenêtre de 12h) => null ====
-  // 18h est volontairement choisi juste au-delà de la fenêtre : la borne est
-  // ainsi réellement testée, ce qu'un cas à 48h ne ferait pas.
-  it("ne propose pas une séance ayant lieu dans 18h (hors fenêtre de 12h)", () => {
+  // ==== CAS 4 — LIMITE : séance demain matin (pas encore le jour de la séance) => null ====
+  // Demain 9h, le check-in du jour n'est pas ouvert : la fenêtre s'ouvre à
+  // minuit (heure locale) du jour de la séance. On teste le cas « matin de
+  // la veille » pour figer la règle métier.
+  it("ne propose pas une séance qui aura lieu demain matin (+21h)", () => {
     const result = selectNextSession({
       events: [
         makeEvent({
           id: "e1",
-          event_date: new Date(NOW + 18 * 60 * 60 * 1000).toISOString(),
+          event_date: new Date(NOW + 21 * 60 * 60 * 1000).toISOString(),
         }),
       ],
       attendances: [],
@@ -442,7 +440,7 @@ describe("selectNextSession", () => {
       events: [
         makeEvent({
           id: "e-far",
-          event_date: new Date(NOW + 20 * 60 * 60 * 1000).toISOString(),
+          event_date: new Date(NOW + 8 * 60 * 60 * 1000).toISOString(),
         }),
         makeEvent({
           id: "e-close",
@@ -616,48 +614,60 @@ describe("selectNextSession", () => {
  * Tests TDD — isCheckInOpen (Phase RED)
  *
  * Feature cible : fonction pure extraite pour réutiliser la même règle de
- * fenêtre de check-in (12h avant la séance) à la fois sur l'accueil joueur
+ * fenêtre de check-in (le jour de la séance, à partir de minuit heure
+ * locale, jusqu'au début de la séance) à la fois sur l'accueil joueur
  * (via selectNextSession) et sur la fiche d'entraînement
  * (SessionFormCheckIn.tsx), qui aujourd'hui n'applique aucune limite.
  *
  * Règles métier couvertes :
- *   - Ouvert dans les CHECK_IN_WINDOW_MS précédant la séance (12h).
+ *   - Ouvert à partir de minuit (heure locale) du jour de la séance.
+ *   - Fermé tant que ce n'est pas le jour de la séance (séance demain => false).
  *   - Fermé une fois la séance commencée (date passée).
- *   - Borne exactement à CHECK_IN_WINDOW_MS => inclusive (cohérent avec le
- *     `<=` utilisé dans selectNextSession).
+ *   - Borne inclusive à minuit (heure locale) du jour de la séance.
  *   - Entrée absente ou invalide => false, sans exception (cf. isEventLocked
  *     dans event-lock.ts).
  */
 
 describe("isCheckInOpen", () => {
-  // ==== CAS 1 — NOMINAL : séance dans 3h => ouvert ====
-  it("retourne true quand la séance a lieu dans 3h", () => {
+  // ==== CAS 1 — NOMINAL : séance aujourd'hui dans 3h => ouvert ====
+  it("retourne true quand la séance a lieu aujourd'hui dans 3h", () => {
     const eventDate = new Date(NOW + 3 * 60 * 60 * 1000).toISOString();
     expect(isCheckInOpen(eventDate, NOW)).toBe(true);
   });
 
-  // ==== CAS 2 — LIMITE : séance dans 18h (au-delà de la fenêtre de 12h) => fermé ====
-  it("retourne false quand la séance a lieu dans 18h (hors fenêtre de 12h)", () => {
-    const eventDate = new Date(NOW + 18 * 60 * 60 * 1000).toISOString();
+  // ==== CAS 2 — LIMITE : séance demain matin => fermé (fenêtre pas encore ouverte) ====
+  // Le check-in s'ouvre à minuit (heure locale) du jour de la séance. Une
+  // séance demain 9h n'est donc PAS proposable le jour d'avant à midi.
+  it("retourne false quand la séance a lieu demain matin (+21h)", () => {
+    const eventDate = new Date(NOW + 21 * 60 * 60 * 1000).toISOString();
     expect(isCheckInOpen(eventDate, NOW)).toBe(false);
   });
 
-  // ==== CAS 3 — TRANSITION MÉTIER : séance déjà commencée (date passée) => fermé ====
-  // Le check-in porte sur l'avant-séance : une fois la séance commencée, il
-  // n'a plus de sens de déclarer sa forme "avant" de jouer.
-  it("retourne false quand la séance est déjà commencée (date passée)", () => {
-    const eventDate = new Date(NOW - 60 * 60 * 1000).toISOString();
+  // ==== CAS 3 — LIMITE : séance dans 3 jours => fermé ====
+  it("retourne false quand la séance a lieu dans 3 jours", () => {
+    const eventDate = new Date(NOW + 3 * 24 * 60 * 60 * 1000).toISOString();
     expect(isCheckInOpen(eventDate, NOW)).toBe(false);
   });
 
-  // ==== CAS 4 — LIMITE : eventDate exactement à now + CHECK_IN_WINDOW_MS => borne inclusive ====
-  // Cohérent avec selectNextSession qui utilise `time - now <= CHECK_IN_WINDOW_MS`.
-  it("retourne true quand la séance est exactement à la borne des 12h (inclusive)", () => {
-    const eventDate = new Date(NOW + CHECK_IN_WINDOW_MS).toISOString();
-    expect(isCheckInOpen(eventDate, NOW)).toBe(true);
+  // ==== CAS 4 — TRANSITION MÉTIER : séance du jour déjà commencée => fermé ====
+  // Le check-in porte sur l'avant-séance : même le jour J, une fois la séance
+  // commencée, il n'a plus de sens de déclarer sa forme "avant" de jouer.
+  it("retourne false quand la séance du jour est déjà commencée (date passée)", () => {
+    const eventDate = new Date(NOW - 2 * 60 * 60 * 1000).toISOString();
+    expect(isCheckInOpen(eventDate, NOW)).toBe(false);
   });
 
-  // ==== CAS 5 — ROBUSTESSE : eventDate null/undefined => false sans exception ====
+  // ==== CAS 5 — LIMITE : exactly à minuit (heure locale) du jour de la séance => borne inclusive ====
+  // À minuit, jour J, la fenêtre est déjà ouverte : `now >= dayStart` est vrai.
+  it("retourne true exactement à minuit (heure locale) du jour de la séance", () => {
+    const event = new Date(NOW);
+    const dayStart = new Date(event.getFullYear(), event.getMonth(), event.getDate()).getTime();
+    const eventDate = new Date(dayStart + 9 * 60 * 60 * 1000).toISOString();
+    expect(isCheckInOpen(eventDate, dayStart)).toBe(true);
+    expect(isCheckInOpen(eventDate, dayStart - 1)).toBe(false);
+  });
+
+  // ==== CAS 6 — ROBUSTESSE : eventDate null/undefined => false sans exception ====
   it("retourne false sans lever d'exception quand eventDate est null ou undefined", () => {
     expect(() => isCheckInOpen(null, NOW)).not.toThrow();
     expect(isCheckInOpen(null, NOW)).toBe(false);
@@ -665,13 +675,13 @@ describe("isCheckInOpen", () => {
     expect(isCheckInOpen(undefined, NOW)).toBe(false);
   });
 
-  // ==== CAS 6 — ROBUSTESSE : chaîne de date invalide => false sans exception ====
+  // ==== CAS 7 — ROBUSTESSE : chaîne de date invalide => false sans exception ====
   it("retourne false sans lever d'exception quand eventDate est une chaîne invalide", () => {
     expect(() => isCheckInOpen("pas-une-date", NOW)).not.toThrow();
     expect(isCheckInOpen("pas-une-date", NOW)).toBe(false);
   });
 
-  // ==== CAS 7 — CHOIX PRODUIT FIGÉ : isCheckInOpen reste basé sur event_date, PAS end_date ====
+  // ==== CAS 8 — CHOIX PRODUIT FIGÉ : isCheckInOpen reste basé sur event_date, PAS end_date ====
   // Le check-in porte sur l'AVANT-séance : contrairement à selectLastSession
   // (qui bascule sur end_date quand elle existe pour juger la FIN réelle),
   // isCheckInOpen ne doit jamais tenir compte d'une éventuelle end_date. On

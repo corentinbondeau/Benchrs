@@ -28,7 +28,12 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { parsePouleJournees, validateJourneesPayload, MAX_JOURNEES } from "@/lib/dofa/poule-journees";
+import {
+  parsePouleJournees,
+  validateJourneesPayload,
+  MAX_JOURNEES,
+  MAX_JOURNEES_MATCHES,
+} from "@/lib/dofa/poule-journees";
 
 function makeJournee(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
@@ -155,6 +160,8 @@ describe("validateJourneesPayload — frontière de confiance", () => {
     expect(result).toEqual({
       ok: true,
       journees: [{ number: 1, name: "Journée 1", date: "2026-09-06T00:00:00+00:00" }],
+      matches: [],
+      triplet: null,
     });
   });
 
@@ -163,5 +170,108 @@ describe("validateJourneesPayload — frontière de confiance", () => {
     const result = validateJourneesPayload({ rawBody: JSON.stringify(items) });
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.journees[0].name).toBe("alert(1)Journée 1");
+  });
+
+  it("ignore une liste `matchs` d'IRI (pas d'objets) — étiquetage seul", () => {
+    const items = [makeJournee()];
+    const result = validateJourneesPayload({ rawBody: JSON.stringify(items) });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.matches).toEqual([]);
+      expect(result.triplet).toBeNull();
+    }
+  });
+});
+
+// ─── Matchs embarqués dans les journées ───────────────────────────────────────
+
+function makeEmbeddedMatch(maNo: number): Record<string, unknown> {
+  return {
+    ma_no: maNo,
+    date: "2026-09-20T00:00:00+00:00",
+    time: "15H00",
+    home: { club: { cl_no: 101 }, number: 1, short_name: "ECC 1" },
+    away: { club: { cl_no: 102 }, number: 1, short_name: "OL 1" },
+    home_score: 2,
+    away_score: 1,
+  };
+}
+
+function makeJourneeWithMatches(number: number, matches: unknown[], overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    number,
+    name: `Journée ${number}`,
+    _date: "2026-09-19T00:00:00+00:00",
+    competition: { cp_no: 457592, name: "U14 D1", level: "D" },
+    phase: { number: 1, type: "CH", name: "PHASE 1" },
+    poule: { stage_number: 1, name: "POULE A", gp_diff_no_tour: 0 },
+    matchs: matches,
+    ...overrides,
+  };
+}
+
+describe("validateJourneesPayload — matchs embarqués", () => {
+  it("importe les matchs embarqués quand ils sont développés (objets)", () => {
+    const items = [
+      makeJourneeWithMatches(1, [makeEmbeddedMatch(101), makeEmbeddedMatch(102)]),
+      makeJourneeWithMatches(2, [makeEmbeddedMatch(201)]),
+    ];
+    const result = validateJourneesPayload({ rawBody: JSON.stringify(items) });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.journees).toHaveLength(2);
+    expect(result.matches).toHaveLength(3);
+    expect(result.matches.map((m) => m.maNo).sort()).toEqual([101, 102, 201]);
+    expect(result.triplet).toEqual({ cp_no: 457592, phase: 1, poule: 1 });
+    // Le matchday est repris de la journée parente (les objets développés
+    // n'ont pas de poule_journee imbriquée).
+    expect(result.matches.every((m) => m.matchday === 1 || m.matchday === 2)).toBe(true);
+    expect(result.matches.find((m) => m.maNo === 101)?.matchday).toBe(1);
+    expect(result.matches.find((m) => m.maNo === 201)?.matchday).toBe(2);
+  });
+
+  it("rejette un lot dont un match embarqué est invalide (jamais de sous-ensemble)", () => {
+    const items = [
+      makeJourneeWithMatches(1, [makeEmbeddedMatch(101), { ma_no: 102, date: "2026-09-20T00:00:00+00:00" }]),
+    ];
+    const result = validateJourneesPayload({ rawBody: JSON.stringify(items) });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toBe("invalid_matchs");
+  });
+
+  it("rejette un lot sans triplet déclaré exploitable (ancre anti-injection manquante)", () => {
+    const items = [{ number: 1, name: "Journée 1", matchs: [makeEmbeddedMatch(101)] }];
+    const result = validateJourneesPayload({ rawBody: JSON.stringify(items) });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toBe("triplet_mismatch");
+  });
+
+  it("rejette un lot dont les journées déclarent des triplets incohérents", () => {
+    const items = [
+      makeJourneeWithMatches(1, [makeEmbeddedMatch(101)]),
+      makeJourneeWithMatches(
+        2,
+        [makeEmbeddedMatch(201)],
+        { competition: { cp_no: 999999, name: "Autre", level: "D" } }
+      ),
+    ];
+    const result = validateJourneesPayload({ rawBody: JSON.stringify(items) });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toBe("triplet_mismatch");
+  });
+
+  it("conserve le matchday porté par le match embarqué quand il existe", () => {
+    const embedded = { ...makeEmbeddedMatch(101), poule_journee: { number: 4, name: "4" } };
+    const result = validateJourneesPayload({ rawBody: JSON.stringify([makeJourneeWithMatches(1, [embedded])]) });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.matches[0].matchday).toBe(4);
+  });
+
+  it("rejette un lot dépassant MAX_JOURNEES_MATCHES matchs embarqués", () => {
+    const matches = Array.from({ length: MAX_JOURNEES_MATCHES + 1 }, (_, i) => makeEmbeddedMatch(i + 1));
+    const items = [makeJourneeWithMatches(1, matches)];
+    const result = validateJourneesPayload({ rawBody: JSON.stringify(items) });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toBe("too_many_matchs");
   });
 });

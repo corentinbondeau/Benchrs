@@ -11,12 +11,12 @@ export const TACTICAL_PHASES: Record<string, string[]> = {
     "Jouer dans les intervalles et entre les lignes",
     "Jouer combiné à 2 / à 3 créer de la mobilité et de la vitesse de circulation",
   ],
-  "S’OPPOSER À LA PROGRESSION": [
+  "S'OPPOSER À LA PROGRESSION": [
     "Freiner la progression / réorganiser les alignements",
     "Anticiper la profondeur",
     "Protéger l'axe, le couloir de jeu direct, organiser les prises en charge",
   ],
-  "S’ORGANISER POUR RECUPERER": [
+  "S'ORGANISER POUR RECUPERER": [
     "S'organiser en déséquilibre",
     "Densifier dans le couloir de jeu",
     "Couvrir le partenaire dans l'action défensive",

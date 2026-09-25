@@ -12,7 +12,6 @@
  * Fichiers surveillés :
  *   - src/components/dashboard/NextEventCard.tsx
  *   - src/components/dashboard/RecentResults.tsx
- *   - src/components/dashboard/NewsFeed.tsx
  *   - src/app/(dashboard)/calendar/page.tsx
  *   - src/app/(dashboard)/roster/page.tsx
  *
@@ -33,7 +32,6 @@ import * as path from "path";
 const CRITICAL_FILES = [
   "src/components/dashboard/NextEventCard.tsx",
   "src/components/dashboard/RecentResults.tsx",
-  "src/components/dashboard/NewsFeed.tsx",
   "src/app/(dashboard)/calendar/page.tsx",
   "src/app/(dashboard)/roster/page.tsx",
 ];
