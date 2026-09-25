@@ -25,6 +25,7 @@ export const NAV_TABS: NavTab[] = [
   { key: "material", label: "Matériel", href: "/material" },
   { key: "adversaires", label: "Adversaires", href: "/adversaires" },
   { key: "compare", label: "Comparer", href: "/stats/compare" },
+  { key: "video-analysis", label: "Analyse vidéo", href: "/video-analysis" },
 ];
 
 export const NAV_TAB_KEYS = NAV_TABS.map((t) => t.key);

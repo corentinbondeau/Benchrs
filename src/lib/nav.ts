@@ -31,6 +31,7 @@ import {
   Wallet,
   PiggyBank,
   CalendarRange,
+  Clapperboard,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -73,6 +74,7 @@ export const NAV_SECTIONS: { key: string; title: string; items: NavItem[] }[] = 
       { key: "drop", href: "/stats/drop", label: "Baisse de forme", icon: TrendingDown, coachOnly: true },
       { key: "trophies", href: "/trophies", label: "Trophées", icon: Trophy },
       { key: "tournament", href: "/tournament", label: "Tournois", icon: Trophy },
+      { key: "video-analysis", href: "/video-analysis", label: "Analyse vidéo", icon: Clapperboard },
     ],
   },
   {
