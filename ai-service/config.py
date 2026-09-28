@@ -43,6 +43,28 @@ CLASS_SPORTS_BALL = 32
 MODEL_NAME = os.getenv("MODEL_NAME", "yolov8m.pt")   # m = bon compromis perf/qualité
 CONFIDENCE = _float("CONFIDENCE", 0.25)
 
+# Device torch pour l'inférence :
+#   "auto" → mps si disponible (macOS), sinon cpu (le plus portable).
+#   "0"/"1"  → GPU CUDA (index), "cpu" → force CPU.
+DEVICE = os.getenv("DEVICE", "auto")
+
+
+def torch_device() -> str:
+    """Résout DEVICE en un device valide pour YOLO (inclut MPS)."""
+    if DEVICE == "cpu":
+        return "cpu"
+    if DEVICE in {"auto", "mps"}:
+        try:
+            import torch
+
+            if torch.backends.mps.is_available():
+                return "mps"
+        except ImportError:
+            pass
+        return "cpu"
+    # "0"/"1"/"cuda:0"…
+    return DEVICE
+
 # ─── Traitement vidéo ────────────────────────────────────────
 WARMUP_SEC = _float("WARMUP_SEC", 4.0)             # frames utilisées pour apprendre les couleurs de maillots
 MAX_FRAMES = _int("MAX_FRAMES", 60000)             # garde-fou (~33 min @ 30 fps) — DoS RAM/GPU

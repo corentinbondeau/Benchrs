@@ -60,7 +60,39 @@ python worker.py
 
 > Le premier lancement télécharge automatiquement les poids YOLO
 > (`yolov8m.pt`, ~50 Mo). Sur macOS il utilise l'accélération Metal
-> (`device="mps"`, déjà réglé dans `vision.py`).
+> (`device="mps"`, réglable via `DEVICE=auto`).
+
+## Déploiement en ligne (pour que tous les utilisateurs puissent l'utiliser)
+
+Le worker est un **démon** — il doit tourner en permanence sur une VM /
+un conteneur. Vercel ne peut PAS l'héberger (fonctions Node serverless,
+sans runtime Python persistant ni GPU) : on le déploie à part.
+
+**Option recommandée — Render (Blueprint, 1 clic) :**
+1. `ai-service/render.yaml` (fourni) déploie un *Background Worker* Docker en
+   consommant la file. Voir les instructions en tête de ce fichier.
+2. À la création : renseigner `SUPABASE_URL` et `SUPABASE_SERVICE_ROLE_KEY`
+   (mêmes valeurs que sur Vercel).
+3. Instance *Starter* (~7 $/mo) = toujours allumée. Le plan gratuit* s'endort
+   après 15 min sans activité, KO pour un daemon de file d'attente.
+
+**Alternative — Railway :** connecter le repo, Build root = `ai-service`
+(Dockerfile), variables identiques. Always-on dès le plan Hobby.
+
+**Variables d'env du worker (n'importe quel hébergeur) :**
+
+| Variable | Défaut | Rôle |
+|---|---|---|
+| `SUPABASE_URL` | — | requise (projet Supabase) |
+| `SUPABASE_SERVICE_ROLE_KEY` | — | requise (worker = écritures sans RLS) |
+| `DEVICE` | `auto` | `mps` si dispo (macOS), sinon CPU |
+| `MODEL_NAME` | `yolov8m.pt` | modèle YOLO |
+| `CONFIDENCE` | `0.25` | seuil détection |
+| `POLL_INTERVAL_SEC` | `10` | fréquence de sondage de la file |
+
+> Sur Render à `DEVICE=cpu`, comptez un traitement nettement plus lent que
+> sur un Mac MPS : c'est le compromis d'un hébergement CPU sans GPU (le job
+> reste borné par `HARD_TIMEOUT_SEC`/`MAX_FRAMES`).
 
 ## Plan d'exécution (ordre conseillé)
 

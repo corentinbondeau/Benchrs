@@ -1,0 +1,31 @@
+# ============================================================
+# Render Blueprint — Worker d'analyse vidéo Benchrs
+#
+# Déploiement :
+#   1. Ouvrir app.render.com → New → Blueprint
+#   2. Donner accès au dépôt, choisir cette branch (feat/video-ai-analysis
+#      tant que la feature n'est pas mergée dans main)
+#   3. Renseigner SUPABASE_URL (https://xxxx.supabase.co) et
+#      SUPABASE_SERVICE_ROLE_KEY (Dashboard Supabase → Settings → API)
+#   4. Deploy → le worker démarre et consomme la file video_analyses
+# ============================================================
+services:
+  - type: worker
+    name: benchrs-video-worker
+    runtime: docker
+    repo: https://github.com/corentinbondeau/Benchrs
+    branch: feat/video-ai-analysis
+    dockerContext: ai-service
+    envVars:
+      - key: SUPABASE_URL
+        sync: false         # à renseigner à la création
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false         # à renseigner à la création
+      - key: DEVICE
+        value: cpu          # Render = Linux, pas de MPS ; CPU suffit
+      - key: MODEL_NAME
+        value: yolov8m.pt
+      - key: CONFIDENCE
+        value: "0.25"
+      - key: POLL_INTERVAL_SEC
+        value: "10"

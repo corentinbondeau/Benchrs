@@ -146,7 +146,7 @@ class Tracker:
     def update(self, frame: np.ndarray, frame_idx: int) -> FrameObjects:
         """Exécute la détection + le suivi sur une frame."""
         results = get_model().predict(
-            source=frame, conf=cfg.CONFIDENCE, verbose=False, device="mps"
+            source=frame, conf=cfg.CONFIDENCE, verbose=False, device=cfg.torch_device()
         )[0]
         detections = sv.Detections.from_ultralytics(results)
 
