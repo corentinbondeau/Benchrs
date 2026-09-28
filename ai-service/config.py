@@ -45,8 +45,13 @@ CONFIDENCE = _float("CONFIDENCE", 0.25)
 
 # ─── Traitement vidéo ────────────────────────────────────────
 WARMUP_SEC = _float("WARMUP_SEC", 4.0)             # frames utilisées pour apprendre les couleurs de maillots
-MAX_FRAMES = _int("MAX_FRAMES", 100000)            # garde-fou (vidéos interminables)
-PROGRESS_STEP = _int("PROGRESS_STEP", 1)           # % entre deux mise à jour DB (1 = fluide)
+MAX_FRAMES = _int("MAX_FRAMES", 60000)             # garde-fou (~33 min @ 30 fps) — DoS RAM/GPU
+HARD_TIMEOUT_SEC = _int("HARD_TIMEOUT_SEC", 2700)  # garde-fou temps dur (45 min) — vidéos pathologiques
+MAX_VIDEO_WIDTH = _int("MAX_VIDEO_WIDTH", 1920)    # downscale d'analyse (limite mémoire/CPU de décodage)
+MAX_VIDEO_HEIGHT = _int("MAX_VIDEO_HEIGHT", 1080)
+PROGRESS_STEP = _int("PROGRESS_STEP", 5)           # % entre deux mises à jour DB (20 écritures max)
+HEARTBEAT_SEC = _int("HEARTBEAT_SEC", 30)          # touche le job en cours pour échapper au re-claim
+MAX_TIMELINE = _int("MAX_TIMELINE", 500)           # cap des events remontés au front (anti-DoS rendu)
 
 # Seuils métier (heuristiques, calibrés sur des vidéos full-width smartphone)
 POSSESSION_RADIUS = _float("POSSESSION_RADIUS", 140.0)     # px, rayon max autour du ballon pour "toucher" le ballon

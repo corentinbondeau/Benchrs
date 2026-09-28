@@ -24,6 +24,7 @@
 from __future__ import annotations
 
 import math
+import time
 from collections import defaultdict
 from dataclasses import dataclass, field
 
@@ -368,7 +369,7 @@ def analyze_video(
     front. `progress_cb(pct)` est appelé régulièrement (0→100)."""
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
-        raise RuntimeError(f"Impossible d'ouvrir la vidéo : {video_path}")
+        raise RuntimeError("Impossible d'ouvrir la vidéo")
 
     fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
     frame_w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -376,6 +377,16 @@ def analyze_video(
     total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT)) or 0
     if total <= 0:
         total = cfg.MAX_FRAMES
+
+    # Garde-fous anti-DoS : résolution d'analyse plafonnée (downscale),
+    # temps de calcul borné (HARD_TIMEOUT_SEC), frames bornées.
+    scale = min(
+        1.0,
+        cfg.MAX_VIDEO_WIDTH / frame_w if frame_w else 1.0,
+        cfg.MAX_VIDEO_HEIGHT / frame_h if frame_h else 1.0,
+    )
+    do_scale = scale < 1.0
+    hard_deadline = time.monotonic() + cfg.HARD_TIMEOUT_SEC
 
     tracker = Tracker()
     records: list[FrameRecord] = []
@@ -394,6 +405,14 @@ def analyze_video(
         ok, frame = cap.read()
         if not ok or idx >= cfg.MAX_FRAMES:
             break
+        if time.monotonic() > hard_deadline:
+            cap.release()
+            raise RuntimeError(f"Temps d'analyse maximal dépassé ({cfg.HARD_TIMEOUT_SEC} s)")
+
+        if do_scale:
+            frame = cv2.resize(
+                frame, (max(1, int(frame_w * scale)), max(1, int(frame_h * scale)))
+            )
 
         objects: FrameObjects = tracker.update(frame, idx)
         t = idx / fps
@@ -470,6 +489,6 @@ def analyze_video(
             "shots": {"team1": shots0, "team2": shots1},
             "shots_on_target": {"team1": sot0, "team2": sot1},
         },
-        "timeline": shots,
+        "timeline": shots[: cfg.MAX_TIMELINE],
     }
     return result

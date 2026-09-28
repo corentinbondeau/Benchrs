@@ -15,12 +15,14 @@
 from __future__ import annotations
 
 import logging
+import threading
 import time
 import traceback
 
 import config as cfg
 from match_analyzer import analyze_video
 from supabase_gateway import SupabaseGateway
+from validate import sniff_video
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("benchrs-worker")
@@ -30,21 +32,43 @@ def process_job(gateway: SupabaseGateway, job: dict) -> None:
     job_id = job["id"]
     storage_path = job["storage_path"]
     video_path = ""
+    current = {"pct": 2}
 
     log.info("Démarrage analyse %s (vidéo %s)", job_id, storage_path)
     gateway.update_progress(job_id, 2)
 
+    # Heartbeat : touche le job en cours pour éviter qu'il soit
+    # re-réclamé par le re-claim de la file (started_at expiré).
+    stop_hb = threading.Event()
+
+    def _heartbeat() -> None:
+        while not stop_hb.wait(cfg.HEARTBEAT_SEC):
+            try:
+                # Non throttlé : prolonge started_at pour que le
+                # re-claim (15 min) ne reprenne pas un job actif.
+                gateway.touch_job(job_id)
+            except Exception:
+                log.warning("Heartbeat échoué pour %s", job_id, exc_info=True)
+
+    hb = threading.Thread(target=_heartbeat, name="heartbeat", daemon=True)
+    hb.start()
+
     def progress(pct: int) -> None:
+        current["pct"] = pct
         gateway.update_progress(job_id, pct)
 
     try:
         video_path = gateway.download_video(storage_path)
-        log.info("Vidéo téléchargée : %s", video_path)
+        # Validation des magic bytes AVANT tout décodage (anti-RCE/SSRF) :
+        # un fichier qui n'est pas un vrai conteneur vidéo est refusé.
+        sniff_video(video_path)
+        log.info("Vidéo validée : %s", video_path)
 
         result = analyze_video(video_path, progress_cb=progress)
         gateway.mark_completed(job_id, result)
         log.info("Analyse %s terminée", job_id)
     finally:
+        stop_hb.set()
         gateway.cleanup(video_path)
 
 

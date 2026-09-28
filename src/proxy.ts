@@ -80,16 +80,16 @@ export function proxy(request: NextRequest) {
     }
   }
 
-  const isAuthPage =
-    pathname === "/login" ||
-    pathname === "/register" ||
-    pathname === "/forgot-password";
   const isPublicPage =
     pathname === "/create-team" ||
     pathname === "/join" ||
     pathname === "/offline" ||
     pathname.startsWith("/live/") ||
     pathname.startsWith("/c/");
+  const isAuthPage =
+    pathname === "/login" ||
+    pathname === "/register" ||
+    pathname === "/forgot-password";
   const isApiAuth = pathname.startsWith("/api/auth");
   // /api/notifications/cron est appelé par Vercel Cron (Bearer CRON_SECRET) sans session,
   // et /api/clubs/lookup-public est appelé depuis la page publique /register.
@@ -99,8 +99,14 @@ export function proxy(request: NextRequest) {
     pathname === "/api/notifications/cron" ||
     pathname === "/api/clubs/lookup-public";
 
-  const sessionToken =
-    request.cookies.get("sb-gxksycbwylhkhihcvddw-auth-token")?.value;
+  // Nom du cookie de session Supabase : sb-<project_ref>-auth-token.
+  // Dérivé de l'URL (pas de ref codé en dur, sinon un changement de
+  // projet Supabase casse silencieusement toute la détection de session).
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+  const supabaseRef = supabaseUrl.match(/https:\/\/([^.]+)\./)?.[1];
+  const sessionToken = request.cookies.get(
+    supabaseRef ? `sb-${supabaseRef}-auth-token` : "sb-gxksycbwylhkhihcvddw-auth-token"
+  )?.value;
 
   const isLoggedIn = !!sessionToken;
 

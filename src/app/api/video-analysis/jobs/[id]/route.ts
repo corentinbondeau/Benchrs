@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getAuthUser, unauthorized, forbidden, isTeamCoach } from "@/lib/api-auth";
+import {
+  getAuthUser,
+  unauthorized,
+  forbidden,
+  isTeamCoach,
+  isTeamMember,
+} from "@/lib/api-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -28,13 +34,7 @@ export async function GET(
       return NextResponse.json({ error: "Analyse introuvable" }, { status: 404 });
     }
 
-    const { data: member } = await supabase
-      .from("team_members")
-      .select("id")
-      .eq("user_id", user.id)
-      .eq("team_id", job.team_id)
-      .maybeSingle();
-    if (!member) return forbidden();
+    if (!(await isTeamMember(user.id, job.team_id))) return forbidden();
 
     return NextResponse.json({ job });
   } catch {

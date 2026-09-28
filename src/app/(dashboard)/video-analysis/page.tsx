@@ -120,10 +120,18 @@ export default function VideoAnalysisPage() {
         </p>
       </div>
 
-      <VideoAnalysisUploader
-        teamId={currentTeam.id}
-        onCreated={() => loadJobs().then(setJobs).catch(() => {})}
-      />
+      {isCoach ? (
+        <VideoAnalysisUploader
+          teamId={currentTeam.id}
+          onCreated={() => loadJobs().then(setJobs).catch(() => {})}
+        />
+      ) : (
+        <Card>
+          <CardContent className="p-4 text-sm text-muted-foreground">
+            L&apos;analyse vidéo des matchs est réservée aux coachs de l&apos;équipe.
+          </CardContent>
+        </Card>
+      )}
 
       <div className="space-y-3">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
