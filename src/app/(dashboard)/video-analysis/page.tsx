@@ -81,8 +81,21 @@ export default function VideoAnalysisPage() {
       )
       .subscribe();
 
+    // Filet de sécurité : si realtime n'est pas publié sur la table
+    // video_analyses, on rafraîchit par polling (léger : une select).
+    const poll = window.setInterval(() => {
+      loadJobs()
+        .then((rows) => {
+          if (!active) return;
+          setJobs(rows);
+          setLoading(false);
+        })
+        .catch(() => {});
+    }, 20000);
+
     return () => {
       active = false;
+      window.clearInterval(poll);
       supabase.removeChannel(channel);
     };
     // selectedId n'est volontairement pas dans les deps (reloads ci-dessus)

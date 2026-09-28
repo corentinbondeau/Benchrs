@@ -77,6 +77,30 @@ python worker.py
 4. **Front** — Ne reste plus que l'affichage (déjà en place) : la page
    `Équipe → Analyse vidéo` liste les analyses et affiche le dashboard.
 
+## Diagnostic — « l'analyse reste à 0 % »
+
+Une tâche bloquée à `0 %` / `pending` pendant des heures signifie que la
+**file n'est pas consommée**. Causes en ordre de probabilité :
+
+1. **Le worker n'est pas lancé.** Rien ne déploie ce démon (par design) :
+   il faut `python worker.py` tourner en permanence (systemd, Docker,
+   machine dédiée…). Test rapide : lancer le worker en avant-plan et lire
+   ses logs — doivent apparaître `Démarrage analyse …` puis des pourcentages.
+2. **Migrations non appliquées.** Le worker vérifie au démarrage :
+   - table `video_analyses` → migration `106_video_analysis.sql`,
+   - RPC `claim_next_video_job` → migration `107_video_security.sql`
+     (il bascule alors automatiquement sur une réclamation inline sûre).
+   Une erreur explicite au boot vous dit laquelle manque (SQL Editor Supabase).
+3. **Erreur réseau/schema silencieuse.** Lancer le worker avec les logs
+   visibles : toute erreur de boucle y est tracée. Vérifier aussi que
+   `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY` du `.env` désignent le bon projet.
+4. **Realtime non publié** (l'UI ne se rafraîchit pas) : la page retombe
+   sur un polling 20 s, mais vous pouvez publier la table en plus :
+   `ALTER PUBLICATION supabase_realtime ADD TABLE video_analyses;`
+
+Une fois le worker actif, le statut évolue en direct : 1 % (démarrage),
+puis +5 % par palier, jusqu'à `completed` avec le rapport JSON.
+
 ## Métriques calculées (heuristiques 2D)
 
 - **Couleurs d'équipes** : k-means (2 clusters) sur la couleur HSV

@@ -75,6 +75,12 @@ def process_job(gateway: SupabaseGateway, job: dict) -> None:
 def run_forever() -> None:
     cfg.check_config(require_supabase=True)
     gateway = SupabaseGateway()
+    try:
+        gateway.check_schema()
+    except Exception as exc:
+        log.error("Problème de schéma : %s", exc)
+        log.error("Vérifiez que les migrations 106 ET 107 sont appliquées dans Supabase.")
+        raise
     log.info(
         "Worker Benchrs actif — modèle %s — polling toutes les %ss",
         cfg.MODEL_NAME,
