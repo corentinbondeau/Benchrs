@@ -64,6 +64,17 @@ python worker.py
 
 ## Déploiement en ligne (pour que tous les utilisateurs puissent l'utiliser)
 
+> **Option A (recommandée, zéro daemon) — API de vision externe :**
+> le pipeline est empaqueté en modèle Cog sur **Replicate** (`replicate/`)
+> et appelé directement depuis Vercel (pay-per-run). Voir
+> [`replicate/README.md`](../replicate/README.md). Variables Vercel :
+> `REPLICATE_API_TOKEN` (+ `REPLICATE_MODEL`). Le cron
+> `/api/video-analysis/cron` rattrape les jobs perdus.
+>
+> **Option B — worker dédié :** le démon `worker.py` tourne sur une VM /
+> un conteneur (Render/Railway). Pour que ce soit 100 % automatique, il
+> faut garder ce worker allumé.
+
 Le worker est un **démon** — il doit tourner en permanence sur une VM /
 un conteneur. Vercel ne peut PAS l'héberger (fonctions Node serverless,
 sans runtime Python persistant ni GPU) : on le déploie à part.

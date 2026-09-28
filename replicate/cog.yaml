@@ -1,0 +1,32 @@
+# ============================================================
+# Replicate — modèle Cog « benchrs/video-analysis »
+#
+# Empaquète le pipeline d'analyse (ai-service/) en un modèle
+# d'API ML externe, exécuté par Replicate (pay-per-run, CPU).
+# Aucun démon à maintenir : Vercel lance la prédiction via son
+# webhook et écrit le résultat dans video_analyses.
+#
+# Déploiement (une seule fois) :
+#   1. app.replicate.com → New model (owner = compte), nom
+#      « video-analysis » (ou réglable via REPLICATE_MODEL).
+#   2. Model → « Cog configuration » → connecter ce dépôt GitHub et
+#      pointer le dossier `replicate/`.
+#   3. Replicate build l'image et sert le modèle sous
+#      https://replicate.com/<owner>/video-analysis.
+# ============================================================
+build:
+  gpu: false
+  system_packages:
+    - libgl1
+    - libglib2.0-0
+  python_version: "3.11"
+  python_packages:
+    - ultralytics>=8.2.0
+    - opencv-python>=4.9.0
+    - numpy>=1.26.0
+    - supervision>=0.21.0
+
+predict: "replicate/predict.py"
+# Une analyse de match bornée (MAX_FRAMES/HARD_TIMEOUT) peut prendre
+# plusieurs dizaines de minutes sur CPU.
+predict_timeout: 3600
