@@ -29,6 +29,6 @@ build:
     - supervision>=0.21.0
     - python-dotenv>=1.0.0
 
-predict: "replicate/predict.py"
+predict: "replicate/predict.py:Predictor"
 # Durée max d'un run réglée sur la page du modèle Replicate
 # (paramètre « Time », ex. 3600 s) — cog.yaml n'expose pas ce champ.
