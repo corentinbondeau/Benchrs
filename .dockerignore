@@ -1,0 +1,25 @@
+# Context Docker Cog (root) : on n'embarque que le code du pipeline.
+node_modules
+.next
+out
+legacy-app
+public
+e2e
+playwright-report
+test-results
+.vercel
+.github
+ai-service/.venv
+ai-service/.env
+ai-service/__pycache__
+src
+supabase
+.proxy
+vercel.json
+next.config.ts
+package.json
+package-lock.json
+tsconfig.json
+.eslintrc.json
+AGENTS.md
+README.md

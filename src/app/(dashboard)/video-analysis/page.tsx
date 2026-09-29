@@ -17,7 +17,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { toast } from "sonner";
-import { ChevronRight, Clapperboard, Loader2, Trash2 } from "lucide-react";
+import { ChevronRight, Clapperboard, Loader2, Play, Trash2 } from "lucide-react";
 
 export default function VideoAnalysisPage() {
   const { currentTeam, userRole } = useTeam();
@@ -115,6 +115,24 @@ export default function VideoAnalysisPage() {
     setJobs((prev) => prev.filter((j) => j.id !== job.id));
     if (selectedId === job.id) setSelectedId(null);
     toast.success("Analyse supprimée");
+  }
+
+  async function handleStart(job: VideoAnalysis) {
+    toast.info("Lancement de l'analyse…");
+    const res = await authFetch(`/api/video-analysis/start`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ jobId: job.id }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      toast.error(data.error || "Impossible de lancer l'analyse");
+      return;
+    }
+    if (data.job) {
+      setJobs((prev) => prev.map((j) => (j.id === job.id ? data.job : j)));
+    }
+    toast.success(data.alreadyStarted ? "Analyse déjà en cours" : "Analyse lancée");
   }
 
   const selectedJob = jobs.find((j) => j.id === selectedId) ?? null;
@@ -221,6 +239,17 @@ export default function VideoAnalysisPage() {
                         className="shrink-0 text-muted-foreground hover:text-destructive"
                       >
                         <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
+                    {isCoach && job.status === "pending" && (
+                      <button
+                        type="button"
+                        aria-label="Lancer l'analyse"
+                        title="Lancer l'analyse (API externe)"
+                        onClick={() => handleStart(job)}
+                        className="shrink-0 text-[var(--color-royal)] hover:text-[var(--color-gold)]"
+                      >
+                        <Play className="h-4 w-4" />
                       </button>
                     )}
                   </div>

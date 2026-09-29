@@ -1,9 +1,10 @@
 # Benchrs — Analyse vidéo via API ML externe (Replicate)
 
-Le moteur d'analyse (`ai-service/`) est empaqueté en **modèle Cog** et
-exposé comme une **API de vision pay-per-run** : plus aucun démon à
-maintenir. Le front reste sur Vercel, qui appelle Replicate et reçoit le
-résultat via webhook.
+Le moteur d'analyse (`ai-service/`) est empaqueté en **modèle Cog**
+(`cog.yaml` à la racine + `replicate/predict.py`) et exposé comme une
+**API de vision pay-per-run** : plus aucun démon à maintenir. Le front
+reste sur Vercel, qui appelle Replicate et reçoit le résultat via
+webhook.
 
 ## Architecture
 
@@ -25,13 +26,25 @@ Front /video-analysis (polling 20 s + realtime) → dashboard du rapport
 
 ## Déploiement du modèle (une seule fois)
 
+Le modèle s'appelle `benchrs/video-analysis` (org **benchrs**, celle du
+token). `cog.yaml` vit **à la racine du dépôt** (l'intégration GitHub de
+Replicate le lit à la racine ; `.dockerignore` exclut tout sauf le
+pipeline).
+
 1. **Créer le modèle** sur [replicate.com](https://replicate.com) →
-   **New model** → nom `video-analysis` (ton compte = owner).
-2. Ouvrir le modèle → **« Cog configuration »** → connecter ce dépôt
-   GitHub et pointer le dossier **`replicate/`** → Replicate build
-   l'image Docker (libgl + torch CPU + weights YOLO pré-chargés).
-3. Après le build, le modèle est servi à
-   `https://replicate.com/<owner>/video-analysis`.
+   organisme **benchrs** → **New model** → nom `video-analysis`.
+2. Ouvrir le modèle → **« Connect a repository »** →
+   **corentinbondeau/Benchrs** (branche par défaut = de préférence
+   `main` : chaque push re-déclenche le build).
+3. Replicate build l'image (libgl + torch CPU + weights YOLO
+   téléchargés au 1er run). Le modèle est servi à
+   `https://replicate.com/benchrs/video-analysis` quand le build est
+   vert (Ready).
+4. `REPLICATE_MODEL` sur Vercel = `benchrs/video-analysis` (défaut déjà
+   correct — AUCUNE var à changer sauf si tu déploies ailleurs).
+
+> Le modèle a aussi été **pré-créé (vide)** via l'API pour réserver le
+> slug — il ne devient utilisable qu'après l'étape 2-3.
 
 ## Variables d'environnement (Vercel → Project Settings → Env Vars)
 

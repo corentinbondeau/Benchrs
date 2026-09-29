@@ -1,18 +1,20 @@
 # ============================================================
-# Replicate — modèle Cog « benchrs/video-analysis »
+# Cog — modèle Replicate « benchrs/video-analysis »
 #
 # Empaquète le pipeline d'analyse (ai-service/) en un modèle
 # d'API ML externe, exécuté par Replicate (pay-per-run, CPU).
 # Aucun démon à maintenir : Vercel lance la prédiction via son
 # webhook et écrit le résultat dans video_analyses.
 #
-# Déploiement (une seule fois) :
-#   1. app.replicate.com → New model (owner = compte), nom
-#      « video-analysis » (ou réglable via REPLICATE_MODEL).
-#   2. Model → « Cog configuration » → connecter ce dépôt GitHub et
-#      pointer le dossier `replicate/`.
-#   3. Replicate build l'image et sert le modèle sous
-#      https://replicate.com/<owner>/video-analysis.
+# Ce fichier est VOLONTAIREMENT à la racine du dépôt : l'intégration
+# GitHub de Replicate lit cog.yaml à la racine (le build embarque
+# tout le repo ; predict.py importe ai-service/ relativement).
+#
+# Déploiement (une seule fois, sur app.replicate.com) :
+#   1. org « benchrs » → New model → nom « video-analysis ».
+#   2. Model → « Connect a repository » → corentinbondeau/Benchrs
+#      (la branche par défaut). Replicate build puis sert le modèle
+#      sous https://replicate.com/benchrs/video-analysis.
 # ============================================================
 build:
   gpu: false
@@ -25,6 +27,7 @@ build:
     - opencv-python>=4.9.0
     - numpy>=1.26.0
     - supervision>=0.21.0
+    - python-dotenv>=1.0.0
 
 predict: "replicate/predict.py"
 # Une analyse de match bornée (MAX_FRAMES/HARD_TIMEOUT) peut prendre
