@@ -59,36 +59,51 @@ python worker.py
 ```
 
 > Le premier lancement télécharge automatiquement les poids YOLO
-> (`yolov8m.pt`, ~50 Mo). Sur macOS il utilise l'accélération Metal
+> (`yolov8n.pt`, ~6 Mo sur CPU ARM ; `yolov8m.pt` ~50 Mo si vous passez
+> `MODEL_NAME=yolov8m.pt`). Sur macOS il utilise l'accélération Metal
 > (`device="mps"`, réglable via `DEVICE=auto`).
 
 ## Déploiement en ligne (pour que tous les utilisateurs puissent l'utiliser)
 
-> **Option A (recommandée, zéro daemon) — API de vision externe :**
-> le pipeline est empaqueté en modèle Cog sur **Replicate** (`replicate/`)
-> et appelé directement depuis Vercel (pay-per-run). Voir
-> [`replicate/README.md`](../replicate/README.md). Variables Vercel :
-> `REPLICATE_API_TOKEN` (+ `REPLICATE_MODEL`). Le cron
-> `/api/video-analysis/cron` rattrape les jobs perdus.
+> **Option retenue (gratuite, 24/7) — VM Oracle Cloud Free Tier :**
+> le worker `worker.py` tourne sur une instance ARM A1 (4 OCPU / 24 Go RAM,
+> gratuit à vie) via Docker. Le bucket privé et la file sont dans Supabase,
+> le worker consomme les jobs automatiquement. Voir `deploy-oracle.sh` et
+> la section « Oracle Cloud Free Tier » ci-dessous.
 >
-> **Option B — worker dédié :** le démon `worker.py` tourne sur une VM /
-> un conteneur (Render/Railway). Pour que ce soit 100 % automatique, il
-> faut garder ce worker allumé.
+> **Alternative payante (abandonnée) — API de vision externe Replicate :**
+> le pipeline était empaqueté en modèle Cog et appelé depuis Vercel
+> (pay-per-run). Abandonné car il fait payer par exécution. Le workflow
+> GitHub Actions `cog-push.yml` reste dispo en manuel au cas où.
 
 Le worker est un **démon** — il doit tourner en permanence sur une VM /
 un conteneur. Vercel ne peut PAS l'héberger (fonctions Node serverless,
 sans runtime Python persistant ni GPU) : on le déploie à part.
 
-**Option recommandée — Render (Blueprint, 1 clic) :**
-1. `ai-service/render.yaml` (fourni) déploie un *Background Worker* Docker en
-   consommant la file. Voir les instructions en tête de ce fichier.
-2. À la création : renseigner `SUPABASE_URL` et `SUPABASE_SERVICE_ROLE_KEY`
-   (mêmes valeurs que sur Vercel).
-3. Instance *Starter* (~7 $/mo) = toujours allumée. Le plan gratuit* s'endort
-   après 15 min sans activité, KO pour un daemon de file d'attente.
+### Oracle Cloud Free Tier (gratuit à vie, 4 vCPU ARM)
 
-**Alternative — Railway :** connecter le repo, Build root = `ai-service`
-(Dockerfile), variables identiques. Always-on dès le plan Hobby.
+1. Créer un compte → **Oracle Cloud Infrastructure** → *Free Tier* (seule
+   la création du compte exige une carte bancaire pour vérification,
+   elle n'est jamais débitée).
+2. Créer une instance **VM.Standard.A1.Flex** (shape Ampere ARM) :
+   *Image* = **Ubuntu 24.04**, *OCPU count* = **4**, *RAM* = **24 Go**,
+   clé SSH publique (nom du feu d'action "Add SSH keys").
+   ⚠ Sélectionner bien la shape A1 **ARM** (gratuite) — les shapes VM.Standard.E2.1.Micro
+   sont x86 mais limitées à 1 OCPU (très lentes en YOLO).
+3. `ssh ubuntu@<IP>` puis :
+   ```bash
+   git clone https://github.com/corentinbondeau/Benchrs.git
+   cd Benchrs/ai-service
+   bash deploy-oracle.sh          # installe Docker + crée le .env à compléter
+   # → éditer .env : SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY (= valeurs Vercel)
+   bash deploy-oracle.sh          # build + service systemd + logs
+   ```
+4. Le service `benchrs-worker` redémarre seul au boot.
+   Logs : `journalctl -u benchrs-worker -f`.
+
+> **Vitesse ARM CPU** : avec `yolov8n` + downscale 1280×720, une vidéo de
+> match de ~30 min est analysée en ~20-40 min. C'est le compromis d'un
+> CPU ARM sans GPU. Le job reste borné par `HARD_TIMEOUT_SEC`/`MAX_FRAMES`.
 
 **Variables d'env du worker (n'importe quel hébergeur) :**
 
@@ -96,13 +111,13 @@ sans runtime Python persistant ni GPU) : on le déploie à part.
 |---|---|---|
 | `SUPABASE_URL` | — | requise (projet Supabase) |
 | `SUPABASE_SERVICE_ROLE_KEY` | — | requise (worker = écritures sans RLS) |
-| `DEVICE` | `auto` | `mps` si dispo (macOS), sinon CPU |
-| `MODEL_NAME` | `yolov8m.pt` | modèle YOLO |
+| `DEVICE` | `auto` | `mps` si dispo (macOS), sinon CPU — forcer `cpu` sur une VM |
+| `MODEL_NAME` | `yolov8n.pt` | modèle YOLO (`n` = léger/rapide CPU) |
 | `CONFIDENCE` | `0.25` | seuil détection |
 | `POLL_INTERVAL_SEC` | `10` | fréquence de sondage de la file |
 
-> Sur Render à `DEVICE=cpu`, comptez un traitement nettement plus lent que
-> sur un Mac MPS : c'est le compromis d'un hébergement CPU sans GPU (le job
+> Sur CPU (Oracle ARM, Render…), comptez un traitement nettement plus lent
+> que sur un Mac MPS : c'est le compromis d'un hébergement sans GPU (le job
 > reste borné par `HARD_TIMEOUT_SEC`/`MAX_FRAMES`).
 
 ## Plan d'exécution (ordre conseillé)

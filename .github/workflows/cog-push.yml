@@ -19,8 +19,9 @@ on:
         description: "Modèle Replicate cible (owner/model)"
         required: false
         default: "benchrs/video-analysis"
-  push:
-    branches: [main]
+# NOTE : Replicate abandonné (pay-per-run). L'analyse vidéo est gérée
+# par le worker auto-hébergé (ai-service/worker.py) sur une VM gratuite.
+# Ce workflow reste dispo en manuel uniquement, au cas où.
 
 concurrency:
   group: replicate-push
