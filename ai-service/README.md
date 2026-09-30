@@ -96,8 +96,11 @@ sans runtime Python persistant ni GPU) : on le déploie à part.
    cd Benchrs/ai-service
    bash deploy-oracle.sh          # installe Docker + crée le .env à compléter
    # → éditer .env : SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY (= valeurs Vercel)
-   bash deploy-oracle.sh          # build + service systemd + logs
+   bash deploy-oracle.sh          # pull image GHCR + service systemd + logs
    ```
+   L'image ARM64 est **pré-construite** par le workflow GitHub Actions
+   `worker-image.yml` (push sur main → published sur `ghcr.io/
+   corentinbondeau/benchrs-worker:arm64`) : la VM ne fait qu'un `docker pull`.
 4. Le service `benchrs-worker` redémarre seul au boot.
    Logs : `journalctl -u benchrs-worker -f`.
 

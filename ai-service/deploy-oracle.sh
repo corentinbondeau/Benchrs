@@ -9,10 +9,14 @@
 # Ce script :
 #   1. installe Docker,
 #   2. pré-remplit un .env à compléter (SUPABASE_URL + KEY),
-#   3. monte l'image et installe un service systemd `benchrs-worker`
+#   3. tire l'image ARM64 pré-construite depuis GitHub Container
+#      Registry (construite par le workflow worker-image.yml),
+#   4. installe un service systemd `benchrs-worker`
 #      (auto-redémarrage au boot).
 # ============================================================
 set -euo pipefail
+
+IMAGE="ghcr.io/corentinbondeau/benchrs-worker:arm64"
 
 # ─── 1) Docker ────────────────────────────────────────────────
 if ! command -v docker >/dev/null 2>&1; then
@@ -47,8 +51,15 @@ fi
 source .env
 
 # ─── 3) Image + service systemd ──────────────────────────────
-# Remonte l'image locale (CPU ARM) nommée benchrs-worker.
-sudo docker build -t benchrs-worker .
+# Tirage de l'image ARM64 pré-construite (GHCR). Le conteneur
+# récupère les secrets via --env-file (jamais committés).
+echo "→ Tirage image $IMAGE …"
+if ! sudo docker pull "$IMAGE"; then
+  echo "⚠  Pull GHCR impossible. Vérifie que le workflow worker-image.yml"
+  echo "    a poussé au moins une fois l'image (Actions → Build ARM worker image)."
+  exit 1
+fi
+sudo docker tag "$IMAGE" benchrs-worker
 
 # Service systemd qui (re)lance le conteneur au boot.
 sudo tee /etc/systemd/system/benchrs-worker.service >/dev/null <<EOF
