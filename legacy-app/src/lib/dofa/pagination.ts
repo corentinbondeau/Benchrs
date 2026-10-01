@@ -43,6 +43,14 @@ function pageNumberFromUrl(url: string): number | null {
 
 /** Fonction pure, jamais d'exception : toute méta-donnée absente → null. */
 export function extractDofaPagination(data: unknown): DofaPagination {
+  // Cas particulier : l'utilisateur colle un TABLEAU BRUT (repli des liens
+  // « calendrier?itemsPerPage=500 » qui renouvent souvent la liste entière sans
+  // enveloppe Hydra). Il n'y a alors aucune méta-donnée, mais la taille de la
+  // page collée est bien la longueur du tableau.
+  if (Array.isArray(data)) {
+    return { totalItems: null, pageSize: data.length, currentPage: null, lastPage: null, nextUrl: null };
+  }
+
   if (!data || typeof data !== "object") {
     return { totalItems: null, pageSize: 0, currentPage: null, lastPage: null, nextUrl: null };
   }
