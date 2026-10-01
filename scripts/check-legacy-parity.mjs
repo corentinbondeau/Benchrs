@@ -42,8 +42,25 @@ export const PARITY_SCOPE = ["lib", "types", "components/lineup"];
  * Allowlist des écarts intentionnels entre src/ et legacy-app/src/, à
  * l'intérieur du périmètre défini par PARITY_SCOPE.
  * Chemins relatifs à la racine des deux répertoires comparés.
+ *
+ * Contenu du fork legacy (Next 14) : il ne porte PAS les features propres
+ * à l'app principale — analyse vidéo (replicate/videoAnalysis/nav/tabs),
+ * export PDF joueur (playerSeasonPdf), calcul d'assiduité (attendance),
+ * shémas d'exercices échelle/haies/cerceau (types/training/pdf). Ces
+ * écarts sont VOLONTAIRES : le fork ne consomme pas ces modules.
  */
-export const DEFAULT_ALLOWLIST = ["lib/legacyUserAgent.ts", "lib/legacyUserAgent.test.ts"];
+export const DEFAULT_ALLOWLIST = [
+  "lib/legacyUserAgent.ts",
+  "lib/legacyUserAgent.test.ts",
+  "lib/attendance.ts",
+  "lib/nav.ts",
+  "lib/playerSeasonPdf.tsx",
+  "lib/replicate.ts",
+  "lib/videoAnalysis.ts",
+  "lib/tabs.ts",
+  "lib/training/pdf.tsx",
+  "types/index.ts",
+];
 
 function hashFile(filePath) {
   const content = fs.readFileSync(filePath);
