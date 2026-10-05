@@ -16,6 +16,7 @@ import { parseDofaMatches } from "@/lib/dofa/parse-matches";
 import { extractPouleTeams, type PouleTeam } from "@/lib/dofa/poule-teams";
 import { parsePouleJournees, type DofaJournee } from "@/lib/dofa/poule-journees";
 import { extractDofaPagination, type DofaPagination } from "@/lib/dofa/pagination";
+import { diagnoseDofaPaste } from "@/lib/dofa/paste-diagnostics";
 import { currentSeasonLabel, previousSeasonLabel } from "@/lib/goals";
 import PouleResultsCard, { type PouleMatch } from "@/components/championship/PouleResultsCard";
 
@@ -76,6 +77,20 @@ interface DofaImportResult {
  * nouvel onglet par le coach — jamais appelée depuis le serveur Benchrs
  * (bloquée par un pare-feu Akamai côté FFF pour toute requête serveur). */
 const DOFA_CALENDRIER_BASE = "https://api-dofa.fff.fr/api/compets";
+
+/**
+ * Extrait la liste de matchs d'un JSON DOFA collé : tableau nu OU enveloppe
+ * Hydra (`{ "hydra:member": [...] }`), les deux formes renvoyant par
+ * l'API. `null` = forme non reconnue.
+ */
+function extractMatchItems(parsed: unknown): unknown[] | null {
+  if (Array.isArray(parsed)) return parsed as unknown[];
+  if (parsed && typeof parsed === "object") {
+    const member = (parsed as Record<string, unknown>)["hydra:member"];
+    if (Array.isArray(member)) return member as unknown[];
+  }
+  return null;
+}
 
 export default function ChampionshipPage() {
   const { currentTeam, userRole } = useTeam();
@@ -243,16 +258,26 @@ export default function ChampionshipPage() {
       return;
     }
 
-    const matches = Array.isArray(parsed)
-      ? parsed
-      : parsed && typeof parsed === "object" && Array.isArray((parsed as Record<string, unknown>)["hydra:member"])
-        ? (parsed as Record<string, unknown>)["hydra:member"]
-        : null;
+    const matches = extractMatchItems(parsed);
 
-    if (matches === null) {
+    if (!matches) {
       setPasteError(
         "Le format collé n'est pas reconnu (ni tableau de matchs, ni enveloppe attendue). Vérifiez que vous avez bien copié le contenu de la page « Ouvrir mes matchs »."
       );
+      return;
+    }
+
+    // Diagnostic local AVANT l'appel réseau : le serveur renvoie volontairement
+    // un message générique (frontière de confiance), ce qui laisse le coach
+    // sans piste quand le collage est mauvais. On parle de SON collage, donc
+    // aucune fuite — et on peut proposer l'action corrective dans le message.
+    const problem = diagnoseDofaPaste(matches, {
+      cp_no: selected.dofa_cp_no,
+      phase: selected.dofa_phase,
+      poule: selected.dofa_poule,
+    });
+    if (problem) {
+      setPasteError(problem.message);
       return;
     }
 
