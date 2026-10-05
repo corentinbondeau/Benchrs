@@ -24,10 +24,17 @@ import {
 } from "@/components/ui/select";
 import { createClient } from "@/lib/supabase/client";
 import { authFetch } from "@/lib/api-client";
+import {
+  resolveInviteCode,
+  savePendingInvite,
+  clearPendingInvite,
+} from "@/lib/invite";
 
 function JoinTeamForm() {
   const searchParams = useSearchParams();
-  const [inviteCode, setInviteCode] = useState(searchParams.get("code") || "");
+  const urlCode = searchParams.get("code") || "";
+  const [inviteCode, setInviteCode] = useState(() => resolveInviteCode(urlCode));
+  const [inviteFromLink] = useState(() => Boolean(resolveInviteCode(urlCode)));
   const [role, setRole] = useState<"player" | "parent">("player");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -36,7 +43,16 @@ function JoinTeamForm() {
   const [user, setUser] = useState<{ id: string } | null>(null);
   const router = useRouter();
 
+  // Mémorise le code retenu (pas de setState ici : l'initialisation lazy
+  // ci-dessus a déjà repris la valeur).
   useEffect(() => {
+    const code = resolveInviteCode(urlCode);
+    if (!code) return;
+    savePendingInvite(code);
+  }, [urlCode]);
+
+  useEffect(() => {
+    const hasInvite = Boolean(resolveInviteCode(urlCode));
     const supabase = createClient();
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) {
@@ -44,21 +60,29 @@ function JoinTeamForm() {
         setChecking(false);
         return;
       }
-      supabase
-        .from("team_members")
-        .select("id")
-        .eq("user_id", user.id)
-        .limit(1)
-        .then(({ data }) => {
-          if (data && data.length > 0) {
-            window.location.href = "/";
-          } else {
-            setUser(user as { id: string });
-            setChecking(false);
-          }
-        });
+      // Un membre d'une AUTRE équipe peut rejoindre celle du lien : l'app gère
+      // le multi-équipes (switchTeam, parents multi-enfants). On ne renvoie donc
+      // au dashboard que si l'utilisateur ouvre /join sans code à utiliser.
+      if (!hasInvite) {
+        supabase
+          .from("team_members")
+          .select("id")
+          .eq("user_id", user.id)
+          .limit(1)
+          .then(({ data }) => {
+            if (data && data.length > 0) {
+              window.location.href = "/";
+            } else {
+              setUser(user as { id: string });
+              setChecking(false);
+            }
+          });
+        return;
+      }
+      setUser(user as { id: string });
+      setChecking(false);
     });
-  }, []);
+  }, [urlCode]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -92,6 +116,7 @@ function JoinTeamForm() {
       }
 
       localStorage.setItem("selectedTeamId", data.team.id);
+      clearPendingInvite();
       if (role === "parent") {
         router.push(`/link-child?teamId=${data.team.id}`);
       } else {
@@ -171,6 +196,11 @@ function JoinTeamForm() {
               required
               className="text-center text-lg tracking-wider font-mono"
             />
+            {inviteFromLink && inviteCode && (
+              <p className="text-xs text-center text-muted-foreground">
+                Code repris depuis votre lien d&apos;invitation — modifiez-le si nécessaire.
+              </p>
+            )}
           </div>
 
           <div className="space-y-2">

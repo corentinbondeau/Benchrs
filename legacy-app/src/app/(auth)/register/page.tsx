@@ -5,6 +5,11 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { authFetch } from "@/lib/api-client";
+import {
+  resolveInviteCode,
+  clearPendingInvite,
+  extractInviteCode,
+} from "@/lib/invite";
 import { normalizeFffNumber } from "@/lib/clubs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,12 +29,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-
-function extractCode(next: string | null): string {
-  if (!next) return "";
-  const m = next.match(/[?&]code=([^&]+)/);
-  return m ? decodeURIComponent(m[1]) : "";
-}
 
 export default function RegisterPage() {
   return (
@@ -59,7 +58,7 @@ function RegisterForm() {
     password: "",
     confirmPassword: "",
     phone: "",
-    inviteCode: extractCode(next),
+    inviteCode: resolveInviteCode(extractInviteCode(next)),
     joinRole: "player",
     clubName: "",
     teamName: "",
@@ -80,20 +79,28 @@ function RegisterForm() {
           setChecking(false);
           return;
         }
-        client
-          .from("team_members")
-          .select("id")
-          .eq("user_id", user.id)
-          .limit(1)
-          .then(({ data }) => {
-            if (data && data.length > 0) {
-              window.location.href = "/";
-            } else {
-              setChecking(false);
-            }
-          });
+        // Comme sur /join : un membre d'une autre équipe peut rejoindre celle du
+        // lien d'invitation, on ne renvoie au dashboard que s'il n'y a pas de code.
+        const hasInvite = Boolean(resolveInviteCode(extractInviteCode(next)));
+        if (!hasInvite) {
+          client
+            .from("team_members")
+            .select("id")
+            .eq("user_id", user.id)
+            .limit(1)
+            .then(({ data }) => {
+              if (data && data.length > 0) {
+                window.location.href = "/";
+              } else {
+                setChecking(false);
+              }
+            });
+          return;
+        }
+        setChecking(false);
       });
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function handleSubmitInfo(e: React.FormEvent) {
@@ -151,9 +158,10 @@ function RegisterForm() {
           password: formData.password,
         });
         if (loginError) {
-          // Can't login - redirect to login page
+          // Can't login - redirect to login page (en conservant le code d'invitation)
           setError("Un compte existe déjà avec cet email. Connectez-vous avec votre mot de passe.");
-          setTimeout(() => (window.location.href = "/login"), 2500);
+          const loginHref = next ? `/login?next=${encodeURIComponent(next)}` : "/login";
+          setTimeout(() => (window.location.href = loginHref), 2500);
           setLoading(false);
           return;
         }
@@ -190,7 +198,10 @@ function RegisterForm() {
 
       if (loginError) {
         setError("Compte créé, mais connexion échouée. Veuillez vous connecter.");
-        setTimeout(() => (window.location.href = "/login"), 2000);
+        // next conserve le code d'invitation : le compte vient d'être créé,
+        // l'utilisateur doit pouvoir le rejoindre sans le ressaisir.
+        const loginHref = next ? `/login?next=${encodeURIComponent(next)}` : "/login";
+        setTimeout(() => (window.location.href = loginHref), 2000);
         setLoading(false);
         return;
       }
@@ -255,6 +266,7 @@ function RegisterForm() {
         }
         const joinData = await joinRes.json();
         localStorage.setItem("selectedTeamId", joinData.team.id);
+        clearPendingInvite();
         if (formData.joinRole === "parent") {
           window.location.href = `/link-child?teamId=${joinData.team.id}`;
         } else {
