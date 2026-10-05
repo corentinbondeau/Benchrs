@@ -271,11 +271,11 @@ export default function ChampionshipPage() {
     // un message générique (frontière de confiance), ce qui laisse le coach
     // sans piste quand le collage est mauvais. On parle de SON collage, donc
     // aucune fuite — et on peut proposer l'action corrective dans le message.
-    const problem = diagnoseDofaPaste(matches, {
-      cp_no: selected.dofa_cp_no,
-      phase: selected.dofa_phase,
-      poule: selected.dofa_poule,
-    });
+    const problem = diagnoseDofaPaste(
+      matches,
+      { cp_no: selected.dofa_cp_no, phase: selected.dofa_phase, poule: selected.dofa_poule },
+      trimmed
+    );
     if (problem) {
       setPasteError(problem.message);
       return;

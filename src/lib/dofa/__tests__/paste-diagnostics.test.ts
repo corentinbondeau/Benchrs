@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { diagnoseDofaPaste } from "../paste-diagnostics";
+import { MAX_INGEST_BYTES, MAX_INGEST_MATCHES } from "../ingest-validation";
 import type { DofaPouleRef } from "../types";
 
 const TRIPLET: DofaPouleRef = { cp_no: 452059, phase: 1, poule: 1 };
@@ -97,5 +98,40 @@ describe("diagnoseDofaPaste", () => {
 
   it("traite un tableau vide comme un contenu sans match", () => {
     expect(diagnoseDofaPaste([], TRIPLET)?.code).toBe("no_matches");
+  });
+
+  it("signale un lot dépassant la limite de matchs (comme le serveur)", () => {
+    const many = Array.from({ length: MAX_INGEST_MATCHES + 1 }, (_, i) =>
+      dofaMatch({ ma_no: 200000 + i })
+    );
+    const problem = diagnoseDofaPaste(many, TRIPLET);
+    expect(problem?.code).toBe("too_many_matches");
+    expect(problem?.message).toMatch(/501 matchs/);
+  });
+
+  it("accepte un lot juste à la limite de matchs", () => {
+    const limit = Array.from({ length: MAX_INGEST_MATCHES }, (_, i) =>
+      dofaMatch({ ma_no: 300000 + i })
+    );
+    expect(diagnoseDofaPaste(limit, TRIPLET)).toBeNull();
+  });
+
+  it("signale un texte collé trop volumineux (comme le serveur)", () => {
+    const huge = "x".repeat(MAX_INGEST_BYTES + 1);
+    const problem = diagnoseDofaPaste([dofaMatch()], TRIPLET, huge);
+    expect(problem?.code).toBe("payload_too_large");
+    expect(problem?.message).toMatch(/page par page/);
+  });
+
+  it("mesure la taille en octets, pas en caractères", () => {
+    // 4 caractères UTF-8 = 8 octets : un texte sous la limite en caractères
+    // peut dépasser la limite en octets (le serveur compte bien les octets).
+    const chunk = "\u00e9".repeat(MAX_INGEST_BYTES / 2 + 10);
+    expect(new TextEncoder().encode(chunk).length).toBeGreaterThan(MAX_INGEST_BYTES);
+    expect(diagnoseDofaPaste([dofaMatch()], TRIPLET, chunk)?.code).toBe("payload_too_large");
+  });
+
+  it("n'applique le contrôle de taille que si le texte brut est fourni", () => {
+    expect(diagnoseDofaPaste([dofaMatch()], TRIPLET)).toBeNull();
   });
 });

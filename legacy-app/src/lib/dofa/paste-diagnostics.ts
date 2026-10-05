@@ -11,24 +11,37 @@
  * détectables AVANT l'appel réseau, sur les données que le coach a lui-même
  * collées (donc aucune fuite : on ne parle que de son propre collage).
  *
- * Ce module réplique donc, en pur et sans dépendance serveur, les trois
- * motifs les plus fréquents :
+ * Ce module réplique donc, en pur et sans dépendance serveur, l'ensemble des
+ * motifs de refus du serveur :
  *   - `no_matches`         : le contenu collé n'est pas une liste de matchs
  *                            (page « Classement », liste des « journées », …) ;
  *   - `partial_matches`    : certains matchs n'ont pas pu être lus ;
  *   - `triplet_mismatch`   : les matchs collés sont d'une AUTRE poule que
- *                            celle configurée sur le championnat.
+ *                            celle configurée sur le championnat ;
+ *   - `too_many_matches`   : plus de matchs que la limite d'ingestion ;
+ *   - `payload_too_large`  : texte collé au-delà de la taille maximale.
  *
- * Volontairement distinct de `ingest-validation.ts` : pas de `Buffer`, pas de
- * limite d'octets, aucune décision d'écriture — uniquement un libellé
- * actionnable. Le serveur reste seul juge (et peut refuser pour des raisons
- * que le client ne voit pas).
+ * Volontairement distinct de `ingest-validation.ts` sur un point : celui-ci
+ * mesure la taille avec `Buffer` (Node) et n'est donc pas appelable depuis le
+ * navigateur ; ici on mesure avec `TextEncoder`, disponible des deux côtés.
+ * Les seuils, eux, sont importés et non redéfinis — une seule source de
+ * vérité.
+ *
+ * Le serveur reste seul juge : ce diagnostic peut déclarer un collage valide
+ * que le serveur refusera ensuite (contrôles qu'il seul peut faire), et il ne
+ * prétend jamais l'inverse.
  */
 
 import { parseDofaMatches } from "./parse-matches";
+import { MAX_INGEST_BYTES, MAX_INGEST_MATCHES } from "./ingest-validation";
 import type { DofaPouleRef } from "./types";
 
-export type PasteProblemCode = "no_matches" | "partial_matches" | "triplet_mismatch";
+export type PasteProblemCode =
+  | "no_matches"
+  | "partial_matches"
+  | "triplet_mismatch"
+  | "too_many_matches"
+  | "payload_too_large";
 
 export interface PasteProblem {
   code: PasteProblemCode;
@@ -54,18 +67,37 @@ function readRawTriplet(raw: Record<string, unknown>): Partial<DofaPouleRef> {
 }
 
 /**
- * Analyse un collage déjàparsé en tableau de matchs DOFA.
+ * Analyse un collage déjà parsé en tableau de matchs DOFA.
  *
- * @param items         contenu de `hydra:member` (ou le tableau nu)
- * @param expected      triplet configuré sur le championnat
+ * @param items    contenu de `hydra:member` (ou le tableau nu)
+ * @param expected triplet configuré sur le championnat
+ * @param rawText  texte collé tel quel, pour reproduire le contrôle de taille
  * @returns `null` si rien d'anormal n'est détectable — l'appel au serveur
- *          reste alors nécessaire (seul lui applique les autres contrôles :
- *          taille, limite de matchs, cohérence stricte).
+ *          reste alors nécessaire (seul lui applique les autres contrôles).
  */
 export function diagnoseDofaPaste(
   items: unknown[],
-  expected: DofaPouleRef
+  expected: DofaPouleRef,
+  rawText?: string
 ): PasteProblem | null {
+  // Volume d'éléments, comme le serveur (`validateIngestPayload`).
+  if (items.length > MAX_INGEST_MATCHES) {
+    return {
+      code: "too_many_matches",
+      message: `Ce contenu contient ${items.length} matchs, au-delà de la limite de ${MAX_INGEST_MATCHES} par import. Collez la page d'une seule poule : si l'API a renvoyé plusieurs poules d'un coup, revenez au lien d'une poule précise ou importez la page suivante.`,
+    };
+  }
+
+  // Taille du texte collé (le serveur mesure le corps re-sérialisé : même
+  // ordre de grandeur, d'où la formulation approximative du message).
+  if (rawText !== undefined && new TextEncoder().encode(rawText).length > MAX_INGEST_BYTES) {
+    const mb = (new TextEncoder().encode(rawText).length / (1024 * 1024)).toFixed(1);
+    return {
+      code: "payload_too_large",
+      message: `Le contenu collé pèse environ ${mb} Mo, au-delà de la limite de ${(MAX_INGEST_BYTES / (1024 * 1024)).toFixed(1).replace(".", ",")} Mo par import. Importez les matchs page par page.`,
+    };
+  }
+
   const records = items.filter(
     (item): item is Record<string, unknown> => !!item && typeof item === "object"
   );
