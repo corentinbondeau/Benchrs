@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { formatDofaKickoff } from "@/lib/dofa/format";
 import { toast } from "sonner";
 import { Plus, Loader2, Check, Trash2, CalendarDays } from "lucide-react";
 import type { DofaJournee } from "@/lib/dofa/poule-journees";
@@ -67,15 +68,16 @@ interface PouleResultsCardProps {
   onChanged: () => Promise<void> | void;
 }
 
-/** "2026-09-06T13:00:00.000Z" → "06/09 à 13:00" (heure locale si présente). */
-function fmtKickoff(kickoff: string | null): string {
-  if (!kickoff) return "";
-  const date = kickoff.slice(0, 10);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return "";
-  const label = `${date.slice(8, 10)}/${date.slice(5, 7)}`;
-  const time = kickoff.slice(11, 16);
-  return time && time !== "00:00" ? `${label} à ${time}` : label;
-}
+/**
+ * Affichage d'un coup d'envoi importé de la FFF.
+ *
+ * ⚠️ Le `kickoff` stocké est un INSTANT UTC ("2026-09-06T13:00:00.000Z" =
+ * 15h00 à Paris en septembre) : il ne faut JAMAIS le découper à la main,
+ * sous peine d'afficher l'heure UTC au coach (2 h de décalage en été). Le
+ * formatage applique le fuseau du lecteur, comme le reste de l'application
+ * pour `events.event_date`.
+ */
+const fmtKickoff = formatDofaKickoff;
 
 function teamKey(t: PoolTeam): string {
   return `${t.cl_no}/${t.number}`;
