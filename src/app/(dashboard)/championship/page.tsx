@@ -180,7 +180,7 @@ export default function ChampionshipPage() {
     const triplet = parsePouleUrl(pouleUrlInput);
     if (!triplet) {
       setPouleSaveError(
-        "URL ou triplet invalide. Collez l'URL de la page de poule du site du district (ex. flandres.fff.fr), ou saisissez le triplet \"cpNo/phase/poule\"."
+        "URL ou triplet invalide. Collez l'URL de la page de poule sur epreuves.fff.fr (ex. epreuves.fff.fr/competition/engagement/452059-u18-regional-2/phase/1/1/saison) ou sur le site du district (ex. flandres.fff.fr), ou saisissez le triplet \"cpNo/phase/poule\"."
       );
       return;
     }
@@ -918,10 +918,12 @@ export default function ChampionshipPage() {
                     </>
                   ) : (
                     <div className="space-y-2">
-                      <Label htmlFor="poule-url-input">URL de la page de poule (ou triplet manuel)</Label>
+                      <Label htmlFor="poule-url-input">
+                        URL de la page de poule (epreuves.fff.fr, district, ou triplet manuel)
+                      </Label>
                       <Input
                         id="poule-url-input"
-                        placeholder="https://flandres.fff.fr/...&id=457587&phase=1&poule=4"
+                        placeholder="https://epreuves.fff.fr/competition/engagement/452059-u18-regional-2/phase/1/1/saison"
                         value={pouleUrlInput}
                         onChange={(e) => {
                           setPouleUrlInput(e.target.value);
@@ -930,9 +932,12 @@ export default function ChampionshipPage() {
                         autoFocus
                       />
                       <p className="text-xs text-muted-foreground">
-                        Collez l&apos;URL de la page de votre poule sur le site du district
-                        (ex. <code>flandres.fff.fr</code>), ou saisissez directement le triplet{" "}
-                        <code>cpNo/phase/poule</code>.
+                        Collez l&apos;URL de la page de votre poule sur{" "}
+                        <code>epreuves.fff.fr</code> (compétitions nationales et régionales) ou
+                        sur le site du district (ex. <code>flandres.fff.fr</code>), ou saisissez
+                        directement le triplet <code>cpNo/phase/poule</code>. Le numéro de
+                        l&apos;engagement et les deux derniers chiffres sont repris
+                        automatiquement.
                       </p>
                       {pouleSaveError && (
                         <p role="alert" className="text-xs text-destructive">

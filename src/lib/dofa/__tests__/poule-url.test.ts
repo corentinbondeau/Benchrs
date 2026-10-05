@@ -21,6 +21,117 @@
 import { describe, it, expect } from "vitest";
 import { parsePouleUrl } from "@/lib/dofa/poule-url";
 
+describe("parsePouleUrl — plateforme Épreuves (epreuves.fff.fr)", () => {
+  // Source de vérité : la réponse DOFA de l'URL testée ci-dessous renvoie
+  // competition.cp_no = 452059, phase.number = 1, poule.stage_number = 1
+  // (« U18 Régional 2 », ligue Hauts-de-France, saison 2026, POULE A).
+  it("extrait le triplet depuis l'URL de Ligue obtenue sur epreuves.fff.fr", () => {
+    const url =
+      "https://epreuves.fff.fr/competition/engagement/452059-u18-regional-2/phase/1/1/saison";
+    expect(parsePouleUrl(url)).toEqual({ cpNo: 452059, phase: 1, poule: 1 });
+  });
+
+  it("accepte le même chemin sans le slug après l'identifiant", () => {
+    expect(
+      parsePouleUrl("https://epreuves.fff.fr/competition/engagement/452059/phase/1/1/saison")
+    ).toEqual({ cpNo: 452059, phase: 1, poule: 1 });
+  });
+
+  it("accepte une phase et une poule qui ne valent pas 1", () => {
+    expect(
+      parsePouleUrl("https://epreuves.fff.fr/competition/engagement/457587-u14-d3/phase/2/4/saison")
+    ).toEqual({ cpNo: 457587, phase: 2, poule: 4 });
+  });
+
+  it("ignore les segments trailing (onglet, slash final, …)", () => {
+    const variants = [
+      "https://epreuves.fff.fr/competition/engagement/452059-u18-regional-2/phase/1/1/saison",
+      "https://epreuves.fff.fr/competition/engagement/452059-u18-regional-2/phase/1/1/saison/",
+      "https://epreuves.fff.fr/competition/engagement/452059-u18-regional-2/phase/1/1",
+      "https://epreuves.fff.fr/competition/engagement/452059-u18-regional-2/phase/1/1/classement",
+      "https://epreuves.fff.fr/competition/engagement/452059-u18-regional-2/phase/1/1/resultats",
+    ];
+    for (const url of variants) {
+      expect(parsePouleUrl(url)).toEqual({ cpNo: 452059, phase: 1, poule: 1 });
+    }
+  });
+
+  it("tolère une query string superflue et le slash initial du site", () => {
+    expect(
+      parsePouleUrl(
+        "https://epreuves.fff.fr/competition/engagement/452059-u18-regional-2/phase/1/1/saison?foo=bar"
+      )
+    ).toEqual({ cpNo: 452059, phase: 1, poule: 1 });
+  });
+
+  it("accepte le chemin Épreuves sur un autre sous-domaine FFF de confiance", () => {
+    // La règle reste « sous-domaine réel de fff.fr » : même forme de chemin.
+    expect(
+      parsePouleUrl("https://www.fff.fr/competition/engagement/452059-u18/phase/1/1/saison")
+    ).toEqual({ cpNo: 452059, phase: 1, poule: 1 });
+  });
+
+  it("rejette une URL Épreuves sans la poule (page de compétition, pas de poule)", () => {
+    expect(
+      parsePouleUrl("https://epreuves.fff.fr/competition/engagement/452059-u18-regional-2/phase/1/saison")
+    ).toBeNull();
+  });
+
+  it("rejette une URL Épreuves sans la phase", () => {
+    expect(
+      parsePouleUrl("https://epreuves.fff.fr/competition/engagement/452059-u18-regional-2")
+    ).toBeNull();
+  });
+
+  it("rejette un identifiant ou une phase non numérique sur un chemin Épreuves", () => {
+    expect(
+      parsePouleUrl("https://epreuves.fff.fr/competition/engagement/abc-u18/phase/1/1/saison")
+    ).toBeNull();
+    expect(
+      parsePouleUrl("https://epreuves.fff.fr/competition/engagement/452059-u18/phase/x/1/saison")
+    ).toBeNull();
+  });
+
+  it("rejette un chemin Épreuves sur un domaine hors FFF (sécurité)", () => {
+    expect(
+      parsePouleUrl("https://evil.example.com/competition/engagement/452059-u18/phase/1/1/saison")
+    ).toBeNull();
+    expect(
+      parsePouleUrl("https://epreuves.fff.fr.evil.com/competition/engagement/452059-u18/phase/1/1/saison")
+    ).toBeNull();
+    expect(
+      parsePouleUrl("https://notfff.fr/competition/engagement/452059-u18/phase/1/1/saison")
+    ).toBeNull();
+    expect(
+      parsePouleUrl("https://xfff.fr/competition/engagement/452059-u18/phase/1/1/saison")
+    ).toBeNull();
+    expect(
+      parsePouleUrl("https://evil.example.com/competition/engagement/452059-u18/phase/1/1/saison?host=epreuves.fff.fr")
+    ).toBeNull();
+    expect(
+      parsePouleUrl("https://epreuves.fff.fr@evil.com/competition/engagement/452059-u18/phase/1/1/saison")
+    ).toBeNull();
+  });
+
+  it("accepte tout sous-domaine FFF réel (règle intentionnelle, delegation DNS FFF)", () => {
+    // Les districts ont des sous-domaines imprévisibles (flandres, escaut,
+    // notepreuves…) : la règle est « fff.fr ou *.fff.fr », pas une liste
+    // blanche d'hôtes. Un attaquant ne peut pas obtenir un sous-domaine
+    // *.fff.fr sans contrôler la délégation DNS de la FFF.
+    expect(
+      parsePouleUrl("https://notepreuves.fff.fr/competition/engagement/452059-u18/phase/1/1/saison")
+    ).toEqual({ cpNo: 452059, phase: 1, poule: 1 });
+  });
+
+  it("ne confond pas un identifiant collé au slug avec un cp_no tronqué", () => {
+    // `452059abc-u18` : le slug est bien ancré sur le tiret, l'identifiant
+    // reste la suite de chiffres qui précède → 452059.
+    expect(
+      parsePouleUrl("https://epreuves.fff.fr/competition/engagement/452059abc-u18/phase/1/1/saison")
+    ).toBeNull();
+  });
+});
+
 describe("parsePouleUrl — nominal", () => {
   const urls = [
     "https://flandres.fff.fr/competitions?tab=ranking&id=457587&phase=1&poule=4&type=ch",
