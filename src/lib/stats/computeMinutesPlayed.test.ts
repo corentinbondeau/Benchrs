@@ -216,4 +216,149 @@ describe("computeMinutesPlayed", () => {
     );
     expect(result.get("player1")).toBe(50);
   });
+  // ─── Carton rouge : temps de jeu arrêté à l'expulsion, exclusion définitive ─
+
+  it("joueur expulsé à la minute 70 → ses minutes s'arrêtent à 70", () => {
+    const start = new Date("2025-01-01T15:00:00Z");
+    const end = new Date("2025-01-01T16:30:00Z");
+
+    const result = computeMinutesPlayed(
+      start.toISOString(),
+      end.toISOString(),
+      [],
+      ["player1", "player2"],
+      undefined,
+      undefined,
+      undefined,
+      45,
+      [{ playerId: "player1", minute: 70 }]
+    );
+
+    expect(result.get("player1")).toBe(70);
+    expect(result.get("player2")).toBe(90);
+  });
+
+  it("joueur expulsé n'apparaît pas dans la Map s'il était sur le banc", () => {
+    const start = new Date("2025-01-01T15:00:00Z");
+    const end = new Date("2025-01-01T16:30:00Z");
+
+    const result = computeMinutesPlayed(
+      start.toISOString(),
+      end.toISOString(),
+      [],
+      ["player1"],
+      undefined,
+      undefined,
+      undefined,
+      45,
+      [{ playerId: "benchPlayer", minute: 60 }]
+    );
+
+    expect(result.has("benchPlayer")).toBe(false);
+    expect(result.get("player1")).toBe(90);
+  });
+
+  it("une substitution APRÈS le rouge ne réintègre pas le joueur expulsé", () => {
+    // Régression : sans le Set `sentOff`, le changement à la 80e rouvrait le
+    // segment et le joueur se retrouvait crédité de 80 + 10 minutes.
+    const start = new Date("2025-01-01T15:00:00Z");
+    const end = new Date("2025-01-01T16:30:00Z");
+
+    const result = computeMinutesPlayed(
+      start.toISOString(),
+      end.toISOString(),
+      [{ minute: 80, playerOut: "player2", playerIn: "player1" }],
+      ["player1", "player2"],
+      undefined,
+      undefined,
+      undefined,
+      45,
+      [{ playerId: "player1", minute: 60 }]
+    );
+
+    // Expulsé à la 60e : 60 minutes, et sa « réintégration » à la 80e est ignorée.
+    expect(result.get("player1")).toBe(60);
+    expect(result.get("player2")).toBe(80);
+  });
+
+  it("joueur entré à la 30e puis expulsé à la 75e → 45 minutes", () => {
+    const start = new Date("2025-01-01T15:00:00Z");
+    const end = new Date("2025-01-01T16:30:00Z");
+
+    const result = computeMinutesPlayed(
+      start.toISOString(),
+      end.toISOString(),
+      [{ minute: 30, playerOut: "player1", playerIn: "player2" }],
+      ["player1"],
+      undefined,
+      undefined,
+      undefined,
+      45,
+      [{ playerId: "player2", minute: 75 }]
+    );
+
+    expect(result.get("player1")).toBe(30);
+    expect(result.get("player2")).toBe(45);
+  });
+
+  it("carton rouge sans minute → compté jusqu'à la fin du chrono", () => {
+    const start = new Date("2025-01-01T15:00:00Z");
+    const end = new Date("2025-01-01T16:30:00Z");
+
+    const result = computeMinutesPlayed(
+      start.toISOString(),
+      end.toISOString(),
+      [],
+      ["player1"],
+      undefined,
+      undefined,
+      undefined,
+      45,
+      [{ playerId: "player1", minute: null }]
+    );
+
+    expect(result.get("player1")).toBe(90);
+  });
+
+  it("expulsion à la même minute qu'un changement : le rouge est traité en premier", () => {
+    const start = new Date("2025-01-01T15:00:00Z");
+    const end = new Date("2025-01-01T16:30:00Z");
+
+    const result = computeMinutesPlayed(
+      start.toISOString(),
+      end.toISOString(),
+      [{ minute: 60, playerOut: "player1", playerIn: "player2" }],
+      ["player1"],
+      undefined,
+      undefined,
+      undefined,
+      45,
+      [{ playerId: "player1", minute: 60 }]
+    );
+
+    // Le rouge clôt le segment à 60 ; le joueur entrant (player2) entre à 60.
+    expect(result.get("player1")).toBe(60);
+    expect(result.get("player2")).toBe(30);
+  });
+
+  it("sans carton rouge, le comportement est inchangé (aucune régression)", () => {
+    const start = new Date("2025-01-01T15:00:00Z");
+    const end = new Date("2025-01-01T16:30:00Z");
+
+    const result = computeMinutesPlayed(
+      start.toISOString(),
+      end.toISOString(),
+      [{ minute: 60, playerOut: "player1", playerIn: "player3" }],
+      ["player1", "player2"],
+      undefined,
+      undefined,
+      undefined,
+      45,
+      []
+    );
+
+    expect(result.get("player1")).toBe(60);
+    expect(result.get("player2")).toBe(90);
+    expect(result.get("player3")).toBe(30);
+  });
 });

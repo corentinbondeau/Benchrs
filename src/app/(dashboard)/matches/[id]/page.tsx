@@ -65,7 +65,7 @@ import { LockerPlaylist } from "@/components/event/LockerPlaylist";
 import { RecoveryProtocolCard } from "@/components/match/RecoveryProtocolCard";
 import { isEventLocked, isLockedForRole, CONVOCATION_LOCKED_MESSAGE, EVENT_LOCKED_MESSAGE, getEventDurationMinutes, isRpeFormOpen } from "@/lib/event-lock";
 import { filterPresentPlayers } from "@/lib/stats/filterPresentPlayers";
-import { computeMinutesPlayed, type Substitution } from "@/lib/stats/computeMinutesPlayed";
+import { computeMinutesPlayed, type Substitution, type RedCard } from "@/lib/stats/computeMinutesPlayed";
 import { LineupEditor } from "@/components/lineup/LineupEditor";
 import type {
   AttendanceStatus,
@@ -180,6 +180,7 @@ export default function MatchDetailPage() {
   const [liveNow, setLiveNow] = useState(() => Date.now());
   const [liveToken, setLiveToken] = useState<string | null>(null);
   const [matchSubstitutions, setMatchSubstitutions] = useState<Substitution[]>([]);
+  const [matchRedCards, setMatchRedCards] = useState<RedCard[]>([]);
   const [halfDuration, setHalfDuration] = useState(45);
   const [matchFormat, setMatchFormat] = useState(11);
 
@@ -279,10 +280,10 @@ export default function MatchDetailPage() {
           .eq("team_id", team.id),
         supabase
           .from("match_events")
-          .select("player_id, related_player_id, minute")
+          .select("event_type, player_id, related_player_id, minute")
           .eq("event_id", matchId)
           .eq("team_id", team.id)
-          .eq("event_type", "substitution"),
+          .in("event_type", ["substitution", "red_card"]),
         supabase
           .from("team_settings")
           .select("half_duration, match_format")
@@ -299,14 +300,26 @@ export default function MatchDetailPage() {
       setHalfDuration((teamSettingsRes.data as { half_duration?: number } | null)?.half_duration ?? 45);
       setMatchFormat((teamSettingsRes.data as { match_format?: number } | null)?.match_format ?? 11);
 
-      const subs: Substitution[] = ((subEventsRes.data || []) as { player_id: string | null; related_player_id: string | null; minute: number | null }[])
-        .filter((s) => s.player_id && s.related_player_id && s.minute != null)
+      const rawEvents = (subEventsRes.data || []) as {
+        event_type: string;
+        player_id: string | null;
+        related_player_id: string | null;
+        minute: number | null;
+      }[];
+      const subs: Substitution[] = rawEvents
+        .filter((s) => s.event_type === "substitution" && s.player_id && s.related_player_id && s.minute != null)
         .map((s) => ({
           playerOut: s.player_id as string,
           playerIn: s.related_player_id as string,
           minute: s.minute as number,
         }));
       setMatchSubstitutions(subs);
+      // Cartons rouges : le temps de jeu du joueur s'arrête à la minute de
+      // l'expulsion et il ne peut plus être réintégré par un changement.
+      const reds: RedCard[] = rawEvents
+        .filter((s) => s.event_type === "red_card" && s.player_id)
+        .map((s) => ({ playerId: s.player_id as string, minute: s.minute }));
+      setMatchRedCards(reds);
 
       const atts = (attRes.data || []) as { id: string; user_id: string; status: string; absence_reason: string | null }[];
       const allP = playersRes;
@@ -398,7 +411,8 @@ export default function MatchDetailPage() {
         undefined,
         match.match_halftime_at ?? null,
         match.match_resumed_at ?? null,
-        halfDuration
+        halfDuration,
+        matchRedCards
       );
     }
 

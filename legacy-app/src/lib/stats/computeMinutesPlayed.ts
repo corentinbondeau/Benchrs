@@ -4,6 +4,13 @@ export interface Substitution {
   playerIn: string;
 }
 
+export interface RedCard {
+  playerId: string;
+  /** Minute de l'expulsion. `null` si l'événement a été saisi sans minute : le
+   *  joueur est alors compté jusqu'à la fin du chrono (information tardive). */
+  minute: number | null;
+}
+
 /**
  * Calcule le temps de jeu (en minutes de match) par joueur.
  *
@@ -17,6 +24,9 @@ export interface Substitution {
  *  - les titulaires (`starterIds`) démarrent à la minute 0
  *  - une substitution clôt le segment du sortant à `sub.minute` et ouvre celui
  *    de l'entrant à `sub.minute`
+ *  - un carton rouge (`redCards`) clôt le segment de l'expulsé à sa minute et le
+ *   DEFINITIVEMENT : il ne peut plus être réintégré par une substitution
+ *    ultérieure (règle football, exclusion du joueur)
  *  - tout joueur encore sur le terrain à la fin est clôturé à `totalMinutes`
  *  - un remplaçant jamais entré n'apparaît PAS dans la Map (=> 0 minute)
  */
@@ -28,7 +38,8 @@ export function computeMinutesPlayed(
   now?: number,
   halftimeAt?: string | null,
   resumedAt?: string | null,
-  halfDuration = 45
+  halfDuration = 45,
+  redCards: RedCard[] = []
 ): Map<string, number> {
   if (!startedAt) return new Map();
 
@@ -68,6 +79,10 @@ export function computeMinutesPlayed(
 
   const played = new Map<string, number>();
 
+  // Expulsés : un joueur rouge ne peut plus être réintégré par une substitution
+  // ultérieure. `openSegment` refuse donc de le remettre sur le terrain.
+  const sentOff = new Set<string>();
+
   const closeSegment = (id: string, atMinute: number) => {
     const segStart = onPitch.get(id);
     if (segStart === undefined) return;
@@ -77,16 +92,39 @@ export function computeMinutesPlayed(
   };
 
   const openSegment = (id: string, atMinute: number) => {
-    // Ne pas rouvrir un segment pour un joueur déjà sur le terrain
+    // Ne pas rouvrir un segment pour un joueur déjà sur le terrain…
     if (onPitch.has(id)) return;
+    // …ni pour un joueur expulsé : l'exclusion est définitive.
+    if (sentOff.has(id)) return;
     onPitch.set(id, clamp(atMinute));
   };
 
-  // Les substitutions sont appliquées en ordre chronologique
+  // Timeline chronologique unique : sorties (substitutions) ET expulsions (rouges).
+  // Sans cela, une substitution saisie APRÈS le rouge rouvrirait le segment du
+  // joueur et son temps de jeu repartirait de zéro.
   const subs = [...substitutions].sort((a, b) => a.minute - b.minute);
-  for (const sub of subs) {
-    closeSegment(sub.playerOut, sub.minute);
-    openSegment(sub.playerIn, sub.minute);
+  const reds = [...redCards].sort((a, b) => (a.minute ?? totalMinutes) - (b.minute ?? totalMinutes));
+
+  let i = 0;
+  let j = 0;
+  while (i < subs.length || j < reds.length) {
+    const nextSub = subs[i];
+    const nextRed = reds[j];
+    const redMinute = nextRed ? (nextRed.minute ?? totalMinutes) : null;
+    // À minute égale, le carton rouge est traité en premier (règle : le joueur
+    // expulsé ne peut pas être remplacé dans la foulée).
+    const takeSub = nextSub !== undefined && (redMinute === null || nextSub.minute <= redMinute);
+    if (takeSub && nextSub) {
+      closeSegment(nextSub.playerOut, nextSub.minute);
+      openSegment(nextSub.playerIn, nextSub.minute);
+      i++;
+    } else if (nextRed) {
+      sentOff.add(nextRed.playerId);
+      closeSegment(nextRed.playerId, redMinute ?? totalMinutes);
+      j++;
+    } else {
+      break;
+    }
   }
 
   // Clôture des segments restants à la fin du match

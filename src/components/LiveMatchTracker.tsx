@@ -34,7 +34,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import type { EventStatus, MatchEventRecord, Profile } from "@/types";
-import { computeMinutesPlayed, type Substitution } from "@/lib/stats/computeMinutesPlayed";
+import { computeMinutesPlayed, type Substitution, type RedCard } from "@/lib/stats/computeMinutesPlayed";
 
 export type LiveEventType =
   | "goal"
@@ -277,20 +277,51 @@ export function LiveMatchTracker({
       .filter((p): p is Profile => Boolean(p))
       .sort((a, b) => (a.shirt_number ?? 999) - (b.shirt_number ?? 999))
       .map((p) => p.id);
+  // Cartons rouges : un joueur expulsé quitte DÉFINITIVEMENT le terrain. Il ne
+  // peut plus être proposé au changement, ni buter/passe, ni revenir, et son
+  // temps de jeu s'arrête à la minute du rouge (cf. computeMinutesPlayed).
+  const sentOffIds = (() => {
+    const set = new Set<string>();
+    for (const ev of events) {
+      if (ev.event_type === "red_card" && ev.player_id) set.add(ev.player_id);
+    }
+    return set;
+  })();
+  const sentOffNames = (() => {
+    const names: string[] = [];
+    for (const ev of events) {
+      if (ev.event_type !== "red_card" || !ev.player_id) continue;
+      const p = playerList.find((x) => x.id === ev.player_id);
+      if (p) names.push(`${p.first_name} ${p.last_name}${ev.minute != null ? ` (${ev.minute}')` : ""}`);
+    }
+    return names;
+  })();
+
   const onPitchIds = (() => {
     const pitch = new Set(starterIds ?? []);
+    // Un expulsé n'est jamais « sur le terrain », même si la composition le
+    // déclare titulaire.
+    for (const id of sentOffIds) pitch.delete(id);
     for (const ev of events) {
       if (ev.event_type === "substitution") {
         if (ev.player_id) pitch.delete(ev.player_id);
-        if (ev.related_player_id) pitch.add(ev.related_player_id);
+        // Un expulsé ne peut pas être réintégré par un changement.
+        if (ev.related_player_id && !sentOffIds.has(ev.related_player_id)) {
+          pitch.add(ev.related_player_id);
+        }
       }
     }
     return pitch;
   })();
   const subOutCandidates = lineupFilled ? sortByIdsShirt([...onPitchIds]) : undefined;
   const subInCandidates = lineupFilled
-    ? sortByIdsShirt(lineupPool.filter((id) => !onPitchIds.has(id)))
+    ? sortByIdsShirt(lineupPool.filter((id) => !onPitchIds.has(id) && !sentOffIds.has(id)))
     : undefined;
+  // Candidats « sur le terrain » pour but / passe / carton / blessure. Sans
+  // composition renseignée, on retombe sur tous les présents MOINS les expulsés.
+  const onPitchCandidates = lineupFilled
+    ? sortByIdsShirt([...onPitchIds])
+    : playerList.filter((p) => !sentOffIds.has(p.id)).map((p) => p.id);
 
   const startMs = startedAt ? new Date(startedAt).getTime() : null;
   const halftimeMs = halftimeAt ? new Date(halftimeAt).getTime() : null;
@@ -599,6 +630,11 @@ export function LiveMatchTracker({
         playerIn: r.related_player_id!,
       }));
     const subInIds = new Set(subs.map((s) => s.playerIn));
+    // Expulsions : le temps de jeu s'arrête à la minute du carton rouge et le
+    // joueur ne peut pas être réintégré par une substitution ultérieure.
+    const reds: RedCard[] = rows
+      .filter((r) => r.event_type === "red_card" && r.player_id)
+      .map((r) => ({ playerId: r.player_id as string, minute: r.minute }));
     // Composition renseignée → les titulaires réels démarrent à 0, les
     // remplaçants du banc n'apparaissent pas => 0 minute sauf entrée.
     // Sinon fallback : tous les présents sauf les entrants (composition absente).
@@ -615,7 +651,8 @@ export function LiveMatchTracker({
       undefined,
       halftimeAt,
       resumedAt,
-      halfDuration
+      halfDuration,
+      reds
     );
 
     const { data: existingRows } = await supabase
@@ -740,6 +777,16 @@ export function LiveMatchTracker({
     }
     if (eventType === "substitution" && playerId === relatedPlayerId) {
       toast.error("Le joueur entrant doit être différent du sortant");
+      return;
+    }
+    // Un joueur expulsé (carton rouge) ne peut plus être remplacé, ni buter, ni
+    // passe, ni revenir : double garde-fou (le sélecteur le filtre déjà).
+    if (playerId && sentOffIds.has(playerId)) {
+      toast.error("Ce joueur a été expulsé : il ne peut plus être remplacé ni credited d'un but ou d'une passe");
+      return;
+    }
+    if (relatedPlayerId && sentOffIds.has(relatedPlayerId)) {
+      toast.error("Le joueur entrant ne peut pas être un joueur expulsé");
       return;
     }
 
@@ -980,8 +1027,8 @@ export function LiveMatchTracker({
     <form id="live-event-form" className="space-y-4">
       {dialogType === "goal" && (
         <>
-          {renderPlayerSelect("player_id", "Buteur", false)}
-          {renderPlayerSelect("related_player_id", "Passeur décisif (facultatif)", true, "Sans passeur")}
+          {renderPlayerSelect("player_id", "Buteur", false, "Aucun", onPitchCandidates)}
+          {renderPlayerSelect("related_player_id", "Passeur décisif (facultatif)", true, "Sans passeur", onPitchCandidates)}
         </>
       )}
       {dialogType === "own_goal" && (
@@ -1014,7 +1061,8 @@ export function LiveMatchTracker({
               Joueur adverse
             </button>
           </div>
-          {ownGoalSide === "our" && renderPlayerSelect("player_id", "Joueur concerné", false)}
+          {ownGoalSide === "our" &&
+            renderPlayerSelect("player_id", "Joueur concerné", false, "Aucun", onPitchCandidates)}
         </div>
       )}
       {dialogType === "opponent_goal" && (
@@ -1023,12 +1071,17 @@ export function LiveMatchTracker({
         </p>
       )}
       {["yellow_card", "red_card", "injury"].includes(dialogType) &&
-        renderPlayerSelect("player_id", pickerLabel("joueur"), false)}
+        renderPlayerSelect("player_id", pickerLabel("joueur"), false, "Aucun", onPitchCandidates)}
       {dialogType === "substitution" && (
         <>
           {lineupFilled && (
             <p className="text-xs text-muted-foreground rounded-lg bg-muted/50 px-3 py-2">
               Le remplaçant est restreint à la composition : titulaires pour le sortant, remplaçants pour l&apos;entrant.
+            </p>
+          )}
+          {sentOffNames.length > 0 && (
+            <p className="text-xs text-red-700 dark:text-red-300 rounded-lg bg-red-50 dark:bg-red-950/30 px-3 py-2">
+              Expulsé(s) — non sélectionnables : {sentOffNames.join(", ")}
             </p>
           )}
           {renderPlayerSelect("player_id", "Joueur sortant", false, "Aucun", subOutCandidates)}
