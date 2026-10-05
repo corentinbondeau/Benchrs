@@ -21,7 +21,7 @@
  */
 
 import { isEventLocked } from "@/lib/event-lock";
-import type { DofaMatch } from "./parse-matches";
+import { hasUsableDate, type DofaMatch } from "./parse-matches";
 import type { TeamIdentity } from "./types";
 
 /** État actuel d'un événement déjà lié à un match importé (miroir `championship_standings` + `events`). */
@@ -114,6 +114,14 @@ export function planEventSync(
     // alimentent l'agenda — le classement (standings.ts) continue
     // d'utiliser tous les matchs de la poule, hors-scope ici.
     if (!isCoachMatch(match, coachTeam)) continue;
+
+    // Match de l'équipe du coach mais SANS date exploitable : aucune écriture
+    // d'agenda possible (`events.event_date` est obligatoire et une date
+    // inventée placerait le match au mauvais jour). Le match reste importé au
+    // classement (`championship_standings`) et alimentera le calendrier lors
+    // d'un ré-import, une fois la date publiée par la FFF : aucun événement
+    // n'ayant été créé, le plan sera alors un `create` classique, idempotent.
+    if (!hasUsableDate(match)) continue;
 
     const existing = existingByMaNo.get(match.maNo);
 

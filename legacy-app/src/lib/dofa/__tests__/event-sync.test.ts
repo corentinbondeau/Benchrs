@@ -129,6 +129,28 @@ function buildMatch(overrides: Partial<DofaMatch> = {}): DofaMatch {
   };
 }
 
+describe("planEventSync — matchs sans date exploitable", () => {
+  it("n'écarte jamais un match daté (non-régression)", () => {
+    const plan = planEventSync([buildMatch()], [], NOT_LOCKED_NOW, COACH_TEAM);
+    expect(plan.map((a) => a.action)).toEqual(["create"]);
+  });
+
+  it("ne produit AUCUNE action pour un match du coach sans date", () => {
+    // Poules dont le calendrier FFF n'est pas encore publié : importer une
+    // date inventée placerait le match au mauvais jour, et `events.event_date`
+    // est obligatoire. Le match reste importé au classement, hors de ce plan.
+    const undated = buildMatch({ date: "", kickoff: null });
+    const plan = planEventSync([undated], [], NOT_LOCKED_NOW, COACH_TEAM);
+    expect(plan).toEqual([]);
+  });
+
+  it("ne produit AUCUNE action même si un match non daté existe déjà en base", () => {
+    const undated = buildMatch({ maNo: 5, date: "", kickoff: null });
+    const plan = planEventSync([undated], [], NOT_LOCKED_NOW, COACH_TEAM);
+    expect(plan).toEqual([]);
+  });
+});
+
 /** Réplique la concaténation attendue du lieu, pour construire les assertions et les fixtures. */
 function expectedLocationString(match: DofaMatch): string | null {
   if (!match.location) return null;

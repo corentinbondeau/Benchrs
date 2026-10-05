@@ -12,7 +12,7 @@
  * silence.
  */
 
-import { parseDofaMatches, type DofaMatch } from "./parse-matches";
+import { parseDofaMatches, hasUsableDate, type DofaMatch } from "./parse-matches";
 import type { DofaPouleRef } from "./types";
 
 export const MAX_INGEST_MATCHES = 500;
@@ -96,7 +96,16 @@ export type IngestValidationFailureReason =
   | "triplet_mismatch";
 
 export type IngestValidationResult =
-  | { ok: true; matches: DofaMatch[] }
+  | {
+      ok: true;
+      matches: DofaMatch[];
+      /**
+       * Matchs réellement présents dans la poule mais SANS date exploitable
+       * (calendrier FFF pas encore publié). Importés au classement, exclus du
+       * calendrier — voir l'étape 6.
+       */
+      undatedMatches: DofaMatch[];
+    }
   | { ok: false; reason: IngestValidationFailureReason; message: string };
 
 /**
@@ -218,15 +227,18 @@ export function validateIngestPayload(
   }
 
   // 6. Date parsable pour chaque match.
-  for (const match of matches) {
-    if (Number.isNaN(Date.parse(match.date))) {
-      return {
-        ok: false,
-        reason: "invalid_matches",
-        message: "Un ou plusieurs matchs du payload ont une date invalide.",
-      };
-    }
-  }
+  //
+  //    ⚠️ Un match SANS date exploitable ne rejette plus le lot. Les poules dont
+  //    le calendrier n'est pas encore publié côté FFF renvoient des matchs avec
+  //    `date`/`initial_date` absents ou nuls : rejeter les 6 matchs à cause de
+  //    l'un d'eux privait le coach de toute la poule (le message serveur étant
+  //    volontairement générique, il n'avait aucun moyen de comprendre pourquoi).
+  //    Ces matchs sont importés au classement, comptés dans `undatedMatches`, et
+  //    n'alimentent PAS le calendrier — un événement sans date n'a pas de sens
+  //    (`event-sync.ts` les écarte). Un ré-import ultérieur, lorsque la FFF publie
+  //    les dates, crée alors les événements manquants (idempotent : aucun
+  //    événement n'existait).
+  const undatedMatches = matches.filter((match) => !hasUsableDate(match));
 
   // 7. Cohérence du triplet : tous les matchs doivent appartenir au triplet
   //    déclaré par l'appelant, sinon rejet global (anti-injection de poule).
@@ -249,5 +261,5 @@ export function validateIngestPayload(
   // garanti par le mapping strict de `parseDofaMatches` (seuls les champs
   // connus de `DofaMatch` sont produits), on ne fait ici que sanitiser les
   // champs textuels destinés à l'affichage.
-  return { ok: true, matches: matches.map(sanitizeMatch) };
+  return { ok: true, matches: matches.map(sanitizeMatch), undatedMatches };
 }

@@ -48,12 +48,20 @@ import {
   parseDofaMatches,
   parseTime,
   composeKickoff,
+  normalizeDofaDateString,
+  hasUsableDate,
 } from "@/lib/dofa/parse-matches";
 
 // Copie profonde de la fixture pour éviter toute pollution inter-tests
 // (certains tests suppriment/mutent des champs sur un clone).
 function cloneFixture(): unknown[] {
   return JSON.parse(JSON.stringify(fixtureRaw));
+}
+
+/** Un match de la fixture réelle, avec les champs de date modifiables. */
+function match(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  const first = cloneFixture()[0] as Record<string, unknown>;
+  return { ...first, ...overrides };
 }
 
 describe("parseDofaMatches — nominal critique sur la fixture réelle (garde-fou direct cause n°4)", () => {
@@ -405,5 +413,57 @@ describe("parseDofaMatches — forme partagée avec calendrier/poule_journees (m
     const hydraWrapped = { "hydra:member": cloneFixture(), "hydra:totalItems": 3 };
     const results = parseDofaMatches(hydraWrapped);
     expect(results).toHaveLength(3);
+  });
+});
+
+describe("normalizeDofaDateString", () => {
+  it("conserve telle quelle une date déjà parsable (format ISO FFF)", () => {
+    expect(normalizeDofaDateString("2026-09-06T00:00:00+00:00")).toBe(
+      "2026-09-06T00:00:00+00:00"
+    );
+    expect(normalizeDofaDateString("2026-09-06")).toBe("2026-09-06");
+  });
+
+  it("convertit les formats français en ISO court", () => {
+    expect(normalizeDofaDateString("06/09/2026")).toBe("2026-09-06");
+    expect(normalizeDofaDateString("6/9/2026")).toBe("2026-09-06");
+    expect(normalizeDofaDateString("06-09-2026")).toBe("2026-09-06");
+    expect(normalizeDofaDateString("06.09.2026")).toBe("2026-09-06");
+  });
+
+  it("renvoie une chaîne vide pour une valeur inexploitable", () => {
+    expect(normalizeDofaDateString(null)).toBe("");
+    expect(normalizeDofaDateString(undefined)).toBe("");
+    expect(normalizeDofaDateString(20260906)).toBe("");
+    expect(normalizeDofaDateString("")).toBe("");
+    expect(normalizeDofaDateString("   ")).toBe("");
+    expect(normalizeDofaDateString("pas-une-date")).toBe("");
+  });
+
+  it("refuse une date calendaire impossible", () => {
+    expect(normalizeDofaDateString("31/02/2026")).toBe("");
+    expect(normalizeDofaDateString("32/01/2026")).toBe("");
+    expect(normalizeDofaDateString("01/13/2026")).toBe("");
+  });
+});
+
+describe("parseDofaMatches — dates", () => {
+  it("retombe sur `initial_date` quand `date` est absente", () => {
+    const parsed = parseDofaMatches([match({ date: null, initial_date: "2026-10-04T00:00:00+00:00" })]);
+    expect(parsed[0].date).toBe("2026-10-04T00:00:00+00:00");
+    expect(hasUsableDate(parsed[0])).toBe(true);
+  });
+
+  it("compose le kickoff à partir de `initial_date`", () => {
+    const parsed = parseDofaMatches([
+      match({ date: null, initial_date: "2026-10-04T00:00:00+00:00", time: "15H00" }),
+    ]);
+    expect(parsed[0].kickoff).toBe("2026-10-04T13:00:00.000Z"); // 15h Europe/Paris (UTC+2 en octobre)
+  });
+
+  it("expose une date vide (et non invalide) quand aucune date n'est fournie", () => {
+    const parsed = parseDofaMatches([match({ date: null, initial_date: undefined })]);
+    expect(parsed[0].date).toBe("");
+    expect(hasUsableDate(parsed[0])).toBe(false);
   });
 });

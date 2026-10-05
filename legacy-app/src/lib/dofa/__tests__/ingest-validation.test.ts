@@ -224,16 +224,64 @@ describe("validateIngestPayload — rejet strict des malformations", () => {
     if (!result.ok) expect(result.reason).toBe("invalid_matches");
   });
 
-  it("rejette en bloc si `date` n'est pas parsable", () => {
-    const broken = makeMatch({ date: "pas-une-date" });
+  it("n'impporte plus un match dont la date est inexploitable, sans rejeter le lot", () => {
+    // Les poules dont le calendrier FFF n'est pas publié renvoient des matchs
+    // sans date. Refuser tout le lot pour autant retirait au coach des matchs
+    // parfaitement exploitables (et le message serveur, générique par choix,
+    // ne lui expliquait rien).
+    const undated = makeMatch({ ma_no: 900002, date: null, initial_date: null });
 
     const result = validateIngestPayload({
-      rawBody: JSON.stringify([broken]),
+      rawBody: JSON.stringify([makeMatch(), undated]),
       triplet: REAL_TRIPLET,
     });
 
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.reason).toBe("invalid_matches");
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.matches).toHaveLength(2);
+    expect(result.undatedMatches.map((m) => m.maNo)).toEqual([900002]);
+  });
+
+  it("accepte une date au format français en la normalisant", () => {
+    const french = makeMatch({ date: "06/09/2026", initial_date: undefined });
+
+    const result = validateIngestPayload({
+      rawBody: JSON.stringify([french]),
+      triplet: REAL_TRIPLET,
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.matches[0].date).toBe("2026-09-06");
+    expect(result.undatedMatches).toHaveLength(0);
+  });
+
+  it("utilise `initial_date` quand `date` est absente", () => {
+    const rescheduled = makeMatch({ date: null, initial_date: "2026-10-04T00:00:00+00:00" });
+
+    const result = validateIngestPayload({
+      rawBody: JSON.stringify([rescheduled]),
+      triplet: REAL_TRIPLET,
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.matches[0].date).toBe("2026-10-04T00:00:00+00:00");
+    expect(result.undatedMatches).toHaveLength(0);
+  });
+
+  it("refuse une date calendaire impossible plutôt que de la normaliser", () => {
+    const impossible = makeMatch({ date: "31/02/2026", initial_date: undefined });
+
+    const result = validateIngestPayload({
+      rawBody: JSON.stringify([impossible]),
+      triplet: REAL_TRIPLET,
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.undatedMatches).toHaveLength(1);
+    expect(result.matches[0].date).toBe("");
   });
 });
 

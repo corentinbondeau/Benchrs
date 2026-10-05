@@ -68,7 +68,9 @@ interface DofaEventSyncResult {
 interface DofaImportResult {
   imported: number;
   updated: number;
+  /** Matchs de la poule sans date publiée par la FFF : au classement, pas au calendrier. */
   skipped: number;
+  undated?: boolean;
   source: string;
   eventSync: DofaEventSyncResult;
 }
@@ -320,7 +322,11 @@ export default function ChampionshipPage() {
       // Méta-données Hydra du payload collé : détection d'une page suivante
       // (collection paginée) pour guider le collage de la page suivante.
       setImportPagination(extractDofaPagination(parsed));
-      toast.success("Import terminé.");
+      toast.success(
+        data.skipped > 0
+          ? `Import terminé : ${data.skipped} match(s) sans date, absents du calendrier.`
+          : "Import terminé."
+      );
       const refreshed = await authFetch(`/api/championships?team_id=${currentTeam!.id}`).then((r) => r.json());
       setChampionships(refreshed);
     } catch {
@@ -1077,6 +1083,15 @@ export default function ChampionshipPage() {
               <Badge variant="outline">{lastImportResult.updated} mis à jour</Badge>
               <Badge variant="outline">{lastImportResult.skipped} ignoré(s)</Badge>
             </div>
+
+            {lastImportResult.skipped > 0 && (
+              <p className="text-sm text-muted-foreground">
+                {lastImportResult.skipped} match(s) de la poule n&apos;ont pas encore de date
+                publiée par la FFF : ils figurent au classement mais n&apos;ont pas été ajoutés
+                au calendrier. Relancez l&apos;import quand les dates seront publiées — les
+                événements se créeront alors automatiquement.
+              </p>
+            )}
 
             {lastImportResult.imported === 0 &&
               lastImportResult.updated === 0 &&

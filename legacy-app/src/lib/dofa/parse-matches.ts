@@ -21,7 +21,15 @@ export interface DofaMatch {
   matchday: number | null;
   /** Horodatage local composé (date + heure), ou date seule si l'heure est absente/invalide. */
   kickoff: string | null;
-  /** Date brute ISO conservée telle quelle (ex. "2026-09-06T00:00:00+00:00"). */
+  /**
+   * Date du match telle que fournie par l'API, normalisée en ISO **lorsque la
+   * valeur d'origine n'était pas déjà directement parsable** (sinon elle est
+   * conservée à l'identique). **Chaîne vide si le match n'a aucune date
+   * exploitable** : c'est le cas réel des poules dont le calendrier n'est pas
+   * encore publié côté FFF (`date`/`initial_date` absents ou nuls), et cela ne
+   * doit pas être traité comme une erreur de format (voir
+   * `hasUsableDate`).
+   */
   date: string;
   homeTeam: DofaMatchTeam;
   awayTeam: DofaMatchTeam;
@@ -32,6 +40,83 @@ export interface DofaMatch {
   location: DofaLocation | null;
   seemsPostponed: boolean;
   status: string | null;
+}
+
+/** Formats de date « à la française » tolérés en repli (JJ/MM/AAAA, JJ-MM-AAAA). */
+const FRENCH_DATE = /^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$/;
+
+/**
+ * Normalise une date DOFA en une valeur que `Date.parse` comprend.
+ *
+ * - format français (`"06/09/2026"`, `"06-09-2026"`) : converti en ISO
+ *   court (`"2026-09-06"`) ;
+ * - toute autre valeur, ou une date calendaire impossible (`"31/02/2026"`) :
+ *   chaîne vide, signifiant « pas de date exploitable ».
+ *
+ * ⚠️ Le format français est traité **avant** `Date.parse`, et jamais par lui :
+ * en JavaScript, `"06/09/2026"` est interprété au format AMÉRICAIN, soit le
+ * 9 juin — un match se retrouverait décalé de trois mois. Les dates FFF sont
+ * françaises (JJ/MM), donc c'est cette lecture qui fait foi pour toute
+ * date séparée par `/`, `-` ou `.`.
+ *
+ * Ne lève jamais d'exception.
+ */
+export function normalizeDofaDateString(value: unknown): string {
+  if (typeof value !== "string") return "";
+
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+
+  // 1. Date française JJ/MM/AAAA (et ses variantes de séparateur).
+  const french = FRENCH_DATE.exec(trimmed);
+  if (french) {
+    const day = french[1];
+    const month = french[2];
+    const year = french[3];
+    const iso = `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+
+    // Garde-fou calendaire explicite : `Date.parse` accepte les dates
+    // impossibles en les faisant basculer silencieusement (`2026-02-31`
+    // devient le 3 mars, sans erreur), il ne peut donc pas servir de garde.
+    // On reconstruit l'instant et on vérifie que les champs retombent bien
+    // sur ceux de l'entrée.
+    const yearNum = Number(year);
+    const monthNum = Number(month);
+    const dayNum = Number(day);
+    const probe = new Date(Date.UTC(yearNum, monthNum - 1, dayNum));
+    const isRealDate =
+      probe.getUTCFullYear() === yearNum &&
+      probe.getUTCMonth() === monthNum - 1 &&
+      probe.getUTCDate() === dayNum;
+
+    return isRealDate ? iso : "";
+  }
+
+  // 2. Format non ambigu (ISO FFF, ex. "2026-09-06T00:00:00+00:00") : conservé
+  //    tel quel, son fuseau d'origine n'est jamais écrasé par une conversion.
+  return Number.isNaN(Date.parse(trimmed)) ? "" : trimmed;
+}
+
+/**
+ * Résout la date d'un match : champ `date`, puis `initial_date` en repli.
+ *
+ * `initial_date` est la date initialement fixée par la FFF, présente dans les
+ * payloads réels ; elle sert de filet quand `date` est vide (match reporté
+ * dont la nouvelle date n'est pas encore publiée) — le match n'est ainsi pas
+ * perdu. Les deux champs absents → chaîne vide (voir `hasUsableDate`).
+ */
+function readDofaDate(raw: Record<string, unknown>): string {
+  return normalizeDofaDateString(raw.date) || normalizeDofaDateString(raw.initial_date);
+}
+
+/**
+ * Vrai si le match porte une date exploitable, donc s'il peut alimenter le
+ * calendrier. Faux = match réellement présent côté FFF mais non encore daté :
+ * il est alors importé au classement, SANS créer d'événement (une date
+ * inventée placerait le match au mauvais jour).
+ */
+export function hasUsableDate(match: DofaMatch): boolean {
+  return match.date !== "";
 }
 
 /**
@@ -213,7 +298,7 @@ export function parseDofaMatches(data: unknown): DofaMatch[] {
     const awayTeam = parseTeamRef(raw.away);
     if (!homeTeam || !awayTeam) continue;
 
-    const date = typeof raw.date === "string" ? raw.date : "";
+    const date = readDofaDate(raw);
     const time = raw.time as string | null | undefined;
 
     const homeScore = raw.home_score;
