@@ -1,4 +1,10 @@
 import { normalizeDofaCollection } from "./normalize";
+import { parisInstant } from "@/lib/paris-time";
+
+// `parisInstant` (et son helper `parisOffsetMinutes`) vivent désormais dans
+// `src/lib/paris-time.ts` : le calcul du décalage Europe/Paris est aussi
+// utilisé par les convocations (dimanche 15h), il ne doit pas exister en double
+// — deux implémentations divergeraient au prochain changement d'heure.
 
 /** Équipe identifiée par club.cl_no + number (jamais short_name seul). */
 export interface DofaMatchTeam {
@@ -143,55 +149,6 @@ export function parseTime(
   return { hours, minutes };
 }
 
-/**
- * Détermine le décalage UTC (en minutes) appliqué par le fuseau
- * `Europe/Paris` à un instant donné, changement d'heure compris (UTC+2 en
- * été, UTC+1 en hiver). Calculé sans dépendance externe via
- * `Intl.DateTimeFormat` : on formate l'instant naïf (interprété comme si
- * les champs de date/heure locaux valaient l'UTC) dans le fuseau cible, la
- * différence entre le résultat et l'entrée donne le décalage réel — la
- * même technique que la conversion classique "round-trip" utilisée pour
- * émuler `Date.parse` avec fuseau explicite sans librairie.
- */
-function parisOffsetMinutes(
-  year: number,
-  month: number, // 1-12
-  day: number,
-  hours: number,
-  minutes: number
-): number {
-  // Instant de référence : les champs demandés interprétés en UTC.
-  const asUtc = Date.UTC(year, month - 1, day, hours, minutes);
-
-  const dtf = new Intl.DateTimeFormat("en-US", {
-    timeZone: "Europe/Paris",
-    hourCycle: "h23",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  });
-
-  const parts = dtf.formatToParts(new Date(asUtc));
-  const get = (type: string) => Number(parts.find((p) => p.type === type)?.value);
-
-  // Instant représentant, en UTC, la même écriture de champs telle que lue
-  // dans le fuseau Europe/Paris pour l'instant `asUtc`.
-  const parisReading = Date.UTC(
-    get("year"),
-    get("month") - 1,
-    get("day"),
-    get("hour"),
-    get("minute"),
-    get("second")
-  );
-
-  // Le décalage réel Europe/Paris à cet instant = différence entre la
-  // lecture locale et l'instant UTC de référence.
-  return (parisReading - asUtc) / 60000;
-}
 
 /**
  * Compose la date brute DOFA (`"2026-09-06T00:00:00+00:00"`, qui ne porte
@@ -231,15 +188,9 @@ export function composeKickoff(
   // repli sur la date seule plutôt qu'une exception.
   if ([year, month, day].some((n) => Number.isNaN(n))) return dateOnly;
 
-  // Décalage Europe/Paris déterminé sur l'instant naïf (date + heure locale
-  // interprétée comme UTC) : suffisant pour choisir le bon côté du
-  // changement d'heure, la bascule ayant lieu à une heure fixe locale.
-  const offsetMinutes = parisOffsetMinutes(year, month, day, hours, minutes);
-
-  const localAsUtc = Date.UTC(year, month - 1, day, hours, minutes);
-  const realInstant = localAsUtc - offsetMinutes * 60000;
-
-  return new Date(realInstant).toISOString();
+  // `parisInstant` applique le décalage Europe/Paris réel (UTC+2 en été,
+  // UTC+1 en hiver) : même calcul qu'avant, mais avec l'implémentation unique.
+  return parisInstant(year, month, day, hours, minutes).toISOString();
 }
 
 function parseTeamRef(

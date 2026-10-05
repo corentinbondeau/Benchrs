@@ -45,6 +45,7 @@ import { toast } from "sonner";
 import { ConvocationsDialog } from "@/components/ConvocationsDialog";
 import { LocationPicker } from "@/components/calendar/LocationPicker";
 import { fetchTeamActivePlayers } from "@/lib/players";
+import { convocationSlotFor } from "@/lib/convocations";
 import { clearQueryCache } from "@/lib/queryCache";
 import type { Event, Profile } from "@/types";
 import { OnboardingTip } from "@/components/OnboardingTips";
@@ -467,12 +468,15 @@ export default function CalendarPage() {
     const supabase = createClient();
     for (const evt of events) {
       const evtDate = new Date(evt.event_date);
-      const scheduledFor = new Date(evtDate.getTime() - leadDays * 24 * 60 * 60 * 1000);
+      // Séances : dimanche 15h avant la séance (un envoi hebdomadaire lisible).
+      // Matchs : event_date - leadDays, inchangé.
+      const scheduledFor = convocationSlotFor({ type, eventDate: evtDate, leadDays });
       const evtUrl = type === "match"
         ? `/matches/${evt.id}`
         : `/trainings/${evt.id}`;
-      // Convocation programmée leadDays avant l'événement
-      // (envoyée immédiatement par la route si la date est déjà passée)
+      // Convocation programmée (dimanche 15h pour une séance, leadDays avant
+      // un match) : la route l'envoie immédiatement si le créneau est déjà
+      // dépassé, sinon le cron de livraison la part à l'heure.
       authFetch("/api/notifications/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
