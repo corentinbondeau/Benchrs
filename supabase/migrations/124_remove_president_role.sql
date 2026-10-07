@@ -41,6 +41,7 @@ DO $$
 BEGIN
   IF to_regclass('public.club_members') IS NOT NULL THEN
     DROP POLICY IF EXISTS "Presidents can manage club_members" ON public.club_members;
+    DROP POLICY IF EXISTS "Committee can manage club_members" ON public.club_members;
     CREATE POLICY "Committee can manage club_members"
       ON public.club_members FOR ALL
       USING (public.is_club_committee(club_id))
@@ -52,6 +53,7 @@ DO $$
 BEGIN
   IF to_regclass('public.club_aliases') IS NOT NULL THEN
     DROP POLICY IF EXISTS "Presidents can manage club_aliases" ON public.club_aliases;
+    DROP POLICY IF EXISTS "Committee can manage club_aliases" ON public.club_aliases;
     CREATE POLICY "Committee can manage club_aliases"
       ON public.club_aliases FOR ALL
       USING (public.is_club_committee(club_id))
