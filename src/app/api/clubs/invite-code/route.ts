@@ -2,14 +2,14 @@ import { NextResponse } from "next/server";
 import { getAuthUserDetailed, forbidden, unauthorized } from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-async function isClubPresident(userId: string, clubId: string): Promise<boolean> {
+async function isClubCommittee(userId: string, clubId: string): Promise<boolean> {
   const admin = createAdminClient();
   const { data } = await admin
     .from("club_members")
     .select("id")
     .eq("club_id", clubId)
     .eq("user_id", userId)
-    .eq("role", "president")
+    .eq("role", "comite")
     .maybeSingle();
   if (data) return true;
   const { data: club } = await admin
@@ -26,7 +26,7 @@ function makeCode(): string {
 }
 
 // POST /api/clubs/invite-code  { clubId, regenerate?: boolean }
-// Réservé au président/créateur du club. Renvoie le code d'invitation comité
+// Réservé au comité/créateur du club. Renvoie le code d'invitation comité
 // (le régénère si regenerate=true, invalidant les anciens liens).
 export async function POST(req: Request) {
   const { user, reason } = await getAuthUserDetailed(req);
@@ -39,7 +39,7 @@ export async function POST(req: Request) {
   if (!clubId) {
     return NextResponse.json({ error: "clubId requis" }, { status: 400 });
   }
-  if (!(await isClubPresident(user.id, clubId))) return forbidden();
+  if (!(await isClubCommittee(user.id, clubId))) return forbidden();
 
   const admin = createAdminClient();
 

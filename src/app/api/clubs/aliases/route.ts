@@ -3,22 +3,22 @@ import { getAuthUserDetailed, unauthorized } from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 // Gestion des alias de club (variantes d'écriture du nom : "ECC", "Etoile Camphin" ...).
-// Réservé au président (ou créateur) du club.
-async function assertPresident(userId: string, admin: ReturnType<typeof createAdminClient>, clubId: string) {
+// Réservé au comité (ou créateur) du club.
+async function assertCommittee(userId: string, admin: ReturnType<typeof createAdminClient>, clubId: string) {
   const { data: club } = await admin
     .from("clubs")
     .select("id, created_by")
     .eq("id", clubId)
     .maybeSingle();
   if (!club) return { error: "Club introuvable", status: 404 };
-  const { data: isPresident } = await admin
+  const { data: isCommittee } = await admin
     .from("club_members")
     .select("id")
     .eq("club_id", clubId)
     .eq("user_id", userId)
-    .eq("role", "president")
+    .eq("role", "comite")
     .maybeSingle();
-  if (!isPresident && club.created_by !== userId) return { error: "Accès refusé", status: 403 };
+  if (!isCommittee && club.created_by !== userId) return { error: "Accès refusé", status: 403 };
   return null;
 }
 
@@ -35,7 +35,7 @@ export async function POST(req: Request) {
   }
 
   const admin = createAdminClient();
-  const denied = await assertPresident(user.id, admin, clubId);
+  const denied = await assertCommittee(user.id, admin, clubId);
   if (denied) return NextResponse.json({ error: denied.error }, { status: denied.status });
 
   const { error } = await admin
@@ -64,7 +64,7 @@ export async function DELETE(req: Request) {
   }
 
   const admin = createAdminClient();
-  const denied = await assertPresident(user.id, admin, clubId);
+  const denied = await assertCommittee(user.id, admin, clubId);
   if (denied) return NextResponse.json({ error: denied.error }, { status: denied.status });
 
   const { error } = await admin

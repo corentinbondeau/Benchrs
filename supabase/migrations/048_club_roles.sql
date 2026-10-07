@@ -1,11 +1,11 @@
 -- 048_club_roles.sql
--- Rôle comité/président : visibilité (lecture) sur toutes les équipes d'un club.
--- Un membre du comité (role 'comite' ou 'president') voit l'ensemble des équipes de son club
+-- Rôle comité : visibilité (lecture) sur toutes les équipes d'un club.
+-- Un membre du comité (role 'comite') voit l'ensemble des équipes de son club
 -- en lecture seule via la fonction user_visible_team_ids(). Les coachs/owners gardent leurs droits.
 
--- Enum des rôles club
+-- Enum des rôles club (un seul rôle : comite — le poste de président n'existe plus)
 DO $$ BEGIN
-  CREATE TYPE club_member_role AS ENUM ('president', 'comite');
+  CREATE TYPE club_member_role AS ENUM ('comite');
 EXCEPTION WHEN duplicate_object THEN null;
 END $$;
 
@@ -54,8 +54,8 @@ AS $$
   WHERE cm.user_id = auth.uid();
 $$;
 
--- Helper : est-on président (ou créateur) du club ?
-CREATE OR REPLACE FUNCTION public.is_club_president(p_club_id uuid)
+-- Helper : est-on membre du comité (ou créateur) du club ?
+CREATE OR REPLACE FUNCTION public.is_club_committee(p_club_id uuid, p_user_id uuid DEFAULT auth.uid())
 RETURNS boolean
 LANGUAGE sql
 STABLE
@@ -64,10 +64,10 @@ SET search_path = public
 AS $$
   SELECT EXISTS (
     SELECT 1 FROM public.club_members
-    WHERE club_id = p_club_id AND user_id = auth.uid() AND role = 'president'
+    WHERE club_id = p_club_id AND user_id = p_user_id AND role = 'comite'
   ) OR EXISTS (
     SELECT 1 FROM public.clubs
-    WHERE id = p_club_id AND created_by = auth.uid()
+    WHERE id = p_club_id AND created_by = p_user_id
   );
 $$;
 
@@ -81,10 +81,11 @@ CREATE POLICY "Members can view club_members"
   );
 
 DROP POLICY IF EXISTS "Presidents can manage club_members" ON public.club_members;
-CREATE POLICY "Presidents can manage club_members"
+DROP POLICY IF EXISTS "Committee can manage club_members" ON public.club_members;
+CREATE POLICY "Committee can manage club_members"
   ON public.club_members FOR ALL
-  USING (public.is_club_president(club_id))
-  WITH CHECK (public.is_club_president(club_id));
+  USING (public.is_club_committee(club_id))
+  WITH CHECK (public.is_club_committee(club_id));
 
 -- RLS clubs : le comité voit son club
 DROP POLICY IF EXISTS "Members can view their club" ON public.clubs;

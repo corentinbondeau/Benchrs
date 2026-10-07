@@ -5,6 +5,7 @@ import {
   unauthorized,
   forbidden,
   isTeamCoach,
+  isClubCommitteeForTeam,
 } from "@/lib/api-auth";
 import { sendPushDirect } from "@/lib/send-push-direct";
 
@@ -27,7 +28,10 @@ export async function POST(req: Request) {
   }
 
   const supabase = createAdminClient();
-  if (!(await isTeamCoach(user.id, teamId))) {
+  const isCoachOrClub =
+    (await isTeamCoach(user.id, teamId)) ||
+    (await isClubCommitteeForTeam(user.id, teamId));
+  if (!isCoachOrClub) {
     return forbidden();
   }
 

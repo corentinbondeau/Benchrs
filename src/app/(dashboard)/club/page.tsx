@@ -11,7 +11,6 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
-  Crown,
   Building2,
   Users,
   CalendarDays,
@@ -35,11 +34,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { ActivityLogCard } from "@/components/club/ActivityLogCard";
+import { ClubAnnounceDialog } from "@/components/club/ClubAnnounceDialog";
 import type { TrialRequest } from "@/types";
+import { currentSeasonLabel } from "@/lib/goals";
+import { Wallet, FileText as FileTextIcon, Clock } from "lucide-react";
 
 interface ClubRow {
   club_id: string;
-  role: "president" | "comite";
+  role: "comite";
   club:
     | {
         id: string;
@@ -63,7 +65,7 @@ function firstClub(
 
 interface CommitteeMember {
   user_id: string;
-  role: "president" | "comite";
+  role: "comite";
   profile?: {
     first_name: string | null;
     last_name: string | null;
@@ -90,13 +92,36 @@ interface ClubTeam {
   results: MatchInfo[];
 }
 
+interface ClubFinance {
+  playerCount: number;
+  licenses: { total: number; valid: number; pending: number; expired: number };
+  cotisations: { expected: number; paid: number };
+  treasury: { income: number; expense: number };
+  txCount: number;
+  overdue: number;
+}
+
+interface ClubAgendaEvent {
+  id: string;
+  type: "match" | "training";
+  title: string;
+  event_date: string;
+  team_id: string;
+  team_name: string;
+  location: string | null;
+  opponent: string | null;
+  status: "upcoming" | "ongoing" | "completed" | "cancelled";
+}
+
 interface ClubData {
   id: string;
   name: string;
   logo_url: string | null;
-  myRole: "president" | "comite";
+  myRole: "comite";
   teams: ClubTeam[];
   members: CommitteeMember[];
+  finance: ClubFinance;
+  agenda: ClubAgendaEvent[];
   is_public: boolean;
   public_slug: string | null;
   description: string | null;
@@ -233,6 +258,80 @@ function TeamCard({
           </button>
         ))}
       </div>
+    </div>
+  );
+}
+
+/* ─── Pilotage & finances du club ─── */
+function ClubFinanceStrip({ finance }: { finance: ClubFinance }) {
+  const remaining = Math.max(0, finance.cotisations.expected - finance.cotisations.paid);
+  const collected = finance.cotisations.paid + finance.treasury.income;
+  const balance = collected - finance.treasury.expense;
+
+  const cards: { label: string; value: string; sub: string; tone: string; href?: string }[] = [
+    {
+      label: "Effectifs",
+      value: String(finance.playerCount),
+      sub: "joueurs licenciés",
+      tone: "bg-blue-100 text-blue-700",
+      href: "/roster",
+    },
+    {
+      label: "Licences",
+      value: `${finance.licenses.valid}/${finance.licenses.total}`,
+      sub: `${finance.licenses.pending} en attente · ${finance.licenses.expired} expirée(s)`,
+      tone: "bg-emerald-100 text-emerald-700",
+      href: "/admin/licences",
+    },
+    {
+      label: "Cotisations",
+      value: `${finance.cotisations.paid.toFixed(0)} €`,
+      sub: `restant dû ${remaining.toFixed(0)} €`,
+      tone: "bg-amber-100 text-amber-700",
+      href: "/admin/cotisations",
+    },
+    {
+      label: "Trésorerie",
+      value: `${balance.toFixed(0)} €`,
+      sub: `${finance.treasury.income.toFixed(0)} € recettes · ${finance.treasury.expense.toFixed(0)} € dépenses`,
+      tone: "bg-purple-100 text-purple-700",
+      href: "/admin/treasury",
+    },
+    {
+      label: "Échéances",
+      value: String(finance.overdue),
+      sub: "cotisations en retard",
+      tone: finance.overdue > 0 ? "bg-red-100 text-red-700" : "bg-muted text-muted-foreground",
+      href: "/admin/cotisations",
+    },
+  ];
+
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+      {cards.map((card) => {
+        const inner = (
+          <div className="flex items-center gap-3">
+            <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${card.tone}`}>
+              {card.label === "Effectifs" && <Users className="h-5 w-5" />}
+              {card.label === "Licences" && <FileTextIcon className="h-5 w-5" />}
+              {card.label === "Cotisations" && <Wallet className="h-5 w-5" />}
+              {card.label === "Trésorerie" && <TrendingUp className="h-5 w-5" />}
+              {card.label === "Échéances" && <Clock className="h-5 w-5" />}
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground">{card.label}</p>
+              <p className="text-lg font-bold leading-tight">{card.value}</p>
+              <p className="text-[11px] text-muted-foreground truncate">{card.sub}</p>
+            </div>
+          </div>
+        );
+        if (!card.href) return <Card key={card.label}><CardContent className="p-4">{inner}</CardContent></Card>;
+        return (
+          <a key={card.label} href={card.href} className="rounded-xl border bg-card p-4 hover:border-foreground/20 hover:shadow-sm transition-all block">
+            {inner}
+          </a>
+        );
+      })}
     </div>
   );
 }
@@ -481,7 +580,7 @@ export default function ClubPage() {
         seen.add(club.id);
         joined.push({
           club_id: club.id,
-          role: "president",
+          role: "comite",
           club: [club],
         });
       }
@@ -514,6 +613,54 @@ export default function ClubPage() {
       }[];
 
       const teamIds = teamRows.map((t) => t.id);
+      const season = currentSeasonLabel();
+      const today = new Date().toISOString().slice(0, 10);
+      const [finMembers, finLic, finCotis, finTx] = (await Promise.all([
+        teamIds.length
+          ? supabase.from("team_members").select("user_id").in("team_id", teamIds).in("role", ["player"])
+          : Promise.resolve({ data: [] as { user_id: string }[] }),
+        teamIds.length
+          ? supabase.from("licences").select("status").in("team_id", teamIds).eq("season", season)
+          : Promise.resolve({ data: [] as { status: string }[] }),
+        teamIds.length
+          ? supabase.from("cotisations").select("amount_expected, amount_paid, status, due_date").in("team_id", teamIds).eq("season", season)
+          : Promise.resolve({ data: [] as { amount_expected: number; amount_paid: number; status: string; due_date: string | null }[] }),
+        teamIds.length
+          ? supabase.from("treasury_transactions").select("type, amount").in("team_id", teamIds)
+          : Promise.resolve({ data: [] as { type: string; amount: number }[] }),
+      ])) as [
+        { data: { user_id: string }[] | null },
+        { data: { status: string }[] | null },
+        { data: { amount_expected: number; amount_paid: number; status: string; due_date: string | null }[] | null },
+        { data: { type: string; amount: number }[] | null },
+      ];
+
+      const licenseRows = finLic.data || [];
+      const cotisRows = finCotis.data || [];
+      const txRows = finTx.data || [];
+      const finance: ClubFinance = {
+        playerCount: new Set((finMembers.data || []).map((m) => m.user_id)).size,
+        licenses: {
+          total: licenseRows.length,
+          valid: licenseRows.filter((l) => l.status === "valid").length,
+          pending: licenseRows.filter((l) => l.status === "pending_documents").length,
+          expired: licenseRows.filter((l) => l.status === "expired").length,
+        },
+        cotisations: {
+          expected: cotisRows.reduce((s, c) => s + Number(c.amount_expected), 0),
+          paid: cotisRows.reduce((s, c) => s + Number(c.amount_paid), 0),
+        },
+        treasury: {
+          income: txRows.filter((t) => t.type === "income").reduce((s, t) => s + Number(t.amount), 0),
+          expense: txRows.filter((t) => t.type === "expense").reduce((s, t) => s + Number(t.amount), 0),
+        },
+        txCount: txRows.length,
+        overdue: cotisRows.filter(
+          (c) => c.status !== "paid" && c.due_date && c.due_date < today
+        ).length,
+      };
+
+      const now = new Date();
       const { data: events } = teamIds.length
         ? await supabase
             .from("events")
@@ -523,7 +670,29 @@ export default function ClubPage() {
             .order("event_date", { ascending: true })
         : { data: [] };
 
-      const now = new Date();
+      const { data: agendaEvents } = teamIds.length
+        ? await supabase
+            .from("events")
+            .select("id, team_id, type, title, event_date, status, location, opponent")
+            .in("team_id", teamIds)
+            .in("type", ["match", "training"])
+            .in("status", ["upcoming", "ongoing"])
+            .gte("event_date", now.toISOString())
+            .order("event_date", { ascending: true })
+            .limit(8)
+        : { data: [] };
+      const agenda: ClubAgendaEvent[] = (agendaEvents || []).map((ev) => ({
+        id: ev.id,
+        type: ev.type as ClubAgendaEvent["type"],
+        title: ev.title,
+        event_date: ev.event_date,
+        team_id: ev.team_id,
+        team_name: teamRows.find((t) => t.id === ev.team_id)?.name || "Équipe",
+        location: (ev as Record<string, unknown>).location as string | null,
+        opponent: (ev as Record<string, unknown>).opponent as string | null,
+        status: ev.status as ClubAgendaEvent["status"],
+      }));
+
       const byTeam = new Map<string, MatchInfo[]>();
       for (const ev of (events || []) as unknown as {
         id: string;
@@ -571,7 +740,7 @@ export default function ClubPage() {
 
       const memberRows = (membersRes.data || []) as {
         user_id: string;
-        role: "president" | "comite";
+        role: "comite";
       }[];
       const userIds = memberRows.map((m) => m.user_id);
       const { data: profiles } = userIds.length
@@ -592,6 +761,8 @@ export default function ClubPage() {
           ...m,
           profile: profileMap.get(m.user_id) as CommitteeMember["profile"],
         })),
+        finance,
+        agenda,
         is_public: (club as Record<string, unknown>).is_public === true,
         public_slug: ((club as Record<string, unknown>).public_slug as string) || null,
         description: ((club as Record<string, unknown>).description as string) || null,
@@ -655,19 +826,17 @@ export default function ClubPage() {
                 <Building2 className="h-6 w-6 text-muted-foreground" />
               )}
               <h2 className="text-lg font-bold">{club.name}</h2>
-              {club.myRole === "president" ? (
-                <span className="flex items-center gap-1 text-xs text-[var(--color-gold)] font-medium">
-                  <Crown className="h-3.5 w-3.5" />
-                  Président
-                </span>
-              ) : (
-                <Badge variant="secondary" className="text-[10px]">
-                  Comité
-                </Badge>
-              )}
+              <Badge variant="secondary" className="text-[10px]">
+                Comité
+              </Badge>
               <span className="text-xs text-muted-foreground">
                 · {club.teams.length} équipe(s)
               </span>
+              <ClubAnnounceDialog
+                clubId={club.id}
+                clubName={club.name}
+                variant="ghost"
+              />
             </div>
 
             {club.teams.length === 0 ? (
@@ -685,6 +854,68 @@ export default function ClubPage() {
                     onOpen={(href) => openTeam(team.id, href)}
                   />
                 ))}
+              </div>
+            )}
+
+            <div className="space-y-2 pt-1">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                <BarChart3 className="h-3.5 w-3.5" />
+                Pilotage &amp; finances
+              </p>
+              <ClubFinanceStrip finance={club.finance} />
+            </div>
+
+            {club.agenda.length > 0 && (
+              <div className="space-y-2 pt-1">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                  <CalendarDays className="h-3.5 w-3.5" />
+                  Agenda des équipes
+                </p>
+                <Card>
+                  <CardContent className="p-0 divide-y">
+                    {club.agenda.map((ev) => (
+                      <button
+                        key={ev.id}
+                        onClick={() => openTeam(ev.team_id, "/calendar")}
+                        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-accent transition-colors"
+                      >
+                        <div className="w-2.5 h-2.5 rounded-full shrink-0"
+                          style={{
+                            backgroundColor:
+                              club.teams.find((t) => t.id === ev.team_id)
+                                ?.color_primary || "var(--color-royal)",
+                          }}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">
+                            {ev.type === "match"
+                              ? `Match ${ev.opponent ? "vs " + ev.opponent : ""}`.trim() || ev.title
+                              : ev.title || "Entraînement"}
+                          </p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {ev.team_name}
+                            {ev.location ? ` · ${ev.location}` : ""}
+                          </p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="text-sm font-semibold">
+                            {new Date(ev.event_date).toLocaleDateString("fr-FR", {
+                              weekday: "short",
+                              day: "numeric",
+                              month: "short",
+                            })}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(ev.event_date).toLocaleTimeString("fr-FR", {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </p>
+                        </div>
+                      </button>
+                    ))}
+                  </CardContent>
+                </Card>
               </div>
             )}
 
@@ -710,16 +941,9 @@ export default function ClubPage() {
                       {m.user_id === user?.id && (
                         <span className="text-xs text-muted-foreground">(vous)</span>
                       )}
-                      {m.role === "president" ? (
-                        <span className="flex items-center gap-0.5 text-xs text-[var(--color-gold)] font-medium">
-                          <Crown className="h-3 w-3" />
-                          Président
-                        </span>
-                      ) : (
-                        <Badge variant="secondary" className="text-[10px]">
-                          Comité
-                        </Badge>
-                      )}
+                      <Badge variant="secondary" className="text-[10px]">
+                        Comité
+                      </Badge>
                     </span>
                   ))}
                 </div>

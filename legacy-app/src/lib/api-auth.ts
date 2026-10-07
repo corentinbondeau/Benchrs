@@ -73,3 +73,15 @@ export async function isTeamCoach(
   const role = await getTeamRole(userId, teamId);
   return role === "owner" || role === "coach";
 }
+
+/** Le user est-il membre du comité d'un club auquel appartient l'équipe ? */
+export async function isClubCommitteeForTeam(
+  userId: string,
+  teamId: string
+): Promise<boolean> {
+  const { data } = await createAdminClient().rpc("is_club_committee_for_team", {
+    p_team_id: teamId,
+    p_user_id: userId,
+  });
+  return !!data;
+}

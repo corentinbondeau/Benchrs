@@ -60,6 +60,11 @@ export const DEFAULT_ALLOWLIST = [
   "lib/tabs.ts",
   "lib/training/pdf.tsx",
   "types/index.ts",
+  "lib/club/seasonReport.ts",
+  "lib/export/clubReportPdf.tsx",
+  "lib/export/licenceAttestationPdf.tsx",
+  "lib/useUserClubs.ts",
+  "lib/export/emergencyBookPdf.tsx",
 ];
 
 function hashFile(filePath) {

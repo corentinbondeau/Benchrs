@@ -28,7 +28,7 @@ export async function POST(req: Request) {
 
     if (typeof inviteCode !== "string" || !inviteCode.trim()) {
       return NextResponse.json(
-        { error: "Code d'invitation requis. Demandez-le au président du club." },
+        { error: "Code d'invitation requis. Demandez-le au comité du club." },
         { status: 400 }
       );
     }
@@ -50,7 +50,7 @@ export async function POST(req: Request) {
 
     if (!club.comite_invite_code || club.comite_invite_code !== inviteCode.trim()) {
       return NextResponse.json(
-        { error: "Code d'invitation invalide. Demandez-le au président du club." },
+        { error: "Code d'invitation invalide. Demandez-le au comité du club." },
         { status: 403 }
       );
     }

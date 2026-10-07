@@ -34,7 +34,7 @@ CREATE POLICY "Members insert activity logs" ON activity_logs
 CREATE POLICY "Coaches delete activity logs" ON activity_logs
   FOR DELETE USING (
     public.is_team_coach(team_id)
-    OR (club_id IS NOT NULL AND public.is_club_president(club_id))
+    OR (club_id IS NOT NULL AND public.is_club_committee(club_id))
   );
 GRANT SELECT, INSERT, UPDATE, DELETE ON activity_logs TO authenticated;
 
@@ -65,7 +65,7 @@ CREATE POLICY "Club members insert posts" ON club_posts
 CREATE POLICY "Coaches delete posts" ON club_posts
   FOR DELETE USING (
     public.is_team_coach(team_id)
-    OR public.is_club_president(club_id)
+    OR public.is_club_committee(club_id)
   );
 GRANT SELECT, INSERT, UPDATE, DELETE ON club_posts TO authenticated;
 

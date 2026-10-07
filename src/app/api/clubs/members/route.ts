@@ -5,14 +5,14 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 type AdminClient = SupabaseClient;
 
-async function isClubPresident(userId: string, clubId: string): Promise<boolean> {
+async function isClubCommittee(userId: string, clubId: string): Promise<boolean> {
   const admin = createAdminClient();
   const { data } = await admin
     .from("club_members")
     .select("id")
     .eq("club_id", clubId)
     .eq("user_id", userId)
-    .eq("role", "president")
+    .eq("role", "comite")
     .maybeSingle();
   if (data) return true;
   const { data: club } = await admin
@@ -47,12 +47,12 @@ export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
   const clubId = typeof body?.clubId === "string" ? body.clubId : "";
   const email = typeof body?.email === "string" ? body.email.trim() : "";
-  const role = body?.role === "president" ? "president" : "comite";
+  const role = "comite" as const;
 
   if (!clubId || !email) {
     return NextResponse.json({ error: "clubId et email requis" }, { status: 400 });
   }
-  if (!(await isClubPresident(user.id, clubId))) return forbidden();
+  if (!(await isClubCommittee(user.id, clubId))) return forbidden();
 
   const admin = createAdminClient();
 
@@ -102,7 +102,7 @@ export async function DELETE(req: Request) {
   if (!clubId || !userId) {
     return NextResponse.json({ error: "clubId et userId requis" }, { status: 400 });
   }
-  if (!(await isClubPresident(user.id, clubId))) return forbidden();
+  if (!(await isClubCommittee(user.id, clubId))) return forbidden();
   if (userId === user.id) {
     return NextResponse.json({ error: "Vous ne pouvez pas vous retirer vous-même" }, { status: 400 });
   }
@@ -125,12 +125,12 @@ export async function PATCH(req: Request) {
   const body = await req.json().catch(() => null);
   const clubId = typeof body?.clubId === "string" ? body.clubId : "";
   const userId = typeof body?.userId === "string" ? body.userId : "";
-  const role = body?.role === "president" ? "president" : "comite";
+  const role = "comite" as const;
 
   if (!clubId || !userId) {
     return NextResponse.json({ error: "clubId et userId requis" }, { status: 400 });
   }
-  if (!(await isClubPresident(user.id, clubId))) return forbidden();
+  if (!(await isClubCommittee(user.id, clubId))) return forbidden();
   if (userId === user.id) {
     return NextResponse.json({ error: "Vous ne pouvez pas changer votre propre rôle" }, { status: 400 });
   }

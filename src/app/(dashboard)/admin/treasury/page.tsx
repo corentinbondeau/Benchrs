@@ -46,7 +46,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
-import type { Profile, Cotisation, TreasuryTransaction } from "@/types";
+import type { Profile, Cotisation, TreasuryTransaction, Team } from "@/types";
 import { currentSeasonLabel } from "@/lib/goals";
 
 const TRX_CATEGORIES = [
@@ -73,6 +73,9 @@ export default function TreasuryPage() {
   const { currentTeam, userRole, clubMemberships } = useTeam();
   const { user } = useAuth();
   const [players, setPlayers] = useState<Profile[]>([]);
+  const [clubTeams, setClubTeams] = useState<Team[]>([]);
+  const [playerTeam, setPlayerTeam] = useState<Map<string, string>>(new Map());
+  const [teamFilter, setTeamFilter] = useState<"all" | string>("all");
   const [cotisations, setCotisations] = useState<Cotisation[]>([]);
   const [transactions, setTransactions] = useState<TreasuryTransaction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -87,34 +90,93 @@ export default function TreasuryPage() {
   const [txCategory, setTxCategory] = useState("Cotisation");
   const [txDate, setTxDate] = useState(new Date().toISOString().slice(0, 10));
   const [txNotes, setTxNotes] = useState("");
+  const [txTeamId, setTxTeamId] = useState<string>("");
   const [saving, setSaving] = useState(false);
 
+  const isCoach = userRole === "coach" || userRole === "owner";
+  const hasClubRole = clubMemberships.length > 0;
+  const clubId = clubMemberships[0]?.club_id;
+  const hasAccess = isCoach || hasClubRole;
+
   const loadData = useCallback(async () => {
-    if (!currentTeam) return null;
+    if (!hasAccess) return null;
     const supabase = createClient();
+
+    let clubTeamsData: Team[] = [];
+    if (hasClubRole && clubId) {
+      const { data } = await supabase
+        .from("teams")
+        .select("*")
+        .eq("club_id", clubId)
+        .order("name", { ascending: true });
+      clubTeamsData = (data as Team[]) || [];
+    }
+    const scopeTeamIds =
+      clubTeamsData.length > 0
+        ? clubTeamsData.map((t) => t.id)
+        : currentTeam
+          ? [currentTeam.id]
+          : [];
+    if (scopeTeamIds.length === 0) {
+      return {
+        players: [],
+        clubTeams: [],
+        playerTeam: new Map<string, string>(),
+        cotisations: [],
+        transactions: [],
+      };
+    }
+
+    let membersQuery = supabase
+      .from("team_members")
+      .select("user_id, team_id")
+      .in("role", ["player"]);
+    membersQuery =
+      clubTeamsData.length > 0
+        ? membersQuery.in("team_id", scopeTeamIds)
+        : membersQuery.eq("team_id", scopeTeamIds[0]);
     const [membersRes, cotisRes, txRes] = await Promise.all([
-      supabase.from("team_members").select("user_id").eq("team_id", currentTeam.id).in("role", ["player"]),
-      supabase.from("cotisations").select("*").eq("team_id", currentTeam.id).eq("season", season),
-      supabase.from("treasury_transactions").select("*").eq("team_id", currentTeam.id).order("txn_date", { ascending: false }).limit(500),
+      membersQuery,
+      supabase.from("cotisations").select("*").in("team_id", scopeTeamIds).eq("season", season),
+      supabase.from("treasury_transactions").select("*").in("team_id", scopeTeamIds).order("txn_date", { ascending: false }).limit(500),
     ]);
+    const memberIds = [...new Set((membersRes.data || []).map((m) => m.user_id))];
     let profiles: Profile[] = [];
-    const memberIds = (membersRes.data || []).map((m) => m.user_id);
     if (memberIds.length > 0) {
       const { data: p } = await supabase.from("profiles").select("*").in("id", memberIds).order("last_name", { ascending: true });
       profiles = (p as Profile[]) || [];
     }
+    const firstTeam = new Map<string, string>();
+    for (const m of membersRes.data || []) {
+      if (!firstTeam.has(m.user_id)) firstTeam.set(m.user_id, m.team_id);
+    }
+    const profById = new Map(profiles.map((p) => [p.id, p]));
+    const seen = new Set<string>();
+    const playerTeamMap = new Map<string, string>();
+    const playerList: Profile[] = [];
+    for (const [uid, tid] of firstTeam) {
+      const prof = profById.get(uid);
+      if (!prof || seen.has(uid)) continue;
+      seen.add(uid);
+      playerTeamMap.set(uid, tid);
+      playerList.push(prof);
+    }
     return {
-      players: profiles,
+      players: playerList,
+      clubTeams: clubTeamsData,
+      playerTeam: playerTeamMap,
       cotisations: (cotisRes.data as Cotisation[]) || [],
       transactions: (txRes.data as TreasuryTransaction[]) || [],
     };
-  }, [currentTeam?.id, season]);
+  }, [hasAccess, hasClubRole, clubId, currentTeam, season]);
 
   useEffect(() => {
     let cancelled = false;
     loadData().then((res) => {
       if (!cancelled && res) {
         setPlayers(res.players);
+        setClubTeams(res.clubTeams);
+        setPlayerTeam(res.playerTeam);
         setCotisations(res.cotisations);
         setTransactions(res.transactions);
         setLoading(false);
@@ -128,10 +190,21 @@ export default function TreasuryPage() {
   const cotisationMap = new Map<string, Cotisation>();
   for (const c of cotisations) cotisationMap.set(c.player_id, c);
 
-  const totalExpected = cotisations.reduce((s, c) => s + Number(c.amount_expected), 0);
-  const totalPaid = cotisations.reduce((s, c) => s + Number(c.amount_paid), 0);
-  const incomeTx = transactions.filter((t) => t.type === "income").reduce((s, t) => s + Number(t.amount), 0);
-  const expenseTx = transactions.filter((t) => t.type === "expense").reduce((s, t) => s + Number(t.amount), 0);
+  const filteredPlayers =
+    teamFilter === "all" ? players : players.filter((p) => playerTeam.get(p.id) === teamFilter);
+  const filteredPlayerIds = new Set(filteredPlayers.map((p) => p.id));
+  const filteredCotis = cotisations.filter((c) => filteredPlayerIds.has(c.player_id));
+  const filteredTx =
+    teamFilter === "all" ? transactions : transactions.filter((t) => t.team_id === teamFilter);
+
+  const teamName = (teamId: string) =>
+    clubTeams.find((t) => t.id === teamId)?.name ??
+    (currentTeam?.id === teamId ? currentTeam.name : "Équipe");
+
+  const totalExpected = filteredCotis.reduce((s, c) => s + Number(c.amount_expected), 0);
+  const totalPaid = filteredCotis.reduce((s, c) => s + Number(c.amount_paid), 0);
+  const incomeTx = filteredTx.filter((t) => t.type === "income").reduce((s, t) => s + Number(t.amount), 0);
+  const expenseTx = filteredTx.filter((t) => t.type === "expense").reduce((s, t) => s + Number(t.amount), 0);
   const balance = totalPaid + incomeTx - expenseTx;
 
   function resetTxForm() {
@@ -141,10 +214,13 @@ export default function TreasuryPage() {
     setTxCategory("Cotisation");
     setTxDate(new Date().toISOString().slice(0, 10));
     setTxNotes("");
+    setTxTeamId(clubTeams[0]?.id ?? currentTeam?.id ?? "");
   }
 
   async function handleSaveTx() {
-    if (!currentTeam || !user) return;
+    if (!user) return;
+    const targetTeam = txTeamId || currentTeam?.id || clubTeams[0]?.id || "";
+    if (!targetTeam) return;
     const amount = parseFloat(txAmount);
     if (!txLabel.trim() || isNaN(amount) || amount <= 0) {
       toast.error("Libellé et montant invalides");
@@ -153,7 +229,7 @@ export default function TreasuryPage() {
     setSaving(true);
     const supabase = createClient();
     const { error } = await supabase.from("treasury_transactions").insert({
-      team_id: currentTeam.id,
+      team_id: targetTeam,
       type: txType,
       label: txLabel.trim(),
       amount,
@@ -177,12 +253,13 @@ export default function TreasuryPage() {
   }
 
   async function handleRelance(c: Cotisation) {
-    if (!currentTeam) return;
+    const targetTeam = c.team_id ?? playerTeam.get(c.player_id) ?? currentTeam?.id ?? null;
+    if (!targetTeam) return;
     setRelancing(c.id);
     try {
       const res = await authFetch("/api/treasury/relance", {
         method: "POST",
-        body: JSON.stringify({ teamId: currentTeam.id, cotisationId: c.id }),
+        body: JSON.stringify({ teamId: targetTeam, cotisationId: c.id }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Erreur");
@@ -194,20 +271,10 @@ export default function TreasuryPage() {
     }
   }
 
-  if (!currentTeam) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <p className="text-muted-foreground">Chargement de l&apos;équipe...</p>
-      </div>
-    );
-  }
-
-  const isCoach = userRole === "coach" || userRole === "owner";
-  const hasClubRole = clubMemberships.length > 0;
-  if (!hasClubRole) {
+  if (!hasAccess) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
-        <p className="text-muted-foreground">Acces reserve au comite du club</p>
+        <p className="text-muted-foreground">Accès réservé au coach ou au comité</p>
       </div>
     );
   }
@@ -227,6 +294,21 @@ export default function TreasuryPage() {
         <div className="flex items-center gap-2">
           <Label className="text-sm text-muted-foreground">Saison</Label>
           <Input value={season} onChange={(e) => setSeason(e.target.value)} className="w-32" />
+          {clubTeams.length > 1 && (
+            <Select value={teamFilter} onValueChange={(v) => setTeamFilter(v ?? "all")}>
+              <SelectTrigger className="w-44">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Toutes les équipes</SelectItem>
+                {clubTeams.map((t) => (
+                  <SelectItem key={t.id} value={t.id}>
+                    {t.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
         </div>
       </div>
 
@@ -308,6 +390,7 @@ export default function TreasuryPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Joueur</TableHead>
+                    {clubTeams.length > 1 && <TableHead>Équipe</TableHead>}
                     <TableHead className="text-right">Attendu</TableHead>
                     <TableHead className="text-right">Payé</TableHead>
                     <TableHead className="text-right">Solde</TableHead>
@@ -317,14 +400,14 @@ export default function TreasuryPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {players.length === 0 && (
+                  {filteredPlayers.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                      <TableCell colSpan={clubTeams.length > 1 ? 8 : 7} className="text-center text-muted-foreground py-8">
                         Aucun joueur dans l&apos;équipe
                       </TableCell>
                     </TableRow>
                   )}
-                  {players.map((player) => {
+                  {filteredPlayers.map((player) => {
                     const c = cotisationMap.get(player.id);
                     const remaining = c ? Math.max(0, Number(c.amount_expected) - Number(c.amount_paid)) : 0;
                     const cfg = c ? statusConfig[c.status] : null;
@@ -340,6 +423,11 @@ export default function TreasuryPage() {
                             </p>
                           </div>
                         </TableCell>
+                        {clubTeams.length > 1 && (
+                          <TableCell className="text-xs text-muted-foreground">
+                            {teamName(playerTeam.get(player.id) ?? "")}
+                          </TableCell>
+                        )}
                         <TableCell className="text-right">{c ? `${Number(c.amount_expected).toFixed(2)} €` : "—"}</TableCell>
                         <TableCell className="text-right">{c ? `${Number(c.amount_paid).toFixed(2)} €` : "—"}</TableCell>
                         <TableCell className={`text-right font-semibold ${remaining > 0 ? "text-red-600" : "text-emerald-600"}`}>
@@ -454,6 +542,25 @@ export default function TreasuryPage() {
               >
                 Dépense
               </Button>
+            </div>
+            <div className="space-y-2">
+              <Label>Équipe</Label>
+              <Select value={txTeamId} onValueChange={(v) => setTxTeamId(v ?? "")}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Sélectionner" />
+                </SelectTrigger>
+                <SelectContent>
+                  {clubTeams.length > 0
+                    ? clubTeams.map((t) => (
+                        <SelectItem key={t.id} value={t.id}>
+                          {t.name}
+                        </SelectItem>
+                      ))
+                    : currentTeam && (
+                        <SelectItem value={currentTeam.id}>{currentTeam.name}</SelectItem>
+                      )}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label>Libellé *</Label>

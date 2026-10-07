@@ -26,7 +26,6 @@ import {
   Loader2,
   RefreshCw,
   Users,
-  Trash2,
   LogOut,
   Crown,
   X,
@@ -85,10 +84,10 @@ export default function MembersSection({ isOwner }: MembersSectionProps) {
 
   const loadClubData = useCallback(async (clubId: string) => {
     const supabase = createClient();
-    const [membersRes, teamsRes, presidentRes, clubRes] = await Promise.all([
+    const [membersRes, teamsRes, committeeRes, clubRes] = await Promise.all([
       supabase.from("club_members").select("id, user_id, role").eq("club_id", clubId),
       supabase.from("teams").select("id, name").eq("club_id", clubId),
-      supabase.from("club_members").select("id").eq("club_id", clubId).eq("user_id", user?.id ?? "").eq("role", "president").maybeSingle(),
+      supabase.from("club_members").select("id").eq("club_id", clubId).eq("user_id", user?.id ?? "").eq("role", "comite").maybeSingle(),
       supabase.from("clubs").select("created_by").eq("id", clubId).maybeSingle(),
     ]);
     const rows = membersRes.data || [];
@@ -100,7 +99,7 @@ export default function MembersSection({ isOwner }: MembersSectionProps) {
     return {
       members: rows.map((r) => ({ ...r, profile: profileMap.get(r.user_id as string) })),
       teams: teamsRes.data || [],
-      canManage: !!presidentRes.data || clubRes.data?.created_by === user?.id,
+      canManage: !!committeeRes.data || clubRes.data?.created_by === user?.id,
     };
   }, [user?.id]);
 
@@ -278,19 +277,6 @@ export default function MembersSection({ isOwner }: MembersSectionProps) {
     const data = await res.json();
     if (!res.ok) { toast.error(data.error || "Erreur lors du retrait"); return; }
     toast.success("Membre retiré du comité");
-    await refreshClubData();
-  }
-
-  async function changeClubMemberRole(userId: string, role: "president" | "comite") {
-    if (!currentTeam?.club_id) return;
-    const res = await authFetch("/api/clubs/members", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ clubId: currentTeam.club_id, userId, role }),
-    });
-    const data = await res.json();
-    if (!res.ok) { toast.error(data.error || "Erreur lors du changement de rôle"); return; }
-    toast.success(role === "president" ? "Promu président" : "Rétrogradé en comité");
     await refreshClubData();
   }
 
@@ -513,7 +499,7 @@ export default function MembersSection({ isOwner }: MembersSectionProps) {
               ) : canManageClub ? (
                 <p className="text-xs text-muted-foreground">Attribuez votre numéro FFF pour éviter les doublons de club.</p>
               ) : (
-                <p className="text-xs text-muted-foreground">Numéro non renseigné — demandez au président du club de le définir.</p>
+                <p className="text-xs text-muted-foreground">Numéro non renseigné — demandez au comité du club de le définir.</p>
               )}
             </div>
 
@@ -601,7 +587,7 @@ export default function MembersSection({ isOwner }: MembersSectionProps) {
               </div>
             )}
             {!canManageClub && (
-              <p className="text-xs text-muted-foreground">Seul le président du club peut gérer la page publique.</p>
+              <p className="text-xs text-muted-foreground">Seul le comité du club peut gérer la page publique.</p>
             )}
           </CardContent>
         </Card>
@@ -640,26 +626,10 @@ export default function MembersSection({ isOwner }: MembersSectionProps) {
                       <div className="flex items-center gap-2 min-w-0">
                         <span className="text-sm font-medium truncate">{cm.profile?.first_name} {cm.profile?.last_name}</span>
                         {cm.user_id === user?.id && <span className="text-xs text-muted-foreground">(vous)</span>}
-                        {cm.role === "president" ? (
-                          <span className="flex items-center gap-1 text-xs text-[var(--color-gold)] font-medium" title="Président">
-                            <Crown className="h-3.5 w-3.5" />
-                            Président
-                          </span>
-                        ) : (
-                          <Badge variant="secondary" className="text-[10px]">Comité</Badge>
-                        )}
+                        <Badge variant="secondary" className="text-[10px]">Comité</Badge>
                       </div>
                       {canManageClub && cm.user_id !== user?.id && (
                         <div className="flex items-center gap-1">
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-7 w-7 text-[var(--color-gold)]"
-                            title={cm.role === "president" ? "Rétrograder en comité" : "Promouvoir président"}
-                            onClick={() => changeClubMemberRole(cm.user_id, cm.role === "president" ? "comite" : "president")}
-                          >
-                            <Crown className="h-3.5 w-3.5" />
-                          </Button>
                           <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive" title="Retirer du comité" onClick={() => removeClubMember(cm.user_id)}>
                             <LogOut className="h-3.5 w-3.5" />
                           </Button>

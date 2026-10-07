@@ -17,7 +17,7 @@ import { TeamThemeContext } from "@/lib/teamThemeContext";
 
 export interface ClubMembership {
   club_id: string;
-  role: "president" | "comite";
+  role: "comite";
 }
 
 interface TeamContextType {
@@ -153,8 +153,8 @@ export function TeamProvider({ children }: { children: ReactNode }) {
       })
       .filter(Boolean) as Team[];
 
-    // Rôle comité/président : ajoute les équipes des clubs où l'on est membre du comité (lecture seule)
-    // + les clubs que l'on a créés (créateur = président de facto, pas de ligne club_members).
+    // Rôle comité : ajoute les équipes des clubs où l'on est membre du comité (lecture seule)
+    // + les clubs que l'on a créés (créateur assimilé au comité, pas de ligne club_members).
     let clubTeams: Team[] = [];
     const [clubMembershipsRes, createdClubsRes] = await Promise.all([
       supabase
@@ -165,10 +165,10 @@ export function TeamProvider({ children }: { children: ReactNode }) {
     ]);
     const membershipsFromRows = ((clubMembershipsRes.data || []) as {
       club_id: string;
-      role: "president" | "comite";
+      role: "comite";
     }[]).map((c) => ({ club_id: c.club_id, role: c.role }));
     const createdClubs = ((createdClubsRes.data || []) as { id: string }[]).map(
-      (c) => ({ club_id: c.id, role: "president" as const })
+      (c) => ({ club_id: c.id, role: "comite" as const })
     );
     const clubMemberships = [
       ...membershipsFromRows,

@@ -101,7 +101,7 @@ describe("TeamGuard — cas nominal (team chargée)", () => {
   it("rend les children quand l'utilisateur a des clubMemberships (sans team directe)", () => {
     mockTeamContext = {
       teams: [],
-      clubMemberships: [{ club_id: "club-1", role: "president" }],
+      clubMemberships: [{ club_id: "club-1", role: "comite" }],
       loading: false,
       currentTeam: null,
     };

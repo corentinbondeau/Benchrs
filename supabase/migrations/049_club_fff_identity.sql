@@ -45,9 +45,10 @@ CREATE POLICY "Members can view club_aliases"
   ON public.club_aliases FOR SELECT
   USING (club_id IN (SELECT public.user_club_ids()));
 
--- Président (ou créateur) : gestion des alias
+-- Comité (ou créateur) : gestion des alias
 DROP POLICY IF EXISTS "Presidents can manage club_aliases" ON public.club_aliases;
-CREATE POLICY "Presidents can manage club_aliases"
+DROP POLICY IF EXISTS "Committee can manage club_aliases" ON public.club_aliases;
+CREATE POLICY "Committee can manage club_aliases"
   ON public.club_aliases FOR ALL
-  USING (public.is_club_president(club_id))
-  WITH CHECK (public.is_club_president(club_id));
+  USING (public.is_club_committee(club_id))
+  WITH CHECK (public.is_club_committee(club_id));

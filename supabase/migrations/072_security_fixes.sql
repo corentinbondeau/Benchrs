@@ -22,7 +22,7 @@
 -- ============================================================
 ALTER TABLE public.clubs ADD COLUMN IF NOT EXISTS comite_invite_code TEXT;
 
--- Backfill pour les clubs existants (les présidents peuvent le régénérer dans Réglages)
+-- Backfill pour les clubs existants (le comité peut le régénérer dans Réglages)
 UPDATE public.clubs
 SET comite_invite_code = substr(replace(gen_random_uuid()::text, '-', ''), 1, 12)
 WHERE comite_invite_code IS NULL OR comite_invite_code = '';

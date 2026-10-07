@@ -43,7 +43,7 @@ import {
   Receipt,
 } from "lucide-react";
 import { toast } from "sonner";
-import type { Profile, Cotisation, PaymentHistory } from "@/types";
+import type { Profile, Cotisation, PaymentHistory, Team } from "@/types";
 import { currentSeasonLabel } from "@/lib/goals";
 
 const PAYMENT_METHODS = [
@@ -67,6 +67,9 @@ export default function CotisationsPage() {
   const { currentTeam, userRole, clubMemberships } = useTeam();
   const { user } = useAuth();
   const [players, setPlayers] = useState<Profile[]>([]);
+  const [clubTeams, setClubTeams] = useState<Team[]>([]);
+  const [playerTeam, setPlayerTeam] = useState<Map<string, string>>(new Map());
+  const [teamFilter, setTeamFilter] = useState<"all" | string>("all");
   const [cotisations, setCotisations] = useState<Cotisation[]>([]);
   const [loading, setLoading] = useState(true);
   const [season, setSeason] = useState(() => currentSeasonLabel());
@@ -96,38 +99,100 @@ export default function CotisationsPage() {
 
   const supabaseRef = useRef(createClient());
 
-  const fetchData = useCallback(async () => {
-    if (!currentTeam) return;
+  const isCoach = userRole === "coach" || userRole === "owner";
+  const hasClubRole = clubMemberships.length > 0;
+  const clubId = clubMemberships[0]?.club_id;
+  const hasAccess = isCoach || hasClubRole;
 
-    const { data: members } = await supabaseRef.current
+  const load = useCallback(async () => {
+    if (!hasAccess) return null;
+
+    let clubTeamsData: Team[] = [];
+    if (hasClubRole && clubId) {
+      const { data } = await supabaseRef.current
+        .from("teams")
+        .select("*")
+        .eq("club_id", clubId)
+        .order("name", { ascending: true });
+      clubTeamsData = (data as Team[]) || [];
+    }
+
+    const scopeTeamIds =
+      clubTeamsData.length > 0
+        ? clubTeamsData.map((t) => t.id)
+        : currentTeam
+          ? [currentTeam.id]
+          : [];
+    if (scopeTeamIds.length === 0) {
+      return { clubTeams: [], players: [], playerTeam: new Map(), cotisations: [] };
+    }
+
+    let membersQuery = supabaseRef.current
       .from("team_members")
-      .select("user_id")
-      .eq("team_id", currentTeam.id);
+      .select("user_id, team_id")
+      .eq("role", "player");
+    membersQuery =
+      clubTeamsData.length > 0
+        ? membersQuery.in("team_id", scopeTeamIds)
+        : membersQuery.eq("team_id", scopeTeamIds[0]);
+    const { data: members } = await membersQuery;
 
+    const userIds = [...new Set((members ?? []).map((m) => m.user_id))];
     let profiles: Profile[] = [];
-    if (members && members.length > 0) {
+    if (userIds.length > 0) {
       const { data: p } = await supabaseRef.current
         .from("profiles")
         .select("*")
-        .in("id", members.map((m) => m.user_id))
+        .in("id", userIds)
         .order("last_name", { ascending: true });
       profiles = (p as Profile[]) || [];
     }
-    setPlayers(profiles);
+
+    const firstTeam = new Map<string, string>();
+    for (const m of members ?? []) {
+      if (!firstTeam.has(m.user_id)) firstTeam.set(m.user_id, m.team_id);
+    }
+    const profById = new Map(profiles.map((p) => [p.id, p]));
+    const seen = new Set<string>();
+    const playerTeamMap = new Map<string, string>();
+    const playerList: Profile[] = [];
+    for (const [uid, tid] of firstTeam) {
+      const prof = profById.get(uid);
+      if (!prof || seen.has(uid)) continue;
+      seen.add(uid);
+      playerTeamMap.set(uid, tid);
+      playerList.push(prof);
+    }
 
     const { data: c } = await supabaseRef.current
       .from("cotisations")
       .select("*")
-      .eq("team_id", currentTeam.id)
+      .in("team_id", scopeTeamIds)
       .eq("season", season)
-      .limit(200);
-    setCotisations((c as Cotisation[]) || []);
-    setLoading(false);
-  }, [currentTeam?.id, season]);
+      .limit(500);
+
+    return {
+      clubTeams: clubTeamsData,
+      players: playerList,
+      playerTeam: playerTeamMap,
+      cotisations: (c as Cotisation[]) || [],
+    };
+  }, [hasAccess, hasClubRole, clubId, currentTeam, season]);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    let ignore = false;
+    load().then((res) => {
+      if (ignore || !res) return;
+      setClubTeams(res.clubTeams);
+      setPlayers(res.players);
+      setPlayerTeam(res.playerTeam);
+      setCotisations(res.cotisations);
+      setLoading(false);
+    });
+    return () => {
+      ignore = true;
+    };
+  }, [load]);
 
   const cotisationMap = new Map<string, Cotisation>();
   for (const c of cotisations) {
@@ -138,15 +203,24 @@ export default function CotisationsPage() {
     (a.last_name ?? "").localeCompare(b.last_name ?? "")
   );
 
+  const filteredPlayers =
+    teamFilter === "all" ? sortedPlayers : sortedPlayers.filter((p) => playerTeam.get(p.id) === teamFilter);
+  const filteredPlayerIds = new Set(filteredPlayers.map((p) => p.id));
+  const visibleCotis = cotisations.filter((c) => filteredPlayerIds.has(c.player_id));
+
+  const teamName = (teamId: string) =>
+    clubTeams.find((t) => t.id === teamId)?.name ??
+    (currentTeam?.id === teamId ? currentTeam.name : "Équipe");
+
   const stats = {
-    totalExpected: cotisations.reduce((s, c) => s + Number(c.amount_expected), 0),
-    totalPaid: cotisations.reduce((s, c) => s + Number(c.amount_paid), 0),
-    paidCount: cotisations.filter((c) => c.status === "paid").length,
-    pendingCount: cotisations.filter((c) => c.status !== "paid").length,
+    totalExpected: visibleCotis.reduce((s, c) => s + Number(c.amount_expected), 0),
+    totalPaid: visibleCotis.reduce((s, c) => s + Number(c.amount_paid), 0),
+    paidCount: visibleCotis.filter((c) => c.status === "paid").length,
+    pendingCount: visibleCotis.filter((c) => c.status !== "paid").length,
   };
 
   async function handleDefine() {
-    if (!definePlayer || !defineAmount || !currentTeam) return;
+    if (!definePlayer || !defineAmount) return;
     setSaving(true);
     const amount = parseFloat(defineAmount);
     if (isNaN(amount) || amount <= 0) {
@@ -154,6 +228,7 @@ export default function CotisationsPage() {
       setSaving(false);
       return;
     }
+    const defineTeamId = playerTeam.get(definePlayer.id) ?? currentTeam?.id ?? "";
 
     const existing = cotisationMap.get(definePlayer.id);
     if (existing) {
@@ -176,7 +251,7 @@ export default function CotisationsPage() {
         amount_expected: amount,
         amount_paid: 0,
         status: "pending",
-        team_id: currentTeam.id,
+        team_id: defineTeamId,
       }).select().single();
       if (error) {
         toast.error(error.message);
@@ -193,7 +268,7 @@ export default function CotisationsPage() {
   }
 
   async function handlePayment() {
-    if (!paymentCotisation || !paymentAmount || !currentTeam || !user) return;
+    if (!paymentCotisation || !paymentAmount || !user) return;
     setSaving(true);
     const amount = parseFloat(paymentAmount);
     if (isNaN(amount) || amount <= 0) {
@@ -201,6 +276,8 @@ export default function CotisationsPage() {
       setSaving(false);
       return;
     }
+    const paymentTeamId =
+      paymentCotisation.team_id ?? playerTeam.get(paymentCotisation.player_id) ?? currentTeam?.id ?? "";
 
     const newPaid = Number(paymentCotisation.amount_paid) + amount;
     const expected = Number(paymentCotisation.amount_expected);
@@ -213,7 +290,7 @@ export default function CotisationsPage() {
       payment_date: paymentDate || null,
       recorded_by: user.id,
       notes: paymentNotes || null,
-      team_id: currentTeam.id,
+      team_id: paymentTeamId,
     });
     if (payErr) {
       toast.error(payErr.message);
@@ -253,7 +330,7 @@ export default function CotisationsPage() {
   }
 
   async function handleDeduction() {
-    if (!deductionCotisation || !deductionAmount || !currentTeam || !user) return;
+    if (!deductionCotisation || !deductionAmount || !user) return;
     setSaving(true);
     const amount = parseFloat(deductionAmount);
     if (isNaN(amount) || amount <= 0) {
@@ -261,6 +338,8 @@ export default function CotisationsPage() {
       setSaving(false);
       return;
     }
+    const deductTeamId =
+      deductionCotisation.team_id ?? playerTeam.get(deductionCotisation.player_id) ?? currentTeam?.id ?? "";
 
     const newPaid = Math.max(0, Number(deductionCotisation.amount_paid) - amount);
     const expected = Number(deductionCotisation.amount_expected);
@@ -273,7 +352,7 @@ export default function CotisationsPage() {
       payment_date: new Date().toISOString().slice(0, 10),
       recorded_by: user.id,
       notes: deductionReason ? `Déduction: ${deductionReason}` : "Déduction",
-      team_id: currentTeam.id,
+      team_id: deductTeamId,
     });
     if (histErr) {
       toast.error(histErr.message);
@@ -320,20 +399,10 @@ export default function CotisationsPage() {
     setHistoryOpen(true);
   }
 
-  if (!currentTeam) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <p className="text-muted-foreground">Chargement de l&apos;équipe...</p>
-      </div>
-    );
-  }
-
-  const isCoach = userRole === "coach" || userRole === "owner";
-  const hasClubRole = clubMemberships.length > 0;
-  if (!hasClubRole) {
+  if (!hasAccess) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
-        <p className="text-muted-foreground">Acces reserve au comite du club</p>
+        <p className="text-muted-foreground">Accès réservé au coach ou au comité</p>
       </div>
     );
   }
@@ -352,6 +421,21 @@ export default function CotisationsPage() {
             onChange={(e) => setSeason(e.target.value)}
             className="w-32"
           />
+          {clubTeams.length > 1 && (
+            <Select value={teamFilter} onValueChange={(v) => setTeamFilter(v ?? "all")}>
+              <SelectTrigger className="w-44">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Toutes les équipes</SelectItem>
+                {clubTeams.map((t) => (
+                  <SelectItem key={t.id} value={t.id}>
+                    {t.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
         </div>
       </div>
 
@@ -400,7 +484,7 @@ export default function CotisationsPage() {
             <div>
               <p className="text-xs text-muted-foreground">Statut</p>
               <p className="text-lg font-bold">
-                {stats.paidCount}/{cotisations.length} payé
+                {stats.paidCount}/{visibleCotis.length} payé
               </p>
             </div>
           </CardContent>
@@ -430,6 +514,7 @@ export default function CotisationsPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Joueur</TableHead>
+                  {clubTeams.length > 1 && <TableHead>Équipe</TableHead>}
                   <TableHead className="text-right">Attendu</TableHead>
                   <TableHead className="text-right">Payé</TableHead>
                   <TableHead>Statut</TableHead>
@@ -437,14 +522,14 @@ export default function CotisationsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {sortedPlayers.length === 0 && (
+                {filteredPlayers.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={clubTeams.length > 1 ? 6 : 5} className="text-center text-muted-foreground py-8">
                       Aucun joueur dans l&apos;équipe
                     </TableCell>
                   </TableRow>
                 )}
-                {sortedPlayers.map((player) => {
+                {filteredPlayers.map((player) => {
                   const c = cotisationMap.get(player.id);
                   const cfg = c ? statusConfig[c.status] : null;
                   return (
@@ -461,6 +546,11 @@ export default function CotisationsPage() {
                           </div>
                         </div>
                       </TableCell>
+                      {clubTeams.length > 1 && (
+                        <TableCell className="text-xs text-muted-foreground">
+                          {teamName(playerTeam.get(player.id) ?? "")}
+                        </TableCell>
+                      )}
                       <TableCell className="text-right font-medium">
                         {c ? `${Number(c.amount_expected).toFixed(2)} €` : "—"}
                       </TableCell>

@@ -349,7 +349,7 @@ export default function CreateTeamPage() {
                 <p>
                   Vous suivrez les équipes de votre club en lecture seule
                   (calendrier, résultats, statistiques). La gestion du comité se
-                  fait par le président.
+                  fait par le comité du club.
                 </p>
               </div>
             </>

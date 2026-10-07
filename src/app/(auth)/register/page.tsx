@@ -242,7 +242,7 @@ function RegisterForm() {
           return;
         }
         if (!comiteInviteCode.trim()) {
-          setError("Veuillez renseigner le code d'invitation du club (demandez-le au président)");
+          setError("Veuillez renseigner le code d'invitation du club (demandez-le au comité du club)");
           setLoading(false);
           return;
         }
@@ -573,14 +573,14 @@ function RegisterForm() {
                     </Label>
                     <Input
                       id="comiteInvite"
-                      placeholder="Demandez-le au président"
+                      placeholder="Demandez-le au comité du club"
                       value={comiteInviteCode}
                       onChange={(e) => setComiteInviteCode(e.target.value)}
                       autoComplete="off"
                       required
                     />
                     <p className="text-xs text-muted-foreground">
-                      Le président du club vous transmet ce code pour rejoindre le
+                      Le comité du club vous transmet ce code pour rejoindre le
                       comité en toute sécurité.
                     </p>
                   </div>
@@ -590,7 +590,7 @@ function RegisterForm() {
                   <p>
                     Vous suivrez les équipes de votre club en lecture seule
                     (calendrier, résultats, statistiques). La gestion du comité se
-                    fait par le président.
+                    fait par le comité du club.
                   </p>
                 </div>
               </>
