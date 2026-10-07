@@ -8,6 +8,7 @@ import { ClubPageShell } from "@/components/club/ClubPageShell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { HeartPulse, Users, Activity, Gavel, CalendarClock } from "lucide-react";
+import { currentSeasonLabel, seasonDateRange } from "@/lib/goals";
 
 interface TeamHealth {
   team_id: string;
@@ -151,37 +152,42 @@ export default function ClubSantePage() {
         if (team) incidentsPerTeam.set(team, (incidentsPerTeam.get(team) ?? 0) + 1);
       }
 
-      // Assiduité : 10 derniers événements par équipe, % présents parmi les réponses.
-      const { data: eventsData } = await supabaseRef.current
-        .from("events")
-        .select("id, team_id, event_date")
-        .in("team_id", scope)
-        .neq("status", "cancelled")
-        .gte("event_date", new Date(Date.now() - 45 * 24 * 3600 * 1000).toISOString())
-        .order("event_date", { ascending: false });
-      const eventsByTeam = new Map<string, string[]>();
-      for (const e of eventsData || []) {
-        const row = e as { id: string; team_id: string; event_date: string };
-        if (!eventsByTeam.has(row.team_id)) eventsByTeam.set(row.team_id, []);
-        const list = eventsByTeam.get(row.team_id)!;
-        if (list.length < 10) list.push(row.id);
-      }
-      const windowEventIds = [...eventsByTeam.values()].flat();
+      // Assiduité : saison courante (août→juillet), 10 derniers événements par équipe,
+      // % présents parmi les réponses — cohérent avec PlayerProfile / rapport de saison.
       const attendancePerTeam = new Map<string, { responded: number; attended: number }>();
-      if (windowEventIds.length > 0) {
-        const { data: attData } = await supabaseRef.current
-          .from("attendances")
-          .select("event_id, status")
-          .in("event_id", windowEventIds)
-          .in("status", RESPONDED);
-        for (const a of attData || []) {
-          const row = a as { event_id: string; status: string };
-          const teamOf = [...eventsByTeam.entries()].find(([, ids]) => ids.includes(row.event_id))?.[0];
-          if (!teamOf) continue;
-          const acc = attendancePerTeam.get(teamOf) ?? { responded: 0, attended: 0 };
-          acc.responded += 1;
-          if (ATTENDED.includes(row.status)) acc.attended += 1;
-          attendancePerTeam.set(teamOf, acc);
+      const seasonRange = seasonDateRange(currentSeasonLabel());
+      if (seasonRange) {
+        const { data: eventsData } = await supabaseRef.current
+          .from("events")
+          .select("id, team_id, event_date")
+          .in("team_id", scope)
+          .neq("status", "cancelled")
+          .gte("event_date", seasonRange.start.toISOString())
+          .lte("event_date", seasonRange.end.toISOString())
+          .order("event_date", { ascending: false });
+        const eventsByTeam = new Map<string, string[]>();
+        for (const e of eventsData || []) {
+          const row = e as { id: string; team_id: string; event_date: string };
+          if (!eventsByTeam.has(row.team_id)) eventsByTeam.set(row.team_id, []);
+          const list = eventsByTeam.get(row.team_id)!;
+          if (list.length < 10) list.push(row.id);
+        }
+        const windowEventIds = [...eventsByTeam.values()].flat();
+        if (windowEventIds.length > 0) {
+          const { data: attData } = await supabaseRef.current
+            .from("attendances")
+            .select("event_id, status")
+            .in("event_id", windowEventIds)
+            .in("status", RESPONDED);
+          for (const a of attData || []) {
+            const row = a as { event_id: string; status: string };
+            const teamOf = [...eventsByTeam.entries()].find(([, ids]) => ids.includes(row.event_id))?.[0];
+            if (!teamOf) continue;
+            const acc = attendancePerTeam.get(teamOf) ?? { responded: 0, attended: 0 };
+            acc.responded += 1;
+            if (ATTENDED.includes(row.status)) acc.attended += 1;
+            attendancePerTeam.set(teamOf, acc);
+          }
         }
       }
 
