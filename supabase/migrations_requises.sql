@@ -10,6 +10,8 @@
 --   . 110-123 : lot club & comite (tables + policies + storage)
 --   . 124 : bascule president -> comite sur la base existante :
 --       - rebascule club_members role='president' -> 'comite' ;
+--       - reconstruit l'enum SANS 'president' (pattern PG < 17,
+--         ALTER TYPE ... DROP VALUE n'etant pas implemente) ;
 --       - cree is_club_committee() (repli clubs.created_by) ;
 --       - remplace les policies club_members/club_aliases/activity_logs/
 --         club_posts qui visaient is_club_president ;
@@ -1761,18 +1763,35 @@ grant select, insert, update, delete ON public.club_staff_roles TO authenticated
 -- de simples 'comite' (égalité, pas de couronne). Idempotent : ne fait rien si la migrations
 -- 048 (et suivantes) n'a pas encore été appliquée EN L'ÉTAT (enum sans 'president').
 
--- 1. Si l'enum contient 'president' : rebasculer les lignes puis retirer la valeur.
+-- 1. Si l'enum contient 'president' : rebasculer les lignes puis reconstruire
+-- l'enum SANS la valeur. ALTER TYPE ... DROP VALUE n'existe qu'en PostgreSQL 17 ;
+-- Supabase (PG 15/16) répond "0A000 dropping an enum value is not implemented".
+-- → pattern de reconstruction (créer un nouvel enum, migrer la colonne, dropper
+--   l'ancien, renommer), idempotent grâce au garde `club_member_role_new`.
 DO $$
+DECLARE
+  v_has_president boolean;
 BEGIN
-  IF EXISTS (
+  SELECT EXISTS (
     SELECT 1 FROM pg_enum e
     JOIN pg_type t ON t.oid = e.enumtypid
     WHERE t.typname = 'club_member_role' AND e.enumlabel = 'president'
-  ) AND EXISTS (
-    SELECT 1 FROM pg_type t WHERE t.typname = 'club_member_role'
-  ) THEN
+  ) INTO v_has_president;
+
+  IF v_has_president AND to_regclass('public.club_members') IS NOT NULL THEN
     UPDATE public.club_members SET role = 'comite' WHERE role = 'president';
-    ALTER TYPE public.club_member_role DROP VALUE 'president';
+
+    IF NOT EXISTS (SELECT 1 FROM pg_type t WHERE t.typname = 'club_member_role_new') THEN
+      CREATE TYPE public.club_member_role_new AS ENUM ('comite');
+    END IF;
+
+    ALTER TABLE public.club_members ALTER COLUMN role DROP DEFAULT;
+    ALTER TABLE public.club_members ALTER COLUMN role TYPE public.club_member_role_new
+      USING role::text::public.club_member_role_new;
+
+    DROP TYPE public.club_member_role;
+    ALTER TYPE public.club_member_role_new RENAME TO club_member_role;
+    ALTER TABLE public.club_members ALTER COLUMN role SET DEFAULT 'comite';
   END IF;
 END $$;
 
