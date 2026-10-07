@@ -113,7 +113,7 @@ export const NAV_SECTIONS: { key: string; title: string; items: NavItem[] }[] = 
       { key: "bureau", href: "/club/bureau", label: "Réunions du bureau", icon: Users, clubOnly: true },
       { key: "newsletters", href: "/club/newsletters", label: "Newsletters", icon: Mail, clubOnly: true },
       { key: "formations", href: "/club/formations", label: "Diplômes & formations", icon: GraduationCap, clubOnly: true },
-      { key: "urgences", href: "/club/urgences", label: "Cahier des urgences", icon: HeartPulse, coachAndClub: true },
+      { key: "urgences", href: "/club/urgences", label: "Cahier des urgences", icon: HeartPulse, clubOnly: true },
       { key: "evenements", href: "/club/evenements", label: "Événementiel", icon: Sparkles, clubTeamOnly: true },
       { key: "partenaires", href: "/club/partenaires", label: "Partenaires", icon: Handshake, clubOnly: true },
       { key: "week-end", href: "/club/week-end", label: "Week-end du club", icon: CalendarDays, clubTeamOnly: true },

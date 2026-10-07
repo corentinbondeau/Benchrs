@@ -207,6 +207,7 @@ export default function ClubUrgencesPage() {
       clubId={clubId}
       onChangeClub={onChangeClub}
       loading={clubsLoading || (clubId ? pageLoading : false)}
+      comiteOnly
     >
       <div className="space-y-4">
         <Card>

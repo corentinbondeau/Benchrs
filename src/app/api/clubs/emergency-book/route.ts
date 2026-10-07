@@ -34,15 +34,8 @@ export async function POST(req: Request) {
 
   const teamId = (event as { team_id: string }).team_id;
 
-  // Validateur : coach/owner de l'équipe DU match, OU comité du club de l'équipe.
-  const [{ data: coachRole }, { data: team }] = await Promise.all([
-    supabase
-      .from("team_members")
-      .select("role")
-      .eq("team_id", teamId)
-      .eq("user_id", user.id)
-      .in("role", ["coach", "owner"])
-      .maybeSingle(),
+  // Validateur : comité du club de l'équipe uniquement (PII téléphones/allergies).
+  const [{ data: team }] = await Promise.all([
     supabase
       .from("teams")
       .select("id, name, club_id")
@@ -62,9 +55,9 @@ export async function POST(req: Request) {
       .maybeSingle();
     isCommittee = !!membership;
   }
-  if (!coachRole && !isCommittee) {
+  if (!isCommittee) {
     return NextResponse.json(
-      { error: "Réservé au coach de l'équipe ou au comité du club" },
+      { error: "Réservé au comité du club" },
       { status: 403 }
     );
   }

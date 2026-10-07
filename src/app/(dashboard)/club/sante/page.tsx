@@ -75,16 +75,27 @@ export default function ClubSantePage() {
       );
 
       // Effectif actif par équipe (joueurs, profil is_active).
-      const { data: membersData } = await supabaseRef.current
+      // Pas d'embed team_members→profiles : aucune FK directe (user_id → auth.users) →
+      // l'embed échoue silencieusement. Deux requêtes, pattern fetchTeamActivePlayers.
+      const { data: memberRows } = await supabaseRef.current
         .from("team_members")
-        .select("team_id, profile:profiles!inner(is_active)")
+        .select("team_id, user_id")
         .in("team_id", scope)
         .eq("role", "player");
+      const memberIds = ((memberRows || []) as { user_id: string }[]).map((m) => m.user_id);
+      const activeIds = new Set<string>();
+      if (memberIds.length > 0) {
+        const { data: activeProfiles } = await supabaseRef.current
+          .from("profiles")
+          .select("id")
+          .in("id", memberIds)
+          .eq("is_active", true);
+        for (const p of activeProfiles || []) activeIds.add((p as { id: string }).id);
+      }
       const activePerTeam = new Map<string, number>();
-      for (const m of membersData || []) {
-        const row = m as { team_id: string; profile: { is_active: boolean }[] };
-        const prof = asProfile(row.profile) as { is_active?: boolean } | undefined;
-        if (prof?.is_active) {
+      for (const m of memberRows || []) {
+        const row = m as { team_id: string; user_id: string };
+        if (activeIds.has(row.user_id)) {
           activePerTeam.set(row.team_id, (activePerTeam.get(row.team_id) ?? 0) + 1);
         }
       }
