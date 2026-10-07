@@ -21,6 +21,7 @@ export function ClubPageShell({
   loading,
   actions,
   children,
+  comiteOnly = false,
 }: {
   title: string;
   subtitle?: string;
@@ -30,7 +31,10 @@ export function ClubPageShell({
   loading: boolean;
   actions?: ReactNode;
   children: ReactNode;
+  comiteOnly?: boolean;
 }) {
+  const selected = clubs.find((c) => c.club_id === clubId) ?? null;
+  const restricted = comiteOnly && clubId != null && selected?.role == null;
   return (
     <div className="max-w-5xl mx-auto section-gap">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -75,6 +79,14 @@ export function ClubPageShell({
             <p className="text-muted-foreground">
               Aucun club trouvé. Rejoignez un club ou une équipe pour accéder
               à cet espace.
+            </p>
+          </CardContent>
+        </Card>
+      ) : restricted ? (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <p className="text-muted-foreground">
+              Accès réservé au comité du club.
             </p>
           </CardContent>
         </Card>

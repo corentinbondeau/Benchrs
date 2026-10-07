@@ -288,6 +288,7 @@ export default function ClubSaisonPage() {
       clubId={clubId}
       onChangeClub={onChangeClub}
       loading={clubsLoading || pageLoading}
+      comiteOnly
       actions={
         <Select value={season} onValueChange={(v) => {
           setSeason(v ?? current);

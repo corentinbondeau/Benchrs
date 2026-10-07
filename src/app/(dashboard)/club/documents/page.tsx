@@ -194,11 +194,12 @@ export default function ClubDocumentsPage() {
   return (
     <ClubPageShell
       title="Documents & PV"
-      subtitle="Pièces administratives du club consultables par les membres"
+      subtitle="Pièces administratives du club (comité)"
       clubs={clubs}
       clubId={clubId}
       onChangeClub={onChangeClub}
       loading={loading || (clubId ? pageLoading : false)}
+      comiteOnly
       actions={
         isCommittee ? (
           <Dialog open={uploadOpen} onOpenChange={setUploadOpen}>

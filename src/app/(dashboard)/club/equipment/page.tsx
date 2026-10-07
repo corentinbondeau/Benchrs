@@ -394,6 +394,7 @@ export default function ClubEquipmentPage() {
       clubId={clubId}
       onChangeClub={onChangeClub}
       loading={clubsLoading || (clubId ? pageLoading : false)}
+      comiteOnly
       actions={
         isCommittee ? (
           <Button size="sm" onClick={openCreate}>

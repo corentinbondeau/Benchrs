@@ -269,6 +269,7 @@ export default function ClubPartenairesPage() {
       clubId={clubId}
       onChangeClub={onChangeClub}
       loading={clubsLoading || pageLoading}
+      comiteOnly
       actions={
         isCommittee && (
           <Button size="sm" onClick={openCreate}>

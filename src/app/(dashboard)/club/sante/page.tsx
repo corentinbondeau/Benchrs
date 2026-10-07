@@ -28,6 +28,10 @@ function formatDate(iso: string): string {
   );
 }
 
+function asProfile(p: unknown): unknown {
+  return Array.isArray(p) ? p[0] ?? null : (p ?? null);
+}
+
 export default function ClubSantePage() {
   const { user } = useAuth();
   const { clubs, loading: clubsLoading } = useUserClubs();
@@ -79,7 +83,8 @@ export default function ClubSantePage() {
       const activePerTeam = new Map<string, number>();
       for (const m of membersData || []) {
         const row = m as { team_id: string; profile: { is_active: boolean }[] };
-        if (row.profile?.[0]?.is_active) {
+        const prof = asProfile(row.profile) as { is_active?: boolean } | undefined;
+        if (prof?.is_active) {
           activePerTeam.set(row.team_id, (activePerTeam.get(row.team_id) ?? 0) + 1);
         }
       }
@@ -87,7 +92,7 @@ export default function ClubSantePage() {
       // Blessures actives par équipe (team_id direct sur injuries).
       const { data: injuriesData } = await supabaseRef.current
         .from("injuries")
-        .select("id, team_id, injury_type, expected_return, profile:profiles!inner(first_name, last_name)")
+        .select("id, team_id, injury_type, expected_return, profile:profiles!injuries_player_id_fkey(first_name, last_name)")
         .in("team_id", scope)
         .eq("status", "active");
       const injuredPerTeam = new Map<string, TeamHealth["injured"]>();
@@ -100,7 +105,9 @@ export default function ClubSantePage() {
           profile: { first_name: string | null; last_name: string | null }[];
         };
         if (!row.team_id) continue;
-        const p = row.profile?.[0];
+        const p = asProfile(row.profile) as
+          | { first_name: string | null; last_name: string | null }
+          | undefined;
         const name = `${p?.first_name ?? ""} ${p?.last_name ?? ""}`.trim() || "Joueur";
         if (!injuredPerTeam.has(row.team_id)) injuredPerTeam.set(row.team_id, []);
         injuredPerTeam.get(row.team_id)!.push({
@@ -226,6 +233,7 @@ export default function ClubSantePage() {
       clubId={clubId}
       onChangeClub={onChangeClub}
       loading={clubsLoading || pageLoading}
+      comiteOnly
     >
       <div className="grid gap-4 md:grid-cols-2">
         {teams.map((t) => (
