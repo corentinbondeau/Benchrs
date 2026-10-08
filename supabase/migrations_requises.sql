@@ -18,6 +18,12 @@
 --       - remplace les policies club_members/club_aliases/activity_logs/
 --         club_posts qui visaient is_club_president ;
 --       - DROP l'ancienne fonction is_club_president(uuid).
+--   . 125 : backfill parent_student.team_id (convocations des parents —
+--           liens crees avant la migration 004 ont un team_id NULL, donc
+--           la route /api/notifications/send ne les notifiait pas).
+--   . 126 : retrait complet de l'analyse vidéo Replicate (worker
+--           auto-hébergé = seule voie) — DROP des colonnes de liaison
+--           distante laissees par 108 (external_id/provider), idempotent.
 -- A appliquer en une seule execution dans l'editeur SQL Supabase.
 -- ============================================================
 
@@ -1848,3 +1854,51 @@ END $$;
 
 DROP FUNCTION IF EXISTS public.is_club_president(uuid);
 
+
+
+-- ============================================================
+-- FICHIER : 125_parent_student_team_backfill.sql
+-- ============================================================
+
+-- 125_parent_student_team_backfill.sql
+-- Les parents reçoivent les convocations via parent_student (route /api/notifications/send
+-- expande les destinataires vers les parent_id liés aux joueurs convoqués, filtrés par
+-- `parent_student.team_id = <team de l'événement>`).
+-- La colonne team_id a été ajoutée en 004 SANS backfill : les liens créés avant cette
+-- migration ont team_id NULL → la jointure sur team_id ne les trouve jamais et les parents
+-- concernés ne reçoivent pas les convocations.
+-- Ce backfill affecte team_id à partir de la ligne team_members (rôle 'player') de l'enfant.
+
+UPDATE parent_student ps
+SET team_id = tm.team_id
+FROM team_members tm
+WHERE ps.team_id IS NULL
+  AND tm.user_id = ps.student_id
+  AND tm.role = 'player';
+
+-- Rows orphelines (enfant sans team_members 'player' au moment du run) :
+-- gardées NULL, seront rattrapées par un prochain run une fois le joueur membre.
+-- (une seule équipe par joueur à la fois → pas de risque d'écrasement croisé)
+
+-- ============================================================
+-- FICHIER : 126_remove_video_replicate.sql
+-- ============================================================
+
+-- ============================================================
+-- 126_remove_video_replicate.sql
+-- Suppression complète du chemin d'analyse vidéo Replicate (API de
+-- vision externe). L'analyse vidéo est désormais gérée UNIQUEMENT par
+-- le worker auto-hébergé (ai-service/worker.py, YOLO + ByteTrack).
+--
+-- La route webhook, la route de lancement, le cron de filet, le module
+-- src/lib/replicate.ts et cog.yaml sont retirés du code ; cette migration
+-- nettoie les colonnes de liaison distante laissées par 108.
+-- Idempotente : la base DROP IF EXISTS fonctionne que 108 ait été
+-- appliquée ou non.
+-- ============================================================
+
+ALTER TABLE public.video_analyses
+  DROP COLUMN IF EXISTS external_id,
+  DROP COLUMN IF EXISTS provider;
+
+DROP INDEX IF EXISTS public.video_analyses_external_id_idx;

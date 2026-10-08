@@ -92,14 +92,12 @@ export function proxy(request: NextRequest) {
     pathname === "/forgot-password";
   const isApiAuth = pathname.startsWith("/api/auth");
   // /api/notifications/cron est appelé par Vercel Cron (Bearer CRON_SECRET) sans session,
-  // /api/clubs/lookup-public est appelé depuis la page publique /register,
-  // /api/video-analysis/webhook est appelé par Replicate (fin d'analyse vidéo).
+  // /api/clubs/lookup-public est appelé depuis la page publique /register.
   const isPublicApi =
     pathname.startsWith("/api/live/") ||
     pathname.startsWith("/api/calendar/ics") ||
     pathname === "/api/notifications/cron" ||
-    pathname === "/api/clubs/lookup-public" ||
-    pathname === "/api/video-analysis/webhook";
+    pathname === "/api/clubs/lookup-public";
 
   // Nom du cookie de session Supabase : sb-<project_ref>-auth-token.
   // Dérivé de l'URL (pas de ref codé en dur, sinon un changement de

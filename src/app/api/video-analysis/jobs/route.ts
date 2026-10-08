@@ -8,11 +8,6 @@ import {
   forbidden,
 } from "@/lib/api-auth";
 import { rateLimit } from "@/lib/rateLimit";
-import {
-  replicateEnabled,
-  startPrediction,
-  createVideoSignedUrl,
-} from "@/lib/replicate";
 
 export const dynamic = "force-dynamic";
 
@@ -34,6 +29,8 @@ const VIDEO_MIMES = new Set([
 // quota de jobs actifs + validation MIME/taille du descripteur.
 // Le chemin storage est validé (dossier = match_videos/<team>/<user>/)
 // pour empêcher d'analyser un fichier placé hors de son périmètre.
+// Le worker auto-hébergé (ai-service/worker.py) consomme la file en
+// polling ; le job reste 'pending' jusqu'à ce qu'il soit réclamé.
 export async function POST(req: Request) {
   try {
     const user = await getAuthUser(req);
@@ -116,36 +113,6 @@ export async function POST(req: Request) {
         { error: error?.message || "Erreur lors de la création de la tâche" },
         { status: 500 }
       );
-    }
-
-    // API de vision externe configurée → on lance l'analyse immédiatement
-    // (status → 'processing' + external_id). Sans elle, le job reste
-    // 'pending' : le worker self-host ou le cron prendront le relais.
-    if (replicateEnabled()) {
-      try {
-        const videoUrl = await createVideoSignedUrl(job.storage_path);
-        const host = req.headers.get("host") ?? "";
-        const webhookUrl = `https://${host}/api/video-analysis/webhook`;
-        const prediction = await startPrediction(videoUrl, webhookUrl);
-        const { data: launched } = await supabase
-          .from("video_analyses")
-          .update({
-            status: "processing",
-            provider: "replicate",
-            external_id: prediction.id,
-            progress: 5,
-            started_at: new Date().toISOString(),
-          })
-          .eq("id", job.id)
-          .select()
-          .single();
-        if (launched) {
-          return NextResponse.json({ job: launched, provider: "replicate" });
-        }
-      } catch (startError) {
-        console.error("[video-analysis] lancement Replicate échoué :", startError);
-        // le job reste pending ; le cron /api/video-analysis/cron rattrapera
-      }
     }
 
     return NextResponse.json({ job });

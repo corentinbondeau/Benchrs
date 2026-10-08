@@ -3,10 +3,6 @@
     {
       "path": "/api/notifications/cron",
       "schedule": "0 14 * * *"
-    },
-    {
-      "path": "/api/video-analysis/cron",
-      "schedule": "0 2 * * *"
     }
   ]
 }

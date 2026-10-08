@@ -44,7 +44,7 @@ export const PARITY_SCOPE = ["lib", "types", "components/lineup"];
  * Chemins relatifs à la racine des deux répertoires comparés.
  *
  * Contenu du fork legacy (Next 14) : il ne porte PAS les features propres
- * à l'app principale — analyse vidéo (replicate/videoAnalysis/nav/tabs),
+ * à l'app principale — analyse vidéo (videoAnalysis/nav/tabs),
  * export PDF joueur (playerSeasonPdf), calcul d'assiduité (attendance),
  * shémas d'exercices échelle/haies/cerceau (types/training/pdf). Ces
  * écarts sont VOLONTAIRES : le fork ne consomme pas ces modules.
@@ -55,7 +55,6 @@ export const DEFAULT_ALLOWLIST = [
   "lib/attendance.ts",
   "lib/nav.ts",
   "lib/playerSeasonPdf.tsx",
-  "lib/replicate.ts",
   "lib/videoAnalysis.ts",
   "lib/tabs.ts",
   "lib/training/pdf.tsx",

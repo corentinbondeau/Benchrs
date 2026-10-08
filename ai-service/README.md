@@ -65,16 +65,14 @@ python worker.py
 
 ## Déploiement en ligne (pour que tous les utilisateurs puissent l'utiliser)
 
-> **Option retenue (gratuite, 24/7) — VM Oracle Cloud Free Tier :**
-> le worker `worker.py` tourne sur une instance ARM A1 (4 OCPU / 24 Go RAM,
-> gratuit à vie) via Docker. Le bucket privé et la file sont dans Supabase,
-> le worker consomme les jobs automatiquement. Voir `deploy-oracle.sh` et
-> la section « Oracle Cloud Free Tier » ci-dessous.
+> **Option unique et retenue (gratuite, 24/7, 100 % indépendante) — VM
+> Oracle Cloud Free Tier :** le worker `worker.py` tourne sur une instance
+> ARM A1 (4 OCPU / 24 Go RAM, gratuit à vie) via Docker. Le bucket privé et
+> la file sont dans Supabase, le worker consomme les jobs automatiquement.
+> Voir `deploy-oracle.sh` et la section « Oracle Cloud Free Tier » ci-dessous.
 >
-> **Alternative payante (abandonnée) — API de vision externe Replicate :**
-> le pipeline était empaqueté en modèle Cog et appelé depuis Vercel
-> (pay-per-run). Abandonné car il fait payer par exécution. Le workflow
-> GitHub Actions `cog-push.yml` reste dispo en manuel au cas où.
+> Aucune API externe n'est impliquée (pas de Replicate, pas de paiement par
+> analyse) : c'est NOTRE agent de vision, entièrement sous notre contrôle.
 
 Le worker est un **démon** — il doit tourner en permanence sur une VM /
 un conteneur. Vercel ne peut PAS l'héberger (fonctions Node serverless,
