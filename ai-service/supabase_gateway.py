@@ -52,12 +52,34 @@ class SupabaseGateway:
                 f"(migration 106_video_analysis.sql appliquée ?) : {_fmt_exc(exc)}"
             ) from exc
 
+        # ⚠️ EFFET DE BORDE DU PROBE : la RPC ci-dessous, en plus de dire si
+        # elle existe, CLAIME le plus ancien job pending (UPDATE → processing,
+        # retourné dans res.data). Si un job était en attente au boot, il a
+        # donc été réclamé par ce simple test → personne ne le traitera.
+        # On détecte l'existence par la levée d'exception du probe, puis si
+        # res a rendu des lignes, on les remet en 'pending' pour que la
+        # boucle principale les réclame proprement.
+        probe = None
         try:
-            self.sb.rpc("claim_next_video_job", {"p_timeout_min": 15}).execute()
+            probe = self.sb.rpc("claim_next_video_job", {"p_timeout_min": 15}).execute()
         except Exception:
             log.warning(
                 "RPC claim_next_video_job introuvable → migration 107 NON appliquée. "
                 "Le worker bascule sur la réclamation inline (toujours fonctionnelle)."
+            )
+            probe = None
+        for row in probe.data or []:
+            self.sb.table(self.table).update(
+                {
+                    "status": "pending",
+                    "progress": 0,
+                    "started_at": None,
+                }
+            ).eq("id", row["id"]).execute()
+            log.info(
+                "Job %s réclamé par le probe de schéma → remis en 'pending' "
+                "(sera réclamé par la boucle)",
+                row["id"],
             )
 
     # ─── File d'attente ────────────────────────────────────────
