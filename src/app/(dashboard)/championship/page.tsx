@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Trophy, Medal, Plus, Loader2, Zap, AlertTriangle, ExternalLink, Users } from "lucide-react";
+import { Trophy, Medal, Plus, Loader2, Zap, AlertTriangle, ExternalLink, Users, Search } from "lucide-react";
 import { toast } from "sonner";
 import { parsePouleUrl } from "@/lib/dofa/poule-url";
 import { parseDofaMatches } from "@/lib/dofa/parse-matches";
@@ -19,6 +19,7 @@ import { extractDofaPagination, type DofaPagination } from "@/lib/dofa/paginatio
 import { diagnoseDofaPaste } from "@/lib/dofa/paste-diagnostics";
 import { currentSeasonLabel, previousSeasonLabel } from "@/lib/goals";
 import PouleResultsCard, { type PouleMatch } from "@/components/championship/PouleResultsCard";
+import { ClubSearchDialog } from "@/components/championship/ClubSearchDialog";
 
 interface Championship {
   id: string;
@@ -625,6 +626,24 @@ export default function ChampionshipPage() {
                         </p>
                       </div>
 
+                      <div className="rounded-lg border p-3 space-y-2">
+                        <p className="text-sm font-medium">Trouver la poule sans copier d'URL</p>
+                        <p className="text-xs text-muted-foreground">
+                          Recherchez le club FFF → choisissez l'équipe/championnat → la phase/poule.
+                        </p>
+                        <ClubSearchDialog
+                          onSelect={(ref) => {
+                            setPouleUrlInput(`${ref.cpNo}/${ref.phase}/${ref.poule}`);
+                            handleSavePouleUrl().catch(() => {});
+                          }}
+                        >
+                          <Button type="button" variant="outline" size="sm" className="w-full">
+                            <Search className="mr-1 h-4 w-4" />
+                            Rechercher un club FFF
+                          </Button>
+                        </ClubSearchDialog>
+                      </div>
+
                       {/* Équipe choisie par le coach — sans elle, l'agenda ne peut pas
                           être alimenté (planEventSync filtre sur cette identité). */}
                       {selected.dofa_cl_no != null ? (
@@ -949,6 +968,23 @@ export default function ChampionshipPage() {
                     </>
                   ) : (
                     <div className="space-y-2">
+                      <p className="text-sm font-medium">Rechercher un club FFF (recommandé)</p>
+                      <ClubSearchDialog
+                        onSelect={(ref) => {
+                          setPouleUrlInput(`${ref.cpNo}/${ref.phase}/${ref.poule}`);
+                          handleSavePouleUrl().catch(() => {});
+                        }}
+                      >
+                        <Button type="button" variant="outline" size="sm" className="w-full">
+                          <Search className="mr-1 h-4 w-4" />
+                          Rechercher un club FFF
+                        </Button>
+                      </ClubSearchDialog>
+                      <div className="relative flex items-center py-2">
+                        <div className="flex-grow border-t border-border" />
+                        <span className="mx-2 flex-shrink text-xs text-muted-foreground">ou</span>
+                        <div className="flex-grow border-t border-border" />
+                      </div>
                       <Label htmlFor="poule-url-input">
                         URL de la page de poule (epreuves.fff.fr, district, ou triplet manuel)
                       </Label>
