@@ -115,7 +115,7 @@ export function ClubSearchDialog({ children, onSelect }: ClubSearchDialogProps) 
     clubsAbort.current = ac
     setClubsLoading(true)
     setClubsError(null)
-    fetch(`https://api-dofa.fff.fr/clubs?search=${encodeURIComponent(q.trim())}&itemsPerPage=20`, {
+    fetch(`/api/proxy/dofa?url=${encodeURIComponent(`https://api-dofa.fff.fr/clubs?search=${encodeURIComponent(q.trim())}&itemsPerPage=20`)}`, {
       headers: { Accept: "application/ld+json, application/json" },
       signal: ac.signal,
     })
@@ -146,7 +146,7 @@ export function ClubSearchDialog({ children, onSelect }: ClubSearchDialogProps) 
     setEngLoading(true)
     setEngError(null)
     setSelectedEng(null)
-    fetch(`https://api-dofa.fff.fr/engagements?structure.id=${encodeURIComponent(String(cid))}&itemsPerPage=50`, {
+    fetch(`/api/proxy/dofa?url=${encodeURIComponent(`https://api-dofa.fff.fr/engagements?structure.id=${encodeURIComponent(String(cid))}&itemsPerPage=50`)}`, {
       headers: { Accept: "application/ld+json, application/json" },
       signal: ac.signal,
     })
@@ -180,7 +180,7 @@ export function ClubSearchDialog({ children, onSelect }: ClubSearchDialogProps) 
     setPoules([])
     setSelectedPhase(null)
     setSelectedPoule(null)
-    fetch(`https://api-dofa.fff.fr/competitions/${cpNo}/phases?itemsPerPage=50`, {
+    fetch(`/api/proxy/dofa?url=${encodeURIComponent(`https://api-dofa.fff.fr/competitions/${cpNo}/phases?itemsPerPage=50`)}`, {
       headers: { Accept: "application/ld+json, application/json" },
       signal: ac.signal,
     })
@@ -216,7 +216,7 @@ export function ClubSearchDialog({ children, onSelect }: ClubSearchDialogProps) 
     setPhaseError(null)
     setPoules([])
     setSelectedPoule(null)
-    fetch(url, {
+    fetch(`/api/proxy/dofa?url=${encodeURIComponent(url)}`, {
       headers: { Accept: "application/ld+json, application/json" },
       signal: ac.signal,
     })
