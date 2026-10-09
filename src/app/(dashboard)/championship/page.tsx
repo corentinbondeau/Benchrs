@@ -19,7 +19,6 @@ import { extractDofaPagination, type DofaPagination } from "@/lib/dofa/paginatio
 import { diagnoseDofaPaste } from "@/lib/dofa/paste-diagnostics";
 import { currentSeasonLabel, previousSeasonLabel } from "@/lib/goals";
 import PouleResultsCard, { type PouleMatch } from "@/components/championship/PouleResultsCard";
-import { ClubSearchDialog } from "@/components/championship/ClubSearchDialog";
 
 interface Championship {
   id: string;
@@ -967,24 +966,7 @@ export default function ChampionshipPage() {
                       </Button>
                     </>
                   ) : (
-                    <div className="space-y-2">
-                      <p className="text-sm font-medium">Rechercher un club FFF (recommandé)</p>
-                      <ClubSearchDialog
-                        onSelect={(ref) => {
-                          setPouleUrlInput(`${ref.cpNo}/${ref.phase}/${ref.poule}`);
-                          handleSavePouleUrl().catch(() => {});
-                        }}
-                      >
-                        <Button type="button" variant="outline" size="sm" className="w-full">
-                          <Search className="mr-1 h-4 w-4" />
-                          Rechercher un club FFF
-                        </Button>
-                      </ClubSearchDialog>
-                      <div className="relative flex items-center py-2">
-                        <div className="flex-grow border-t border-border" />
-                        <span className="mx-2 flex-shrink text-xs text-muted-foreground">ou</span>
-                        <div className="flex-grow border-t border-border" />
-                      </div>
+
                       <Label htmlFor="poule-url-input">
                         URL de la page de poule (epreuves.fff.fr, district, ou triplet manuel)
                       </Label>
