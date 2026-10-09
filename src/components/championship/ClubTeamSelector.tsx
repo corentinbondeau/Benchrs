@@ -210,23 +210,7 @@ export function ClubTeamSelector({ onSelect }: Props) {
                   <div className="grid gap-2">
                     {grouped[g].map((t, i) => {
                       const active = selectedTeam === t
-                      const grouped = teams.reduce<Record<string, Team[]>>((acc, t) => {
-    const comp = t.competition || ""
-    let group = "Autres"
-    if (/senior/i.test(comp) || /elite|national|regional|district.*senior/i.test(comp)) group = "Seniors"
-    else if (/feminin|dame|f\s/i.test(comp)) group = "Féminines"
-    else if (/u19|u18|u17|u16|u15|u14|u13|u12|u11|jeune|junior|cadet|minime|benjamin|poussin|baby|mois|echelon/i.test(comp)) group = "Jeunes"
-    else if (/veteran|vétéran/i.test(comp)) group = "Vétérans"
-    acc[group] = acc[group] || []
-    acc[group].push(t)
-    return acc
-  }, {})
-
-  const order = ["Seniors", "Féminines", "Jeunes", "Vétérans", "Autres"]
-  const groups = order.filter((g) => grouped[g]?.length > 0)
-
-
-  return (
+                      return (
                         <Card key={`${g}-${i}`} className={`cursor-pointer transition ${active ? "border-primary" : "hover:border-primary/60"}`} onClick={() => setSelectedTeam(t)}>
                           <CardContent className="flex flex-col gap-1 p-3">
                             <p className="font-medium">{t.equipe || "Équipe"}</p>
