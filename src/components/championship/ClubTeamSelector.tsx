@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -40,29 +40,33 @@ export function ClubTeamSelector({ onSelect }: Props) {
   const [teams, setTeams] = useState<Team[]>([])
   const [loadingTeams, setLoadingTeams] = useState(false)
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null)
+  const searchAbortRef = useRef(false)
 
   useEffect(() => {
     if (q.trim().length < 2) {
       setClubs([])
       return
     }
+    searchAbortRef.current = false
     const t = setTimeout(async () => {
-      let cancelled = false
       setLoadingClubs(true)
       try {
         const res = await fetch(`/api/clubs/search?q=${encodeURIComponent(q.trim())}`)
         const data = await res.json()
-        if (cancelled) return
+        if (searchAbortRef.current) return
         setClubs(Array.isArray(data) ? data : [])
       } catch {
-        if (cancelled) return
+        if (searchAbortRef.current) return
         setClubs([])
       } finally {
-        if (cancelled) return
+        if (searchAbortRef.current) return
         setLoadingClubs(false)
       }
     }, 300)
-    return () => clearTimeout(t)
+    return () => {
+      clearTimeout(t)
+      searchAbortRef.current = true
+    }
   }, [q])
 
   useEffect(() => {
