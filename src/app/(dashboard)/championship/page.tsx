@@ -19,6 +19,7 @@ import { extractDofaPagination, type DofaPagination } from "@/lib/dofa/paginatio
 import { diagnoseDofaPaste } from "@/lib/dofa/paste-diagnostics";
 import { currentSeasonLabel, previousSeasonLabel } from "@/lib/goals";
 import PouleResultsCard, { type PouleMatch } from "@/components/championship/PouleResultsCard";
+import { ClubTeamSelector } from "@/components/championship/ClubTeamSelector";
 
 interface Championship {
   id: string;
@@ -950,33 +951,52 @@ export default function ChampionshipPage() {
                       </Button>
                     </>
                   ) : (
-                    <div className="space-y-2">
-                      <Label htmlFor="poule-url-input">
-                        URL de la page de poule (epreuves.fff.fr, district, ou triplet manuel)
-                      </Label>
-                      <Input
-                        id="poule-url-input"
-                        placeholder="https://epreuves.fff.fr/competition/engagement/452059-u18-regional-2/phase/1/1/saison"
-                        value={pouleUrlInput}
-                        onChange={(e) => {
-                          setPouleUrlInput(e.target.value);
-                          setPouleSaveError(null);
-                        }}
-                        autoFocus
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Collez l&apos;URL de la page de votre poule sur{" "}
-                        <code>epreuves.fff.fr</code> (compétitions nationales et régionales) ou
-                        sur le site du district (ex. <code>flandres.fff.fr</code>), ou saisissez
-                        directement le triplet <code>cpNo/phase/poule</code>. Le numéro de
-                        l&apos;engagement et les deux derniers chiffres sont repris
-                        automatiquement.
-                      </p>
-                      {pouleSaveError && (
-                        <p role="alert" className="text-xs text-destructive">
-                          {pouleSaveError}
+                    <div className="space-y-4">
+                      <div className="space-y-1">
+                        <p className="text-sm font-medium">Rechercher mon club et mon championnat</p>
+                        <p className="text-xs text-muted-foreground">
+                          Cherchez votre club, sélectionnez l&apos;équipe/championnat auquel il est engagé (Seniors/Jeunes/Féminines), l&apos;import DOFA se configure automatiquement.
                         </p>
-                      )}
+                      </div>
+                      <ClubTeamSelector
+                        onSelect={({ team }) => {
+                          if (team.cpNo != null) {
+                            const phase = 1
+                            const poule = 1
+                            setPouleUrlInput(`${team.cpNo}/${phase}/${poule}`)
+                            setPouleSaveError(null)
+                            handleSavePouleUrl().catch(() => {})
+                            setPouleDialogOpen(false)
+                          } else {
+                            setPouleUrlInput("")
+                            setPouleSaveError("Impossible d&apos;extrait le cp_no depuis cet engagement. Essayez une autre catégorie ou saisissez l&apos;URL manuellement.")
+                          }
+                        }}
+                      />
+                      <div className="relative flex items-center py-2">
+                        <div className="flex-grow border-t border-border" />
+                        <span className="mx-2 flex-shrink text-xs text-muted-foreground">ou saisie manuelle</span>
+                        <div className="flex-grow border-t border-border" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="poule-url-input">
+                          URL de la page de poule ou triplet cpNo/phase/poule
+                        </Label>
+                        <Input
+                          id="poule-url-input"
+                          placeholder="https://epreuves.fff.fr/..."
+                          value={pouleUrlInput}
+                          onChange={(e) => {
+                            setPouleUrlInput(e.target.value);
+                            setPouleSaveError(null);
+                          }}
+                        />
+                        {pouleSaveError && (
+                          <p role="alert" className="text-xs text-destructive">
+                            {pouleSaveError}
+                          </p>
+                        )}
+                      </div>
                     </div>
                   )}
 
