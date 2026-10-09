@@ -630,17 +630,7 @@ export default function ChampionshipPage() {
                         <p className="text-xs text-muted-foreground">
                           Recherchez le club FFF → choisissez l’équipe/championnat → la phase/poule.
                         </p>
-                        <ClubSearchDialog
-                          onSelect={(ref) => {
-                            setPouleUrlInput(`${ref.cpNo}/${ref.phase}/${ref.poule}`);
-                            handleSavePouleUrl().catch(() => {});
-                          }}
-                        >
-                          <Button type="button" variant="outline" size="sm" className="w-full">
-                            <Search className="mr-1 h-4 w-4" />
-                            Rechercher un club FFF
-                          </Button>
-                        </ClubSearchDialog>
+                        
                       </div>
 
                       {/* Équipe choisie par le coach — sans elle, l'agenda ne peut pas
@@ -966,7 +956,7 @@ export default function ChampionshipPage() {
                       </Button>
                     </>
                   ) : (
-
+                    <div className="space-y-2">
                       <Label htmlFor="poule-url-input">
                         URL de la page de poule (epreuves.fff.fr, district, ou triplet manuel)
                       </Label>
