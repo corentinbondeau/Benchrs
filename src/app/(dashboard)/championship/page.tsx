@@ -625,13 +625,7 @@ export default function ChampionshipPage() {
                         </p>
                       </div>
 
-                      <div className="rounded-lg border p-3 space-y-2">
-                        <p className="text-sm font-medium">Trouver la poule sans copier d'URL</p>
-                        <p className="text-xs text-muted-foreground">
-                          Recherchez le club FFF → choisissez l’équipe/championnat → la phase/poule.
-                        </p>
-                        
-                      </div>
+
 
                       {/* Équipe choisie par le coach — sans elle, l'agenda ne peut pas
                           être alimenté (planEventSync filtre sur cette identité). */}
