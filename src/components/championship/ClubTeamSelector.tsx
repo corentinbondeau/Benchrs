@@ -47,14 +47,18 @@ export function ClubTeamSelector({ onSelect }: Props) {
       return
     }
     const t = setTimeout(async () => {
+      let cancelled = false
       setLoadingClubs(true)
       try {
         const res = await fetch(`/api/clubs/search?q=${encodeURIComponent(q.trim())}`)
         const data = await res.json()
+        if (cancelled) return
         setClubs(Array.isArray(data) ? data : [])
       } catch {
+        if (cancelled) return
         setClubs([])
       } finally {
+        if (cancelled) return
         setLoadingClubs(false)
       }
     }, 300)
