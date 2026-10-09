@@ -63,13 +63,26 @@ export function ClubTeamSelector({ onSelect }: Props) {
 
   useEffect(() => {
     if (!selectedClub) return
+    let cancelled = false
     setLoadingTeams(true)
     setSelectedTeam(null)
     fetch(`/api/clubs/${selectedClub.id}/teams`)
       .then((r) => r.json())
-      .then((d) => setTeams(Array.isArray(d.teams) ? d.teams : []))
-      .catch(() => setTeams([]))
-      .finally(() => setLoadingTeams(false))
+      .then((d) => {
+        if (cancelled) return
+        setTeams(Array.isArray(d.teams) ? d.teams : [])
+      })
+      .catch(() => {
+        if (cancelled) return
+        setTeams([])
+      })
+      .finally(() => {
+        if (cancelled) return
+        setLoadingTeams(false)
+      })
+    return () => {
+      cancelled = true
+    }
   }, [selectedClub])
 
   function handleImport() {
