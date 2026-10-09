@@ -18,10 +18,10 @@ export async function GET(req: NextRequest) {
     if (!ct.includes("json") || body.startsWith("<!")) {
       return NextResponse.json([])
     }
-    const data = JSON.parse(body) as any
-    const members = Array.isArray(data["hydra:member"]) ? data["hydra:member"] : []
+    const data = JSON.parse(body) as { ["hydra:member"]?: unknown[] }
+    const members = Array.isArray(data["hydra:member"]) ? (data["hydra:member"] as any[]) : []
     return NextResponse.json(
-      members.map((c: any) => ({
+      members.map((c: Record<string, any>) => ({
         id: c.id || c["@id"]?.match(/\/clubs\/(\d+)$/)?.[1],
         nom: c.nom,
         ville: c.ville,
@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
         '@id': c['@id'],
       }))
     )
-  } catch (e) {
+  } catch {
     return NextResponse.json([])
   }
 }
