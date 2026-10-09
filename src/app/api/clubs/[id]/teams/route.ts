@@ -21,10 +21,10 @@ export async function GET(
     if (!ct.includes("json") || body.startsWith("<!")) {
       return NextResponse.json({ teams: [] })
     }
-    const data = JSON.parse(body) as any
-    const members = Array.isArray(data["hydra:member"]) ? data["hydra:member"] : []
+    const data = JSON.parse(body) as Record<string, unknown>
+    const members = Array.isArray((data as any)["hydra:member"]) ? ((data as any)["hydra:member"] as any[]) : []
     const teams = members
-      .map((e: any) => {
+      .map((e: Record<string, any>) => {
         const cp = e.competition?.cp_no
         const cpNo = cp == null || cp === "" ? null : Number(cp)
         return {
@@ -37,7 +37,7 @@ export async function GET(
       })
       .filter((t: any) => t)
     return NextResponse.json({ teams })
-  } catch (e) {
+  } catch {
     return NextResponse.json({ teams: [] })
   }
 }
