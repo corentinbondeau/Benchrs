@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from "next/server"
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const clubId = params.id
+  const { id } = await params
+  const clubId = id
   if (!clubId) return NextResponse.json({ teams: [] })
   const url = `https://api-dofa.fff.fr/engagements?structure.id=${encodeURIComponent(clubId)}&itemsPerPage=100`
   try {
