@@ -39,6 +39,7 @@ function PendingConvocationsInner() {
   const [absenceReason, setAbsenceReason] = useState("");
   const [pendingAbsentId, setPendingAbsentId] = useState<string | null>(null);
   const [remindingKey, setRemindingKey] = useState<string | null>(null);
+  const [respondedIds, setRespondedIds] = useState<Set<string>>(new Set());
 
   const key = currentTeam && user?.id
     ? `convocations:pending:${currentTeam.id}:${isCoach ? "coach" : user.id}`
@@ -119,8 +120,10 @@ function PendingConvocationsInner() {
     { ttl: 15_000 }
   );
 
-  const coachItems = data?.role === "coach" ? data.items : [];
-  const playerAttendances = data?.role === "player" ? data.items : [];
+  const coachItemsRaw = data?.role === "coach" ? data.items : [];
+  const playerAttendancesRaw = data?.role === "player" ? data.items : [];
+  const coachItems = coachItemsRaw.filter((i) => !respondedIds.has(i.attendance.id));
+  const playerAttendances = playerAttendancesRaw.filter((i) => !respondedIds.has(i.id));
 
   if (!currentTeam) return null;
 
@@ -150,6 +153,7 @@ function PendingConvocationsInner() {
       })
       .eq("id", attendanceId);
 
+    setRespondedIds((prev) => new Set(prev).add(attendanceId));
     clearQueryCache();
     revalidate();
     setPendingAbsentId(null);
