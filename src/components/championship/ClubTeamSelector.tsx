@@ -183,6 +183,10 @@ export function ClubTeamSelector({ onSelect }: Props) {
         </div>
       )}
 
+      {!selectedClub && !loadingClubs && q.trim().length >= 2 && clubs.length === 0 && (
+        <p className="text-xs text-muted-foreground">Aucun club trouvé avec ce nom. Utilisez la saisie manuelle ci-dessous (triplet cpNo/phase/poule ou URL epreuves.fff.fr).</p>
+      )}
+
       {selectedClub && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
