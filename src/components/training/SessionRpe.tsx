@@ -169,7 +169,10 @@ export function SessionRpe({
     return null;
   }
 
-  if (!enabled) {
+  if (!enabled && !isCoach) {
+    return null;
+  }
+  if (!enabled && isCoach && allRpe.length === 0 && history.length === 0) {
     return null;
   }
 
