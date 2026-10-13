@@ -90,6 +90,7 @@ export const NAV_SECTIONS: { key: string; title: string; items: NavItem[] }[] = 
       { key: "drop", href: "/stats/drop", label: "Baisse de forme", icon: TrendingDown, coachOnly: true },
       { key: "trophies", href: "/trophies", label: "Trophées", icon: Trophy },
       { key: "tournament", href: "/tournament", label: "Tournois", icon: Trophy },
+      { key: "friendly", href: "/friendly-matches", label: "Matchs amicaux", icon: Handshake, coachOnly: true },
       { key: "video-analysis", href: "/video-analysis", label: "Analyse vidéo", icon: Clapperboard },
     ],
   },
@@ -134,7 +135,6 @@ export const NAV_SECTIONS: { key: string; title: string; items: NavItem[] }[] = 
 /* ─── Liens secondaires "Encore plus" ─── */
 export const MORE_NAV: NavItem[] = [
   { key: "season", href: "/season", label: "Plan de saison", icon: CalendarRange },
-  { key: "friendly", href: "/friendly-matches", label: "Matchs amicaux", icon: Users },
   { key: "challenge", href: "/challenge", label: "Défi de la semaine", icon: Flame },
   { key: "notifications", href: "/notifications", label: "Notifications", icon: Bell },
 ];

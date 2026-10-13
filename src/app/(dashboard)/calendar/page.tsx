@@ -41,7 +41,7 @@ import {
 } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ContentSkeleton } from "@/components/ui/content-skeleton";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
 import { toast } from "sonner";
 import { ConvocationsDialog } from "@/components/ConvocationsDialog";
 import { LocationPicker } from "@/components/calendar/LocationPicker";
@@ -50,7 +50,7 @@ import { convocationSlotFor } from "@/lib/convocations";
 import { clearQueryCache } from "@/lib/queryCache";
 import type { Event, Profile } from "@/types";
 import { OnboardingTip } from "@/components/OnboardingTips";
-import { FriendlyMatchesTab } from "@/components/friendly/FriendlyMatchesTab";
+
 
 type Recurrence = "Aucun" | "weekly" | "biweekly" | "monthly";
 
@@ -119,7 +119,6 @@ export default function CalendarPage() {
   const { children: allChildren } = useAllChildren();
   const router = useRouter();
   const [view, setView] = useState<"month" | "week" | "list">("list");
-  const [activeTab, setActiveTab] = useState<"calendar" | "friendly">("calendar");
   const [currentDate, setCurrentDate] = useState(new Date());
   const [events, setEvents] = useState<EventWithMeeting[]>([]);
   const [loading, setLoading] = useState(true);
@@ -598,20 +597,11 @@ export default function CalendarPage() {
         />
       )}
 
-      <Tabs
-        value={activeTab}
-        onValueChange={(v) => setActiveTab(v as "calendar" | "friendly")}
-        className="space-y-4"
-      >
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div>
             <h1 className="text-2xl font-bold">Calendrier</h1>
             <p className="text-sm text-muted-foreground mt-1">Planning de l&apos;équipe</p>
           </div>
-          <TabsList className="mr-auto ml-4">
-            <TabsTrigger value="calendar">Calendrier</TabsTrigger>
-            <TabsTrigger value="friendly">Matchs amicaux</TabsTrigger>
-          </TabsList>
         {isCoach && (
           <Dialog open={createOpen} onOpenChange={handleCreateOpenChange}>
             <DialogTrigger render={<Button variant="primary" />}>
@@ -815,7 +805,6 @@ export default function CalendarPage() {
         )}
       </div>
 
-      <TabsContent value="calendar" className="space-y-4">
       {/* Navigation */}
       <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-1">
@@ -1125,12 +1114,6 @@ export default function CalendarPage() {
           </div>
         );
       })()}
-      </TabsContent>
-
-      <TabsContent value="friendly" className="space-y-4">
-        <FriendlyMatchesTab />
-      </TabsContent>
-      </Tabs>
 
       {/* Convocations Dialog */}
 
