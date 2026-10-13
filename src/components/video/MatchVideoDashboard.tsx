@@ -95,11 +95,11 @@ export function MatchVideoDashboard({ job }: { job: VideoAnalysis }) {
   }
 
   // ── Rapport terminé ───────────────────────────────────────
-  const result = job.result as any;
-  const stats = result?.stats ?? {};
-  const teams = result?.teams ?? {};
-  const timeline = Array.isArray(result?.timeline) ? result.timeline : [];
-  const meta = result?.meta ?? {};
+  const result: any = job?.result ?? {};
+  const stats: any = result?.stats ?? {};
+  const teams: any = result?.teams ?? {};
+  const timeline: any[] = Array.isArray(result?.timeline) ? result.timeline : [];
+  const meta: any = result?.meta ?? {};
   const t1 = teams.team1;
   const t2 = teams.team2;
   const totalShots = stats.shots.team1 + stats.shots.team2;

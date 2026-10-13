@@ -596,11 +596,16 @@ export default function CalendarPage() {
           description="Créez un événement en cliquant sur le bouton + en haut à droite."
         />
       )}
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <div>
-          <h1 className="text-2xl font-bold">Calendrier</h1>
-          <p className="text-sm text-muted-foreground mt-1">Planning de l&apos;équipe</p>
-        </div>
+      
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div>
+            <h1 className="text-2xl font-bold">Calendrier</h1>
+            <p className="text-sm text-muted-foreground mt-1">Planning de l&apos;équipe</p>
+          </div>
+          <TabsList className="mr-auto ml-4">
+            <TabsTrigger value="calendar">Calendrier</TabsTrigger>
+            <TabsTrigger value="friendly">Matchs amicaux</TabsTrigger>
+          </TabsList>
         {isCoach && (
           <Dialog open={createOpen} onOpenChange={handleCreateOpenChange}>
             <DialogTrigger render={<Button variant="primary" />}>
@@ -1115,6 +1120,7 @@ export default function CalendarPage() {
       })()}
 
       {/* Convocations Dialog */}
+
       {convDialogEvent && (
         <ConvocationsDialog
           event={convDialogEvent}
@@ -1122,6 +1128,7 @@ export default function CalendarPage() {
           onOpenChange={(open) => { if (!open) setConvDialogEvent(null); }}
         />
       )}
+
     </div>
     </Suspense>
   );
