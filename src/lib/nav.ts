@@ -134,6 +134,7 @@ export const NAV_SECTIONS: { key: string; title: string; items: NavItem[] }[] = 
 /* ─── Liens secondaires "Encore plus" ─── */
 export const MORE_NAV: NavItem[] = [
   { key: "season", href: "/season", label: "Plan de saison", icon: CalendarRange },
+  { key: "friendly", href: "/friendly-matches", label: "Matchs amicaux", icon: Users },
   { key: "challenge", href: "/challenge", label: "Défi de la semaine", icon: Flame },
   { key: "notifications", href: "/notifications", label: "Notifications", icon: Bell },
 ];
