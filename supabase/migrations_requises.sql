@@ -2003,7 +2003,8 @@ CREATE TABLE IF NOT EXISTS public.friendly_matches (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   team_id uuid NOT NULL REFERENCES public.teams(id) ON DELETE CASCADE,
   organizer_id uuid NOT NULL REFERENCES public.profiles(id),
-  opponent_club_name text NOT NULL,
+  -- L'adversaire n'est PAS connu à la création : le but est de le trouver.
+  opponent_club_name text,
   opponent_contact text,
   category text,
   level text,
@@ -2032,6 +2033,9 @@ CREATE TABLE IF NOT EXISTS public.friendly_proposals (
   updated_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE (friendly_id, team_id)
 );
+
+-- Idempotent : si 128 a déjà été appliquée avec l'ancien NOT NULL.
+ALTER TABLE public.friendly_matches ALTER COLUMN opponent_club_name DROP NOT NULL;
 
 CREATE INDEX IF NOT EXISTS idx_fm_team ON public.friendly_matches(team_id);
 CREATE INDEX IF NOT EXISTS idx_fm_date ON public.friendly_matches(match_date);

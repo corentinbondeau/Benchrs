@@ -24,7 +24,7 @@ interface FriendlyMatch {
   id: string;
   team_id: string;
   organizer_id: string;
-  opponent_club_name: string;
+  opponent_club_name: string | null;
   opponent_contact: string | null;
   category: string | null;
   level: string | null;
@@ -98,7 +98,6 @@ export function FriendlyMatchesPanel() {
   const [coaches, setCoaches] = useState<CoachInfo[]>([]);
   const [open, setOpen] = useState(false);
 
-  const [opponent, setOpponent] = useState("");
   const [category, setCategory] = useState("");
   const [level, setLevel] = useState("");
   const [matchDate, setMatchDate] = useState("");
@@ -108,7 +107,6 @@ export function FriendlyMatchesPanel() {
   );
   const [venueAddress, setVenueAddress] = useState("");
   const [notes, setNotes] = useState("");
-  const [opponentContact, setOpponentContact] = useState("");
   const [saving, setSaving] = useState(false);
   const [proposalMsg, setProposalMsg] = useState<Record<string, string>>({});
 
@@ -200,15 +198,13 @@ export function FriendlyMatchesPanel() {
   }
 
   async function createMatch() {
-    if (!currentTeam || !opponent || !matchDate) return;
+    if (!currentTeam || !matchDate) return;
     setSaving(true);
     await authFetch("/api/friendly", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         team_id: currentTeam.id,
-        opponent_club_name: opponent,
-        opponent_contact: opponentContact || null,
         category: category || null,
         level: level || null,
         match_date: matchDate,
@@ -220,7 +216,6 @@ export function FriendlyMatchesPanel() {
     });
     setSaving(false);
     setOpen(false);
-    setOpponent("");
     setCategory("");
     setLevel("");
     setMatchDate("");
@@ -228,9 +223,8 @@ export function FriendlyMatchesPanel() {
     setLocationType("home");
     setVenueAddress("");
     setNotes("");
-    setOpponentContact("");
     await refresh();
-    toast.success("Match amical proposé");
+    toast.success("Créneau publié — en attente de propositions");
   }
 
   async function propose(friendlyId: string) {
@@ -319,28 +313,18 @@ export function FriendlyMatchesPanel() {
             <DialogTrigger>
               <Button size="sm">
                 <Plus className="mr-1 h-4 w-4" />
-                Proposer un match
+                Chercher un adversaire
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>Proposer un match amical</DialogTitle>
+                <DialogTitle>Chercher un adversaire</DialogTitle>
               </DialogHeader>
+              <p className="text-xs text-muted-foreground">
+                Publiez un créneau : les coachs intéressés se proposeront et
+                vous choisirez votre adversaire.
+              </p>
               <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-1">
-                  <Label>Club adverse</Label>
-                  <Input
-                    value={opponent}
-                    onChange={(e) => setOpponent(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label>Contact adverse</Label>
-                  <Input
-                    value={opponentContact}
-                    onChange={(e) => setOpponentContact(e.target.value)}
-                  />
-                </div>
                 <div className="space-y-1">
                   <Label>Catégorie</Label>
                   <Input
@@ -410,11 +394,8 @@ export function FriendlyMatchesPanel() {
                 <Button variant="outline" onClick={() => setOpen(false)}>
                   Annuler
                 </Button>
-                <Button
-                  onClick={createMatch}
-                  disabled={saving || !opponent || !matchDate}
-                >
-                  Proposer
+                <Button onClick={createMatch} disabled={saving || !matchDate}>
+                  Publier
                 </Button>
               </div>
             </DialogContent>
@@ -430,7 +411,8 @@ export function FriendlyMatchesPanel() {
           </p>
           {myMatches.length === 0 && (
             <p className="text-xs text-muted-foreground">
-              Aucun match amical proposé pour le moment.
+              Aucun créneau publié pour le moment. Publiez une date et les
+              coachs intéressés se proposeront.
             </p>
           )}
           <div className="space-y-2">
@@ -444,14 +426,18 @@ export function FriendlyMatchesPanel() {
                     <div>
                       <p className="font-medium">
                         {isOrganizer
-                          ? `Cherche adversaire — ${m.opponent_club_name}`
+                          ? m.status === "open"
+                            ? "Recherche d'adversaire"
+                            : `Match contre ${teamNameById.get(m.accepted_by_team_id || "") || "adversaire"}`
                           : `Match contre ${teamNameById.get(m.team_id) || "adversaire"}`}
                       </p>
-                      <p className="text-muted-foreground text-xs">
-                        {m.opponent_club_name}
-                        {m.category ? ` · ${m.category}` : ""}
-                        {m.level ? ` · ${m.level}` : ""}
-                      </p>
+                      {(m.category || m.level) && (
+                        <p className="text-muted-foreground text-xs">
+                          {m.category || ""}
+                          {m.category && m.level ? " · " : ""}
+                          {m.level || ""}
+                        </p>
+                      )}
                     </div>
                     <Badge variant={statusVariant(m.status)}>
                       {STATUS_LABELS[m.status]}
@@ -570,15 +556,18 @@ export function FriendlyMatchesPanel() {
                 <div key={m.id} className="rounded-lg border p-3 text-sm">
                   <p className="font-medium">
                     {teamNameById.get(m.team_id) || "Équipe"}
-                    {" · "}
                     <span className="text-muted-foreground font-normal">
-                      {m.opponent_club_name}
+                      {" "}
+                      — recherche un adversaire
                     </span>
                   </p>
-                  <p className="text-xs text-muted-foreground">
-                    {m.category ? `${m.category}` : ""}
-                    {m.level ? ` · ${m.level}` : ""}
-                  </p>
+                  {(m.category || m.level) && (
+                    <p className="text-xs text-muted-foreground">
+                      {m.category || ""}
+                      {m.category && m.level ? " · " : ""}
+                      {m.level || ""}
+                    </p>
+                  )}
                   <div className="mt-2 flex flex-wrap gap-3 text-xs text-muted-foreground">
                     <span className="inline-flex items-center gap-1">
                       <Calendar className="h-3 w-3" />
