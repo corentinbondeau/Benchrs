@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthUser, isTeamCoach } from "@/lib/api-auth";
+import { getAuthUser } from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function POST(
@@ -10,15 +10,9 @@ export async function POST(
   const user = await getAuthUser(req);
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const supabase = createAdminClient();
-  const { data: match } = await supabase.from("friendly_matches").select("team_id, organizer_id").eq("id", id).single();
+  const { data: match } = await supabase.from("friendly_matches").select("organizer_id").eq("id", id).single();
   if (!match) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (match.organizer_id !== user.id && !(await isTeamCoach(user.id, match.team_id))) {
-    // allow organizer
-  }
-  if (match.organizer_id !== user.id) {
-    // organizer only?
-  }
-  // organizer only as per spec: accept proposal
+  // L'organisateur de l'annonce est le seul à accepter une proposition.
   if (match.organizer_id !== user.id) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const { data: proposal } = await supabase.from("friendly_proposals").select("team_id, coach_id").eq("id", proposalId).single();
   if (!proposal) return NextResponse.json({ error: "Proposal not found" }, { status: 404 });

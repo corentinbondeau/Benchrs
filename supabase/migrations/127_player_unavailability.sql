@@ -81,5 +81,3 @@ CREATE TRIGGER set_player_unavailability_updated_at
   BEFORE UPDATE ON public.player_unavailability
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
--- Ensure updated_at trigger function exists
-

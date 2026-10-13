@@ -21,20 +21,21 @@ interface Unavailability {
   created_at: string;
 }
 
-export function PlayerUnavailability() {
+export function PlayerUnavailability({ playerId }: { playerId?: string } = {}) {
   const { user } = useAuth();
   const { currentTeam, userRole } = useTeam();
   const [items, setItems] = useState<Unavailability[]>([]);
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [reason, setReason] = useState("");
 
-  const myPlayerId = userRole === "player" ? user?.id : null;
+  // Un joueur gère SES indisponibilités ; un parent gère celles de l'enfant
+  // passé en prop (`playerId`).
+  const myPlayerId = playerId ?? (userRole === "player" ? user?.id : null);
 
-  const load = useCallback(async () => {
-    if (!currentTeam || !myPlayerId) return;
+  const fetchItems = useCallback(async (): Promise<Unavailability[]> => {
+    if (!currentTeam || !myPlayerId) return [];
     const supabase = createClient();
     const { data } = await supabase
       .from("player_unavailability")
@@ -42,13 +43,22 @@ export function PlayerUnavailability() {
       .eq("team_id", currentTeam.id)
       .eq("player_id", myPlayerId)
       .order("start_date", { ascending: true });
-    setItems((data as Unavailability[]) || []);
-    setLoading(false);
+    return (data as Unavailability[]) || [];
   }, [currentTeam, myPlayerId]);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    let active = true;
+    fetchItems().then((res) => {
+      if (active) setItems(res);
+    });
+    return () => {
+      active = false;
+    };
+  }, [fetchItems]);
+
+  async function refresh() {
+    setItems(await fetchItems());
+  }
 
   async function add() {
     if (!currentTeam || !myPlayerId || !startDate || !endDate) return;
@@ -74,14 +84,14 @@ export function PlayerUnavailability() {
     setStartDate("");
     setEndDate("");
     setReason("");
-    load();
+    await refresh();
     toast.success("Période d'indisponibilité ajoutée");
   }
 
   async function remove(id: string) {
     const supabase = createClient();
     await supabase.from("player_unavailability").delete().eq("id", id);
-    load();
+    await refresh();
   }
 
   if (!myPlayerId) return null;

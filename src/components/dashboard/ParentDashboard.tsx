@@ -452,7 +452,7 @@ export function ParentDashboard() {
       )}
 
       {/* Indisponibilités de l'enfant */}
-      {child && <PlayerUnavailability />}
+      {child && <PlayerUnavailability playerId={child.id} />}
 
       {/* Disponibilité avant match de la semaine */}
       <WeekMatchAvailability playerId={child?.id ?? null} />

@@ -106,7 +106,7 @@ export async function ensureAttendanceRows(
       .eq("team_id", teamId)
       .lte("start_date", evtDate)
       .gte("end_date", evtDate);
-    for (const u of (unv as any[]) || []) {
+    for (const u of (unv as { player_id: string }[]) || []) {
       unavailSet.add(u.player_id);
     }
   }
