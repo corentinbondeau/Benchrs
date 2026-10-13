@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { signedStorageUrl } from "@/lib/storage";
 import {
   VideoAnalysis,
+  VideoAnalysisResult,
   formatVideoDuration,
   formatVideoTime,
   videoAnalysisStatusLabel,
@@ -95,15 +96,20 @@ export function MatchVideoDashboard({ job }: { job: VideoAnalysis }) {
   }
 
   // ── Rapport terminé ───────────────────────────────────────
-  const result: any = job?.result ?? {};
-  const stats: any = result?.stats ?? {};
-  const teams: any = result?.teams ?? {};
-  const timeline: any[] = Array.isArray(result?.timeline) ? result.timeline : [];
-  const meta: any = result?.meta ?? {};
-  const t1 = teams.team1;
-  const t2 = teams.team2;
-  const totalShots = (stats.shots?.team1 ?? 0) + (stats.shots?.team2 ?? 0);
-  const totalShotsOnTarget = (stats.shots_on_target?.team1 ?? 0) + (stats.shots_on_target?.team2 ?? 0);
+  // Le result vient de la base et peut être partiel (anciennes analyses) :
+  // on normalise chaque bloc avec des valeurs par défaut pour éviter tout
+  // accès sur `undefined` au rendu.
+  const result = job.result as Partial<VideoAnalysisResult>;
+  const possession = result.stats?.possession ?? { team1: 0, team2: 0, measured_sec: 0 };
+  const passes = result.stats?.passes ?? { team1: 0, team2: 0 };
+  const shots = result.stats?.shots ?? { team1: 0, team2: 0 };
+  const shotsOnTarget = result.stats?.shots_on_target ?? { team1: 0, team2: 0 };
+  const timeline = Array.isArray(result.timeline) ? result.timeline : [];
+  const meta = result.meta;
+  const t1 = result.teams?.team1 ?? { label: "Équipe 1", color: "#3b82f6" };
+  const t2 = result.teams?.team2 ?? { label: "Équipe 2", color: "#ef4444" };
+  const totalShots = shots.team1 + shots.team2;
+  const totalShotsOnTarget = shotsOnTarget.team1 + shotsOnTarget.team2;
 
   return (
     <div className="space-y-4">
@@ -128,21 +134,21 @@ export function MatchVideoDashboard({ job }: { job: VideoAnalysis }) {
           <div className="flex items-center justify-between">
             <p className="text-sm font-semibold">Possession de balle</p>
             <span className="text-xs text-muted-foreground">
-              {formatVideoDuration(stats.possession?.measured_sec ?? 0)} mesurés
+              {formatVideoDuration(possession.measured_sec)} mesurés
             </span>
           </div>
           <div className="flex h-8 w-full overflow-hidden rounded-lg">
             <div
               className="flex items-center justify-center text-[11px] font-bold text-white"
-              style={{ width: `${stats.possession.team1}%`, backgroundColor: t1.color }}
+              style={{ width: `${possession.team1}%`, backgroundColor: t1.color }}
             >
-              {stats.possession.team1 > 8 && `${stats.possession.team1}%`}
+              {possession.team1 > 8 && `${possession.team1}%`}
             </div>
             <div
               className="flex items-center justify-center text-[11px] font-bold text-white"
-              style={{ width: `${stats.possession.team2}%`, backgroundColor: t2.color }}
+              style={{ width: `${possession.team2}%`, backgroundColor: t2.color }}
             >
-              {stats.possession.team2 > 8 && `${stats.possession.team2}%`}
+              {possession.team2 > 8 && `${possession.team2}%`}
             </div>
           </div>
           <div className="flex items-center justify-between gap-2 text-xs">
@@ -171,24 +177,24 @@ export function MatchVideoDashboard({ job }: { job: VideoAnalysis }) {
           label="Passes"
           team1Color={t1.color}
           team2Color={t2.color}
-          team1={stats.passes.team1}
-          team2={stats.passes.team2}
+          team1={passes.team1}
+          team2={passes.team2}
         />
         <StatCard
           icon={Crosshair}
           label="Tirs"
           team1Color={t1.color}
           team2Color={t2.color}
-          team1={stats.shots?.team1 ?? 0}
-          team2={stats.shots?.team2 ?? 0}
+          team1={shots.team1}
+          team2={shots.team2}
         />
         <StatCard
           icon={Target}
           label="Tirs cadrés"
           team1Color={t1.color}
           team2Color={t2.color}
-          team1={stats.shots_on_target?.team1 ?? 0}
-          team2={stats.shots_on_target?.team2 ?? 0}
+          team1={shotsOnTarget.team1}
+          team2={shotsOnTarget.team2}
         />
       </div>
 
@@ -208,7 +214,7 @@ export function MatchVideoDashboard({ job }: { job: VideoAnalysis }) {
             </p>
           ) : (
             <ol className="space-y-2">
-              {timeline.map((evt: any, i: number) => {
+              {timeline.map((evt, i) => {
                 const team = evt.team === "team1" ? t1 : t2;
                 return (
                   <li
@@ -219,7 +225,7 @@ export function MatchVideoDashboard({ job }: { job: VideoAnalysis }) {
                       className="mt-0.5 flex h-7 w-16 shrink-0 items-center justify-center rounded-md text-xs font-bold text-white"
                       style={{ backgroundColor: team.color }}
                     >
-                      {formatVideoTime(evt.t)}
+                      {formatVideoTime(evt.t ?? 0)}
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="flex items-center gap-1.5 text-sm font-medium">
@@ -247,7 +253,7 @@ export function MatchVideoDashboard({ job }: { job: VideoAnalysis }) {
           <Clock className="h-3 w-3" /> {formatVideoDuration(meta?.duration_sec)}
         </span>
         <span className="flex items-center gap-1">
-          <Maximize2 className="h-3 w-3" /> {meta.width}×{meta.height}
+          <Maximize2 className="h-3 w-3" /> {meta?.width ?? "?"}×{meta?.height ?? "?"}
         </span>
         <span className="flex items-center gap-1">
           <Video className="h-3 w-3" /> {job.model_version || "YOLO"}
