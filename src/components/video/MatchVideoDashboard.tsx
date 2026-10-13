@@ -128,7 +128,7 @@ export function MatchVideoDashboard({ job }: { job: VideoAnalysis }) {
           <div className="flex items-center justify-between">
             <p className="text-sm font-semibold">Possession de balle</p>
             <span className="text-xs text-muted-foreground">
-              {formatVideoDuration(stats.possession.measured_sec)} mesurés
+              {formatVideoDuration(stats.possession?.measured_sec ?? 0)} mesurés
             </span>
           </div>
           <div className="flex h-8 w-full overflow-hidden rounded-lg">
