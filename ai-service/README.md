@@ -114,7 +114,9 @@ sans runtime Python persistant ni GPU) : on le déploie à part.
 | `SUPABASE_SERVICE_ROLE_KEY` | — | requise (worker = écritures sans RLS) |
 | `DEVICE` | `auto` | `mps` si dispo (macOS), sinon CPU — forcer `cpu` sur une VM |
 | `MODEL_NAME` | `yolov8n.pt` | modèle YOLO (`n` = léger/rapide CPU) |
-| `CONFIDENCE` | `0.25` | seuil détection |
+| `PERSON_CONFIDENCE` | `0.25` | seuil détection **personne** |
+| `BALL_CONFIDENCE` | `0.05` | seuil détection **ballon** (bas : petit objet rapide) |
+| `BALL_MAX_JUMP_FACTOR` | `0.50` | saut max du ballon (× hauteur joueur) pour suivre sa trajectoire |
 | `POLL_INTERVAL_SEC` | `10` | fréquence de sondage de la file |
 
 > Sur CPU (Oracle ARM, Render…), comptez un traitement nettement plus lent
@@ -159,6 +161,43 @@ Une tâche bloquée à `0 %` / `pending` pendant des heures signifie que la
 
 Une fois le worker actif, le statut évolue en direct : 1 % (démarrage),
 puis +5 % par palier, jusqu'à `completed` avec le rapport JSON.
+
+## Diagnostic — « l'analyse finit mais toutes les stats sont à 0 »
+
+Trois pièges se combinaient pour produire des stats nulles sur une vidéo
+smartphone parfaitement exploitable :
+
+1. **Orientation non appliquée (le plus grave).** Une vidéo filmée en
+   portrait est stockée « couchée » avec un flag de rotation
+   (`CAP_PROP_ORIENTATION_META = 90/270`). Par défaut **OpenCV n'applique
+   pas** cette rotation → les frames sortent tournées de 90°, les joueurs
+   et le ballon ne sont (presque) pas détectés. Correctif : `analyze_video`
+   passe `cap.set(cv2.CAP_PROP_ORIENTATION_AUTO, 1)` **avant** de lire la
+   taille. Ne JAMAIS re-tourner via `ORIENTATION_META` : le flag garde sa
+   valeur d'origine même quand AUTO a déjà tourné (double rotation).
+2. **Seuil de confiance trop haut pour le ballon.** Le détecteur COCO ne
+   sort le ballon (`sports ball`, classe 32) qu'à très basse confiance :
+   à `0.3` le rappel tombe à ~14 %, à `0.05` il monte à ~60 %. D'où un
+   seuil **par classe** (`BALL_CONFIDENCE=0.05`, `PERSON_CONFIDENCE=0.25`)
+   et un seuil brut unique `min(...)` passé au modèle, filtré ensuite.
+3. **ByteTrack avalait le ballon.** Le ballon passait par le tracker qui
+   en rejetait la majorité (195 détections brutes → 22 suivies / 200
+   frames). Il n'a pas besoin d'un `track_id` → il est gardé en détection
+   brute ; seules les personnes passent par ByteTrack (besoin d'IDs stables
+   pour l'échantillonnage couleur).
+
+En complément, la trajectoire du ballon est **filtrée par continuité**
+(`select_ball_track`) : le détecteur produit des faux positifs isolés, et
+prendre à chaque frame la détection la plus confiante fait sauter la
+trajectoire de 900+ px (possession/tirs = bruit). On ne retient que la
+détection cohérente avec la position prédite (saut ≤
+`BALL_MAX_JUMP_FACTOR` × hauteur joueur), avec ré-acquisition après
+`BALL_REACQUIRE_FRAMES`. Les vitesses de tir ne sont mesurées qu'entre
+frames **consécutives** (un saut après un trou n'est pas une vitesse).
+
+> ⚠️ Après modification du worker, il faut **redémarrer** le démon et
+> **ré-analyser** la vidéo : un job déjà `completed` garde son ancien
+> `result` (aucun recalcul automatique).
 
 ## Métriques calculées (heuristiques 2D)
 

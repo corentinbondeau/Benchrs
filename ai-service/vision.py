@@ -129,24 +129,36 @@ class Tracker:
     d'une frame à l'autre (nécessaire pour les trajectoires)."""
 
     def __init__(self) -> None:
+        # Le seuil d'activation du tracker doit couvrir le plus bas des
+        # seuils par classe, sinon les détections de ballon (basse
+        # confiance) ne seraient jamais suivies.
+        activation = cfg.DETECT_CONFIDENCE
         try:
             self._tracker = sv.ByteTrack.from_yolox(
-                track_activation_threshold=cfg.CONFIDENCE,
+                track_activation_threshold=activation,
                 minimum_matching_threshold=0.8,
                 lost_track_buffer=60,
             )
         except Exception:
             # supervision < 0.21 : API standard (paramètres positionnels)
             self._tracker = sv.ByteTrack(
-                track_activation_threshold=cfg.CONFIDENCE,
+                track_activation_threshold=activation,
                 minimum_matching_threshold=0.8,
                 lost_track_buffer=60,
             )
 
     def update(self, frame: np.ndarray, frame_idx: int) -> FrameObjects:
-        """Exécute la détection + le suivi sur une frame."""
+        """Exécute la détection + le suivi sur une frame.
+
+        Seules les PERSONNES passent par ByteTrack (on a besoin d'un
+        identifiant stable pour échantillonner la couleur du maillot).
+        Le ballon est gardé en détection BRUTE : il est détecté à très
+        basse confiance et ByteTrack en rejetait la grande majorité
+        (195 détections brutes → 22 suivies sur 200 frames), or on ne
+        se sert que de sa position par frame, pas d'un track_id.
+        """
         results = get_model().predict(
-            source=frame, conf=cfg.CONFIDENCE, verbose=False, device=cfg.torch_device()
+            source=frame, conf=cfg.DETECT_CONFIDENCE, verbose=False, device=cfg.torch_device()
         )[0]
         detections = sv.Detections.from_ultralytics(results)
 
@@ -159,21 +171,42 @@ class Tracker:
         if len(detections) == 0:
             return FrameObjects(frame_idx=frame_idx)
 
-        tracked = self._tracker.update_with_detections(detections)
-
         out = FrameObjects(frame_idx=frame_idx)
-        for i in range(len(tracked)):
-            box = Box(
-                x1=float(tracked.xyxy[i][0]),
-                y1=float(tracked.xyxy[i][1]),
-                x2=float(tracked.xyxy[i][2]),
-                y2=float(tracked.xyxy[i][3]),
-                confidence=float(tracked.confidence[i]),
-                track_id=int(tracked.tracker_id[i]) if tracked.tracker_id is not None else None,
+
+        # ── Ballon : détection brute (filtre par seuil "ballon") ──
+        ball_mask = (detections.class_id == cfg.CLASS_SPORTS_BALL) & (
+            detections.confidence >= cfg.BALL_CONFIDENCE
+        )
+        for i in np.where(ball_mask)[0]:
+            out.balls.append(
+                Box(
+                    x1=float(detections.xyxy[i][0]),
+                    y1=float(detections.xyxy[i][1]),
+                    x2=float(detections.xyxy[i][2]),
+                    y2=float(detections.xyxy[i][3]),
+                    confidence=float(detections.confidence[i]),
+                    track_id=None,
+                )
             )
-            cls = int(tracked.class_id[i])
-            if cls == cfg.CLASS_PERSON:
-                out.persons.append(box)
-            else:
-                out.balls.append(box)
+
+        # ── Personnes : ByteTrack pour des identifiants stables ──
+        person_mask = (detections.class_id == cfg.CLASS_PERSON) & (
+            detections.confidence >= cfg.PERSON_CONFIDENCE
+        )
+        persons = detections[person_mask]
+        if len(persons):
+            tracked = self._tracker.update_with_detections(persons)
+            for i in range(len(tracked)):
+                out.persons.append(
+                    Box(
+                        x1=float(tracked.xyxy[i][0]),
+                        y1=float(tracked.xyxy[i][1]),
+                        x2=float(tracked.xyxy[i][2]),
+                        y2=float(tracked.xyxy[i][3]),
+                        confidence=float(tracked.confidence[i]),
+                        track_id=int(tracked.tracker_id[i])
+                        if tracked.tracker_id is not None
+                        else None,
+                    )
+                )
         return out

@@ -41,7 +41,19 @@ CLASS_PERSON = 0
 CLASS_SPORTS_BALL = 32
 
 MODEL_NAME = os.getenv("MODEL_NAME", "yolov8m.pt")   # m = bon compromis perf/qualité
+
+# Seuils de confiance PAR CLASSE. Le ballon est un petit objet rapide :
+# le détecteur COCO ne le sort qu'à très basse confiance (à 0.3 le rappel
+# tombe à ~14 % ; à 0.05 il monte à ~60 %). Les personnes, elles, sont
+# nettes et supportent un seuil plus élevé (moins de faux positifs).
+# CONFIDENCE reste le seuil "historique" (compat), mais chaque classe a
+# son propre défaut pour rester correct même si CONFIDENCE n'est pas réglé.
 CONFIDENCE = _float("CONFIDENCE", 0.25)
+PERSON_CONFIDENCE = _float("PERSON_CONFIDENCE", 0.25)
+BALL_CONFIDENCE = _float("BALL_CONFIDENCE", 0.05)
+# Seuil brut passé au modèle : on descend au plus bas des deux pour ne
+# rien perdre, puis on filtre par classe dans le Tracker.
+DETECT_CONFIDENCE = min(PERSON_CONFIDENCE, BALL_CONFIDENCE)
 
 # Device torch pour l'inférence :
 #   "auto" → mps si disponible (macOS), sinon cpu (le plus portable).
@@ -81,6 +93,13 @@ POSSESSION_HOLD = _int("POSSESSION_HOLD", 3)               # frames de confirmat
 PASS_MIN_HOLD_SEC = _float("PASS_MIN_HOLD_SEC", 0.4)       # durée min de contrôle avant qu'un changement = une passe
 SHOT_SPEED_RATIO = _float("SHOT_SPEED_RATIO", 0.35)        # vitesse du ballon / hauteur moyenne joueur (par frame)
 GOAL_OPENING_FACTOR = _float("GOAL_OPENING_FACTOR", 4.1)   # largeur de but ≈ 4,1 × hauteur moyenne d'un joueur
+# Suivi de trajectoire du ballon : le détecteur (COCO) produit beaucoup de
+# faux positifs isolés. On ne retient, frame à frame, que la détection
+# cohérente avec la trajectoire (distance de saut ≤ FACTOR × hauteur joueur),
+# avec ré-acquisition après N frames sans ballon. Sans ce filtre, la
+# trajectoire saute de 900+ px et les tirs/passes sont du bruit.
+BALL_MAX_JUMP_FACTOR = _float("BALL_MAX_JUMP_FACTOR", 0.50)  # × hauteur moyenne joueur
+BALL_REACQUIRE_FRAMES = _int("BALL_REACQUIRE_FRAMES", 12)
 
 # Validation d'environnement : on échoue vite si la config est absente
 def check_config(require_supabase: bool = True) -> None:

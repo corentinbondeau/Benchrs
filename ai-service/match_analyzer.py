@@ -256,13 +256,19 @@ def detect_shots(
     goal_opening = median_player_h * cfg.GOAL_OPENING_FACTOR
     lookahead = max(8, int(0.5 * fps))  # ~0,5 s d'anticipation
 
-    # Vitesse du ballon par frame (normalisée par la taille joueur)
+    # Vitesse du ballon par frame (normalisée par la taille joueur).
+    # IMPORTANT : on ne mesure la vitesse qu'entre frames CONSÉCUTIVES.
+    # Une ré-acquisition après un trou est un saut de position (le ballon
+    # peut réapparaître ailleurs), pas une vitesse → sinon on invente des
+    # tirs. On borne aussi le saut plausible par la taille d'un joueur.
     speeds: list[tuple[int, float]] = []  # (frame_idx, vitesse px/frame)
     prev = ball_samples[0]
+    max_plausible = cfg.POSSESSION_RADIUS  # garde-fou haute vitesse
     for s in ball_samples[1:]:
-        d = math.hypot(s.x - prev.x, s.y - prev.y)
-        if d <= cfg.POSSESSION_RADIUS * 0.9:  # saut brutal = détection parasite
-            speeds.append((s.idx, d))
+        if s.idx - prev.idx == 1:
+            d = math.hypot(s.x - prev.x, s.y - prev.y)
+            if d <= max_plausible:
+                speeds.append((s.idx, d))
         prev = s
     if not speeds:
         return []
@@ -359,6 +365,53 @@ def detect_shots(
     return shots
 
 
+# ─── Suivi de la trajectoire du ballon ───────────────────────
+
+def select_ball_track(
+    candidates: list[list[tuple[float, float, float]]],
+    max_jump: float,
+    fps: float,
+) -> list[BallSample]:
+    """Sélectionne UNE trajectoire de ballon cohérente frame à frame.
+
+    Le détecteur sort beaucoup de faux positifs isolés ; prendre à chaque
+    frame la détection la plus confiante produit une trajectoire qui saute
+    de 900 px et fausse tous les calculs (possessions, tirs). Ici on suit
+    la détection la plus proche de la position PRÉDITE (position + vitesse),
+    en rejetant les sauts > `max_jump`. Après `BALL_REACQUIRE_FRAMES` frames
+    sans ballon, on ré-acquiert la détection la plus confiante (le ballon
+    peut être sorti du cadre ou masqué un instant).
+    """
+    samples: list[BallSample] = []
+    prev: tuple[float, float] | None = None
+    vx = vy = 0.0
+    gap = 0
+
+    for idx, dets in enumerate(candidates):
+        if not dets:
+            gap += 1
+            continue
+
+        if prev is None:
+            chosen = max(dets, key=lambda d: d[2])
+        else:
+            px, py = prev[0] + vx, prev[1] + vy
+            chosen = min(dets, key=lambda d: math.hypot(d[0] - px, d[1] - py))
+            if math.hypot(chosen[0] - px, chosen[1] - py) > max_jump:
+                gap += 1
+                if gap < cfg.BALL_REACQUIRE_FRAMES:
+                    continue
+                chosen = max(dets, key=lambda d: d[2])
+
+        if prev is not None:
+            vx, vy = chosen[0] - prev[0], chosen[1] - prev[1]
+        prev = (chosen[0], chosen[1])
+        gap = 0
+        samples.append(BallSample(idx=idx, t=idx / fps, x=chosen[0], y=chosen[1]))
+
+    return samples
+
+
 # ─── Pipeline principal ──────────────────────────────────────
 
 def analyze_video(
@@ -370,6 +423,19 @@ def analyze_video(
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
         raise RuntimeError("Impossible d'ouvrir la vidéo")
+
+    # GOTCHA smartphone : une vidéo filmée en portrait est stockée "couchée"
+    # avec un flag de rotation (CAP_PROP_ORIENTATION_META != 0). Par défaut
+    # OpenCV n'applique PAS la rotation → les frames sortent tournées de 90°
+    # et la détection (joueurs + ballon) s'effondre. On demande au décodeur
+    # d'appliquer la rotation : la largeur/hauteur rapportées reflètent alors
+    # l'orientation réelle (et le downscale ci-dessous porte sur les bonnes
+    # dimensions). Ne JAMAIS re-tourner manuellement avec ORIENTATION_META :
+    # le flag reste à sa valeur d'origine même quand AUTO a déjà tourné.
+    try:
+        cap.set(cv2.CAP_PROP_ORIENTATION_AUTO, 1)
+    except Exception:
+        pass
 
     fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
     frame_w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -390,7 +456,7 @@ def analyze_video(
 
     tracker = Tracker()
     records: list[FrameRecord] = []
-    ball_samples: list[BallSample] = []
+    ball_candidates: list[list[tuple[float, float, float]]] = []
     track_colors: dict[int, list[np.ndarray]] = defaultdict(list)
     median_heights: list[float] = []
 
@@ -427,9 +493,11 @@ def analyze_video(
                 if col is not None:
                     track_colors[b.track_id].append(col)
         if objects.balls:
-            ball = max(objects.balls, key=lambda b: b.confidence)
-            record.ball = (ball.cx, ball.cy)
-            ball_samples.append(BallSample(idx=idx, t=t, x=ball.cx, y=ball.cy))
+            ball_candidates.append(
+                [(b.cx, b.cy, b.confidence) for b in objects.balls]
+            )
+        else:
+            ball_candidates.append([])
 
         records.append(record)
         report()
@@ -450,6 +518,14 @@ def analyze_video(
     median_player_h = (
         float(np.median(median_heights)) if median_heights else 40.0
     )
+
+    # Trajectoire du ballon filtrée (rejette les faux positifs isolés) puis
+    # réinjectée dans les enregistrements pour possession/passes.
+    ball_max_jump = cfg.BALL_MAX_JUMP_FACTOR * median_player_h
+    ball_samples = select_ball_track(ball_candidates, ball_max_jump, fps)
+    for s in ball_samples:
+        if 0 <= s.idx < len(records):
+            records[s.idx].ball = (s.x, s.y)
 
     pct0, pct1, meas_sec = build_possession(records, team_map, fps)
     pass0, pass1 = count_passes(records, team_map, fps)

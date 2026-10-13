@@ -47,3 +47,7 @@ next-env.d.ts
 ai-service/.venv/
 ai-service/__pycache__/
 ai-service/analysis_result.json
+
+# YOLO weights (téléchargés au build/runtime, jamais commités)
+ai-service/*.pt
+weights/
