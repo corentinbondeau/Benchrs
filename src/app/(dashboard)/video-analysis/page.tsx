@@ -182,7 +182,7 @@ export default function VideoAnalysisPage() {
                           {job.created_by_profile?.last_name} ·{" "}
                           {new Date(job.created_at).toLocaleDateString("fr-FR")} ·{" "}
                           {formatVideoSize(job.size_bytes)} ·{" "}
-                          {formatVideoDuration(job.result?.meta.duration_sec ?? null)}
+                          {formatVideoDuration(job.result?.meta?.duration_sec ?? null)}
                         </p>
                         {job.status === "processing" && (
                           <div className="mt-2 h-1.5 w-full max-w-[240px] overflow-hidden rounded-full bg-muted">

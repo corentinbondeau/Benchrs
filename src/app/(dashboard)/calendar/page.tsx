@@ -41,6 +41,7 @@ import {
 } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ContentSkeleton } from "@/components/ui/content-skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { ConvocationsDialog } from "@/components/ConvocationsDialog";
 import { LocationPicker } from "@/components/calendar/LocationPicker";
@@ -49,6 +50,7 @@ import { convocationSlotFor } from "@/lib/convocations";
 import { clearQueryCache } from "@/lib/queryCache";
 import type { Event, Profile } from "@/types";
 import { OnboardingTip } from "@/components/OnboardingTips";
+import { FriendlyMatchesTab } from "@/components/friendly/FriendlyMatchesTab";
 
 type Recurrence = "Aucun" | "weekly" | "biweekly" | "monthly";
 

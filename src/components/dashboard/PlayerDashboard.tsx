@@ -10,6 +10,7 @@ import { PendingConvocations } from "@/components/dashboard/PendingConvocations"
 import { WeekMatchAvailability } from "@/components/dashboard/WeekMatchAvailability";
 import { NextSessionCheckIn } from "@/components/dashboard/NextSessionCheckIn";
 import { LastSessionFeedback } from "@/components/dashboard/LastSessionFeedback";
+import { PlayerUnavailability } from "@/components/PlayerUnavailability";
 import { LastMatchFeedback } from "@/components/dashboard/LastMatchFeedback";
 import { MatchNotebookPrompt } from "@/components/dashboard/MatchNotebookPrompt";
 import RecentResults from "@/components/dashboard/RecentResults";
@@ -102,6 +103,8 @@ export function PlayerDashboard() {
 
       {/* P0: Pending convocations */}
       <PendingConvocations />
+
+      <PlayerUnavailability />
 
       {/* P0: Disponibilités avant match de la semaine */}
       <WeekMatchAvailability playerId={user?.id ?? null} />

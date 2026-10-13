@@ -95,7 +95,11 @@ export function MatchVideoDashboard({ job }: { job: VideoAnalysis }) {
   }
 
   // ── Rapport terminé ───────────────────────────────────────
-  const { stats, teams, timeline, meta } = job.result;
+  const result = job.result as any;
+  const stats = result?.stats ?? {};
+  const teams = result?.teams ?? {};
+  const timeline = Array.isArray(result?.timeline) ? result.timeline : [];
+  const meta = result?.meta ?? {};
   const t1 = teams.team1;
   const t2 = teams.team2;
   const totalShots = stats.shots.team1 + stats.shots.team2;
@@ -204,7 +208,7 @@ export function MatchVideoDashboard({ job }: { job: VideoAnalysis }) {
             </p>
           ) : (
             <ol className="space-y-2">
-              {timeline.map((evt, i) => {
+              {timeline.map((evt: any, i: number) => {
                 const team = evt.team === "team1" ? t1 : t2;
                 return (
                   <li
@@ -240,7 +244,7 @@ export function MatchVideoDashboard({ job }: { job: VideoAnalysis }) {
       {/* Métadonnées */}
       <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
         <span className="flex items-center gap-1">
-          <Clock className="h-3 w-3" /> {formatVideoDuration(meta.duration_sec)}
+          <Clock className="h-3 w-3" /> {formatVideoDuration(meta?.duration_sec)}
         </span>
         <span className="flex items-center gap-1">
           <Maximize2 className="h-3 w-3" /> {meta.width}×{meta.height}

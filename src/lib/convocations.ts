@@ -96,8 +96,23 @@ export async function ensureAttendanceRows(
     .in("user_id", userIds);
   const playerIds = new Set((playerRows || []).map((r) => (r as { user_id: string }).user_id));
 
+  // Exclure les joueurs indisponibles ce jour (si période couvre la date de l'événement)
+  const unavailSet = new Set<string>();
+  if (event?.event_date) {
+    const evtDate = (event.event_date as string).split("T")[0];
+    const { data: unv } = await supabase
+      .from("player_unavailability")
+      .select("player_id, start_date, end_date")
+      .eq("team_id", teamId)
+      .lte("start_date", evtDate)
+      .gte("end_date", evtDate);
+    for (const u of (unv as any[]) || []) {
+      unavailSet.add(u.player_id);
+    }
+  }
+
   const toInsert = userIds
-    .filter((uid) => playerIds.has(uid) && !existingIds.has(uid))
+    .filter((uid) => playerIds.has(uid) && !existingIds.has(uid) && !unavailSet.has(uid))
     .map((uid) => ({
       event_id: eventId,
       user_id: uid,
