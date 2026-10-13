@@ -276,7 +276,16 @@ export function FriendlyMatchesPanel() {
     toast.success("Match annulé");
   }
 
-  if (!isCoach || !currentTeam) return null;
+  if (!isCoach) {
+    return (
+      <Card>
+        <CardContent className="p-5 text-sm text-muted-foreground">
+          Les matchs amicaux sont réservés aux coachs de l&apos;équipe.
+        </CardContent>
+      </Card>
+    );
+  }
+  if (!currentTeam) return null;
 
   const teamNameById = new Map(coaches.map((c) => [c.team_id, c.team_name]));
   teamNameById.set(currentTeam.id, currentTeam.name);
