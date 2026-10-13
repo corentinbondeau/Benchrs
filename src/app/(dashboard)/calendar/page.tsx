@@ -119,6 +119,7 @@ export default function CalendarPage() {
   const { children: allChildren } = useAllChildren();
   const router = useRouter();
   const [view, setView] = useState<"month" | "week" | "list">("list");
+  const [activeTab, setActiveTab] = useState<"calendar" | "friendly">("calendar");
   const [currentDate, setCurrentDate] = useState(new Date());
   const [events, setEvents] = useState<EventWithMeeting[]>([]);
   const [loading, setLoading] = useState(true);
@@ -596,7 +597,12 @@ export default function CalendarPage() {
           description="Créez un événement en cliquant sur le bouton + en haut à droite."
         />
       )}
-      
+
+      <Tabs
+        value={activeTab}
+        onValueChange={(v) => setActiveTab(v as "calendar" | "friendly")}
+        className="space-y-4"
+      >
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div>
             <h1 className="text-2xl font-bold">Calendrier</h1>
@@ -809,6 +815,7 @@ export default function CalendarPage() {
         )}
       </div>
 
+      <TabsContent value="calendar" className="space-y-4">
       {/* Navigation */}
       <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-1">
@@ -1118,6 +1125,12 @@ export default function CalendarPage() {
           </div>
         );
       })()}
+      </TabsContent>
+
+      <TabsContent value="friendly" className="space-y-4">
+        <FriendlyMatchesTab />
+      </TabsContent>
+      </Tabs>
 
       {/* Convocations Dialog */}
 
