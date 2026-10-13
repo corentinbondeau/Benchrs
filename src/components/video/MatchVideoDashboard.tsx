@@ -102,8 +102,8 @@ export function MatchVideoDashboard({ job }: { job: VideoAnalysis }) {
   const meta: any = result?.meta ?? {};
   const t1 = teams.team1;
   const t2 = teams.team2;
-  const totalShots = stats.shots.team1 + stats.shots.team2;
-  const totalShotsOnTarget = stats.shots_on_target.team1 + stats.shots_on_target.team2;
+  const totalShots = (stats.shots?.team1 ?? 0) + (stats.shots?.team2 ?? 0);
+  const totalShotsOnTarget = (stats.shots_on_target?.team1 ?? 0) + (stats.shots_on_target?.team2 ?? 0);
 
   return (
     <div className="space-y-4">
@@ -179,16 +179,16 @@ export function MatchVideoDashboard({ job }: { job: VideoAnalysis }) {
           label="Tirs"
           team1Color={t1.color}
           team2Color={t2.color}
-          team1={stats.shots.team1}
-          team2={stats.shots.team2}
+          team1={stats.shots?.team1 ?? 0}
+          team2={stats.shots?.team2 ?? 0}
         />
         <StatCard
           icon={Target}
           label="Tirs cadrés"
           team1Color={t1.color}
           team2Color={t2.color}
-          team1={stats.shots_on_target.team1}
-          team2={stats.shots_on_target.team2}
+          team1={stats.shots_on_target?.team1 ?? 0}
+          team2={stats.shots_on_target?.team2 ?? 0}
         />
       </div>
 
