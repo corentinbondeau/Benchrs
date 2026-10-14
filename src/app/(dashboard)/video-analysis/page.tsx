@@ -17,7 +17,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { toast } from "sonner";
-import { ChevronRight, Clapperboard, Loader2, Trash2 } from "lucide-react";
+import { ChevronRight, Clapperboard, Loader2, RefreshCw, Trash2 } from "lucide-react";
 
 export default function VideoAnalysisPage() {
   const { currentTeam, userRole } = useTeam();
@@ -117,6 +117,19 @@ export default function VideoAnalysisPage() {
     toast.success("Analyse supprimée");
   }
 
+  async function handleRerun(job: VideoAnalysis) {
+    const res = await authFetch(`/api/video-analysis/jobs/${job.id}`, { method: "PATCH" });
+    const data = await res.json();
+    if (!res.ok || data.error) {
+      toast.error(data.error || "Erreur lors de la relance");
+      return;
+    }
+    setJobs((prev) =>
+      prev.map((j) => (j.id === job.id ? (data.job as VideoAnalysis) : j))
+    );
+    toast.success("Analyse relancée");
+  }
+
   const selectedJob = jobs.find((j) => j.id === selectedId) ?? null;
 
   return (
@@ -213,15 +226,28 @@ export default function VideoAnalysisPage() {
                       />
                     </button>
                     {canDelete && (
-                      <button
-                        type="button"
-                        aria-label="Supprimer l'analyse"
-                        title="Supprimer"
-                        onClick={() => handleDelete(job)}
-                        className="shrink-0 text-muted-foreground hover:text-destructive"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      <div className="flex shrink-0 items-center gap-2">
+                        {job.status !== "processing" && job.status !== "pending" && (
+                          <button
+                            type="button"
+                            aria-label="Relancer l'analyse"
+                            title="Relancer l'analyse"
+                            onClick={() => handleRerun(job)}
+                            className="text-muted-foreground hover:text-[var(--color-royal)]"
+                          >
+                            <RefreshCw className="h-4 w-4" />
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          aria-label="Supprimer l'analyse"
+                          title="Supprimer"
+                          onClick={() => handleDelete(job)}
+                          className="text-muted-foreground hover:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
                     )}
                   </div>
 

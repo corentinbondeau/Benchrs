@@ -42,6 +42,69 @@ export async function GET(
   }
 }
 
+// PATCH /api/video-analysis/jobs/[id]
+// Relance l'analyse : remet le job en file (pending) sans re-uploader la
+// vidéo. Réservé au créateur ou au coach. Utile après une mise à jour du
+// worker (le résultat précédent n'est jamais recalculé automatiquement).
+export async function PATCH(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const user = await getAuthUser(req);
+    if (!user) return unauthorized();
+    const { id } = await params;
+
+    const supabase = createAdminClient();
+    const { data: job, error: fetchError } = await supabase
+      .from("video_analyses")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (fetchError || !job) {
+      return NextResponse.json(
+        { error: fetchError?.message || "Analyse introuvable" },
+        { status: fetchError ? 500 : 404 }
+      );
+    }
+
+    const isCreator = job.created_by === user.id;
+    const isCoach = !isCreator && (await isTeamCoach(user.id, job.team_id));
+    if (!isCreator && !isCoach) return forbidden();
+
+    // On ne relance pas un job en cours de traitement (le worker le tient).
+    if (job.status === "processing") {
+      return NextResponse.json(
+        { error: "Analyse déjà en cours" },
+        { status: 409 }
+      );
+    }
+
+    const { data: updated, error: updateError } = await supabase
+      .from("video_analyses")
+      .update({
+        status: "pending",
+        progress: 0,
+        error: null,
+        result: null,
+        started_at: null,
+        completed_at: null,
+      })
+      .eq("id", id)
+      .select("*")
+      .single();
+
+    if (updateError) {
+      return NextResponse.json({ error: updateError.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ job: updated });
+  } catch {
+    return NextResponse.json({ error: "Erreur interne du serveur" }, { status: 500 });
+  }
+}
+
 // DELETE /api/video-analysis/jobs/[id]
 // Supprime la vidéo (storage) + la ligne. Réservé au créateur ou au coach.
 export async function DELETE(
