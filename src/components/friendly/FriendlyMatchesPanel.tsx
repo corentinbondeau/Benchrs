@@ -51,6 +51,7 @@ interface FetchResult {
   matches: FriendlyMatch[];
   proposalsByFriendly: Record<string, FriendlyProposal[]>;
   teamNames: Record<string, string>;
+  error: string | null;
 }
 
 const LOCATION_LABELS: Record<FriendlyMatch["location_type"], string> = {
@@ -100,17 +101,28 @@ export function FriendlyMatchesPanel() {
   const [saving, setSaving] = useState(false);
   const [proposalMsg, setProposalMsg] = useState<Record<string, string>>({});
 
+  const [fetchError, setFetchError] = useState<string | null>(null);
+
   const fetchData = useCallback(async (): Promise<FetchResult | null> => {
     if (!currentTeam || !isCoach) return null;
     const supabase = createClient();
-    const { data: matchesData } = await supabase
+    const { data: matchesData, error: matchesError } = await supabase
       .from("friendly_matches")
       .select("*")
       .order("match_date", { ascending: true });
 
-    const { data: proposalsData } = await supabase
+    const { data: proposalsData, error: proposalsError } = await supabase
       .from("friendly_proposals")
       .select("*");
+
+    if (matchesError || proposalsError) {
+      return {
+        matches: [],
+        proposalsByFriendly: {},
+        teamNames: {},
+        error: matchesError?.message || proposalsError?.message || "Erreur inconnue",
+      };
+    }
 
     const proposalMap: Record<string, FriendlyProposal[]> = {};
     for (const p of (proposalsData as FriendlyProposal[]) || []) {
@@ -141,6 +153,7 @@ export function FriendlyMatchesPanel() {
       matches: (matchesData as FriendlyMatch[]) || [],
       proposalsByFriendly: proposalMap,
       teamNames: namesMap,
+      error: null,
     };
   }, [currentTeam, isCoach]);
 
@@ -148,6 +161,7 @@ export function FriendlyMatchesPanel() {
     setMatches(res.matches);
     setProposalsByFriendly(res.proposalsByFriendly);
     setTeamNames(res.teamNames);
+    setFetchError(res.error);
   }, []);
 
   useEffect(() => {
@@ -164,24 +178,42 @@ export function FriendlyMatchesPanel() {
     const res = await fetchData();
     if (res) apply(res);
   }
+
+  // Toutes les actions passent par ici : on ne montre "succès" que si
+  // l'API a réellement accepté, sinon on affiche l'erreur renvoyée.
+  async function post(url: string, body?: unknown): Promise<boolean> {
+    try {
+      const res = await authFetch(url, {
+        method: "POST",
+        headers: body ? { "Content-Type": "application/json" } : undefined,
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      const data = await res.json().catch(() => ({} as Record<string, string>));
+      if (!res.ok || data.error) {
+        toast.error(data.error || "Erreur lors de l'action");
+        return false;
+      }
+      return true;
+    } catch {
+      toast.error("Erreur réseau — action non effectuée");
+      return false;
+    }
+  }
   async function createMatch() {
     if (!currentTeam || !matchDate) return;
     setSaving(true);
-    await authFetch("/api/friendly", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        team_id: currentTeam.id,
-        category: category || null,
-        level: level || null,
-        match_date: matchDate,
-        match_time: matchTime || null,
-        location_type: locationType,
-        venue_address: locationType !== "home" ? venueAddress || null : null,
-        notes: notes || null,
-      }),
+    const ok = await post("/api/friendly", {
+      team_id: currentTeam.id,
+      category: category || null,
+      level: level || null,
+      match_date: matchDate,
+      match_time: matchTime || null,
+      location_type: locationType,
+      venue_address: locationType !== "home" ? venueAddress || null : null,
+      notes: notes || null,
     });
     setSaving(false);
+    if (!ok) return;
     setOpen(false);
     setCategory("");
     setLevel("");
@@ -197,42 +229,40 @@ export function FriendlyMatchesPanel() {
   async function propose(friendlyId: string) {
     if (!currentTeam) return;
     const msg = proposalMsg[friendlyId] || "";
-    await authFetch(`/api/friendly/${friendlyId}/propose`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ team_id: currentTeam.id, message: msg || null }),
+    const ok = await post(`/api/friendly/${friendlyId}/propose`, {
+      team_id: currentTeam.id,
+      message: msg || null,
     });
+    if (!ok) return;
     setProposalMsg((m) => ({ ...m, [friendlyId]: "" }));
     await refresh();
     toast.success("Proposition envoyée");
   }
 
   async function acceptProposal(friendlyId: string, proposalId: string) {
-    await authFetch(
-      `/api/friendly/${friendlyId}/proposals/${proposalId}/accept`,
-      { method: "POST" }
-    );
+    const ok = await post(`/api/friendly/${friendlyId}/proposals/${proposalId}/accept`);
+    if (!ok) return;
     await refresh();
     toast.success("Proposition acceptée");
   }
 
   async function declineProposal(friendlyId: string, proposalId: string) {
-    await authFetch(
-      `/api/friendly/${friendlyId}/proposals/${proposalId}/decline`,
-      { method: "POST" }
-    );
+    const ok = await post(`/api/friendly/${friendlyId}/proposals/${proposalId}/decline`);
+    if (!ok) return;
     await refresh();
     toast.success("Proposition refusée");
   }
 
   async function confirmMatch(friendlyId: string) {
-    await authFetch(`/api/friendly/${friendlyId}/confirm`, { method: "POST" });
+    const ok = await post(`/api/friendly/${friendlyId}/confirm`);
+    if (!ok) return;
     await refresh();
     toast.success("Match confirmé");
   }
 
   async function cancelMatch(friendlyId: string) {
-    await authFetch(`/api/friendly/${friendlyId}/cancel`, { method: "POST" });
+    const ok = await post(`/api/friendly/${friendlyId}/cancel`);
+    if (!ok) return;
     await refresh();
     toast.success("Match annulé");
   }
@@ -389,6 +419,14 @@ export function FriendlyMatchesPanel() {
       </CardHeader>
 
       <CardContent className="space-y-6">
+        {fetchError && (
+          <div className="rounded-md border border-red-300 bg-red-50 p-3 text-xs text-red-700">
+            Impossible de charger les matchs amicaux — la base n&apos;est peut-être
+            pas à jour (migration « matchs amicaux »).<br />
+            <span className="font-mono break-all">{fetchError}</span>
+          </div>
+        )}
+
         {/* Mes annonces */}
         <div className="space-y-2">
           <p className="text-xs font-semibold text-muted-foreground uppercase">
