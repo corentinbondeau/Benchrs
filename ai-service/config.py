@@ -98,7 +98,11 @@ GOAL_OPENING_FACTOR = _float("GOAL_OPENING_FACTOR", 4.1)   # largeur de but ≈ 
 # cohérente avec la trajectoire (distance de saut ≤ FACTOR × hauteur joueur),
 # avec ré-acquisition après N frames sans ballon. Sans ce filtre, la
 # trajectoire saute de 900+ px et les tirs/passes sont du bruit.
-BALL_MAX_JUMP_FACTOR = _float("BALL_MAX_JUMP_FACTOR", 0.50)  # × hauteur moyenne joueur
+# FACTOR : un ballon frappé (tir, centre, dégagement) parcourt en une frame
+# beaucoup plus que la hauteur d'un joueur — un seuil trop bas (l'ancien 0,5
+# ≈ 101 px) REJETAIT les ballons rapides, donc le but/la tête n'était jamais
+# détecté et la possession était mesurée sur des miettes (~0,8 s).
+BALL_MAX_JUMP_FACTOR = _float("BALL_MAX_JUMP_FACTOR", 1.50)  # × hauteur moyenne joueur
 BALL_REACQUIRE_FRAMES = _int("BALL_REACQUIRE_FRAMES", 12)
 
 # Validation d'environnement : on échoue vite si la config est absente

@@ -124,14 +124,23 @@ def build_possession(
 ) -> tuple[float, float, float]:
     """Possession (secondes + %) mesurée frame à frame.
 
-    Règle : à chaque frame, on cherche le joueur de chaque équipe le
-    plus proche du ballon ; l'équipe du joueur le plus proche (à
-    moins de POSSESSION_RADIUS px) "possède". Un hystérésis
-    (POSSESSION_HOLD frames consécutives) évite le clignotement.
+    Règle : à chaque frame où le ballon est suivi, on cherche le joueur
+    de chaque équipe le plus proche du ballon. Si un joueur connu est à
+    moins de POSSESSION_RADIUS px (une « touche »), l'équipe du joueur
+    devient candidate ; un hystérésis (POSSESSION_HOLD frames) évite le
+    clignotement. Si le ballon est suivi mais loin de tout joueur (ballon
+    en l'air, passe), le DERNIER possesseur garde la possession — sans
+    cela, un ballon en vol ne comptait pour personne et la possession
+    n'était mesurée que sur les quelques frames de contact (~1 s), ce qui
+    donnait des pourcentages absurdes.
+
+    Le temps « mesuré » = durée pendant laquelle le ballon est suivi et
+    la possession attribuée (dénominateur du %).
     """
     t0 = t1 = 0.0
     owner: int | None = None
-    confirm = 0
+    pending: int | None = None
+    pending_n = 0
     frame_dt = 1.0 / fps if fps > 0 else 1.0 / 30.0
 
     for rec in records:
@@ -147,17 +156,25 @@ def build_possession(
             if best is None or d < best[0]:
                 best = (d, team)
 
-        if best is None or best[0] > cfg.POSSESSION_RADIUS:
-            continue
-
-        cand = best[1]
-        if cand == owner:
-            confirm += 1
-        else:
-            confirm += 1
-            if confirm >= cfg.POSSESSION_HOLD:
+        # Touche : un joueur connu est proche du ballon → candidat au
+        # changement de possesseur (avec hystérésis).
+        if best is not None and best[0] <= cfg.POSSESSION_RADIUS:
+            cand = best[1]
+            if cand == owner:
+                pending = None
+                pending_n = 0
+            elif cand == pending:
+                pending_n += 1
+                if pending_n >= cfg.POSSESSION_HOLD:
+                    owner = cand
+                    pending = None
+                    pending_n = 0
+            else:
+                pending = cand
+                pending_n = 1
+            if owner is None:
                 owner = cand
-                confirm = 0
+        # Sinon : ballon en vol → le dernier possesseur garde la balle.
 
         if owner == 0:
             t0 += frame_dt
@@ -460,7 +477,15 @@ def analyze_video(
     track_colors: dict[int, list[np.ndarray]] = defaultdict(list)
     median_heights: list[float] = []
 
-    warmup_end = max(30, int(fps * cfg.WARMUP_SEC))
+    # On échantillonne la couleur du maillot de CHAQUE track tout au long de
+    # la vidéo (pas seulement pendant un « warmup » de quelques secondes) :
+    # ByteTrack réattribue de nouveaux ids quand une piste est perdue (joueurs
+    # petits/loin, occlusions), si bien que les ids du début ne couvrent pas
+    # ceux de la fin. Classifier sur les seuls ids du warmup laissait des
+    # joueurs sans équipe → possession/passes = 0. Le plafond par track borne
+    # le coût et privilégie les premières détections (plus fiables).
+    max_color_samples = 60
+
     idx = 0
 
     def report(force: bool = False) -> None:
@@ -488,10 +513,12 @@ def analyze_video(
             height = b.height
             if height > 10:  # ignore minuscules faux positifs
                 median_heights.append(float(height))
-            if idx < warmup_end and b.track_id is not None:
-                col = median_torso_color(frame, b)
-                if col is not None:
-                    track_colors[b.track_id].append(col)
+            if b.track_id is not None:
+                bucket = track_colors[b.track_id]
+                if len(bucket) < max_color_samples:
+                    col = median_torso_color(frame, b)
+                    if col is not None:
+                        bucket.append(col)
         if objects.balls:
             ball_candidates.append(
                 [(b.cx, b.cy, b.confidence) for b in objects.balls]

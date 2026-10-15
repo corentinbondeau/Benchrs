@@ -195,6 +195,13 @@ détection cohérente avec la position prédite (saut ≤
 `BALL_REACQUIRE_FRAMES`. Les vitesses de tir ne sont mesurées qu'entre
 frames **consécutives** (un saut après un trou n'est pas une vitesse).
 
+> ⚠️ **`BALL_MAX_JUMP_FACTOR` trop bas = on rate les buts.** Un ballon
+> frappé (tir, centre, tête) parcourt en une frame bien plus que la hauteur
+> d'un joueur. Avec l'ancien seuil `0.5` (≈ 101 px), les ballons rapides
+> étaient rejetés : le but n'était jamais détecté et la possession n'était
+> mesurée que sur les rares frames de contact (~0,8 s → pourcentages
+> absurdes type 90/10 sur une vidéo de 11 s). Le seuil est passé à `1.50`.
+
 > ⚠️ Après modification du worker, il faut **redémarrer** le démon et
 > **ré-analyser** la vidéo : un job déjà `completed` garde son ancien
 > `result` (aucun recalcul automatique).
@@ -204,9 +211,14 @@ frames **consécutives** (un saut après un trou n'est pas une vitesse).
 - **Couleurs d'équipes** : k-means (2 clusters) sur la couleur HSV
   médiane du torse de chaque joueur ; un joueur trop loin des deux
   clusters est classé *arbitre*.
-- **Possession** : à chaque frame, l'équipe du joueur le plus proche du
-  ballon (rayon max `POSSESSION_RADIUS` px) possède ; hystérésis de
-  `POSSESSION_HOLD` frames.
+- **Possession** : à chaque frame où le ballon est suivi, l'équipe du
+  joueur le plus proche du ballon (rayon max `POSSESSION_RADIUS` px) est
+  candidate ; hystérésis de `POSSESSION_HOLD` frames. Si le ballon est
+  suivi mais **loin de tout joueur** (ballon en vol), le **dernier
+  possesseur** garde la possession — sinon un ballon en l'air ne comptait
+  pour personne et la possession n'était mesurée que sur les frames de
+  contact. Le `measured_sec` remonté est la durée réellement attribuée
+  (dénominateur du %) : plus il est petit, moins le % est fiable.
 - **Passes** : chaque bascule durable de possession (≥ `PASS_MIN_HOLD_SEC`)
   est comptée comme une passe de l'équipe rendant le ballon.
 - **Tirs / cadrés** : le ballon est un « tir » si sa vitesse normalisée
