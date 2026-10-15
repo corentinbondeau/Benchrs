@@ -69,8 +69,33 @@ export interface VideoAnalysis {
   } | null;
 }
 
-const STATUS_LABELS: Record<VideoAnalysisStatus, string> = {
-  pending: "En attente",
+// Normalise le champ `result` : les anciennes analyses l'ont stocké comme
+// CHAÎNE JSON (scalaire JSONB) au lieu d'un objet → le front lisait
+// `result.stats` = undefined et affichait des stats à 0.
+export function normalizeVideoResult(
+  result: VideoAnalysisResult | string | null | undefined
+): VideoAnalysisResult | null {
+  if (result == null) return null;
+  if (typeof result === "string") {
+    try {
+      return JSON.parse(result) as VideoAnalysisResult;
+    } catch {
+      return null;
+    }
+  }
+  return result;
+}
+
+export function normalizeVideoAnalysis(job: VideoAnalysis): VideoAnalysis {
+  return {
+    ...job,
+    result: normalizeVideoResult(
+      job.result as unknown as string | VideoAnalysisResult | null
+    ),
+  };
+}
+
+const STATUS_LABELS: Record<VideoAnalysisStatus, string> = {  pending: "En attente",
   processing: "En cours d'analyse",
   completed: "Terminée",
   failed: "Échec",

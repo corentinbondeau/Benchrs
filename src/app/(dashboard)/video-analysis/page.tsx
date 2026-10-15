@@ -9,6 +9,7 @@ import {
   VideoAnalysis,
   formatVideoDuration,
   formatVideoSize,
+  normalizeVideoAnalysis,
   videoAnalysisStatusLabel,
 } from "@/lib/videoAnalysis";
 import { VideoAnalysisUploader } from "@/components/video/VideoAnalysisUploader";
@@ -37,7 +38,7 @@ export default function VideoAnalysisPage() {
       .eq("team_id", currentTeam.id)
       .order("created_at", { ascending: false });
     if (error) throw error;
-    return (data as VideoAnalysis[]) || [];
+    return ((data as VideoAnalysis[]) || []).map(normalizeVideoAnalysis);
   }, [currentTeam]);
 
   useEffect(() => {

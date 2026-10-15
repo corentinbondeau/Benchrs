@@ -10,7 +10,6 @@
 from __future__ import annotations
 
 import datetime as dt
-import json
 import logging
 import os
 import re
@@ -198,7 +197,10 @@ class SupabaseGateway:
             {
                 "status": "completed",
                 "progress": 100,
-                "result": json.dumps(result),  # JSONB : supabase-py accepte une str JSON
+                # Passer le dict tel quel : PostgREST le stocke en objet JSONB.
+                # json.dumps() enverrait une CHAÎNE JSON, stockée comme scalaire
+                # string → le front lit result.stats = undefined (stats à 0).
+                "result": result,
                 "error": None,
                 "model_version": cfg.MODEL_NAME,
                 "completed_at": dt.datetime.now(dt.timezone.utc).isoformat(),
