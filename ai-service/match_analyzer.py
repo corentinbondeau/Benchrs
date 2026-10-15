@@ -193,23 +193,33 @@ def count_passes(
     records: list[FrameRecord],
     team_map: dict[int, int | None],
     fps: float,
+    median_player_h: float,
 ) -> tuple[int, int]:
-    """Compte les passes : chaque BASCOULE durable de possession
-    d'une équipe à l'autre est comptée comme une passe de l'équipe
-    qui rend le ballon, si elle l'avait contrôlé assez longtemps
-    (PASS_MIN_HOLD_SEC) — filtre les tocs et les interceptions
-    immédiates.
+    """Compte les passes complétées.
+
+    Méthode « vol de balle » : à chaque fois que le ballon QUITTE un joueur
+    (il sort du rayon de possession `POSSESSION_RADIUS`), on mémorise
+    l'équipe qui l'a relâché ; quand le ballon est de nouveau CONTROLA (par
+    un joueur à portée) par la MÊME équipe après avoir parcouru au moins
+    `PASS_MIN_DIST_FACTOR × hauteur joueur`, c'est une passe complétée.
+    Un contrôle par l'équipe adverse n'est PAS une passe (interception).
+
+    On ne compte donc plus les micro-changements de « joueur le plus proche »
+    (avant, la moindre fluctuation du plus proche voisin gonflait le compte
+    ou, à l'inverse, un ballon jamais à portée donnait 0 passe).
     """
-    min_hold_frames = max(1, int(cfg.PASS_MIN_HOLD_SEC * fps))
-    owner: int | None = None
-    run = 0
+    min_travel = cfg.PASS_MIN_DIST_FACTOR * median_player_h
+    owner_team: int | None = None
+    flying = False
+    release_team: int | None = None
+    release_pos: tuple[float, float] | None = None
     passes: dict[int, int] = defaultdict(int)
 
     for rec in records:
         if not rec.ball or len(rec.persons) < 2:
             continue
         bx, by = rec.ball
-        best: tuple[float, int] | None = None
+        best: tuple[float, int] | None = None  # (dist, team)
         for tid, (px, py) in rec.persons.items():
             team = team_map.get(tid)
             if team is None:
@@ -217,17 +227,27 @@ def count_passes(
             d = math.hypot(px - bx, py - by)
             if best is None or d < best[0]:
                 best = (d, team)
-        if best is None or best[0] > cfg.POSSESSION_RADIUS:
-            continue
 
-        cand = best[1]
-        if cand == owner:
-            run += 1
-        else:
-            if owner is not None and run >= min_hold_frames:
-                passes[owner] += 1
-            owner = cand
-            run = 1
+        touched = best is not None and best[0] <= cfg.POSSESSION_RADIUS
+        if touched:
+            team = best[1]
+            if flying:
+                travel = (
+                    math.hypot(bx - release_pos[0], by - release_pos[1])
+                    if release_pos
+                    else 0.0
+                )
+                if travel >= min_travel and team == release_team:
+                    passes[team] += 1
+                flying = False
+                release_team = None
+                release_pos = None
+            owner_team = team
+        elif owner_team is not None and not flying:
+            # Le ballon quitte le porteur → phase de vol.
+            flying = True
+            release_team = owner_team
+            release_pos = (bx, by)
 
     return passes.get(0, 0), passes.get(1, 0)
 
@@ -555,7 +575,7 @@ def analyze_video(
             records[s.idx].ball = (s.x, s.y)
 
     pct0, pct1, meas_sec = build_possession(records, team_map, fps)
-    pass0, pass1 = count_passes(records, team_map, fps)
+    pass0, pass1 = count_passes(records, team_map, fps, median_player_h)
 
     computed_team_map = team_map
     shots = detect_shots(

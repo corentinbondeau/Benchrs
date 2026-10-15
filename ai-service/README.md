@@ -219,8 +219,14 @@ frames **consécutives** (un saut après un trou n'est pas une vitesse).
   pour personne et la possession n'était mesurée que sur les frames de
   contact. Le `measured_sec` remonté est la durée réellement attribuée
   (dénominateur du %) : plus il est petit, moins le % est fiable.
-- **Passes** : chaque bascule durable de possession (≥ `PASS_MIN_HOLD_SEC`)
-  est comptée comme une passe de l'équipe rendant le ballon.
+- **Passes** : on mémorise l'équipe qui **relâche** le ballon (le ballon sort
+  du rayon `POSSESSION_RADIUS`) ; quand il est de nouveau **contrôlé** par un
+  joueur de la **même équipe** après avoir parcouru au moins
+  `PASS_MIN_DIST_FACTOR × hauteur joueur`, c'est une passe complétée. Un
+  contrôle par l'adversaire = interception (pas une passe). On ne compte donc
+  plus les micro-fluctuations du « joueur le plus proche » (l'ancienne
+  méthode comptait soit beaucoup trop sur une courte séquence, soit 0 quand le
+  ballon n'était jamais à portée).
 - **Tirs / cadrés** : le ballon est un « tir » si sa vitesse normalisée
   (`SHOT_SPEED_RATIO` × hauteur joueur) pointe vers une ligne de but et
   y arrive sous ~4 s. *Cadré* si le point d'impact est dans l'ouverture

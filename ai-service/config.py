@@ -91,6 +91,9 @@ MAX_TIMELINE = _int("MAX_TIMELINE", 500)           # cap des events remontés au
 POSSESSION_RADIUS = _float("POSSESSION_RADIUS", 140.0)     # px, rayon max autour du ballon pour "toucher" le ballon
 POSSESSION_HOLD = _int("POSSESSION_HOLD", 3)               # frames de confirmation avant changer de possesseur
 PASS_MIN_HOLD_SEC = _float("PASS_MIN_HOLD_SEC", 0.4)       # durée min de contrôle avant qu'un changement = une passe
+# Distance min parcourue par le ballon (× hauteur moyenne joueur) entre le
+# relâchement par une équipe et le contrôle suivant, pour valider une passe.
+PASS_MIN_DIST_FACTOR = _float("PASS_MIN_DIST_FACTOR", 0.8)
 SHOT_SPEED_RATIO = _float("SHOT_SPEED_RATIO", 0.35)        # vitesse du ballon / hauteur moyenne joueur (par frame)
 GOAL_OPENING_FACTOR = _float("GOAL_OPENING_FACTOR", 4.1)   # largeur de but ≈ 4,1 × hauteur moyenne d'un joueur
 # Suivi de trajectoire du ballon : le détecteur (COCO) produit beaucoup de
