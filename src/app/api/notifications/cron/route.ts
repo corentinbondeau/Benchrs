@@ -21,6 +21,11 @@ export async function GET(req: Request) {
   // --- ÉTAPE 1 : Delivery first — livre TOUTES les notifs pending existantes ---
   const { sent, delivered, skipped } = await deliverPendingNotifications(supabase);
 
+  // --- ÉTAPE 1bis : Purge des annonces de match amical expirées ---
+  // Une annonce restée "en recherche d'adversaire" après sa date est sans
+  // objet : on la supprime (les matchs acceptés/confirmés sont conservés).
+  const friendliesPurged = await purgeExpiredFriendlies(supabase);
+
   // --- ÉTAPES 2-8 : Création des notifications quotidiennes ---
   const creationResults = await Promise.allSettled([
         // Rappels la veille
@@ -78,12 +83,33 @@ export async function GET(req: Request) {
     delivery: { sent, delivered, skipped },
     creation,
     finalDelivery: { sent: finalDelivery.sent, delivered: finalDelivery.delivered, skipped: finalDelivery.skipped },
+    friendliesPurged,
     durationMs,
   };
 
   console.log("[notifications/cron]", JSON.stringify(result));
 
   return NextResponse.json(result);
+}
+
+// ---------------------------------------------------------------------------
+// Purge des annonces de match amical dont la date est passée
+// ---------------------------------------------------------------------------
+async function purgeExpiredFriendlies(
+  supabase: ReturnType<typeof createAdminClient>
+): Promise<number> {
+  const today = new Date().toISOString().slice(0, 10);
+  const { data, error } = await supabase
+    .from("friendly_matches")
+    .delete()
+    .eq("status", "open")
+    .lt("match_date", today)
+    .select("id");
+  if (error) {
+    console.error("[notifications/cron] purge amicaux error:", error.message);
+    return 0;
+  }
+  return data?.length ?? 0;
 }
 
 // ---------------------------------------------------------------------------

@@ -78,6 +78,13 @@ function formatMatchDate(date: string, time: string | null): string {
   return time ? `${day} à ${time.slice(0, 5)}` : day;
 }
 
+// Date locale du jour au format YYYY-MM-DD (les match_date sont des `date`).
+function todayIso(): string {
+  const d = new Date();
+  const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 10);
+}
+
 export function FriendlyMatchesPanel() {
   const { currentTeam, userRole } = useTeam();
   const isCoach = userRole === "coach" || userRole === "owner";
@@ -101,10 +108,15 @@ export function FriendlyMatchesPanel() {
   const [saving, setSaving] = useState(false);
   const [proposalMsg, setProposalMsg] = useState<Record<string, string>>({});
 
+  const [filterCategory, setFilterCategory] = useState("");
+  const [filterLevel, setFilterLevel] = useState("");
+
   const [fetchError, setFetchError] = useState<string | null>(null);
 
   const fetchData = useCallback(async (): Promise<FetchResult | null> => {
     if (!currentTeam || !isCoach) return null;
+    // Purge best-effort des annonces expirées (idempotent) avant lecture.
+    await authFetch("/api/friendly/purge", { method: "POST" }).catch(() => {});
     const supabase = createClient();
     const { data: matchesData, error: matchesError } = await supabase
       .from("friendly_matches")
@@ -277,16 +289,29 @@ export function FriendlyMatchesPanel() {
     );
   }
   if (!currentTeam) return null;
+  const today = todayIso();
+  // Une annonce ouverte dont la date est passée n'a plus lieu d'être affichée
+  // (elle est aussi supprimée en base par la purge).
+  const isActive = (m: FriendlyMatch) =>
+    !(m.status === "open" && m.match_date < today);
+
   const myMatches = matches.filter(
     (m) =>
-      m.team_id === currentTeam.id || m.accepted_by_team_id === currentTeam.id
+      (m.team_id === currentTeam.id || m.accepted_by_team_id === currentTeam.id) &&
+      isActive(m)
   );
 
   const myProposals = (proposalsByFriendly &&
     Object.entries(proposalsByFriendly)
       .map(([friendlyId, props]) => {
         const m = matches.find((x) => x.id === friendlyId);
-        if (!m || m.team_id === currentTeam.id || m.accepted_by_team_id === currentTeam.id) return null;
+        if (
+          !m ||
+          !isActive(m) ||
+          m.team_id === currentTeam.id ||
+          m.accepted_by_team_id === currentTeam.id
+        )
+          return null;
         const myProp = props.find((p) => p.team_id === currentTeam.id);
         if (!myProp) return null;
         return { match: m, proposal: myProp };
@@ -298,9 +323,24 @@ export function FriendlyMatchesPanel() {
   const openMatches = matches.filter(
     (m) =>
       m.status === "open" &&
+      m.match_date >= today &&
       m.team_id !== currentTeam.id &&
       m.accepted_by_team_id !== currentTeam.id &&
       !myProposalFriendlyIds.has(m.id)
+  );
+
+  // Filtres catégorie / niveau : options issues des annonces visibles.
+  const categoryOptions = Array.from(
+    new Set(openMatches.map((m) => m.category).filter((c): c is string => !!c))
+  ).sort((a, b) => a.localeCompare(b, "fr"));
+  const levelOptions = Array.from(
+    new Set(openMatches.map((m) => m.level).filter((l): l is string => !!l))
+  ).sort((a, b) => a.localeCompare(b, "fr"));
+
+  const filteredOpenMatches = openMatches.filter(
+    (m) =>
+      (!filterCategory || m.category === filterCategory) &&
+      (!filterLevel || m.level === filterLevel)
   );
 
   const statusVariant = (
@@ -616,13 +656,62 @@ export function FriendlyMatchesPanel() {
           <p className="text-xs font-semibold text-muted-foreground uppercase">
             Annonces des autres équipes
           </p>
-          {openMatches.length === 0 && (
+
+          {(categoryOptions.length > 0 || levelOptions.length > 0) && (
+            <div className="flex flex-wrap gap-2">
+              {categoryOptions.length > 0 && (
+                <select
+                  className="rounded-md border bg-background px-3 py-1.5 text-xs"
+                  value={filterCategory}
+                  onChange={(e) => setFilterCategory(e.target.value)}
+                >
+                  <option value="">Toutes les catégories</option>
+                  {categoryOptions.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              )}
+              {levelOptions.length > 0 && (
+                <select
+                  className="rounded-md border bg-background px-3 py-1.5 text-xs"
+                  value={filterLevel}
+                  onChange={(e) => setFilterLevel(e.target.value)}
+                >
+                  <option value="">Tous les niveaux</option>
+                  {levelOptions.map((l) => (
+                    <option key={l} value={l}>
+                      {l}
+                    </option>
+                  ))}
+                </select>
+              )}
+              {(filterCategory || filterLevel) && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-auto px-2 py-1 text-xs"
+                  onClick={() => {
+                    setFilterCategory("");
+                    setFilterLevel("");
+                  }}
+                >
+                  Réinitialiser
+                </Button>
+              )}
+            </div>
+          )}
+
+          {filteredOpenMatches.length === 0 && (
             <p className="text-xs text-muted-foreground">
-              Aucune annonce disponible pour le moment.
+              {openMatches.length === 0
+                ? "Aucune annonce disponible pour le moment."
+                : "Aucune annonce ne correspond à ces filtres."}
             </p>
           )}
           <div className="space-y-2">
-            {openMatches.map((m) => (
+            {filteredOpenMatches.map((m) => (
               <div key={m.id} className="rounded-lg border p-3 text-sm">
                 <p className="font-medium">
                   {teamName(m.team_id)}
