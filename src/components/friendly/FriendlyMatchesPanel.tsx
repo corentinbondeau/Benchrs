@@ -47,20 +47,10 @@ interface FriendlyProposal {
   status: "pending" | "accepted" | "declined";
 }
 
-interface CoachInfo {
-  team_id: string;
-  team_name: string;
-  club_id: string | null;
-  club_name: string | null;
-  coach_id: string;
-  first_name: string | null;
-  last_name: string | null;
-}
-
 interface FetchResult {
   matches: FriendlyMatch[];
   proposalsByFriendly: Record<string, FriendlyProposal[]>;
-  coaches: CoachInfo[];
+  teamNames: Record<string, string>;
 }
 
 const LOCATION_LABELS: Record<FriendlyMatch["location_type"], string> = {
@@ -95,7 +85,7 @@ export function FriendlyMatchesPanel() {
   const [proposalsByFriendly, setProposalsByFriendly] = useState<
     Record<string, FriendlyProposal[]>
   >({});
-  const [coaches, setCoaches] = useState<CoachInfo[]>([]);
+  const [teamNames, setTeamNames] = useState<Record<string, string>>({});
   const [open, setOpen] = useState(false);
 
   const [category, setCategory] = useState("");
@@ -117,6 +107,7 @@ export function FriendlyMatchesPanel() {
       .from("friendly_matches")
       .select("*")
       .order("match_date", { ascending: true });
+
     const { data: proposalsData } = await supabase
       .from("friendly_proposals")
       .select("*");
@@ -127,59 +118,36 @@ export function FriendlyMatchesPanel() {
       proposalMap[p.friendly_id].push(p);
     }
 
-    const { data: teamsData } = await supabase
-      .from("teams")
-      .select("id, name, club_id");
-    const teamRows = (teamsData as { id: string; name: string; club_id: string | null }[]) || [];
+    const teamIds = new Set<string>(
+      ((matchesData as FriendlyMatch[]) || [])
+        .flatMap((m) => [m.team_id, m.accepted_by_team_id])
+        .filter((id): id is string => !!id)
+    );
+    for (const p of (proposalsData as FriendlyProposal[]) || []) {
+      teamIds.add(p.team_id);
+    }
 
-    const { data: membersData } = await supabase
-      .from("team_members")
-      .select("team_id, user_id")
-      .in("role", ["coach", "owner"]);
-    const memberRows = (membersData as { team_id: string; user_id: string }[]) || [];
-
-    const coachIds = [...new Set(memberRows.map((m) => m.user_id))];
-    const { data: profsData } = coachIds.length
-      ? await supabase
-          .from("profiles")
-          .select("id, first_name, last_name")
-          .in("id", coachIds)
+    const { data: teamsData } = teamIds.size
+      ? await supabase.from("teams").select("id, name").in("id", Array.from(teamIds))
       : { data: [] };
-    const profRows =
-      (profsData as { id: string; first_name: string | null; last_name: string | null }[]) || [];
 
-    const { data: clubsData } = await supabase
-      .from("clubs")
-      .select("id, name");
-    const clubRows = (clubsData as { id: string; name: string }[]) || [];
-    const clubsMap = new Map(clubRows.map((c) => [c.id, c.name]));
-    const profsMap = new Map(profRows.map((p) => [p.id, p]));
-
-    const list: CoachInfo[] = memberRows.map((m) => {
-      const team = teamRows.find((t) => t.id === m.team_id);
-      const prof = profsMap.get(m.user_id);
-      return {
-        team_id: m.team_id,
-        team_name: team?.name || "",
-        club_id: team?.club_id || null,
-        club_name: team?.club_id ? clubsMap.get(team.club_id) || null : null,
-        coach_id: m.user_id,
-        first_name: prof?.first_name || null,
-        last_name: prof?.last_name || null,
-      };
-    });
+    const namesMap: Record<string, string> = {};
+    for (const t of (teamsData as { id: string; name: string }[]) || []) {
+      namesMap[t.id] = t.name;
+    }
+    if (currentTeam) namesMap[currentTeam.id] = currentTeam.name;
 
     return {
       matches: (matchesData as FriendlyMatch[]) || [],
       proposalsByFriendly: proposalMap,
-      coaches: list,
+      teamNames: namesMap,
     };
   }, [currentTeam, isCoach]);
 
   const apply = useCallback((res: FetchResult) => {
     setMatches(res.matches);
     setProposalsByFriendly(res.proposalsByFriendly);
-    setCoaches(res.coaches);
+    setTeamNames(res.teamNames);
   }, []);
 
   useEffect(() => {
@@ -196,7 +164,6 @@ export function FriendlyMatchesPanel() {
     const res = await fetchData();
     if (res) apply(res);
   }
-
   async function createMatch() {
     if (!currentTeam || !matchDate) return;
     setSaving(true);
@@ -280,16 +247,30 @@ export function FriendlyMatchesPanel() {
     );
   }
   if (!currentTeam) return null;
-
-  const teamNameById = new Map(coaches.map((c) => [c.team_id, c.team_name]));
-  teamNameById.set(currentTeam.id, currentTeam.name);
-
   const myMatches = matches.filter(
     (m) =>
       m.team_id === currentTeam.id || m.accepted_by_team_id === currentTeam.id
   );
+
+  const myProposals = (proposalsByFriendly &&
+    Object.entries(proposalsByFriendly)
+      .map(([friendlyId, props]) => {
+        const m = matches.find((x) => x.id === friendlyId);
+        if (!m || m.team_id === currentTeam.id || m.accepted_by_team_id === currentTeam.id) return null;
+        const myProp = props.find((p) => p.team_id === currentTeam.id);
+        if (!myProp) return null;
+        return { match: m, proposal: myProp };
+      })
+      .filter(Boolean)) as { match: FriendlyMatch; proposal: FriendlyProposal }[];
+
+  const myProposalFriendlyIds = new Set(myProposals.map((p) => p.match.id));
+
   const openMatches = matches.filter(
-    (m) => m.status === "open" && m.team_id !== currentTeam.id
+    (m) =>
+      m.status === "open" &&
+      m.team_id !== currentTeam.id &&
+      m.accepted_by_team_id !== currentTeam.id &&
+      !myProposalFriendlyIds.has(m.id)
   );
 
   const statusVariant = (
@@ -301,6 +282,10 @@ export function FriendlyMatchesPanel() {
     return "outline";
   };
 
+  function teamName(id: string | null) {
+    if (!id) return "—";
+    return teamNames[id] || id;
+  }
   return (
     <Card>
       <CardHeader className="pb-3">
@@ -404,7 +389,7 @@ export function FriendlyMatchesPanel() {
       </CardHeader>
 
       <CardContent className="space-y-6">
-        {/* Mes matchs amicaux */}
+        {/* Mes annonces */}
         <div className="space-y-2">
           <p className="text-xs font-semibold text-muted-foreground uppercase">
             Mes annonces
@@ -428,8 +413,8 @@ export function FriendlyMatchesPanel() {
                         {isOrganizer
                           ? m.status === "open"
                             ? "Recherche d'adversaire"
-                            : `Match contre ${teamNameById.get(m.accepted_by_team_id || "") || "adversaire"}`
-                          : `Match contre ${teamNameById.get(m.team_id) || "adversaire"}`}
+                            : `Match contre ${teamName(m.accepted_by_team_id)}`
+                          : `Match contre ${teamName(m.team_id)}`}
                       </p>
                       {(m.category || m.level) && (
                         <p className="text-muted-foreground text-xs">
@@ -457,8 +442,6 @@ export function FriendlyMatchesPanel() {
                   {m.notes && (
                     <p className="mt-1 text-xs text-muted-foreground">{m.notes}</p>
                   )}
-
-                  {/* Propositions reçues (organisateur) */}
                   {isOrganizer && m.status === "open" && pending.length > 0 && (
                     <div className="mt-3 space-y-2 border-t pt-2">
                       <p className="text-xs font-semibold">
@@ -470,9 +453,7 @@ export function FriendlyMatchesPanel() {
                           className="flex items-center justify-between gap-2 rounded-md bg-muted/50 px-2 py-1.5"
                         >
                           <div>
-                            <p className="text-xs font-medium">
-                              {teamNameById.get(p.team_id) || "Équipe"}
-                            </p>
+                            <p className="text-xs font-medium">{teamName(p.team_id)}</p>
                             {p.message && (
                               <p className="text-xs text-muted-foreground">
                                 {p.message}
@@ -499,11 +480,10 @@ export function FriendlyMatchesPanel() {
                     </div>
                   )}
 
-                  {/* Actions organisateur */}
                   {isOrganizer && m.status === "accepted" && (
                     <div className="mt-3 flex items-center justify-between border-t pt-2">
                       <p className="text-xs text-muted-foreground">
-                        Adversaire : {teamNameById.get(m.accepted_by_team_id || "") || "—"}
+                        Adversaire : {teamName(m.accepted_by_team_id)}
                       </p>
                       <div className="flex gap-2">
                         <Button
@@ -536,8 +516,64 @@ export function FriendlyMatchesPanel() {
             })}
           </div>
         </div>
-
-        {/* Matchs ouverts des autres équipes */}
+        {/* Mes demandes en cours */}
+        <div className="space-y-2">
+          <p className="text-xs font-semibold text-muted-foreground uppercase">
+            Mes demandes en cours
+          </p>
+          {myProposals.length === 0 && (
+            <p className="text-xs text-muted-foreground">
+              Aucune proposition envoyée pour le moment.
+            </p>
+          )}
+          <div className="space-y-2">
+            {myProposals.map(({ match: m, proposal: p }) => (
+              <div key={p.id} className="rounded-lg border p-3 text-sm">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <p className="font-medium">
+                      {teamName(m.team_id)} — recherche un adversaire
+                    </p>
+                    {(m.category || m.level) && (
+                      <p className="text-xs text-muted-foreground">
+                        {m.category || ""}
+                        {m.category && m.level ? " · " : ""}
+                        {m.level || ""}
+                      </p>
+                    )}
+                  </div>
+                  <Badge variant="outline">
+                    {p.status === "pending"
+                      ? "En attente"
+                      : p.status === "accepted"
+                      ? "Acceptée"
+                      : "Refusée"}
+                  </Badge>
+                </div>
+                <div className="mt-2 flex flex-wrap gap-3 text-xs text-muted-foreground">
+                  <span className="inline-flex items-center gap-1">
+                    <Calendar className="h-3 w-3" />
+                    {formatMatchDate(m.match_date, m.match_time)}
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <MapPin className="h-3 w-3" />
+                    {LOCATION_LABELS[m.location_type]}
+                    {m.venue_address ? ` — ${m.venue_address}` : ""}
+                  </span>
+                </div>
+                {m.notes && (
+                  <p className="mt-1 text-xs text-muted-foreground">{m.notes}</p>
+                )}
+                {p.message && (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Mon message : {p.message}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+        {/* Annonces des autres équipes (créneaux ouverts) */}
         <div className="space-y-2">
           <p className="text-xs font-semibold text-muted-foreground uppercase">
             Annonces des autres équipes
@@ -548,95 +584,54 @@ export function FriendlyMatchesPanel() {
             </p>
           )}
           <div className="space-y-2">
-            {openMatches.map((m) => {
-              const myProposal = (proposalsByFriendly[m.id] || []).find(
-                (p) => p.team_id === currentTeam.id
-              );
-              return (
-                <div key={m.id} className="rounded-lg border p-3 text-sm">
-                  <p className="font-medium">
-                    {teamNameById.get(m.team_id) || "Équipe"}
-                    <span className="text-muted-foreground font-normal">
-                      {" "}
-                      — recherche un adversaire
-                    </span>
-                  </p>
-                  {(m.category || m.level) && (
-                    <p className="text-xs text-muted-foreground">
-                      {m.category || ""}
-                      {m.category && m.level ? " · " : ""}
-                      {m.level || ""}
-                    </p>
-                  )}
-                  <div className="mt-2 flex flex-wrap gap-3 text-xs text-muted-foreground">
-                    <span className="inline-flex items-center gap-1">
-                      <Calendar className="h-3 w-3" />
-                      {formatMatchDate(m.match_date, m.match_time)}
-                    </span>
-                    <span className="inline-flex items-center gap-1">
-                      <MapPin className="h-3 w-3" />
-                      {LOCATION_LABELS[m.location_type]}
-                      {m.venue_address ? ` — ${m.venue_address}` : ""}
-                    </span>
-                  </div>
-                  {m.notes && (
-                    <p className="mt-1 text-xs text-muted-foreground">{m.notes}</p>
-                  )}
-                  {myProposal ? (
-                    <p className="mt-2 text-xs font-medium text-[var(--color-royal)]">
-                      {myProposal.status === "pending"
-                        ? "Proposition envoyée — en attente de réponse"
-                        : myProposal.status === "accepted"
-                          ? "Vous avez été retenu"
-                          : "Proposition refusée"}
-                    </p>
-                  ) : (
-                    <div className="mt-3 flex items-end gap-2">
-                      <Textarea
-                        className="min-h-9 flex-1"
-                        placeholder="Message (optionnel)"
-                        value={proposalMsg[m.id] || ""}
-                        onChange={(e) =>
-                          setProposalMsg((s) => ({
-                            ...s,
-                            [m.id]: e.target.value,
-                          }))
-                        }
-                      />
-                      <Button size="sm" onClick={() => propose(m.id)}>
-                        Se proposer
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Coachs utilisant l'application */}
-        <div className="space-y-2">
-          <p className="text-xs font-semibold text-muted-foreground uppercase">
-            Coachs utilisant l&apos;application
-          </p>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {coaches.map((c, i) => (
-              <div
-                key={`${c.coach_id}-${c.team_id}-${i}`}
-                className="rounded-lg border p-2 text-xs"
-              >
+            {openMatches.map((m) => (
+              <div key={m.id} className="rounded-lg border p-3 text-sm">
                 <p className="font-medium">
-                  {c.last_name} {c.first_name}
+                  {teamName(m.team_id)}
+                  <span className="text-muted-foreground font-normal">
+                    {" "}
+                    — recherche un adversaire
+                  </span>
                 </p>
-                <p className="text-muted-foreground">{c.club_name || "—"}</p>
-                <p className="text-muted-foreground">Équipe : {c.team_name}</p>
+                {(m.category || m.level) && (
+                  <p className="text-xs text-muted-foreground">
+                    {m.category || ""}
+                    {m.category && m.level ? " · " : ""}
+                    {m.level || ""}
+                  </p>
+                )}
+                <div className="mt-2 flex flex-wrap gap-3 text-xs text-muted-foreground">
+                  <span className="inline-flex items-center gap-1">
+                    <Calendar className="h-3 w-3" />
+                    {formatMatchDate(m.match_date, m.match_time)}
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <MapPin className="h-3 w-3" />
+                    {LOCATION_LABELS[m.location_type]}
+                    {m.venue_address ? ` — ${m.venue_address}` : ""}
+                  </span>
+                </div>
+                {m.notes && (
+                  <p className="mt-1 text-xs text-muted-foreground">{m.notes}</p>
+                )}
+                <div className="mt-3 flex items-end gap-2">
+                  <Textarea
+                    className="min-h-9 flex-1"
+                    placeholder="Message (optionnel)"
+                    value={proposalMsg[m.id] || ""}
+                    onChange={(e) =>
+                      setProposalMsg((s) => ({
+                        ...s,
+                        [m.id]: e.target.value,
+                      }))
+                    }
+                  />
+                  <Button size="sm" onClick={() => propose(m.id)}>
+                    Se proposer
+                  </Button>
+                </div>
               </div>
             ))}
-            {coaches.length === 0 && (
-              <p className="text-xs text-muted-foreground">
-                Aucun autre coach trouvé
-              </p>
-            )}
           </div>
         </div>
       </CardContent>
