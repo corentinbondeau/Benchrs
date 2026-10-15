@@ -228,10 +228,14 @@ frames **consécutives** (un saut après un trou n'est pas une vitesse).
   méthode comptait soit beaucoup trop sur une courte séquence, soit 0 quand le
   ballon n'était jamais à portée).
 - **Tirs / cadrés** : le ballon est un « tir » si sa vitesse normalisée
-  (`SHOT_SPEED_RATIO` × hauteur joueur) pointe vers une ligne de but et
-  y arrive sous ~4 s. *Cadré* si le point d'impact est dans l'ouverture
-  du but (≈ 4,1 × hauteur joueur). Un dépassement franc de la ligne de
-  but est signalé comme **but probable**.
+  (`SHOT_SPEED_RATIO` × hauteur joueur) pointe vers une ligne de but, y
+  arrive sous ~4 s, **et que le ballon POURSUIT sa course** (déplacement net
+  projeté sur la direction du saut ≥ 1,5× le saut). Ce dernier critère écarte
+  le faux positif le plus fréquent : une détection de ballon qui saute puis
+  revient (déplacement net ≈ 0, souvent la tête d'un joueur ou un autre
+  objet). *Cadré* si le point d'impact est dans l'ouverture du but
+  (≈ 4,1 × hauteur joueur). Un dépassement franc de la ligne de but est
+  signalé comme **but probable**.
 
 > Ces métriques sont des heuristiques mono-caméra non calibrées : la
 > qualité dépend fortement de l'angle de prise de vue (grand-angle

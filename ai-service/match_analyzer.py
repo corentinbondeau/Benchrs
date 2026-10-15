@@ -266,18 +266,20 @@ def detect_shots(
 
     Principe : un tir est une accélération du ballon (vitesse
     élevée normalisée par la taille d'un joueur) dont la direction
-    pointe vers l'un des deux buts.
+    pointe vers l'un des deux buts, ET qui se poursuit (le ballon
+    continue dans la même direction). Un pic isolé — la détection du
+    ballon saute puis revient, déplacement net ≈ 0 — est rejeté : c'est
+    le faux positif le plus fréquent.
 
     On estime les limites du terrain avec les positions des joueurs
     (percentiles 1%/99% sur x), la hauteur du but ≈ 4,1 × hauteur
     moyenne d'un joueur, centrée sur le y médian des joueurs.
 
-    On projette la trajectoire du ballon (vitesse × horizon de 30
-    frames) : si elle sort du terrain par le bord gauche/droit avec
-    un y proche du centre du but → tir (cadré si le y d'arrivée est
-    dans l'ouverture du but). Un cooldown évite de compter 2× le
-    même tir. On signale un 'goal' probable quand le ballon dépasse
-    franchement la ligne de but.
+    On projette la trajectoire du ballon vers le bord du terrain : si
+    elle sort par le bord gauche/droit avec un y proche du centre du but
+    → tir (cadré si le y d'arrivée est dans l'ouverture du but). Un
+    cooldown évite de compter 2× le même tir. On signale un 'goal'
+    probable quand le ballon dépasse franchement la ligne de but.
     """
     if median_player_h <= 0 or len(ball_samples) < 8:
         return []
@@ -291,61 +293,66 @@ def detect_shots(
     pitch_max_x = float(np.percentile(all_px, 99.0))
     goal_center_y = float(np.median(all_py))
     goal_opening = median_player_h * cfg.GOAL_OPENING_FACTOR
-    lookahead = max(8, int(0.5 * fps))  # ~0,5 s d'anticipation
 
-    # Vitesse du ballon par frame (normalisée par la taille joueur).
-    # IMPORTANT : on ne mesure la vitesse qu'entre frames CONSÉCUTIVES.
-    # Une ré-acquisition après un trou est un saut de position (le ballon
-    # peut réapparaître ailleurs), pas une vitesse → sinon on invente des
-    # tirs. On borne aussi le saut plausible par la taille d'un joueur.
-    speeds: list[tuple[int, float]] = []  # (frame_idx, vitesse px/frame)
-    prev = ball_samples[0]
-    max_plausible = cfg.POSSESSION_RADIUS  # garde-fou haute vitesse
-    for s in ball_samples[1:]:
-        if s.idx - prev.idx == 1:
-            d = math.hypot(s.x - prev.x, s.y - prev.y)
-            if d <= max_plausible:
-                speeds.append((s.idx, d))
-        prev = s
-    if not speeds:
+    # Déplacements du ballon entre frames CONSÉCUTIVES uniquement. Une
+    # ré-acquisition après un trou (le ballon peut réapparaître ailleurs) est
+    # un saut de position, pas une vitesse : le test de contiguïté
+    # `b.idx - a.idx == 1` l'écarte déjà. On borne en plus le saut par
+    # `POSSESSION_RADIUS` pour ignorer un faux positif franc (ballon détecté
+    # ailleurs sur UNE seule frame, ex. la tête d'un joueur).
+    max_plausible = cfg.POSSESSION_RADIUS
+    order = sorted(ball_samples, key=lambda s: s.idx)
+    if len(order) < 8:
         return []
 
-    by_idx = {s.idx: s for s in ball_samples}
+    def sample_from(bound: int) -> BallSample | None:
+        """Premier échantillon à une frame >= `bound` (None si aucun)."""
+        for s in order:
+            if s.idx >= bound:
+                return s
+        return None
+
     shots: list[dict] = []
     last_shot_frame = -10**6
+    cooldown = int(1.5 * fps)
+    momentum_horizon = max(3, int(0.2 * fps))
+    momentum_factor = 1.5  # le ballon doit poursuivre ≥ 1,5× le saut initial
 
-    def nearest_sample(bound: int) -> BallSample | None:
-        """Retourne l'échantillon de trajectoire le plus proche de la
-        frame `bound` (pour lire l'état du ballon un peu plus tard)."""
-        best = None
-        for s in ball_samples:
-            if s.idx >= bound:
-                best = s
-                break
-        return best or (ball_samples[-1] if ball_samples else None)
-
-    for idx, v in speeds:
-        if idx - last_shot_frame < int(1.5 * fps):
+    for i in range(1, len(order)):
+        a, b = order[i - 1], order[i]
+        idx = b.idx
+        if idx - a.idx != 1:
             continue
-        ratio = v / median_player_h
-        if ratio < cfg.SHOT_SPEED_RATIO:
+        dx, dy = b.x - a.x, b.y - a.y
+        step_len = math.hypot(dx, dy)
+        if step_len <= 0 or step_len > max_plausible:
             continue
-
-        s = by_idx.get(idx)
-        if s is None:
+        # Vitesse normalisée par la taille d'un joueur.
+        if step_len / median_player_h < cfg.SHOT_SPEED_RATIO:
             continue
-        # Direction → bord du terrain sur l'horizon de tir
-        next_ahead = by_idx.get(idx + lookahead)
-        if next_ahead is None:
-            next_ahead = by_idx.get(idx + max(4, lookahead // 3))
-        if next_ahead is None:
+        if idx - last_shot_frame < cooldown:
             continue
 
-        dx = next_ahead.x - s.x
-        if abs(dx) < 1e-6:
+        # Momentum : un vrai tir CONTINUE dans la même direction. Un faux
+        # positif (la détection saute puis revient, net ≈ 0) échoue ici : le
+        # déplacement net depuis la position de départ, projeté sur la
+        # direction du saut, doit valoir au moins `momentum_factor × saut`.
+        later = sample_from(idx + momentum_horizon)
+        if later is None or later.idx <= a.idx:
             continue
-        vel_x = dx / max(1, next_ahead.idx - s.idx)
+        nx, ny = later.x - a.x, later.y - a.y
+        projected = (dx * nx + dy * ny) / step_len  # net projeté sur le saut
+        if projected < momentum_factor * step_len:
+            continue
 
+        # Direction globale (départ → plus tard) : plus stable que le saut.
+        span = later.idx - a.idx
+        vel_x = nx / span
+        vel_y = ny / span
+        if abs(vel_x) < 1e-6:
+            continue
+
+        s = a  # dernière frame « lente » = instant de la frappe
         # Projette l'impact sur la ligne de but ciblée
         if vel_x < 0:
             goal_x = pitch_min_x
@@ -356,13 +363,13 @@ def detect_shots(
         if t_hit <= 0 or t_hit > 4 * fps:
             continue  # ne finit pas sur un but sous l'horizon
 
-        y_hit = s.y + ((next_ahead.y - s.y) / max(1, next_ahead.idx - s.idx)) * t_hit
+        y_hit = s.y + vel_y * t_hit
         on_target = abs(y_hit - goal_center_y) <= goal_opening / 2
 
         # Équipe qui tire : le possesseur du moment
         team: int | None = None
         for rec in frame_records:
-            if rec.idx > idx:
+            if rec.idx > s.idx:
                 break
             if not rec.ball or len(rec.persons) < 2:
                 continue
@@ -372,15 +379,15 @@ def detect_shots(
                 team_t = team_map.get(tid)
                 if team_t is None:
                     continue
-                d = math.hypot(px - bx, py - by)
-                if best is None or d < best[0]:
-                    best = (d, team_t)
+                dd = math.hypot(px - bx, py - by)
+                if best is None or dd < best[0]:
+                    best = (dd, team_t)
             if best is not None and best[0] <= cfg.POSSESSION_RADIUS:
                 team = best[1]
         team = team if team is not None else (0 if vel_x > 0 else 1)
 
         # But probable : le ballon a dépassé franchement la ligne de but
-        beyond = nearest_sample(idx + int(t_hit))
+        beyond = sample_from(s.idx + int(t_hit))
         is_goal = bool(
             beyond
             and (beyond.x < pitch_min_x - 5 or beyond.x > pitch_max_x + 5)
@@ -397,7 +404,7 @@ def detect_shots(
                 "note": f"Tir {'cadré' if on_target else 'non cadré'} côté {side}",
             }
         )
-        last_shot_frame = idx
+        last_shot_frame = s.idx
 
     return shots
 
