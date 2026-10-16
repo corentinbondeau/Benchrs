@@ -158,7 +158,11 @@ class Tracker:
         se sert que de sa position par frame, pas d'un track_id.
         """
         results = get_model().predict(
-            source=frame, conf=cfg.DETECT_CONFIDENCE, verbose=False, device=cfg.torch_device()
+            source=frame,
+            conf=cfg.DETECT_CONFIDENCE,
+            imgsz=cfg.IMGSZ,
+            verbose=False,
+            device=cfg.torch_device(),
         )[0]
         detections = sv.Detections.from_ultralytics(results)
 

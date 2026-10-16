@@ -114,9 +114,13 @@ sans runtime Python persistant ni GPU) : on le déploie à part.
 | `SUPABASE_SERVICE_ROLE_KEY` | — | requise (worker = écritures sans RLS) |
 | `DEVICE` | `auto` | `mps` si dispo (macOS), sinon CPU — forcer `cpu` sur une VM |
 | `MODEL_NAME` | `yolov8n.pt` | modèle YOLO (`n` = léger/rapide CPU) |
+| `IMGSZ` | `1280` | résolution d'inférence — le ballon (quelques px) est raté à 640 (~18 % des frames) ; à 1280 le rappel triple (~54 %) |
 | `PERSON_CONFIDENCE` | `0.25` | seuil détection **personne** |
 | `BALL_CONFIDENCE` | `0.05` | seuil détection **ballon** (bas : petit objet rapide) |
-| `BALL_MAX_JUMP_FACTOR` | `0.50` | saut max du ballon (× hauteur joueur) pour suivre sa trajectoire |
+| `BALL_MAX_JUMP_FACTOR` | `1.50` | saut max du ballon (× hauteur joueur) pour suivre sa trajectoire |
+| `BALL_INTERP_MAX_GAP` | `15` | comblement des trous courts de la trajectoire du ballon (frames) — sinon la possession n'est mesurée que sur ~3 % de la vidéo |
+| `POSSESSION_MAX_LOST_SEC` | `0` | durée max (s) pendant laquelle le dernier possesseur garde la balle quand elle n'est plus détectée ; `0` = illimité (tous les moments en jeu comptent) |
+| `MIN_TRACK_SAMPLES_FOR_MODEL` | `3` | nombre minimal d'échantillons d'un track pour calibrer le k-means des couleurs (les tracks vus 1-2× faussaient les centroïdes) |
 | `POLL_INTERVAL_SEC` | `10` | fréquence de sondage de la file |
 
 > Sur CPU (Oracle ARM, Render…), comptez un traitement nettement plus lent
@@ -210,23 +214,32 @@ frames **consécutives** (un saut après un trou n'est pas une vitesse).
 
 - **Couleurs d'équipes** : k-means (2 clusters) sur la couleur HSV
   médiane du torse de chaque joueur ; un joueur trop loin des deux
-  clusters est classé *arbitre*.
+  clusters est classé *arbitre*. Le modèle est calibré uniquement sur les
+  tracks vus au moins `MIN_TRACK_SAMPLES_FOR_MODEL` fois (les tracks
+  furtifs à 1-2 échantillons faisaient dériver les centroïdes). Une fois le
+  modèle fixé, **toutes** les décisions d'équipe (possession, passes,
+  équipe du tireur) passent par la même fonction : l'équipe d'un joueur est
+  celle de son **track** (médiane robuste), sinon la couleur de **sa**
+  détection. Un maillot ne peut donc plus être classé différemment d'un
+  calcul à l'autre — c'est ce qui faisait compter une passe pour la
+  mauvaise équipe (voire pour les deux).
 - **Possession** : à chaque frame où le ballon est suivi, l'équipe du
   joueur le plus proche du ballon (rayon max `POSSESSION_RADIUS` px) est
-  candidate ; hystérésis de `POSSESSION_HOLD` frames. Si le ballon est
-  suivi mais **loin de tout joueur** (ballon en vol), le **dernier
-  possesseur** garde la possession — sinon un ballon en l'air ne comptait
-  pour personne et la possession n'était mesurée que sur les frames de
-  contact. Le `measured_sec` remonté est la durée réellement attribuée
-  (dénominateur du %) : plus il est petit, moins le % est fiable.
+  candidate ; hystérésis de `POSSESSION_HOLD` frames. Quand le ballon n'est
+  pas suivi (hors cadre, masqué un instant), le **dernier possesseur** garde
+  la possession jusqu'à `POSSESSION_MAX_LOST_SEC` (`0` = toute la vidéo) :
+  **tous les moments en jeu sont ainsi comptés**, au lieu des seules frames
+  de contact. Le `measured_sec` remonté est la durée réellement attribuée
+  (dénominateur du %) — on vise ~100 % de la durée de la vidéo.
 - **Passes** : on mémorise l'équipe qui **relâche** le ballon (le ballon sort
   du rayon `POSSESSION_RADIUS`) ; quand il est de nouveau **contrôlé** par un
   joueur de la **même équipe** après avoir parcouru au moins
   `PASS_MIN_DIST_FACTOR × hauteur joueur`, c'est une passe complétée. Un
-  contrôle par l'adversaire = interception (pas une passe). On ne compte donc
-  plus les micro-fluctuations du « joueur le plus proche » (l'ancienne
-  méthode comptait soit beaucoup trop sur une courte séquence, soit 0 quand le
-  ballon n'était jamais à portée).
+  contrôle par l'adversaire = interception (pas une passe) : une passe est
+  donc toujours attribuée à une **seule** équipe, celle qui relâche et
+  recontrôle. Les transitions (vol confirmé / re-contrôle) sont validées sur
+  `POSSESSION_HOLD` frames : une fluctuation d'un seul frame du « joueur le
+  plus proche » ne crée plus de passe fantôme.
 - **Tirs / cadrés** : le ballon est un « tir » si sa vitesse normalisée
   (`SHOT_SPEED_RATIO` × hauteur joueur) pointe vers une ligne de but, y
   arrive sous ~4 s, **et que le ballon POURSUIT sa course** (déplacement net

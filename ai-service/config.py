@@ -42,6 +42,12 @@ CLASS_SPORTS_BALL = 32
 
 MODEL_NAME = os.getenv("MODEL_NAME", "yolov8m.pt")   # m = bon compromis perf/qualité
 
+# Résolution d'inférence. Le ballon est un objet de quelques pixels : à la
+# taille par défaut (640) le détecteur COCO le rate massivement (mesuré sur
+# une vidéo de match grand-angle : 18 % des frames). À 1280 le rappel ballon
+# triple (~54 %) et les personnes gagnent aussi (46 % → 66 %). Coût ~2,5×.
+IMGSZ = _int("IMGSZ", 1280)
+
 # Seuils de confiance PAR CLASSE. Le ballon est un petit objet rapide :
 # le détecteur COCO ne le sort qu'à très basse confiance (à 0.3 le rappel
 # tombe à ~14 % ; à 0.05 il monte à ~60 %). Les personnes, elles, sont
@@ -107,6 +113,23 @@ GOAL_OPENING_FACTOR = _float("GOAL_OPENING_FACTOR", 4.1)   # largeur de but ≈ 
 # détecté et la possession était mesurée sur des miettes (~0,8 s).
 BALL_MAX_JUMP_FACTOR = _float("BALL_MAX_JUMP_FACTOR", 1.50)  # × hauteur moyenne joueur
 BALL_REACQUIRE_FRAMES = _int("BALL_REACQUIRE_FRAMES", 12)
+# Comblement des TROUS COURTS de la trajectoire du ballon (interpolation
+# linéaire entre deux détections successives). Le détecteur rate le ballon sur
+# une grande partie des frames ; sans comblement la possession n'était mesurée
+# que sur ~4 s d'une vidéo de 2 min (pourcentage sans valeur). Au-delà de cette
+# borne (frames), on ne comble pas : on ignore où est le ballon et l'inventer
+# fausserait la lecture. N'affecte PAS la détection des tirs (qui travaille sur
+# les échantillons RÉELS).
+BALL_INTERP_MAX_GAP = _int("BALL_INTERP_MAX_GAP", 15)
+# Possession : quand le ballon n'est pas détecté, on prolonge le DERNIER
+# possesseur (le ballon est « en jeu » même s'il est momentanément hors cadre ou
+# masqué). 0 = illimité (on mesure toute la durée à partir de la 1re détection,
+# pour ne pas laisser hors-stat les phases où le détecteur perd le ballon).
+POSSESSION_MAX_LOST_SEC = _float("POSSESSION_MAX_LOST_SEC", 0.0)
+# Nombre minimum d'échantillons de couleur pour qu'un track serve à CALIBRER le
+# modèle d'équipes (les tracks vus 1-2 fois polluent le k-means). Les tracks
+# sous ce seuil sont quand même classés (par leur propre couleur).
+MIN_TRACK_SAMPLES_FOR_MODEL = _int("MIN_TRACK_SAMPLES_FOR_MODEL", 3)
 
 # Validation d'environnement : on échoue vite si la config est absente
 def check_config(require_supabase: bool = True) -> None:

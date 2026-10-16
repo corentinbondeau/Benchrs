@@ -47,13 +47,51 @@ class BallSample:
 
 
 @dataclass
+class Person:
+    """Un joueur détecté dans une frame : position + couleur de torse."""
+
+    x: float
+    y: float
+    color: np.ndarray | None = None
+
+
+@dataclass
 class FrameRecord:
     """Snapshot par frame (positions des joueurs + du ballon)."""
 
     idx: int
     t: float
     ball: tuple[float, float] | None
-    persons: dict[int, tuple[float, float]] = field(default_factory=dict)
+    persons: dict[int, Person] = field(default_factory=dict)
+
+
+@dataclass
+class TeamModel:
+    """Modèle de couleur des 2 équipes (2 centroïdes HSV + tolérance arbitre).
+
+    `team_of(color)` classe une couleur de torse en équipe 0/1, ou None
+    (arbitre / hors-match / couleur non fiable). Une seule source de vérité
+    pour TOUS les calculs (possession, passes, équipe du tireur) : on évite
+    ainsi qu'un même maillot soit classé différemment d'un calcul à l'autre —
+    c'est ce qui faisait compter une passe pour la mauvaise équipe.
+    """
+
+    c0: np.ndarray
+    c1: np.ndarray
+    referee_tol: float
+    ambiguous: bool
+    hex_colors: list[str]
+
+    def team_of(self, color: np.ndarray | None) -> int | None:
+        if color is None:
+            return None
+        if self.ambiguous:
+            return 0  # deux maillots inséparables : on n'invente pas d'opposition
+        d0 = hsv_distance(color, self.c0)
+        d1 = hsv_distance(color, self.c1)
+        if min(d0, d1) > self.referee_tol or max(d0, d1) < 4.0:
+            return None  # arbitre / personne hors-match
+        return 0 if d0 <= d1 else 1
 
 
 # ─── Couleurs → hex (affichage UI) ───────────────────────────
@@ -72,23 +110,40 @@ def hsv_to_hex(hsv: np.ndarray) -> str:
 
 def classify_teams(
     track_colors: dict[int, np.ndarray],
-) -> tuple[dict[int, int | None], np.ndarray, np.ndarray, list[int]]:
+    track_counts: dict[int, int],
+) -> tuple[dict[int, int | None], TeamModel]:
     """Assigne chaque track_id (joueur) à une équipe (0/1) ou à
     l'arbitre (None) via un k-means sur les couleurs de torse.
 
-    Retourne : (mapping track→équipe, centroïdes HSV, seuil arbitre,
-    couleurs hex des 2 équipes) — les hex servent à l'affichage.
+    Le modèle (2 centroïdes) est calibré sur les tracks VUS au moins
+    `MIN_TRACK_SAMPLES_FOR_MODEL` fois : les tracks à 1-2 échantillons
+    (faux positifs, fragments) polluaient le k-means et faisaient dériver les
+    centroïdes — un maillot pouvait alors basculer d'une équipe à l'autre.
+    Ces tracks rares sont quand même classés, mais contre un modèle propre.
+
+    Retourne : (mapping track→équipe, TeamModel).
     """
     items = [(tid, c) for tid, c in track_colors.items() if c is not None]
     team_map: dict[int, int | None] = {tid: None for tid in track_colors}
 
-    if len(items) < 2:
+    model_items = [
+        (tid, c)
+        for tid, c in items
+        if track_counts.get(tid, 0) >= cfg.MIN_TRACK_SAMPLES_FOR_MODEL
+    ]
+    if len(model_items) < 2:
+        model_items = items  # pas assez de tracks fiables : on utilise tout
+
+    if len(model_items) < 2:
         # Trop peu de couleurs : tout en "équipe 0" (analyse non fiable)
         for tid in team_map:
             team_map[tid] = 0
-        return team_map, np.zeros(3), np.zeros(3), ["#4f46e5", "#dc2626"]
+        model = TeamModel(
+            np.zeros(3), np.zeros(3), 0.0, True, ["#4f46e5", "#dc2626"]
+        )
+        return team_map, model
 
-    colors = np.array([c for _, c in items], dtype=np.float32)
+    colors = np.array([c for _, c in model_items], dtype=np.float32)
     crit = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 10, 1.0)
     _, _, centers = cv2.kmeans(
         colors, 2, None, crit, 5, cv2.KMEANS_PP_CENTERS
@@ -101,18 +156,30 @@ def classify_teams(
     referee_tol = max(42.0, inter * 0.6)
     ambiguous = inter < 25.0
 
+    model = TeamModel(
+        c0, c1, referee_tol, ambiguous, [hsv_to_hex(c0), hsv_to_hex(c1)]
+    )
     for tid, color in items:
-        d0, d1 = hsv_distance(color, c0), hsv_distance(color, c1)
-        nearest = 0 if d0 <= d1 else 1
-        if ambiguous:
-            team_map[tid] = 0
-        elif min(d0, d1) > referee_tol or max(d0, d1) < 4.0:
-            team_map[tid] = None  # arbitre / personne hors match
-        else:
-            team_map[tid] = nearest
+        team_map[tid] = model.team_of(color)
 
-    hex_colors = [hsv_to_hex(c0), hsv_to_hex(c1)]
-    return team_map, c0, c1, hex_colors
+    return team_map, model
+
+
+def person_team(
+    tid: int | None,
+    person: Person,
+    team_map: dict[int, int | None],
+    model: TeamModel,
+) -> int | None:
+    """Équipe d'un joueur : d'abord celle de son TRACK (médiane robuste), sinon
+    sa couleur propre. Le track est stable et débruité (médiane de dizaines
+    d'échantillons) ; la couleur par frame sert de secours pour les tracks sans
+    médiane (vus trop furtivement), qu'on perdait sinon entièrement.
+    """
+    team = team_map.get(tid) if tid is not None else None
+    if team is None and not model.ambiguous and person.color is not None:
+        team = model.team_of(person.color)
+    return team
 
 
 # ─── Possession ──────────────────────────────────────────────
@@ -120,61 +187,77 @@ def classify_teams(
 def build_possession(
     records: list[FrameRecord],
     team_map: dict[int, int | None],
+    model: TeamModel,
     fps: float,
 ) -> tuple[float, float, float]:
     """Possession (secondes + %) mesurée frame à frame.
 
-    Règle : à chaque frame où le ballon est suivi, on cherche le joueur
-    de chaque équipe le plus proche du ballon. Si un joueur connu est à
-    moins de POSSESSION_RADIUS px (une « touche »), l'équipe du joueur
-    devient candidate ; un hystérésis (POSSESSION_HOLD frames) évite le
-    clignotement. Si le ballon est suivi mais loin de tout joueur (ballon
-    en l'air, passe), le DERNIER possesseur garde la possession — sans
-    cela, un ballon en vol ne comptait pour personne et la possession
-    n'était mesurée que sur les quelques frames de contact (~1 s), ce qui
-    donnait des pourcentages absurdes.
+    Règle : à chaque frame où le ballon est suivi, on cherche le joueur de
+    chaque équipe le plus proche du ballon. Si un joueur connu est à moins de
+    POSSESSION_RADIUS px (une « touche »), l'équipe du joueur devient candidate ;
+    un hystérésis (POSSESSION_HOLD frames) évite le clignotement.
 
-    Le temps « mesuré » = durée pendant laquelle le ballon est suivi et
-    la possession attribuée (dénominateur du %).
+    TOUS les moments comptent : quand le ballon n'est pas suivi (hors cadre,
+    masqué un instant), le DERNIER possesseur garde la possession (voir
+    `POSSESSION_MAX_LOST_SEC`, 0 = illimité). Sans cela, la possession n'était
+    mesurée que sur les quelques frames de détection, ce qui donnait un
+    pourcentage inexploitable.
+
+    Le temps « mesuré » = durée totale où une possession est attribuée
+    (dénominateur du %).
     """
     t0 = t1 = 0.0
     owner: int | None = None
     pending: int | None = None
     pending_n = 0
     frame_dt = 1.0 / fps if fps > 0 else 1.0 / 30.0
+    lost_limit = (
+        int(cfg.POSSESSION_MAX_LOST_SEC * fps)
+        if cfg.POSSESSION_MAX_LOST_SEC > 0
+        else None
+    )
+    lost = 0
+    seen_ball = False
 
     for rec in records:
-        if not rec.ball or len(rec.persons) < 2:
-            continue
-        bx, by = rec.ball
-        best: tuple[float, int] | None = None  # (dist, team)
-        for tid, (px, py) in rec.persons.items():
-            team = team_map.get(tid)
-            if team is None:
-                continue
-            d = math.hypot(px - bx, py - by)
-            if best is None or d < best[0]:
-                best = (d, team)
+        if rec.ball is not None:
+            seen_ball = True
+            lost = 0
+            bx, by = rec.ball
+            best: tuple[float, int] | None = None  # (dist, team)
+            for tid, person in rec.persons.items():
+                team = person_team(tid, person, team_map, model)
+                if team is None:
+                    continue
+                d = math.hypot(person.x - bx, person.y - by)
+                if best is None or d < best[0]:
+                    best = (d, team)
 
-        # Touche : un joueur connu est proche du ballon → candidat au
-        # changement de possesseur (avec hystérésis).
-        if best is not None and best[0] <= cfg.POSSESSION_RADIUS:
-            cand = best[1]
-            if cand == owner:
-                pending = None
-                pending_n = 0
-            elif cand == pending:
-                pending_n += 1
-                if pending_n >= cfg.POSSESSION_HOLD:
-                    owner = cand
+            # Touche : un joueur connu est proche du ballon → candidat au
+            # changement de possesseur (avec hystérésis).
+            if best is not None and best[0] <= cfg.POSSESSION_RADIUS:
+                cand = best[1]
+                if cand == owner:
                     pending = None
                     pending_n = 0
-            else:
-                pending = cand
-                pending_n = 1
-            if owner is None:
-                owner = cand
-        # Sinon : ballon en vol → le dernier possesseur garde la balle.
+                elif cand == pending:
+                    pending_n += 1
+                    if pending_n >= cfg.POSSESSION_HOLD:
+                        owner = cand
+                        pending = None
+                        pending_n = 0
+                else:
+                    pending = cand
+                    pending_n = 1
+                if owner is None:
+                    owner = cand
+            # Sinon : ballon en vol → le dernier possesseur garde la balle.
+        else:
+            lost += 1
+            if seen_ball and lost_limit is not None and lost > lost_limit:
+                # Ballon « introuvable » trop longtemps : on cesse d'attribuer
+                # (un ballon sorti du terrain ne doit pas compter indéfiniment).
+                owner = None
 
         if owner == 0:
             t0 += frame_dt
@@ -192,6 +275,7 @@ def build_possession(
 def count_passes(
     records: list[FrameRecord],
     team_map: dict[int, int | None],
+    model: TeamModel,
     fps: float,
     median_player_h: float,
 ) -> tuple[int, int]:
@@ -202,52 +286,75 @@ def count_passes(
     l'équipe qui l'a relâché ; quand le ballon est de nouveau CONTROLA (par
     un joueur à portée) par la MÊME équipe après avoir parcouru au moins
     `PASS_MIN_DIST_FACTOR × hauteur joueur`, c'est une passe complétée.
-    Un contrôle par l'équipe adverse n'est PAS une passe (interception).
+    Un contrôle par l'équipe adverse n'est PAS une passe (interception) — et
+    une passe ne peut donc JAMAIS être comptée pour les deux équipes : elle
+    appartient à l'équipe qui relâche ET recontrôle.
 
-    On ne compte donc plus les micro-changements de « joueur le plus proche »
-    (avant, la moindre fluctuation du plus proche voisin gonflait le compte
-    ou, à l'inverse, un ballon jamais à portée donnait 0 passe).
+    De part et d'autre, les transitions sont **confirmées sur plusieurs frames**
+    (`POSSESSION_HOLD`) : un unique frame où le plus proche voisin change
+    d'équipe (bruit de détection) ne doit ni déclarer un « vol », ni valider un
+    re-contrôle — c'est ce qui faisait compter des passes fantômes.
     """
     min_travel = cfg.PASS_MIN_DIST_FACTOR * median_player_h
-    owner_team: int | None = None
-    flying = False
-    release_team: int | None = None
+    hold = max(1, cfg.POSSESSION_HOLD)
+
+    controller: int | None = None      # équipe en contrôle confirmé
+    flying = False                     # le ballon a quitté le contrôle
     release_pos: tuple[float, float] | None = None
+    last_ball: tuple[float, float] | None = None
+    out_n = 0                          # frames de suite hors de portée de tous
+    hold_team: int | None = None       # candidat au (re)contrôle
+    hold_n = 0
     passes: dict[int, int] = defaultdict(int)
 
     for rec in records:
-        if not rec.ball or len(rec.persons) < 2:
+        if rec.ball is None:
             continue
         bx, by = rec.ball
+
         best: tuple[float, int] | None = None  # (dist, team)
-        for tid, (px, py) in rec.persons.items():
-            team = team_map.get(tid)
+        for tid, person in rec.persons.items():
+            team = person_team(tid, person, team_map, model)
             if team is None:
                 continue
-            d = math.hypot(px - bx, py - by)
+            d = math.hypot(person.x - bx, person.y - by)
             if best is None or d < best[0]:
                 best = (d, team)
 
-        touched = best is not None and best[0] <= cfg.POSSESSION_RADIUS
-        if touched:
+        near = best is not None and best[0] <= cfg.POSSESSION_RADIUS
+
+        if near:
             team = best[1]
-            if flying:
-                travel = (
-                    math.hypot(bx - release_pos[0], by - release_pos[1])
-                    if release_pos
-                    else 0.0
-                )
-                if travel >= min_travel and team == release_team:
-                    passes[team] += 1
-                flying = False
-                release_team = None
-                release_pos = None
-            owner_team = team
-        elif owner_team is not None and not flying:
-            # Le ballon quitte le porteur → phase de vol.
-            flying = True
-            release_team = owner_team
-            release_pos = (bx, by)
+            if team == hold_team:
+                hold_n += 1
+            else:
+                hold_team = team
+                hold_n = 1
+            if hold_n == hold:
+                # (Re)contrôle confirmé par cette équipe.
+                if flying:
+                    travel = (
+                        math.hypot(bx - release_pos[0], by - release_pos[1])
+                        if release_pos
+                        else 0.0
+                    )
+                    if team == controller and travel >= min_travel:
+                        passes[team] += 1
+                    flying = False
+                    release_pos = None
+                controller = team
+                out_n = 0
+            if not flying:
+                last_ball = (bx, by)
+        else:
+            hold_team = None
+            hold_n = 0
+            if controller is not None:
+                out_n += 1
+                if not flying and out_n >= hold:
+                    # Vol confirmé : on mémorise d'où le ballon est parti.
+                    flying = True
+                    release_pos = last_ball if last_ball is not None else (bx, by)
 
     return passes.get(0, 0), passes.get(1, 0)
 
@@ -258,6 +365,7 @@ def detect_shots(
     ball_samples: list[BallSample],
     frame_records: list[FrameRecord],
     team_map: dict[int, int | None],
+    model: TeamModel,
     frame_w: int,
     median_player_h: float,
     fps: float,
@@ -284,8 +392,8 @@ def detect_shots(
     if median_player_h <= 0 or len(ball_samples) < 8:
         return []
 
-    all_px = [p[0] for rec in frame_records for p in rec.persons.values()]
-    all_py = [p[1] for rec in frame_records for p in rec.persons.values()]
+    all_px = [p.x for rec in frame_records for p in rec.persons.values()]
+    all_py = [p.y for rec in frame_records for p in rec.persons.values()]
     if not all_px:
         return []
 
@@ -371,15 +479,15 @@ def detect_shots(
         for rec in frame_records:
             if rec.idx > s.idx:
                 break
-            if not rec.ball or len(rec.persons) < 2:
+            if rec.ball is None:
                 continue
             bx, by = rec.ball
             best: tuple[float, int] | None = None
-            for tid, (px, py) in rec.persons.items():
-                team_t = team_map.get(tid)
+            for tid, person in rec.persons.items():
+                team_t = person_team(tid, person, team_map, model)
                 if team_t is None:
                     continue
-                dd = math.hypot(px - bx, py - by)
+                dd = math.hypot(person.x - bx, person.y - by)
                 if best is None or dd < best[0]:
                     best = (dd, team_t)
             if best is not None and best[0] <= cfg.POSSESSION_RADIUS:
@@ -456,6 +564,46 @@ def select_ball_track(
     return samples
 
 
+def interpolate_ball_track(
+    samples: list[BallSample],
+    fps: float,
+    max_gap_frames: int,
+) -> list[BallSample]:
+    """Comble les trous COURTS de la trajectoire du ballon.
+
+    Le détecteur rate le ballon sur une bonne partie des frames (petit objet
+    rapide) : sans comblement, la possession n'était mesurée que sur les
+    quelques frames de détection (~4 s sur une vidéo de 2 min), ce qui rendait
+    le pourcentage inexploitable. On interpole linéairement entre deux
+    détections successives séparées d'au plus `max_gap_frames` frames. Au-delà,
+    on ne comble pas (on ne sait pas où est le ballon).
+
+    À n'utiliser QUE pour la possession/passes : l'interpolation crée une ligne
+    droite, ce qui pourrait inventer un « tir » — la détection des tirs
+    travaille donc sur les échantillons RÉELS (`select_ball_track`).
+    """
+    if len(samples) < 2:
+        return samples
+    dt = 1.0 / fps if fps > 0 else 1.0 / 30.0
+    out: list[BallSample] = [samples[0]]
+    for a, b in zip(samples, samples[1:]):
+        gap = b.idx - a.idx
+        if 1 < gap <= max_gap_frames + 1:
+            for k in range(1, gap):
+                frac = k / gap
+                i = a.idx + k
+                out.append(
+                    BallSample(
+                        idx=i,
+                        t=i * dt,
+                        x=a.x + (b.x - a.x) * frac,
+                        y=a.y + (b.y - a.y) * frac,
+                    )
+                )
+        out.append(b)
+    return out
+
+
 # ─── Pipeline principal ──────────────────────────────────────
 
 def analyze_video(
@@ -514,6 +662,7 @@ def analyze_video(
     max_color_samples = 60
 
     idx = 0
+    untracked_seq = 0  # clés distinctes pour les détections sans track_id
 
     def report(force: bool = False) -> None:
         if progress_cb and (idx % 20 == 0 or force) and total:
@@ -536,16 +685,24 @@ def analyze_video(
         t = idx / fps
         record = FrameRecord(idx=idx, t=t, ball=None)
         for b in objects.persons:
-            record.persons[b.track_id] = (b.cx, b.cy)
+            # Couleur de torse de CETTE détection : elle sert de secours quand
+            # le track n'a pas (encore) de couleur médiane fiable.
+            col = median_torso_color(frame, b)
+            if b.track_id is not None:
+                tid = b.track_id
+            else:
+                # Sans track_id, toutes les détections partageraient la clé None
+                # et se recouvriraient : on donne à chacune une clé unique.
+                untracked_seq += 1
+                tid = -untracked_seq
+            record.persons[tid] = Person(b.cx, b.cy, col)
             height = b.height
             if height > 10:  # ignore minuscules faux positifs
                 median_heights.append(float(height))
-            if b.track_id is not None:
+            if b.track_id is not None and col is not None:
                 bucket = track_colors[b.track_id]
                 if len(bucket) < max_color_samples:
-                    col = median_torso_color(frame, b)
-                    if col is not None:
-                        bucket.append(col)
+                    bucket.append(col)
         if objects.balls:
             ball_candidates.append(
                 [(b.cx, b.cy, b.confidence) for b in objects.balls]
@@ -567,26 +724,31 @@ def analyze_video(
     avg_colors: dict[int, np.ndarray] = {
         tid: np.median(vals, axis=0) for tid, vals in track_colors.items() if vals
     }
-    team_map, _, _, hex_colors = classify_teams(avg_colors)
+    track_counts = {tid: len(vals) for tid, vals in track_colors.items()}
+    team_map, team_model = classify_teams(avg_colors, track_counts)
 
     median_player_h = (
         float(np.median(median_heights)) if median_heights else 40.0
     )
 
     # Trajectoire du ballon filtrée (rejette les faux positifs isolés) puis
-    # réinjectée dans les enregistrements pour possession/passes.
+    # réinjectée dans les enregistrements pour possession/passes. On comble
+    # les trous courts (interpolation) pour que la possession couvre une vraie
+    # fraction de la vidéo ; les tirs, eux, utilisent les échantillons RÉELS.
     ball_max_jump = cfg.BALL_MAX_JUMP_FACTOR * median_player_h
     ball_samples = select_ball_track(ball_candidates, ball_max_jump, fps)
-    for s in ball_samples:
+    ball_track = interpolate_ball_track(ball_samples, fps, cfg.BALL_INTERP_MAX_GAP)
+    for s in ball_track:
         if 0 <= s.idx < len(records):
             records[s.idx].ball = (s.x, s.y)
 
-    pct0, pct1, meas_sec = build_possession(records, team_map, fps)
-    pass0, pass1 = count_passes(records, team_map, fps, median_player_h)
+    pct0, pct1, meas_sec = build_possession(records, team_map, team_model, fps)
+    pass0, pass1 = count_passes(
+        records, team_map, team_model, fps, median_player_h
+    )
 
-    computed_team_map = team_map
     shots = detect_shots(
-        ball_samples, records, computed_team_map, frame_w, median_player_h, fps
+        ball_samples, records, team_map, team_model, frame_w, median_player_h, fps
     )
 
     shots0 = sum(1 for s in shots if s["team"] == "team1")
@@ -606,8 +768,14 @@ def analyze_video(
             "analyzed_frames": idx,
         },
         "teams": {
-            "team1": {"label": "Équipe 1", "color": hex_colors[0]},
-            "team2": {"label": "Équipe 2", "color": hex_colors[1]},
+            "team1": {
+                "label": "Équipe 1",
+                "color": team_model.hex_colors[0],
+            },
+            "team2": {
+                "label": "Équipe 2",
+                "color": team_model.hex_colors[1],
+            },
         },
         "stats": {
             "possession": {
