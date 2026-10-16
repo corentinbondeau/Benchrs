@@ -142,6 +142,10 @@ constant. Le champ `meta` du rapport expose `frame_stride`, `analysis_fps`,
 | `POSSESSION_RADIUS_FACTOR` | `1.8` | rayon d'une « touche » = FACTOR × hauteur d'un joueur (possession/passes, s'adapte au zoom) |
 | `SHOT_MAX_STEP_FACTOR` | `2.0` | saut max plausible du ballon (× hauteur joueur) pour un tir (écarte les faux positifs, garde les vrais tirs) |
 | `SHOT_GOAL_ZONE_FRACTION` | `0.35` | un tir doit être pris près du but attaqué : le ballon, à la frappe, est dans cette fraction (du bord) de la largeur du terrain |
+| `GOAL_OPENING_FACTOR` | `4.1` | largeur de but estimée = FACTOR × hauteur d'un joueur (bande verticale d'un but) |
+| `GOAL_REACH_FRACTION` | `0.05` | fraction de la largeur du terrain (depuis chaque extrémité) considérée comme « au but » (arrivée du ballon) |
+| `GOAL_ARRIVAL_MIN_SPEED_FACTOR` | `0.30` | vitesse minimale du ballon vers le but (× hauteur joueur, par frame) pour valider une arrivée |
+| `GOAL_ARRIVAL_WINDOW` | `3` | fenêtre (frames) de mesure de la vitesse d'arrivée du ballon |
 | `BALL_INTERP_MAX_GAP` | `15` | comblement des trous courts de la trajectoire du ballon (frames) — sinon la possession n'est mesurée que sur ~3 % de la vidéo |
 | `POSSESSION_MAX_LOST_SEC` | `0` | durée max (s) pendant laquelle le dernier possesseur garde la balle quand elle n'est plus détectée ; `0` = illimité (tous les moments en jeu comptent) |
 | `MIN_TRACK_SAMPLES_FOR_MODEL` | `3` | nombre minimal d'échantillons d'un track pour calibrer le k-means des couleurs (les tracks vus 1-2× faussaient les centroïdes) |
@@ -285,6 +289,20 @@ frames **consécutives** (un saut après un trou n'est pas une vitesse).
   dans l'ouverture du but (≈ 4,1 × hauteur joueur) ; un dépassement franc de la
   ligne est signalé comme **but probable**. En clair : mieux vaut **rater un
   tir réel que d'en inventer un**.
+- **Buts (arrivée du ballon)** : le détecteur de tirs ci-dessus exige de voir
+  la **frappe** — il rate les buts dont la frappe échappe à la détection (ballon
+  masqué, tête, ballon déjà dans la surface, détection perdue au moment
+  crucial). On détecte donc **aussi** un « but probable » par l'**arrivée** :
+  si le ballon atteint l'extrémité du terrain (le but) à vitesse suffisante
+  (`GOAL_ARRIVAL_MIN_SPEED_FACTOR × hauteur joueur`, mesurée sur
+  `GOAL_ARRIVAL_WINDOW` frames) et dans l'ouverture du but
+  (`GOAL_OPENING_FACTOR × hauteur joueur`), dans les `GOAL_REACH_FRACTION`
+  extrêmes de la largeur du terrain, il est retenu. Un but d'arrivée **proche**
+  d'un tir déjà détecté **promeut** ce tir en « but » (pas de doublon) ; sinon
+  il est ajouté à la timeline. Comme le tir, c'est une heuristique mono-caméra
+  (affiché « 🎯 But probable ») : les ballons finissant vite dans un coin
+  peuvent être surfacés à tort — mieux vaut un léger sur-signalement qu'un but
+  manqué.
 
 > Ces métriques sont des heuristiques mono-caméra non calibrées : la
 > qualité dépend fortement de l'angle de prise de vue (grand-angle

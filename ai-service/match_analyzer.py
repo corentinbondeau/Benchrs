@@ -381,6 +381,39 @@ def count_passes(
 
 # ─── Tirs ────────────────────────────────────────────────────
 
+def possessor_team_at(
+    frame_records: list[FrameRecord],
+    team_map: dict[int, int | None],
+    model: TeamModel,
+    upto_idx: int,
+    median_player_h: float,
+) -> int | None:
+    """Équipe du possesseur du ballon jusqu'à la frame `upto_idx` (inclus).
+
+    On parcourt les frames dans l'ordre et on retient la dernière où un joueur
+    d'équipe connue est à portée du ballon (rayon = `possession_radius`).
+    Renvoie None si aucune équipe n'est identifiée (le caller décide du repli).
+    """
+    team: int | None = None
+    for rec in frame_records:
+        if rec.idx > upto_idx:
+            break
+        if rec.ball is None:
+            continue
+        bx, by = rec.ball
+        best: tuple[float, int] | None = None
+        for tid, person in rec.persons.items():
+            team_t = person_team(tid, person, team_map, model)
+            if team_t is None:
+                continue
+            dd = math.hypot(person.x - bx, person.y - by)
+            if best is None or dd < best[0]:
+                best = (dd, team_t)
+        if best is not None and best[0] <= possession_radius(median_player_h):
+            team = best[1]
+    return team
+
+
 def detect_shots(
     ball_samples: list[BallSample],
     frame_records: list[FrameRecord],
@@ -516,23 +549,9 @@ def detect_shots(
         on_target = abs(y_hit - goal_center_y) <= goal_opening / 2
 
         # Équipe qui tire : le possesseur du moment
-        team: int | None = None
-        for rec in frame_records:
-            if rec.idx > s.idx:
-                break
-            if rec.ball is None:
-                continue
-            bx, by = rec.ball
-            best: tuple[float, int] | None = None
-            for tid, person in rec.persons.items():
-                team_t = person_team(tid, person, team_map, model)
-                if team_t is None:
-                    continue
-                dd = math.hypot(person.x - bx, person.y - by)
-                if best is None or dd < best[0]:
-                    best = (dd, team_t)
-            if best is not None and best[0] <= possession_radius(median_player_h):
-                team = best[1]
+        team = possessor_team_at(
+            frame_records, team_map, model, s.idx, median_player_h
+        )
         team = team if team is not None else (0 if vel_x > 0 else 1)
 
         # But probable : le ballon a dépassé franchement la ligne de but
@@ -556,6 +575,95 @@ def detect_shots(
         last_shot_frame = s.idx
 
     return shots
+
+
+def detect_goals(
+    ball_samples: list[BallSample],
+    frame_records: list[FrameRecord],
+    team_map: dict[int, int | None],
+    model: TeamModel,
+    frame_w: int,
+    median_player_h: float,
+    fps: float,
+    step_scale: float = 1.0,
+) -> list[dict]:
+    """Détection des BUTS par l'ARRIVÉE du ballon au fond.
+
+    Complémentaire de `detect_shots` : le « tir » exige une frappe rapide
+    repérée dans la zone du but, ce qui RATE un but dont la frappe n'est pas
+    vue (ballon masqué, tête, ballon déjà dans la surface, détection perdue au
+    moment crucial). Ici on regarde directement où le ballon FINIT : s'il
+    atteint l'extrémité du terrain (le but, estimé aux bords de la répartition
+    des joueurs) à vitesse suffisante et dans l'ouverture du but, c'est un but.
+
+    On mesure la vitesse d'arrivée sur `GOAL_ARRIVAL_WINDOW` frames analysées et
+    on exige qu'elle pointe vers l'extrémité atteinte. Le seuil de vitesse et
+    la distance de saut sont normalisés par la hauteur d'un joueur et par
+    `step_scale` (échantillonnage temporel) pour rester physiquement constants.
+    """
+    if median_player_h <= 0 or len(ball_samples) < 8:
+        return []
+
+    all_px = [p.x for rec in frame_records for p in rec.persons.values()]
+    all_py = [p.y for rec in frame_records for p in rec.persons.values()]
+    if not all_px:
+        return []
+
+    pitch_min_x = float(np.percentile(all_px, 1.0))
+    pitch_max_x = float(np.percentile(all_px, 99.0))
+    goal_center_y = float(np.median(all_py))
+    goal_opening = median_player_h * cfg.GOAL_OPENING_FACTOR
+    width = pitch_max_x - pitch_min_x
+    if width <= 0:
+        return []
+
+    reach = cfg.GOAL_REACH_FRACTION * width
+    min_speed = cfg.GOAL_ARRIVAL_MIN_SPEED_FACTOR * median_player_h * step_scale
+    window = max(2, cfg.GOAL_ARRIVAL_WINDOW)
+    cooldown = int(1.5 * fps)
+
+    order = sorted(ball_samples, key=lambda s: s.idx)
+    if len(order) <= window:
+        return []
+
+    goals: list[dict] = []
+    last_goal_frame = -10**6
+    for i in range(window, len(order)):
+        cur = order[i]
+        if cur.idx - last_goal_frame < cooldown:
+            continue
+        prev = order[i - window]
+        span = cur.idx - prev.idx
+        if span <= 0:
+            continue
+        vx = (cur.x - prev.x) / span
+        vy = (cur.y - prev.y) / span
+        if math.hypot(vx, vy) < min_speed:
+            continue
+        # Doit arriver DANS l'ouverture du but (bande verticale).
+        if abs(cur.y - goal_center_y) > goal_opening / 2:
+            continue
+        if vx < 0 and cur.x <= pitch_min_x + reach:
+            side, entry = "gauche", "entré"
+        elif vx > 0 and cur.x >= pitch_max_x - reach:
+            side, entry = "droite", "entré"
+        else:
+            continue
+
+        team = possessor_team_at(frame_records, team_map, model, cur.idx, median_player_h)
+        team = team if team is not None else (0 if vx > 0 else 1)
+        goals.append(
+            {
+                "t": round(cur.t, 1),
+                "type": "goal",
+                "team": f"team{team + 1}",
+                "on_target": True,
+                "note": f"Ballon {entry} au fond côté {side}",
+            }
+        )
+        last_goal_frame = cur.idx
+
+    return goals
 
 
 # ─── Suivi de la trajectoire du ballon ───────────────────────
@@ -916,6 +1024,36 @@ def analyze_video(
         fps_eff,
         step_scale=float(stride),
     )
+
+    # Buts par ARRIVÉE du ballon au fond (complémentaire des tirs). Un but
+    # arrivé près d'un tir déjà détecté PROMEUT ce tir en « but » au lieu de
+    # dupliquer l'événement ; sinon il est ajouté comme événement à part.
+    goals = detect_goals(
+        ball_samples,
+        records,
+        team_map,
+        team_model,
+        frame_w,
+        median_player_h,
+        fps_eff,
+        step_scale=float(stride),
+    )
+    merge_cooldown = int(1.5 * fps_eff)
+    for g in goals:
+        gi = round(g["t"] * fps_eff)
+        near: dict | None = None
+        for ev in shots:
+            if abs(round(ev["t"] * fps_eff) - gi) <= merge_cooldown:
+                near = ev
+                break
+        if near is None:
+            shots.append(g)
+        else:
+            near["type"] = "goal"
+            near["on_target"] = True
+            if "fond" not in near.get("note", ""):
+                near["note"] = g["note"]
+    shots.sort(key=lambda ev: ev["t"])
 
     shots0 = sum(1 for s in shots if s["team"] == "team1")
     shots1 = sum(1 for s in shots if s["team"] == "team2")

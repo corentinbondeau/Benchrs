@@ -145,6 +145,21 @@ SHOT_MAX_STEP_FACTOR = _float("SHOT_MAX_STEP_FACTOR", 2.0)
 # estimable sans calibration) était compté comme tir → faux positifs en série.
 SHOT_GOAL_ZONE_FRACTION = _float("SHOT_GOAL_ZONE_FRACTION", 0.35)
 GOAL_OPENING_FACTOR = _float("GOAL_OPENING_FACTOR", 4.1)   # largeur de but ≈ 4,1 × hauteur moyenne d'un joueur
+# ─── Détection des BUTS (arrivée du ballon) ───
+# Le « tir » exige une frappe rapide repérée dans la zone du but — cela RATE les
+# buts dont la frappe n'est pas vue (ballon masqué, tête, ballon déjà dans la
+# surface). On détecte donc AUSSI un but par l'ARRIVÉE du ballon : s'il atteint
+# l'extrémité du terrain (le but) à vitesse suffisante et dans l'ouverture du
+# but, c'est un but.
+# Fraction de la largeur du terrain (depuis chaque extrémité) considérée comme
+# « au but ». 0.05 = le ballon doit atteindre les 5 % extrêmes du bord.
+GOAL_REACH_FRACTION = _float("GOAL_REACH_FRACTION", 0.05)
+# Vitesse horizontale minimale du ballon vers le but (× hauteur joueur, par
+# frame analysée) pour valider l'arrivée — un ballon qui « traîne » au fond
+# n'est pas un but, il faut qu'il y arrive lancé.
+GOAL_ARRIVAL_MIN_SPEED_FACTOR = _float("GOAL_ARRIVAL_MIN_SPEED_FACTOR", 0.30)
+# Fenêtre (frames analysées) sur laquelle est mesurée la vitesse d'arrivée.
+GOAL_ARRIVAL_WINDOW = _int("GOAL_ARRIVAL_WINDOW", 3)
 # Suivi de trajectoire du ballon : le détecteur (COCO) produit beaucoup de
 # faux positifs isolés. On ne retient, frame à frame, que la détection
 # cohérente avec la trajectoire (distance de saut ≤ FACTOR × hauteur joueur),
