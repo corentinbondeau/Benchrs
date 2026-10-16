@@ -118,6 +118,10 @@ sans runtime Python persistant ni GPU) : on le déploie à part.
 | `PERSON_CONFIDENCE` | `0.25` | seuil détection **personne** |
 | `BALL_CONFIDENCE` | `0.05` | seuil détection **ballon** (bas : petit objet rapide) |
 | `BALL_MAX_JUMP_FACTOR` | `1.50` | saut max du ballon (× hauteur joueur) pour suivre sa trajectoire |
+| `POSSESSION_RADIUS` | `140` | repli (px) si la hauteur d'un joueur est inconnue (possession/passes) |
+| `POSSESSION_RADIUS_FACTOR` | `1.8` | rayon d'une « touche » = FACTOR × hauteur d'un joueur (possession/passes, s'adapte au zoom) |
+| `SHOT_MAX_STEP_FACTOR` | `2.0` | saut max plausible du ballon (× hauteur joueur) pour un tir (écarte les faux positifs, garde les vrais tirs) |
+| `SHOT_GOAL_ZONE_FRACTION` | `0.35` | un tir doit être pris près du but attaqué : le ballon, à la frappe, est dans cette fraction (du bord) de la largeur du terrain |
 | `BALL_INTERP_MAX_GAP` | `15` | comblement des trous courts de la trajectoire du ballon (frames) — sinon la possession n'est mesurée que sur ~3 % de la vidéo |
 | `POSSESSION_MAX_LOST_SEC` | `0` | durée max (s) pendant laquelle le dernier possesseur garde la balle quand elle n'est plus détectée ; `0` = illimité (tous les moments en jeu comptent) |
 | `MIN_TRACK_SAMPLES_FOR_MODEL` | `3` | nombre minimal d'échantillons d'un track pour calibrer le k-means des couleurs (les tracks vus 1-2× faussaient les centroïdes) |
@@ -224,15 +228,20 @@ frames **consécutives** (un saut après un trou n'est pas une vitesse).
   calcul à l'autre — c'est ce qui faisait compter une passe pour la
   mauvaise équipe (voire pour les deux).
 - **Possession** : à chaque frame où le ballon est suivi, l'équipe du
-  joueur le plus proche du ballon (rayon max `POSSESSION_RADIUS` px) est
-  candidate ; hystérésis de `POSSESSION_HOLD` frames. Quand le ballon n'est
-  pas suivi (hors cadre, masqué un instant), le **dernier possesseur** garde
-  la possession jusqu'à `POSSESSION_MAX_LOST_SEC` (`0` = toute la vidéo) :
-  **tous les moments en jeu sont ainsi comptés**, au lieu des seules frames
-  de contact. Le `measured_sec` remonté est la durée réellement attribuée
-  (dénominateur du %) — on vise ~100 % de la durée de la vidéo.
+  joueur le **plus proche** du ballon possessionne (hystérésis de
+  `POSSESSION_HOLD` frames pour éviter le clignotement). On ne filtre **pas**
+  par un rayon en pixels : exiger une « touche » (joueur à moins de N px)
+  rendait le résultat **instable** et dépendant d'un seuil — en grand-angle un
+  ballon à ~5 hauteurs d'un joueur (donc clairement à l'équipe adverse)
+  basculait d'une équipe à l'autre selon le seuil, d'où une possession
+  **~50/50 non représentative**. Prendre toujours l'équipe la plus proche est
+  décisif et reproductible. Quand aucun joueur n'est détecté (ballon hors
+  cadre, masqué), le **dernier possesseur** garde la possession jusqu'à
+  `POSSESSION_MAX_LOST_SEC` (`0` = toute la vidéo) : **tous les moments en jeu
+  sont ainsi comptés**. Le `measured_sec` remonté est la durée réellement
+  attribuée (dénominateur du %) — on vise ~100 % de la durée de la vidéo.
 - **Passes** : on mémorise l'équipe qui **relâche** le ballon (le ballon sort
-  du rayon `POSSESSION_RADIUS`) ; quand il est de nouveau **contrôlé** par un
+  du rayon `POSSESSION_RADIUS_FACTOR × hauteur joueur`) ; quand il est de nouveau **contrôlé** par un
   joueur de la **même équipe** après avoir parcouru au moins
   `PASS_MIN_DIST_FACTOR × hauteur joueur`, c'est une passe complétée. Un
   contrôle par l'adversaire = interception (pas une passe) : une passe est
@@ -240,15 +249,22 @@ frames **consécutives** (un saut après un trou n'est pas une vitesse).
   recontrôle. Les transitions (vol confirmé / re-contrôle) sont validées sur
   `POSSESSION_HOLD` frames : une fluctuation d'un seul frame du « joueur le
   plus proche » ne crée plus de passe fantôme.
-- **Tirs / cadrés** : le ballon est un « tir » si sa vitesse normalisée
-  (`SHOT_SPEED_RATIO` × hauteur joueur) pointe vers une ligne de but, y
-  arrive sous ~4 s, **et que le ballon POURSUIT sa course** (déplacement net
-  projeté sur la direction du saut ≥ 1,5× le saut). Ce dernier critère écarte
-  le faux positif le plus fréquent : une détection de ballon qui saute puis
-  revient (déplacement net ≈ 0, souvent la tête d'un joueur ou un autre
-  objet). *Cadré* si le point d'impact est dans l'ouverture du but
-  (≈ 4,1 × hauteur joueur). Un dépassement franc de la ligne de but est
-  signalé comme **but probable**.
+- **Tirs / cadrés** : un tir est très **conservateur** (haute précision,
+  rappel limité) car le « but » n'est pas calibré : on l'estime au bord de
+  l'image. Les « lignes de but » étant en réalité les bords de l'écran, tout
+  ballon rapide filant vers un bord — donc **toute passe en profondeur ou
+  dégagement vers l'avant** — était compté comme tir (faux positifs en série).
+  Le ballon est désormais un « tir » seulement si, **au moment de la frappe**,
+  il est (1) dans la **zone du but visé** — à moins de
+  `SHOT_GOAL_ZONE_FRACTION` de la largeur du terrain du bord attaqué — et
+  (2) sa vitesse normalisée (`SHOT_SPEED_RATIO` × hauteur joueur) le mène à la
+  ligne de but sous ~4 s, **et** (3) il **POURSUIT sa course** (déplacement net
+  projeté sur la direction du saut ≥ 1,5× le saut — écarte une détection qui
+  saute puis revient, net ≈ 0). Le saut admissible est borné à
+  `SHOT_MAX_STEP_FACTOR × hauteur joueur`. *Cadré* si le point d'impact est
+  dans l'ouverture du but (≈ 4,1 × hauteur joueur) ; un dépassement franc de la
+  ligne est signalé comme **but probable**. En clair : mieux vaut **rater un
+  tir réel que d'en inventer un**.
 
 > Ces métriques sont des heuristiques mono-caméra non calibrées : la
 > qualité dépend fortement de l'angle de prise de vue (grand-angle

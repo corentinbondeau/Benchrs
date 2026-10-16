@@ -93,14 +93,32 @@ PROGRESS_STEP = _int("PROGRESS_STEP", 5)           # % entre deux mises à jour 
 HEARTBEAT_SEC = _int("HEARTBEAT_SEC", 30)          # touche le job en cours pour échapper au re-claim
 MAX_TIMELINE = _int("MAX_TIMELINE", 500)           # cap des events remontés au front (anti-DoS rendu)
 
-# Seuils métier (heuristiques, calibrés sur des vidéos full-width smartphone)
-POSSESSION_RADIUS = _float("POSSESSION_RADIUS", 140.0)     # px, rayon max autour du ballon pour "toucher" le ballon
+# Seuils métier (heuristiques, calibrés sur des vidéos full-width smartphone).
+#
+# IMPORTANT — les rayons/distance sont exprimés en MULTIPLES de la hauteur
+# apparente d'un joueur, jamais en pixels absolus : l'échelle change d'un
+# facteur ~7 entre un plan large (joueur ≈ 26 px) et un plan serré (≈ 178 px),
+# si bien qu'un seuil en pixels est soit trop grand en grand-angle (le ballon
+# « appartient » à un joueur situé à 5 hauteurs de lui → possession ~50/50),
+# soit trop petit en plan serré (plus personne n'est « proche » du ballon).
+POSSESSION_RADIUS = _float("POSSESSION_RADIUS", 140.0)     # px, repli si la hauteur joueur est inconnue
+# Rayon d'une « touche » (contrôle) = FACTOR × hauteur moyenne joueur.
+POSSESSION_RADIUS_FACTOR = _float("POSSESSION_RADIUS_FACTOR", 1.8)
 POSSESSION_HOLD = _int("POSSESSION_HOLD", 3)               # frames de confirmation avant changer de possesseur
 PASS_MIN_HOLD_SEC = _float("PASS_MIN_HOLD_SEC", 0.4)       # durée min de contrôle avant qu'un changement = une passe
 # Distance min parcourue par le ballon (× hauteur moyenne joueur) entre le
 # relâchement par une équipe et le contrôle suivant, pour valider une passe.
 PASS_MIN_DIST_FACTOR = _float("PASS_MIN_DIST_FACTOR", 0.8)
 SHOT_SPEED_RATIO = _float("SHOT_SPEED_RATIO", 0.35)        # vitesse du ballon / hauteur moyenne joueur (par frame)
+# Saut max plausible du ballon entre 2 frames (× hauteur joueur) : écarte les
+# faux positifs francs (ex. tête de joueur prise pour le ballon) sans rejeter
+# un vrai tir/centre (qui dépasse la hauteur d'un joueur par frame en plan serré).
+SHOT_MAX_STEP_FACTOR = _float("SHOT_MAX_STEP_FACTOR", 2.0)
+# Un tir est pris PRÈS du but attaqué : le ballon, au moment de la frappe, doit
+# être dans cette fraction (du bord) de la largeur du terrain côté but visé.
+# Sans ce garde-fou, tout ballon rapide vers le bord de l'image (le seul « but »
+# estimable sans calibration) était compté comme tir → faux positifs en série.
+SHOT_GOAL_ZONE_FRACTION = _float("SHOT_GOAL_ZONE_FRACTION", 0.35)
 GOAL_OPENING_FACTOR = _float("GOAL_OPENING_FACTOR", 4.1)   # largeur de but ≈ 4,1 × hauteur moyenne d'un joueur
 # Suivi de trajectoire du ballon : le détecteur (COCO) produit beaucoup de
 # faux positifs isolés. On ne retient, frame à frame, que la détection

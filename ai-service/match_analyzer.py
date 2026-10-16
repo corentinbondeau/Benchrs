@@ -184,24 +184,38 @@ def person_team(
 
 # ─── Possession ──────────────────────────────────────────────
 
+def possession_radius(median_player_h: float) -> float:
+    """Rayon d'une « touche » (contrôle du ballon), en px.
+
+    Proportionnel à la hauteur apparente d'un joueur : identique en plan large
+    et en plan serré. On retombe sur `POSSESSION_RADIUS` (valeur absolue) si la
+    hauteur est inconnue/nulle.
+    """
+    if median_player_h and median_player_h > 0:
+        return cfg.POSSESSION_RADIUS_FACTOR * median_player_h
+    return cfg.POSSESSION_RADIUS
+
+
 def build_possession(
     records: list[FrameRecord],
     team_map: dict[int, int | None],
     model: TeamModel,
     fps: float,
+    median_player_h: float,
 ) -> tuple[float, float, float]:
     """Possession (secondes + %) mesurée frame à frame.
 
-    Règle : à chaque frame où le ballon est suivi, on cherche le joueur de
-    chaque équipe le plus proche du ballon. Si un joueur connu est à moins de
-    POSSESSION_RADIUS px (une « touche »), l'équipe du joueur devient candidate ;
-    un hystérésis (POSSESSION_HOLD frames) évite le clignotement.
+    Règle : à chaque frame où le ballon est suivi, l'équipe du joueur le PLUS
+    PROCHE du ballon est candidate au contrôle. On ne filtre PAS par un rayon :
+    exiger une « touche » (joueur à moins de N px) rendait le résultat instable
+    et dépendant d'un seuil (un ballon à 5 hauteurs d'un joueur basculait d'une
+    équipe à l'autre) ; prendre toujours l'équipe la plus proche est décisif et
+    reproductible. Un hystérésis (POSSESSION_HOLD frames) évite qu'un unique
+    frame où l'ordre s'inverse ne fasse clignoter le possesseur.
 
-    TOUS les moments comptent : quand le ballon n'est pas suivi (hors cadre,
-    masqué un instant), le DERNIER possesseur garde la possession (voir
-    `POSSESSION_MAX_LOST_SEC`, 0 = illimité). Sans cela, la possession n'était
-    mesurée que sur les quelques frames de détection, ce qui donnait un
-    pourcentage inexploitable.
+    TOUS les moments comptent : quand aucun joueur n'est détecté (ballon hors
+    cadre, masqué, ou détection joueurs momentanément vide), le DERNIER
+    possesseur garde la possession (voir `POSSESSION_MAX_LOST_SEC`, 0 = illimité).
 
     Le temps « mesuré » = durée totale où une possession est attribuée
     (dénominateur du %).
@@ -233,9 +247,7 @@ def build_possession(
                 if best is None or d < best[0]:
                     best = (d, team)
 
-            # Touche : un joueur connu est proche du ballon → candidat au
-            # changement de possesseur (avec hystérésis).
-            if best is not None and best[0] <= cfg.POSSESSION_RADIUS:
+            if best is not None:
                 cand = best[1]
                 if cand == owner:
                     pending = None
@@ -251,7 +263,7 @@ def build_possession(
                     pending_n = 1
                 if owner is None:
                     owner = cand
-            # Sinon : ballon en vol → le dernier possesseur garde la balle.
+            # Aucun joueur détecté : le dernier possesseur garde la balle.
         else:
             lost += 1
             if seen_ball and lost_limit is not None and lost > lost_limit:
@@ -296,6 +308,7 @@ def count_passes(
     re-contrôle — c'est ce qui faisait compter des passes fantômes.
     """
     min_travel = cfg.PASS_MIN_DIST_FACTOR * median_player_h
+    radius = possession_radius(median_player_h)
     hold = max(1, cfg.POSSESSION_HOLD)
 
     controller: int | None = None      # équipe en contrôle confirmé
@@ -321,7 +334,7 @@ def count_passes(
             if best is None or d < best[0]:
                 best = (d, team)
 
-        near = best is not None and best[0] <= cfg.POSSESSION_RADIUS
+        near = best is not None and best[0] <= radius
 
         if near:
             team = best[1]
@@ -405,10 +418,12 @@ def detect_shots(
     # Déplacements du ballon entre frames CONSÉCUTIVES uniquement. Une
     # ré-acquisition après un trou (le ballon peut réapparaître ailleurs) est
     # un saut de position, pas une vitesse : le test de contiguïté
-    # `b.idx - a.idx == 1` l'écarte déjà. On borne en plus le saut par
-    # `POSSESSION_RADIUS` pour ignorer un faux positif franc (ballon détecté
-    # ailleurs sur UNE seule frame, ex. la tête d'un joueur).
-    max_plausible = cfg.POSSESSION_RADIUS
+    # `b.idx - a.idx == 1` l'écarte déjà. On borne en plus le saut à
+    # `SHOT_MAX_STEP_FACTOR × hauteur joueur` pour ignorer un faux positif
+    # franc (ballon détecté ailleurs sur UNE seule frame, ex. la tête d'un
+    # joueur) sans rejeter un vrai tir (qui dépasse la hauteur d'un joueur
+    # par frame en plan serré).
+    max_plausible = cfg.SHOT_MAX_STEP_FACTOR * median_player_h
     order = sorted(ball_samples, key=lambda s: s.idx)
     if len(order) < 8:
         return []
@@ -467,6 +482,14 @@ def detect_shots(
         else:
             goal_x = pitch_max_x
 
+        # Un tir est pris PRÈS du but attaqué. Les « buts » sont estimés aux
+        # bords de l'image (faute de calibration) : sans ce garde-fou, tout
+        # ballon rapide filant vers un bord — donc toute passe en profondeur ou
+        # dégagement vers l'avant — était compté comme tir. On exige que le
+        # ballon soit, au moment de la frappe, dans la zone du but visé.
+        if abs(s.x - goal_x) > cfg.SHOT_GOAL_ZONE_FRACTION * (pitch_max_x - pitch_min_x):
+            continue
+
         t_hit = (goal_x - s.x) / vel_x
         if t_hit <= 0 or t_hit > 4 * fps:
             continue  # ne finit pas sur un but sous l'horizon
@@ -490,7 +513,7 @@ def detect_shots(
                 dd = math.hypot(person.x - bx, person.y - by)
                 if best is None or dd < best[0]:
                     best = (dd, team_t)
-            if best is not None and best[0] <= cfg.POSSESSION_RADIUS:
+            if best is not None and best[0] <= possession_radius(median_player_h):
                 team = best[1]
         team = team if team is not None else (0 if vel_x > 0 else 1)
 
@@ -742,7 +765,9 @@ def analyze_video(
         if 0 <= s.idx < len(records):
             records[s.idx].ball = (s.x, s.y)
 
-    pct0, pct1, meas_sec = build_possession(records, team_map, team_model, fps)
+    pct0, pct1, meas_sec = build_possession(
+        records, team_map, team_model, fps, median_player_h
+    )
     pass0, pass1 = count_passes(
         records, team_map, team_model, fps, median_player_h
     )
