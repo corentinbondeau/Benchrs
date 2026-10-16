@@ -40,13 +40,24 @@ DOWNLOAD_TIMEOUT_SEC = int(os.getenv("DOWNLOAD_TIMEOUT_SEC", "900"))
 CLASS_PERSON = 0
 CLASS_SPORTS_BALL = 32
 
-MODEL_NAME = os.getenv("MODEL_NAME", "yolov8m.pt")   # m = bon compromis perf/qualité
+# nano (yolov8n) est en fait le MEILLEUR rappel ballon mesuré : sur la vidéo
+# grand-angle, m@1600 sort le ballon sur 49 % des frames contre 65 % pour
+# n@1600 — les gros modèles COCO sont plus « sûrs » et manquent le ballon
+# minuscule. nano est aussi ~3× plus rapide, ce qui libère du budget pour la
+# résolution et le TTA (voir ci-dessous).
+MODEL_NAME = os.getenv("MODEL_NAME", "yolov8n.pt")
 
 # Résolution d'inférence. Le ballon est un objet de quelques pixels : à la
 # taille par défaut (640) le détecteur COCO le rate massivement (mesuré sur
-# une vidéo de match grand-angle : 18 % des frames). À 1280 le rappel ballon
-# triple (~54 %) et les personnes gagnent aussi (46 % → 66 %). Coût ~2,5×.
-IMGSZ = _int("IMGSZ", 1280)
+# une vidéo de match grand-angle : 18 % des frames). Le rappel ballon MONTE
+# avec la résolution : 1280 → ~51 %, 1600 → ~65 %. On prend 1600 par défaut.
+IMGSZ = _int("IMGSZ", 1600)
+
+# Test-Time Augmentation (multi-échelle + flip) : le levier le plus rentable
+# pour le ballon (objet minuscule). Mesuré : ballon 65 % → 68 % (grand-angle) et
+# 78 % → 92 % (plan serré), personnes +15 %. Coût ~2×, absorbé par le budget
+# d'analyse ci-dessous (échantillonnage temporel).
+AUGMENT = _bool("AUGMENT", True)
 
 # Seuils de confiance PAR CLASSE. Le ballon est un petit objet rapide :
 # le détecteur COCO ne le sort qu'à très basse confiance (à 0.3 le rappel
@@ -84,9 +95,23 @@ def torch_device() -> str:
     return DEVICE
 
 # ─── Traitement vidéo ────────────────────────────────────────
-WARMUP_SEC = _float("WARMUP_SEC", 4.0)             # frames utilisées pour apprendre les couleurs de maillots
+WARMUP_SEC = _float("WARMUP_SEC", 4.0)             # (déprécié) ancien warmup couleur
+# Budget d'analyse (secondes de calcul). La détection tourne à qualité MAXIMALE
+# (résolution 1600 + TTA) ; pour tenir dans ce budget sur des vidéos longues, le
+# pipeline ÉCHANTILLONNE temporellement (une frame analysée toutes les `stride`
+# frames) au lieu de dégrader la qualité. `stride` est calculé après calibration
+# du coût réel d'une frame (voir `CALIB_FRAMES`). 0 = pas de budget (analyse
+# toutes les frames, garde-fou HARD_TIMEOUT_SEC seul).
+ANALYSIS_MAX_SEC = _float("ANALYSIS_MAX_SEC", 300.0)
+# Marge de sécurité sur l'estimation du coût/frame : le matériel est plus rapide
+# à froid que sous charge prolongée (mesuré : MPS ~115 ms à froid → ~250 ms après
+# plusieurs minutes ; CPU ARM ~1 s). On multiplie l'estimation par ce facteur
+# pour que le budget soit TENU même en régime throttlé (coût : stride un peu plus
+# grand, donc un peu moins de frames analysées — jamais la qualité par frame).
+ANALYSIS_SAFETY_FACTOR = _float("ANALYSIS_SAFETY_FACTOR", 2.0)
+CALIB_FRAMES = _int("CALIB_FRAMES", 20)             # frames mesurées pour estimer le coût/frame
 MAX_FRAMES = _int("MAX_FRAMES", 60000)             # garde-fou (~33 min @ 30 fps) — DoS RAM/GPU
-HARD_TIMEOUT_SEC = _int("HARD_TIMEOUT_SEC", 2700)  # garde-fou temps dur (45 min) — vidéos pathologiques
+HARD_TIMEOUT_SEC = _int("HARD_TIMEOUT_SEC", 900)   # garde-fou temps dur (15 min) — filet de sécurité
 MAX_VIDEO_WIDTH = _int("MAX_VIDEO_WIDTH", 1920)    # downscale d'analyse (limite mémoire/CPU de décodage)
 MAX_VIDEO_HEIGHT = _int("MAX_VIDEO_HEIGHT", 1080)
 PROGRESS_STEP = _int("PROGRESS_STEP", 5)           # % entre deux mises à jour DB (20 écritures max)

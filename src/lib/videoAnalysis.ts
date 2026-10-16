@@ -30,6 +30,14 @@ export interface VideoAnalysisResult {
     frames: number;
     duration_sec: number;
     analyzed_frames: number;
+    // Champs d'échantillonnage / qualité (analyses récentes).
+    frame_stride?: number;
+    analysis_fps?: number;
+    imgsz?: number;
+    augment?: boolean;
+    sec_per_frame?: number;
+    analysis_budget_sec?: number;
+    timed_out?: boolean;
   };
   teams: {
     team1: VideoAnalysisTeamColor;

@@ -161,6 +161,7 @@ class Tracker:
             source=frame,
             conf=cfg.DETECT_CONFIDENCE,
             imgsz=cfg.IMGSZ,
+            augment=cfg.AUGMENT,
             verbose=False,
             device=cfg.torch_device(),
         )[0]

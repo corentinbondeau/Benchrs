@@ -59,8 +59,9 @@ python worker.py
 ```
 
 > Le premier lancement télécharge automatiquement les poids YOLO
-> (`yolov8n.pt`, ~6 Mo sur CPU ARM ; `yolov8m.pt` ~50 Mo si vous passez
-> `MODEL_NAME=yolov8m.pt`). Sur macOS il utilise l'accélération Metal
+> (`yolov8n.pt`, ~6 Mo — c'est le modèle par défaut ET le meilleur rappel
+> ballon ; les gros modèles `yolov8s/m/l.pt` sont plus lents et **ratent
+> davantage** le ballon minuscule). Sur macOS il utilise l'accélération Metal
 > (`device="mps"`, réglable via `DEVICE=auto`).
 
 ## Déploiement en ligne (pour que tous les utilisateurs puissent l'utiliser)
@@ -102,9 +103,24 @@ sans runtime Python persistant ni GPU) : on le déploie à part.
 4. Le service `benchrs-worker` redémarre seul au boot.
    Logs : `journalctl -u benchrs-worker -f`.
 
-> **Vitesse ARM CPU** : avec `yolov8n` + downscale 1280×720, une vidéo de
-> match de ~30 min est analysée en ~20-40 min. C'est le compromis d'un
-> CPU ARM sans GPU. Le job reste borné par `HARD_TIMEOUT_SEC`/`MAX_FRAMES`.
+> **Vitesse & qualité (CPU ou GPU)** : la détection tourne à qualité
+> **maximale** (résolution 1600 + TTA). Sur un matériel lent, le pipeline
+> **échantillonne temporellement** (analyse 1 frame sur `stride`) pour tenir
+> `ANALYSIS_MAX_SEC` (5 min par défaut) : c'est le **nombre de frames
+> analysées** qui diminue, jamais la qualité par frame. Le pas `stride` est
+> calculé après calibration du coût réel d'une frame. Le job reste en plus
+> borné par `HARD_TIMEOUT_SEC`/`MAX_FRAMES`.
+
+**Échantillonnage temporel (budget d'analyse).** Le levier de fiabilité est la
+détection (résolution + TTA) ; pour rester dans le budget sur une vidéo longue
+sans dégrader cette qualité, `analyze_video` estime le coût d'une frame
+(`estimate_sec_per_frame`, `CALIB_FRAMES` frames réparties sur la vidéo, ×
+`ANALYSIS_SAFETY_FACTOR`) puis choisit le plus petit `stride` tel que
+`native_total / stride` frames tiennent dans `ANALYSIS_MAX_SEC`. Les seuils
+« par frame » qui en dépendent (saut et vitesse du ballon) sont multipliés par
+`stride` (dans `detect_shots` via `step_scale`) pour garder un seuil **physique**
+constant. Le champ `meta` du rapport expose `frame_stride`, `analysis_fps`,
+`imgsz`, `augment`, `sec_per_frame` et `timed_out`.
 
 **Variables d'env du worker (n'importe quel hébergeur) :**
 
@@ -113,8 +129,12 @@ sans runtime Python persistant ni GPU) : on le déploie à part.
 | `SUPABASE_URL` | — | requise (projet Supabase) |
 | `SUPABASE_SERVICE_ROLE_KEY` | — | requise (worker = écritures sans RLS) |
 | `DEVICE` | `auto` | `mps` si dispo (macOS), sinon CPU — forcer `cpu` sur une VM |
-| `MODEL_NAME` | `yolov8n.pt` | modèle YOLO (`n` = léger/rapide CPU) |
-| `IMGSZ` | `1280` | résolution d'inférence — le ballon (quelques px) est raté à 640 (~18 % des frames) ; à 1280 le rappel triple (~54 %) |
+| `MODEL_NAME` | `yolov8n.pt` | modèle YOLO — **nano par défaut** : meilleur rappel ballon et ~3× plus rapide (les gros modèles ratent davantage le ballon) |
+| `IMGSZ` | `1600` | résolution d'inférence — le ballon (quelques px) est raté à 640 (~18 % des frames) ; le rappel monte avec la résolution (1280 → ~51 %, 1600 → ~65 %) |
+| `AUGMENT` | `true` | Test-Time Augmentation (multi-échelle + flip) : meilleur rappel ballon (65 % → 68 % grand-angle, 78 % → 92 % plan serré) et +15 % personnes. Coût ~2×, absorbé par le budget d'analyse |
+| `ANALYSIS_MAX_SEC` | `300` | budget de calcul par vidéo (s) : au-delà, l'analyse **échantillonne** (voir ci-dessous) au lieu de dégrader la qualité. `0` = désactiver |
+| `ANALYSIS_SAFETY_FACTOR` | `2.0` | marge sur l'estimation du coût/frame (le matériel throttlé est ~2× plus lent qu'à froid) — garantit que le budget est tenu |
+| `CALIB_FRAMES` | `20` | frames (réparties sur la vidéo) mesurées pour estimer le coût/frame et choisir le pas d'échantillonnage |
 | `PERSON_CONFIDENCE` | `0.25` | seuil détection **personne** |
 | `BALL_CONFIDENCE` | `0.05` | seuil détection **ballon** (bas : petit objet rapide) |
 | `BALL_MAX_JUMP_FACTOR` | `1.50` | saut max du ballon (× hauteur joueur) pour suivre sa trajectoire |

@@ -32,7 +32,14 @@ import cv2
 import numpy as np
 
 import config as cfg
-from vision import Box, FrameObjects, Tracker, hsv_distance, median_torso_color
+from vision import (
+    Box,
+    FrameObjects,
+    Tracker,
+    get_model,
+    hsv_distance,
+    median_torso_color,
+)
 
 # ─── Résultats intermédiaires ────────────────────────────────
 
@@ -382,6 +389,7 @@ def detect_shots(
     frame_w: int,
     median_player_h: float,
     fps: float,
+    step_scale: float = 1.0,
 ) -> list[dict]:
     """Détection heuristique des tirs + tirs cadrés.
 
@@ -401,6 +409,12 @@ def detect_shots(
     → tir (cadré si le y d'arrivée est dans l'ouverture du but). Un
     cooldown évite de compter 2× le même tir. On signale un 'goal'
     probable quand le ballon dépasse franchement la ligne de but.
+
+    `step_scale` = nombre de frames NATIVES entre deux frames analysées
+    (stride). Le budget d'analyse échantillonne la vidéo : entre deux frames
+    analysées le ballon parcourt `step_scale`× plus loin, donc les seuils
+    « par frame » (distance et vitesse normalisées) sont multipliés d'autant
+    pour conserver le même seuil PHYSIQUE qu'en analyse frame-à-frame.
     """
     if median_player_h <= 0 or len(ball_samples) < 8:
         return []
@@ -423,7 +437,10 @@ def detect_shots(
     # franc (ballon détecté ailleurs sur UNE seule frame, ex. la tête d'un
     # joueur) sans rejeter un vrai tir (qui dépasse la hauteur d'un joueur
     # par frame en plan serré).
-    max_plausible = cfg.SHOT_MAX_STEP_FACTOR * median_player_h
+    # `step_scale` (stride) : entre deux frames analysées, le ballon parcourt
+    # `step_scale`× plus loin → on multiplie le saut max plausible pour ne pas
+    # rejeter un vrai tir sous-échantillonné.
+    max_plausible = cfg.SHOT_MAX_STEP_FACTOR * median_player_h * step_scale
     order = sorted(ball_samples, key=lambda s: s.idx)
     if len(order) < 8:
         return []
@@ -450,8 +467,9 @@ def detect_shots(
         step_len = math.hypot(dx, dy)
         if step_len <= 0 or step_len > max_plausible:
             continue
-        # Vitesse normalisée par la taille d'un joueur.
-        if step_len / median_player_h < cfg.SHOT_SPEED_RATIO:
+        # Vitesse normalisée par la taille d'un joueur (seuil × step_scale :
+        # cf. en-tête — la distance est mesurée sur `step_scale` frames natives).
+        if step_len / median_player_h < cfg.SHOT_SPEED_RATIO * step_scale:
             continue
         if idx - last_shot_frame < cooldown:
             continue
@@ -546,6 +564,7 @@ def select_ball_track(
     candidates: list[list[tuple[float, float, float]]],
     max_jump: float,
     fps: float,
+    reacquire_frames: int | None = None,
 ) -> list[BallSample]:
     """Sélectionne UNE trajectoire de ballon cohérente frame à frame.
 
@@ -553,10 +572,12 @@ def select_ball_track(
     frame la détection la plus confiante produit une trajectoire qui saute
     de 900 px et fausse tous les calculs (possessions, tirs). Ici on suit
     la détection la plus proche de la position PRÉDITE (position + vitesse),
-    en rejetant les sauts > `max_jump`. Après `BALL_REACQUIRE_FRAMES` frames
+    en rejetant les sauts > `max_jump`. Après `reacquire_frames` frames
     sans ballon, on ré-acquiert la détection la plus confiante (le ballon
     peut être sorti du cadre ou masqué un instant).
     """
+    if reacquire_frames is None:
+        reacquire_frames = cfg.BALL_REACQUIRE_FRAMES
     samples: list[BallSample] = []
     prev: tuple[float, float] | None = None
     vx = vy = 0.0
@@ -574,7 +595,7 @@ def select_ball_track(
             chosen = min(dets, key=lambda d: math.hypot(d[0] - px, d[1] - py))
             if math.hypot(chosen[0] - px, chosen[1] - py) > max_jump:
                 gap += 1
-                if gap < cfg.BALL_REACQUIRE_FRAMES:
+                if gap < reacquire_frames:
                     continue
                 chosen = max(dets, key=lambda d: d[2])
 
@@ -627,6 +648,78 @@ def interpolate_ball_track(
     return out
 
 
+# ─── Budget d'analyse : estimation du coût/frame ─────────────
+
+def estimate_sec_per_frame(
+    video_path: str,
+    scale: float,
+    frame_w: int,
+    frame_h: int,
+    native_total: int,
+) -> float:
+    """Estime le temps de calcul d'UNE frame analysée (secondes).
+
+    On mesure l'inférence réelle (même modèle, résolution, TTA, device) sur
+    `CALIB_FRAMES` frames RÉPARTIES sur toute la vidéo (et non seulement au
+    début) : le coût varie avec le nombre d'objets détectés, et on veut capter
+    les séquences chargées. On prend un percentile HAUT (p80) plutôt que la
+    médiane, car le risque est de SOUS-estimer (budget dépassé) et non l'inverse.
+    La marge de throttle est appliquée par l'appelant (ANALYSIS_SAFETY_FACTOR).
+    Renvoie 0.0 si l'estimation échoue (→ pas d'échantillonnage).
+    """
+    cap = cv2.VideoCapture(video_path)
+    if not cap.isOpened():
+        return 0.0
+    try:
+        cap.set(cv2.CAP_PROP_ORIENTATION_AUTO, 1)
+    except Exception:
+        pass
+
+    model = get_model()
+    times: list[float] = []
+
+    def measure(frame: np.ndarray) -> None:
+        if scale < 1.0:
+            frame = cv2.resize(
+                frame, (max(1, int(frame_w * scale)), max(1, int(frame_h * scale)))
+            )
+        t0 = time.perf_counter()
+        model.predict(
+            source=frame,
+            conf=cfg.DETECT_CONFIDENCE,
+            imgsz=cfg.IMGSZ,
+            augment=cfg.AUGMENT,
+            verbose=False,
+            device=cfg.torch_device(),
+        )
+        times.append(time.perf_counter() - t0)
+
+    # Warmup (chargement du modèle) puis 1re mesure ignorée.
+    first = cap.read()[1]
+    if first is None:
+        cap.release()
+        return 0.0
+    measure(first)
+    times.clear()
+
+    n = max(1, cfg.CALIB_FRAMES)
+    for k in range(1, n + 1):
+        pos = int(native_total * k / (n + 1)) if native_total > 0 else 0
+        try:
+            cap.set(cv2.CAP_PROP_POS_FRAMES, pos)
+        except Exception:
+            pass
+        ok, frame = cap.read()
+        if not ok or frame is None:
+            continue
+        measure(frame)
+
+    cap.release()
+    if not times:
+        return 0.0
+    return float(np.percentile(times, 80))
+
+
 # ─── Pipeline principal ──────────────────────────────────────
 
 def analyze_video(
@@ -655,9 +748,8 @@ def analyze_video(
     fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
     frame_w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     frame_h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT)) or 0
-    if total <= 0:
-        total = cfg.MAX_FRAMES
+    native_total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT)) or 0
+    total = native_total if native_total > 0 else cfg.MAX_FRAMES
 
     # Garde-fous anti-DoS : résolution d'analyse plafonnée (downscale),
     # temps de calcul borné (HARD_TIMEOUT_SEC), frames bornées.
@@ -668,6 +760,27 @@ def analyze_video(
     )
     do_scale = scale < 1.0
     hard_deadline = time.monotonic() + cfg.HARD_TIMEOUT_SEC
+
+    # ── Budget d'analyse → échantillonnage temporel (stride) ──
+    # La détection tourne à qualité MAXIMALE (résolution 1600 + TTA). Pour tenir
+    # dans ANALYSIS_MAX_SEC sur une vidéo longue, on analyse une frame sur
+    # `stride` (au lieu de dégrader la qualité de CHAQUE frame) : on mesure le
+    # coût réel d'une frame puis on choisit le plus petit stride qui tient le
+    # budget. `fps_eff` = fps d'analyse ; toutes les mesures « par frame »
+    # (vitesses, sauts) sont normalisées par ce fps et par `stride`.
+    stride = 1
+    sec_per_frame = 0.0
+    if cfg.ANALYSIS_MAX_SEC > 0 and native_total > 0:
+        sec_per_frame = estimate_sec_per_frame(
+            video_path, scale, frame_w, frame_h, native_total
+        )
+        sec_per_frame *= cfg.ANALYSIS_SAFETY_FACTOR
+        if sec_per_frame > 0:
+            budget_frames = int(cfg.ANALYSIS_MAX_SEC / sec_per_frame)
+            if budget_frames < 1:
+                budget_frames = 1
+            stride = max(1, math.ceil(native_total / budget_frames))
+    fps_eff = fps / stride
 
     tracker = Tracker()
     records: list[FrameRecord] = []
@@ -684,20 +797,34 @@ def analyze_video(
     # le coût et privilégie les premières détections (plus fiables).
     max_color_samples = 60
 
-    idx = 0
+    idx = 0          # index de frame ANALYSÉE (0,1,2…), utilisé partout en aval
+    native_idx = 0   # index de frame NATIVE (progression + échantillonnage)
     untracked_seq = 0  # clés distinctes pour les détections sans track_id
+    timed_out = False
 
     def report(force: bool = False) -> None:
-        if progress_cb and (idx % 20 == 0 or force) and total:
-            progress_cb(int(min(100.0, idx / total * 100.0)))
+        # Progression sur la position NATIVE (le décodage avance même quand on
+        # saute la détection d'une frame).
+        if progress_cb and (native_idx % 20 == 0 or force) and total:
+            progress_cb(int(min(100.0, native_idx / total * 100.0)))
 
     while True:
         ok, frame = cap.read()
-        if not ok or idx >= cfg.MAX_FRAMES:
+        if not ok or native_idx >= cfg.MAX_FRAMES:
             break
         if time.monotonic() > hard_deadline:
-            cap.release()
-            raise RuntimeError(f"Temps d'analyse maximal dépassé ({cfg.HARD_TIMEOUT_SEC} s)")
+            # Filet de sécurité (l'estimation a été trop optimiste) : on
+            # s'arrête proprement sur ce qui a été analysé au lieu de faire
+            # échouer le job. Le budget pré-calibré est censé l'éviter.
+            timed_out = True
+            break
+
+        # Échantillonnage temporel : on décode toutes les frames (coût faible)
+        # mais on n'analyse qu'une frame sur `stride`.
+        if native_idx % stride != 0:
+            native_idx += 1
+            report()
+            continue
 
         if do_scale:
             frame = cv2.resize(
@@ -705,7 +832,7 @@ def analyze_video(
             )
 
         objects: FrameObjects = tracker.update(frame, idx)
-        t = idx / fps
+        t = idx / fps_eff
         record = FrameRecord(idx=idx, t=t, ball=None)
         for b in objects.persons:
             # Couleur de torse de CETTE détection : elle sert de secours quand
@@ -734,8 +861,9 @@ def analyze_video(
             ball_candidates.append([])
 
         records.append(record)
-        report()
         idx += 1
+        native_idx += 1
+        report()
 
     cap.release()
     report(force=True)
@@ -758,22 +886,35 @@ def analyze_video(
     # réinjectée dans les enregistrements pour possession/passes. On comble
     # les trous courts (interpolation) pour que la possession couvre une vraie
     # fraction de la vidéo ; les tirs, eux, utilisent les échantillons RÉELS.
-    ball_max_jump = cfg.BALL_MAX_JUMP_FACTOR * median_player_h
-    ball_samples = select_ball_track(ball_candidates, ball_max_jump, fps)
-    ball_track = interpolate_ball_track(ball_samples, fps, cfg.BALL_INTERP_MAX_GAP)
+    # Tout est exprimé en frames ANALYSÉES (fps_eff) ; le saut/la vitesse « par
+    # frame » est multiplié par `stride` pour rester à seuil physique constant.
+    ball_max_jump = cfg.BALL_MAX_JUMP_FACTOR * median_player_h * stride
+    reacquire = max(1, cfg.BALL_REACQUIRE_FRAMES // stride)
+    interp_gap = max(1, cfg.BALL_INTERP_MAX_GAP // stride)
+    ball_samples = select_ball_track(
+        ball_candidates, ball_max_jump, fps_eff, reacquire_frames=reacquire
+    )
+    ball_track = interpolate_ball_track(ball_samples, fps_eff, interp_gap)
     for s in ball_track:
         if 0 <= s.idx < len(records):
             records[s.idx].ball = (s.x, s.y)
 
     pct0, pct1, meas_sec = build_possession(
-        records, team_map, team_model, fps, median_player_h
+        records, team_map, team_model, fps_eff, median_player_h
     )
     pass0, pass1 = count_passes(
-        records, team_map, team_model, fps, median_player_h
+        records, team_map, team_model, fps_eff, median_player_h
     )
 
     shots = detect_shots(
-        ball_samples, records, team_map, team_model, frame_w, median_player_h, fps
+        ball_samples,
+        records,
+        team_map,
+        team_model,
+        frame_w,
+        median_player_h,
+        fps_eff,
+        step_scale=float(stride),
     )
 
     shots0 = sum(1 for s in shots if s["team"] == "team1")
@@ -788,9 +929,16 @@ def analyze_video(
             "fps": round(fps, 2),
             "width": frame_w,
             "height": frame_h,
-            "frames": idx,
-            "duration_sec": round(idx / fps, 2),
+            "frames": native_idx,
+            "duration_sec": round(idx / fps_eff, 2) if fps_eff > 0 else 0.0,
             "analyzed_frames": idx,
+            "frame_stride": stride,
+            "analysis_fps": round(fps_eff, 2),
+            "imgsz": cfg.IMGSZ,
+            "augment": cfg.AUGMENT,
+            "sec_per_frame": round(sec_per_frame, 3),
+            "analysis_budget_sec": cfg.ANALYSIS_MAX_SEC,
+            "timed_out": timed_out,
         },
         "teams": {
             "team1": {
