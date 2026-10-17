@@ -24,7 +24,12 @@ import { Users, Check, X, ChevronDown, UserPlus, Trash2, Calendar, Bell, Send, I
 import { toast } from "sonner";
 import { hapticSuccess } from "@/lib/haptic";
 import { fetchTeamActivePlayers } from "@/lib/players";
-import { isLockedForRole, CONVOCATION_LOCKED_MESSAGE } from "@/lib/event-lock";
+import {
+  isLockedForRole,
+  isResponseClosed,
+  CONVOCATION_LOCKED_MESSAGE,
+  RESPONSE_DEADLINE_MESSAGE,
+} from "@/lib/event-lock";
 import type { Event, Attendance, Profile } from "@/types";
 
 interface EventWithAttendances extends Event {
@@ -63,6 +68,7 @@ export function ConvocationsDialog({ event, open, onOpenChange }: ConvocationsDi
   const [addPlayerOpen, setAddPlayerOpen] = useState(false);
   const [selectedNewPlayerIds, setSelectedNewPlayerIds] = useState<string[]>([]);
   const locked = isLockedForRole(event.event_date, event.end_date, isCoach);
+  const responseClosed = !isCoach && isResponseClosed(event.response_deadline);
 
   const fetchData = useCallback(async () => {
     if (!currentTeam || !event) return null;
@@ -225,6 +231,10 @@ export function ConvocationsDialog({ event, open, onOpenChange }: ConvocationsDi
   async function respondToConvocation(attendanceId: string, status: "present" | "absent", reason?: string) {
     if (locked) {
       toast.error(CONVOCATION_LOCKED_MESSAGE);
+      return;
+    }
+    if (responseClosed) {
+      toast.error(RESPONSE_DEADLINE_MESSAGE);
       return;
     }
     const supabase = createClient();
@@ -429,12 +439,18 @@ export function ConvocationsDialog({ event, open, onOpenChange }: ConvocationsDi
                     Évènement passé — réponse impossible
                   </div>
                 )}
+                {responseClosed && (
+                  <div className="flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                    <Info className="h-3.5 w-3.5 shrink-0" />
+                    {RESPONSE_DEADLINE_MESSAGE}
+                  </div>
+                )}
                 <div className="flex gap-2">
-                  <Button className="bg-green-600 text-white hover:bg-green-700 flex-1" onClick={() => respondToConvocation(myAttendance.id, "present")} disabled={locked}>
+                  <Button className="bg-green-600 text-white hover:bg-green-700 flex-1" onClick={() => respondToConvocation(myAttendance.id, "present")} disabled={locked || responseClosed}>
                     <Check className="h-4 w-4 mr-1" />
                     Présent
                   </Button>
-                  <Button variant="outline" className="border-red-300 text-red-600 hover:bg-red-50 flex-1" onClick={() => respondToConvocation(myAttendance.id, "absent")} disabled={locked}>
+                  <Button variant="outline" className="border-red-300 text-red-600 hover:bg-red-50 flex-1" onClick={() => respondToConvocation(myAttendance.id, "absent")} disabled={locked || responseClosed}>
                     <X className="h-4 w-4 mr-1" />
                     Absent
                   </Button>

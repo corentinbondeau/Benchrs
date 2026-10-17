@@ -25,6 +25,8 @@ import {
   Car,
   Users,
 } from "lucide-react";
+import { isResponseClosed, RESPONSE_DEADLINE_MESSAGE } from "@/lib/event-lock";
+import { toast } from "sonner";
 import type { Profile, Event, Attendance } from "@/types";
 
 interface ChildProfile extends Profile {
@@ -173,8 +175,13 @@ export function ParentDashboard() {
   async function respond(
     attendanceId: string,
     status: "present" | "absent" | "late",
-    reason?: string
+    reason?: string,
+    responseDeadline?: string | null
   ) {
+    if (isResponseClosed(responseDeadline)) {
+      toast.error(RESPONSE_DEADLINE_MESSAGE);
+      return;
+    }
     if (status === "absent" && !reason) {
       setPendingAbsentId(attendanceId);
       return;
@@ -357,7 +364,9 @@ export function ParentDashboard() {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {pendingConvs.map((att) => (
+              {pendingConvs.map((att) => {
+                const responseClosed = isResponseClosed(att.event?.response_deadline);
+                return (
                 <div key={att.id} className="rounded-lg border p-3 space-y-2">
                   <div className="flex items-center justify-between">
                     <div>
@@ -384,7 +393,8 @@ export function ParentDashboard() {
                           size="icon"
                           variant="outline"
                           className="h-8 w-8 text-green-600 hover:bg-green-50"
-                          onClick={() => respond(att.id, "present")}
+                          onClick={() => respond(att.id, "present", undefined, att.event?.response_deadline)}
+                          disabled={responseClosed}
                         >
                           <Check className="h-4 w-4" />
                         </Button>
@@ -392,7 +402,8 @@ export function ParentDashboard() {
                           size="icon"
                           variant="outline"
                           className="h-8 w-8 text-amber-600 hover:bg-amber-50"
-                          onClick={() => respond(att.id, "late")}
+                          onClick={() => respond(att.id, "late", undefined, att.event?.response_deadline)}
+                          disabled={responseClosed}
                         >
                           <Clock className="h-4 w-4" />
                         </Button>
@@ -400,13 +411,19 @@ export function ParentDashboard() {
                           size="icon"
                           variant="outline"
                           className="h-8 w-8 text-red-600 hover:bg-red-50"
-                          onClick={() => respond(att.id, "absent")}
+                          onClick={() => respond(att.id, "absent", undefined, att.event?.response_deadline)}
+                          disabled={responseClosed}
                         >
                           <X className="h-4 w-4" />
                         </Button>
                       </div>
                     )}
                   </div>
+                  {responseClosed && (
+                    <div className="rounded-md border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-xs text-amber-800">
+                      {RESPONSE_DEADLINE_MESSAGE}
+                    </div>
+                  )}
                   {pendingAbsentId === att.id && (
                     <div className="space-y-2 pt-1">
                       <Label className="text-xs">
@@ -423,9 +440,9 @@ export function ParentDashboard() {
                         <Button
                           size="sm"
                           className="h-7 text-xs"
-                          disabled={!absenceReason.trim()}
+                          disabled={!absenceReason.trim() || responseClosed}
                           onClick={() =>
-                            respond(att.id, "absent", absenceReason.trim())
+                            respond(att.id, "absent", absenceReason.trim(), att.event?.response_deadline)
                           }
                         >
                           Confirmer
@@ -445,7 +462,8 @@ export function ParentDashboard() {
                     </div>
                   )}
                 </div>
-              ))}
+                );
+              })}
             </div>
           </CardContent>
         </Card>

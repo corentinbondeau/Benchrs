@@ -99,7 +99,8 @@ function CoachWeekOverviewInner() {
       const matchIds = weekEvents
         .filter((e) => e.type === "match" && !e.convocations_sent_at)
         .map((e) => e.id);
-      const trainingIds = weekEvents.filter((e) => e.type === "training").map((e) => e.id);
+      // RPE : les retours existent pour les séances COMME pour les matchs.
+      const rpeEventIds = weekEvents.map((e) => e.id);
 
       const [availRows, rpeRows, subsRows, totalPlayers] = await Promise.all([
         matchIds.length
@@ -109,12 +110,12 @@ function CoachWeekOverviewInner() {
               .eq("team_id", currentTeam.id)
               .in("event_id", matchIds)
           : Promise.resolve({ data: [] as never[] }),
-        trainingIds.length
+        rpeEventIds.length
           ? supabase
               .from("session_rpe")
               .select("event_id, rpe, session_duration")
               .eq("team_id", currentTeam.id)
-              .in("event_id", trainingIds)
+              .in("event_id", rpeEventIds)
           : Promise.resolve({ data: [] as never[] }),
         challenge
           ? supabase
@@ -141,18 +142,20 @@ function CoachWeekOverviewInner() {
         a.load += r.rpe * (r.session_duration ?? 90);
         rpeByEvent.set(r.event_id, a);
       }
-      const rpe = weekEvents
-        .filter((e) => e.type === "training")
-        .map((e) => {
-          const a = rpeByEvent.get(e.id);
-          return {
-            eventId: e.id,
-            label: new Date(e.event_date).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric" }),
-            avg: a ? Math.round((a.sum / a.count) * 10) / 10 : 0,
-            count: a?.count ?? 0,
-            load: a?.load ?? 0,
-          };
+      const rpe = weekEvents.map((e) => {
+        const a = rpeByEvent.get(e.id);
+        const dayLabel = new Date(e.event_date).toLocaleDateString("fr-FR", {
+          weekday: "long",
+          day: "numeric",
         });
+        return {
+          eventId: e.id,
+          label: e.type === "match" ? `Match · ${dayLabel}` : dayLabel,
+          avg: a ? Math.round((a.sum / a.count) * 10) / 10 : 0,
+          count: a?.count ?? 0,
+          load: a?.load ?? 0,
+        };
+      });
 
       const challengeRow = challenge as { id: string; title: string; difficulty: string } | null;
 

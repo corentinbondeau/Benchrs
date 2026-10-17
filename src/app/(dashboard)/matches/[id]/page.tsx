@@ -882,6 +882,7 @@ export default function MatchDetailPage() {
         isCoach={isCoach}
         myPresence={myPresence}
         convocationsSent={!!match?.convocations_sent_at}
+        responseDeadline={match?.response_deadline}
         onRespond={myPresence ? (status, reason) => updateMatchAttendance(myPresence.playerId, status, reason) : undefined}
       />
 
@@ -1372,6 +1373,7 @@ export default function MatchDetailPage() {
         players={matchPlayers}
         isCoach={isCoach}
         convocationsSent={!!match?.convocations_sent_at}
+        responseDeadline={match?.response_deadline}
         onUpdate={updateMatchAttendance}
         event={{
           id: match.id,

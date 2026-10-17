@@ -348,6 +348,7 @@ export default function TrainingDetailPage() {
         isCoach={isCoach}
         myPresence={myPresence}
         convocationsSent={!!event.convocations_sent_at}
+        responseDeadline={event.response_deadline}
         onRespond={myPresence ? (status, reason) => updateAttendance(myPresence.playerId, status, reason) : undefined}
       />
 
@@ -374,6 +375,7 @@ export default function TrainingDetailPage() {
         players={players}
         isCoach={isCoach}
         convocationsSent={!!event.convocations_sent_at}
+        responseDeadline={event.response_deadline}
         onUpdate={updateAttendance}
         event={{
           id: event.id,

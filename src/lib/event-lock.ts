@@ -12,6 +12,28 @@ export const EVENT_LOCKED_MESSAGE =
 export const CONVOCATION_LOCKED_MESSAGE =
   "Cet évènement est passé : les convocations sont closes.";
 
+export const RESPONSE_DEADLINE_MESSAGE =
+  "La date limite de réponse est dépassée : vous ne pouvez plus répondre.";
+
+/**
+ * Détermine si la fenêtre de réponse à une convocation est close.
+ *
+ * La date limite (`events.response_deadline`) est optionnelle : tant qu'elle
+ * est absente ou invalide, les réponses restent ouvertes. Le coach/owner n'est
+ * jamais concerné par cette règle (il conserve la main sur les convocations).
+ */
+export function isResponseClosed(
+  responseDeadline: string | Date | null | undefined,
+  now: number = Date.now()
+): boolean {
+  if (!responseDeadline) return false;
+  const deadline =
+    responseDeadline instanceof Date ? responseDeadline : new Date(responseDeadline);
+  const time = deadline.getTime();
+  if (Number.isNaN(time)) return false;
+  return time < now;
+}
+
 /**
  * Détermine si un évènement est verrouillé.
  *

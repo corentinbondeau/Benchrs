@@ -26,6 +26,7 @@ import {
   type ReminderParentLink,
 } from "@/lib/convocation-reminders";
 import { RemindAllButton } from "@/components/RemindAllButton";
+import { isResponseClosed, RESPONSE_DEADLINE_MESSAGE } from "@/lib/event-lock";
 
 export interface PlayerAttendanceRow {
   profile: Profile;
@@ -97,12 +98,14 @@ function ResponseButton({
   activeClass,
   idleClass,
   onClick,
+  disabled,
   children,
 }: {
   active: boolean;
   activeClass: string;
   idleClass: string;
   onClick: () => void;
+  disabled?: boolean;
   children: ReactNode;
 }) {
   return (
@@ -111,6 +114,7 @@ function ResponseButton({
       variant="outline"
       className={`flex-1 ${active ? activeClass : idleClass}`}
       onClick={onClick}
+      disabled={disabled}
     >
       {children}
     </Button>
@@ -126,6 +130,7 @@ export function EventInfoCard({
   isCoach,
   myPresence,
   convocationsSent,
+  responseDeadline,
   onRespond,
 }: {
   date: Date;
@@ -135,6 +140,7 @@ export function EventInfoCard({
   isCoach?: boolean;
   myPresence?: MyPresenceInfo;
   convocationsSent: boolean;
+  responseDeadline?: string | null;
   onRespond?: (status: "present" | "late" | "absent", reason?: string) => Promise<void>;
 }) {
   const [showRetardReason, setShowRetardReason] = useState(false);
@@ -146,6 +152,9 @@ export function EventInfoCard({
   // (l'état parent `myPresence.status` — mis à jour en optimiste par le
   // caller — prend alors le relais pour garder le bouton coloré).
   const [pendingStatus, setPendingStatus] = useState<"present" | "late" | "absent" | null>(null);
+  // Le coach gère toujours les convocations ; l'échéance ne concerne que les
+  // joueurs/parents.
+  const responseClosed = !isCoach && isResponseClosed(responseDeadline);
 
   const mapsUrl = location
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`
@@ -167,6 +176,7 @@ export function EventInfoCard({
 
   function startRespond(status: "present" | "late" | "absent") {
     if (!onRespond) return;
+    if (responseClosed) return;
     if (status === "late") {
       // Motif de retard requis : ouvre la saisie, le bouton se colore déjà.
       setShowAbsenceReason(false);
@@ -222,6 +232,19 @@ export function EventInfoCard({
         )}
         <InfoRow icon={Clock} label="Début" value={startStr} />
         {endStr && <InfoRow icon={Clock} label="Fin" value={endStr} />}
+        {responseDeadline && (
+          <InfoRow
+            icon={Clock}
+            label="Réponse avant"
+            value={new Date(responseDeadline).toLocaleString("fr-FR", {
+              weekday: "short",
+              day: "numeric",
+              month: "short",
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+          />
+        )}
         {location && (
           <div className="flex items-center justify-between gap-2">
             <InfoRow icon={MapPin} label="Lieu" value={location} />
@@ -251,12 +274,19 @@ export function EventInfoCard({
                   fond coloré des boutons (actif = réponse en cours). */}
               {myPresence.status === "excused" && <StatusBadge status={myPresence.status} />}
             </div>
+            {responseClosed && (
+              <div className="flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300">
+                <Info className="h-3.5 w-3.5 shrink-0" />
+                {RESPONSE_DEADLINE_MESSAGE}
+              </div>
+            )}
             <div className="flex gap-2">
               <ResponseButton
                 active={myPresence.status === "present" || pendingStatus === "present"}
                 activeClass="bg-green-600 text-white border-green-600 hover:bg-green-700 dark:bg-green-600 dark:border-green-600 dark:text-white dark:hover:bg-green-700"
                 idleClass="border-border bg-background text-foreground hover:bg-muted"
                 onClick={() => startRespond("present")}
+                disabled={responseClosed}
               >
                 <Check className="h-3.5 w-3.5 mr-1" />
                 Présent
@@ -266,6 +296,7 @@ export function EventInfoCard({
                 activeClass="bg-amber-500 text-white border-amber-500 hover:bg-amber-600 dark:bg-amber-500 dark:border-amber-500 dark:text-white dark:hover:bg-amber-600"
                 idleClass="border-border bg-background text-foreground hover:bg-muted"
                 onClick={() => startRespond("late")}
+                disabled={responseClosed}
               >
                 <Clock className="h-3.5 w-3.5 mr-1" />
                 Retard
@@ -275,6 +306,7 @@ export function EventInfoCard({
                 activeClass="bg-red-600 text-white border-red-600 hover:bg-red-700 dark:bg-red-600 dark:border-red-600 dark:text-white dark:hover:bg-red-700"
                 idleClass="border-border bg-background text-foreground hover:bg-muted"
                 onClick={() => startRespond("absent")}
+                disabled={responseClosed}
               >
                 <X className="h-3.5 w-3.5 mr-1" />
                 Absent
@@ -404,6 +436,7 @@ export function AttendanceLists({
   players,
   isCoach,
   convocationsSent,
+  responseDeadline,
   onUpdate,
   event,
   teamId,
@@ -413,6 +446,7 @@ export function AttendanceLists({
   players: PlayerAttendanceRow[];
   isCoach: boolean;
   convocationsSent: boolean;
+  responseDeadline?: string | null;
   onUpdate: (userId: string, status: AttendanceStatus) => void;
   event?: ReminderEvent;
   teamId?: string;
@@ -425,9 +459,14 @@ export function AttendanceLists({
   const late = convoked.filter((p) => p.status === "late");
   const absent = convoked.filter((p) => p.status === "absent");
   const excused = convoked.filter((p) => p.status === "excused");
-  const waiting = convoked.filter(
+  const responseClosed = isResponseClosed(responseDeadline);
+  const notResponded = convoked.filter(
     (p) => p.attendanceId !== null && (p.status === null || p.status === "pending")
   );
+  // Une fois l'échéance de réponse dépassée, les non-répondants basculent dans
+  // « Pas de réponse » (le statut en base reste `pending`/null).
+  const noResponse = responseClosed ? notResponded : [];
+  const waiting = responseClosed ? [] : notResponded;
   const total = convoked.length;
 
   const canRemindAll = isCoach && !!event && !!teamId;
@@ -616,6 +655,38 @@ export function AttendanceLists({
                 }
               />
             )}
+
+            <PlayerListSection
+              title={`Pas de réponse (${noResponse.length})`}
+              titleClass="text-amber-700"
+              rowClass="bg-amber-50"
+              textClass="text-amber-900"
+              players={noResponse}
+              actions={
+                isCoach
+                  ? (p) => (
+                      <div className="flex gap-1">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7 text-green-500 hover:text-green-700 hover:bg-green-50"
+                          onClick={() => onUpdate(p.profile.id, "present")}
+                        >
+                          <Check className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7 text-red-500 hover:text-red-700 hover:bg-red-50"
+                          onClick={() => onUpdate(p.profile.id, "absent")}
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    )
+                  : undefined
+              }
+            />
           </div>
         )}
       </CardContent>

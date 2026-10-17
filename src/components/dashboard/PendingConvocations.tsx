@@ -14,7 +14,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Check, X, Clock, Bell } from "lucide-react";
 import { toast } from "sonner";
-import { isEventLocked, CONVOCATION_LOCKED_MESSAGE } from "@/lib/event-lock";
+import {
+  isEventLocked,
+  isResponseClosed,
+  CONVOCATION_LOCKED_MESSAGE,
+  RESPONSE_DEADLINE_MESSAGE,
+} from "@/lib/event-lock";
 import { groupRemindersByEvent, countPendingPlayers } from "@/lib/convocation-reminders";
 import { RemindAllButton } from "@/components/RemindAllButton";
 import type { Attendance, Event, Profile } from "@/types";
@@ -132,10 +137,15 @@ function PendingConvocationsInner() {
     status: "present" | "absent" | "late",
     reason?: string,
     eventDate?: string | null,
-    endDate?: string | null
+    endDate?: string | null,
+    responseDeadline?: string | null
   ) {
     if (isEventLocked(eventDate, endDate)) {
       toast.error(CONVOCATION_LOCKED_MESSAGE);
+      return;
+    }
+    if (isResponseClosed(responseDeadline)) {
+      toast.error(RESPONSE_DEADLINE_MESSAGE);
       return;
     }
     if (status === "absent" && !reason) {
@@ -386,6 +396,8 @@ function PendingConvocationsInner() {
           <div className="space-y-3">
             {playerAttendances.map((att) => {
               const locked = isEventLocked(att.event?.event_date, att.event?.end_date);
+              const responseClosed = isResponseClosed(att.event?.response_deadline);
+              const respondDisabled = locked || responseClosed;
               return (
               <div key={att.id} className="rounded-lg border p-3 space-y-2">
                 <div className="flex items-center justify-between">
@@ -405,17 +417,22 @@ function PendingConvocationsInner() {
                     </p>
                   </div>
                 </div>
+                {responseClosed && (
+                  <div className="rounded-md border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-xs text-amber-800">
+                    {RESPONSE_DEADLINE_MESSAGE}
+                  </div>
+                )}
                 {pendingAbsentId !== att.id && (
                   <div className="grid grid-cols-3 gap-1.5">
-                    <Button size="sm" variant="outline" className="gap-1 border-green-300 bg-green-50 text-green-700 hover:bg-green-100" onClick={() => respond(att.id, "present", undefined, att.event?.event_date, att.event?.end_date)} disabled={locked}>
+                    <Button size="sm" variant="outline" className="gap-1 border-green-300 bg-green-50 text-green-700 hover:bg-green-100" onClick={() => respond(att.id, "present", undefined, att.event?.event_date, att.event?.end_date, att.event?.response_deadline)} disabled={respondDisabled}>
                       <Check className="h-3.5 w-3.5" />
                       Présent
                     </Button>
-                    <Button size="sm" variant="outline" className="gap-1 border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100" onClick={() => respond(att.id, "late", undefined, att.event?.event_date, att.event?.end_date)} disabled={locked}>
+                    <Button size="sm" variant="outline" className="gap-1 border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100" onClick={() => respond(att.id, "late", undefined, att.event?.event_date, att.event?.end_date, att.event?.response_deadline)} disabled={respondDisabled}>
                       <Clock className="h-3.5 w-3.5" />
                       Retard
                     </Button>
-                    <Button size="sm" variant="outline" className="gap-1 border-red-300 bg-red-50 text-red-700 hover:bg-red-100" onClick={() => respond(att.id, "absent", undefined, att.event?.event_date, att.event?.end_date)} disabled={locked}>
+                    <Button size="sm" variant="outline" className="gap-1 border-red-300 bg-red-50 text-red-700 hover:bg-red-100" onClick={() => respond(att.id, "absent", undefined, att.event?.event_date, att.event?.end_date, att.event?.response_deadline)} disabled={respondDisabled}>
                       <X className="h-3.5 w-3.5" />
                       Absent
                     </Button>
@@ -432,7 +449,7 @@ function PendingConvocationsInner() {
                       autoFocus
                     />
                     <div className="flex gap-2">
-                      <Button size="sm" className="h-7 text-xs" disabled={!absenceReason.trim()} onClick={() => respond(att.id, "absent", absenceReason.trim(), att.event?.event_date, att.event?.end_date)}>
+                      <Button size="sm" className="h-7 text-xs" disabled={!absenceReason.trim() || respondDisabled} onClick={() => respond(att.id, "absent", absenceReason.trim(), att.event?.event_date, att.event?.end_date, att.event?.response_deadline)}>
                         Confirmer
                       </Button>
                       <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => { setPendingAbsentId(null); setAbsenceReason(""); }}>

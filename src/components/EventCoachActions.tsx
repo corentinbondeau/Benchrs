@@ -157,6 +157,9 @@ export function EventCoachActions({
   const [editLocation, setEditLocation] = useState(event.location || "");
   const [editOpponent, setEditOpponent] = useState(event.opponent || "");
   const [editIsHome, setEditIsHome] = useState(event.is_home !== false);
+  const [editResponseDeadline, setEditResponseDeadline] = useState(() =>
+    toDatetimeLocalValueOrEmpty(event.response_deadline)
+  );
 
   useEffect(() => {
     if (!event.recurrence_group_id) return;
@@ -182,6 +185,7 @@ export function EventCoachActions({
     setEditLocation(event.location || "");
     setEditOpponent(event.opponent || "");
     setEditIsHome(event.is_home !== false);
+    setEditResponseDeadline(toDatetimeLocalValueOrEmpty(event.response_deadline));
     setEditOpen(true);
   }
 
@@ -200,12 +204,19 @@ export function EventCoachActions({
     }
     setSaving(true);
     const supabase = createClient();
+    // Un report décale aussi la date limite de réponse (elle reste alignée sur
+    // l'événement).
+    const reportDeltaMs = new Date(reportDate).getTime() - new Date(event.event_date).getTime();
+    const shiftedDeadline = event.response_deadline
+      ? new Date(new Date(event.response_deadline).getTime() + reportDeltaMs).toISOString()
+      : null;
     const { error } = await supabase
       .from("events")
       .update({
         event_date: new Date(reportDate).toISOString(),
         end_date: reportEndDate ? new Date(reportEndDate).toISOString() : null,
         meeting_time: reportMeeting || null,
+        response_deadline: shiftedDeadline,
       })
       .eq("id", event.id)
       .eq("team_id", event.team_id);
@@ -221,6 +232,7 @@ export function EventCoachActions({
       event_date: new Date(reportDate).toISOString(),
       end_date: reportEndDate ? new Date(reportEndDate).toISOString() : null,
       meeting_time: reportMeeting || null,
+      response_deadline: shiftedDeadline,
     };
     onSaved(updated);
     setSaving(false);
@@ -254,6 +266,13 @@ export function EventCoachActions({
       is_home: isMatch ? editIsHome : null,
     };
 
+    // La date limite de réponse est exprimée relativement à la date de début de
+    // l'occurrence éditée, puis décalée sur les autres occurrences (périmètre
+    // « toutes les occurrences »).
+    const deadlineOffsetMs = editResponseDeadline
+      ? new Date(editResponseDeadline).getTime() - new Date(editDate).getTime()
+      : null;
+
     if (scope === "all" && event.recurrence_group_id) {
       const deltaMs = new Date(editDate).getTime() - new Date(event.event_date).getTime();
       if (deltaMs !== 0) {
@@ -268,9 +287,13 @@ export function EventCoachActions({
             const shiftedEnd = row.end_date
               ? new Date(new Date(row.end_date).getTime() + deltaMs).toISOString()
               : null;
+            const rowDeadline =
+              deadlineOffsetMs !== null
+                ? new Date(new Date(row.event_date).getTime() + deltaMs + deadlineOffsetMs).toISOString()
+                : null;
             const { error } = await supabase
               .from("events")
-              .update({ ...patch, event_date: shifted, end_date: shiftedEnd })
+              .update({ ...patch, event_date: shifted, end_date: shiftedEnd, response_deadline: rowDeadline })
               .eq("id", row.id)
               .eq("team_id", event.team_id);
             if (error) {
@@ -292,9 +315,13 @@ export function EventCoachActions({
             const rowEndDate = editEndDate
               ? applyDurationToStart(row.event_date, durationMinutes)
               : null;
+            const rowDeadline =
+              deadlineOffsetMs !== null
+                ? new Date(new Date(row.event_date).getTime() + deadlineOffsetMs).toISOString()
+                : null;
             const { error } = await supabase
               .from("events")
-              .update({ ...patch, end_date: rowEndDate })
+              .update({ ...patch, end_date: rowEndDate, response_deadline: rowDeadline })
               .eq("id", row.id)
               .eq("team_id", event.team_id);
             if (error) {
@@ -308,6 +335,9 @@ export function EventCoachActions({
     } else {
       patch.event_date = new Date(editDate).toISOString();
       patch.end_date = editEndDate ? new Date(editEndDate).toISOString() : null;
+      patch.response_deadline = editResponseDeadline
+        ? new Date(editResponseDeadline).toISOString()
+        : null;
       const { error } = await supabase
         .from("events")
         .update(patch)
@@ -329,6 +359,9 @@ export function EventCoachActions({
       location: editLocation.trim() || null,
       opponent: isMatch && editOpponent.trim() ? editOpponent.trim() : null,
       is_home: isMatch ? editIsHome : null,
+      response_deadline: editResponseDeadline
+        ? new Date(editResponseDeadline).toISOString()
+        : null,
     });
     setSaving(false);
     setEditOpen(false);
@@ -581,6 +614,33 @@ export function EventCoachActions({
             <div className="space-y-2">
               <Label>Heure de RDV</Label>
               <Input type="time" value={editMeeting} onChange={(e) => setEditMeeting(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Date limite de réponse</Label>
+              <div className="flex gap-2">
+                <Input
+                  type="datetime-local"
+                  value={editResponseDeadline}
+                  onChange={(e) => setEditResponseDeadline(e.target.value)}
+                />
+                {editResponseDeadline && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="shrink-0"
+                    onClick={() => setEditResponseDeadline("")}
+                  >
+                    Retirer
+                  </Button>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Facultatif. Passé ce délai, les joueurs et parents ne peuvent plus répondre.
+                {hasRecurrences && scope === "all"
+                  ? " Le délai est conservé relativement à chaque occurrence."
+                  : ""}
+              </p>
             </div>
             <div className="space-y-2">
               <LocationPicker

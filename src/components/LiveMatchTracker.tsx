@@ -24,6 +24,7 @@ import {
   Goal,
   Loader2,
   Pause,
+  Pencil,
   Play,
   Radio,
   RotateCw,
@@ -249,6 +250,7 @@ export function LiveMatchTracker({
   const [events, setEvents] = useState<MatchEventRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogType, setDialogType] = useState<LiveEventType | null>(null);
+  const [editingEvent, setEditingEvent] = useState<MatchEventRecord | null>(null);
   const [ownGoalSide, setOwnGoalSide] = useState<"our" | "opponent">("our");
   const [minute, setMinute] = useState("");
   const [saving, setSaving] = useState(false);
@@ -265,6 +267,7 @@ export function LiveMatchTracker({
   }, [onStatsChange]);
 
   const playerList = useMemo(() => sortedPlayers(players), [players]);
+  const editMode = editingEvent !== null;
 
   // Substitution contrainte par la composition ET suivie tout le match : l'état
   // actuel est dérivé de l'historique des changements (qui est sur le terrain).
@@ -752,6 +755,7 @@ export function LiveMatchTracker({
     if (!form) return;
     const fd = new FormData(form);
 
+    const wasEditing = editingEvent;
     const minuteRaw = fd.get("minute")?.toString().trim() || "";
     const minute = minuteRaw === "" ? null : parseInt(minuteRaw, 10);
     const playerId = fd.get("player_id")?.toString() || null;
@@ -780,36 +784,45 @@ export function LiveMatchTracker({
       return;
     }
     // Un joueur expulsé (carton rouge) ne peut plus être remplacé, ni buter, ni
-    // passe, ni revenir : double garde-fou (le sélecteur le filtre déjà).
-    if (playerId && sentOffIds.has(playerId)) {
-      toast.error("Ce joueur a été expulsé : il ne peut plus être remplacé ni credited d'un but ou d'une passe");
+    // passe, ni revenir : double garde-fou (le sélecteur le filtre déjà). On
+    // l'assouplit en modification pour pouvoir corriger l'événement qui l'a expulsé.
+    if (!wasEditing && playerId && sentOffIds.has(playerId)) {
+      toast.error("Ce joueur a été expulsé : il ne peut plus être remplacé ni crédité d'un but ou d'une passe");
       return;
     }
-    if (relatedPlayerId && sentOffIds.has(relatedPlayerId)) {
+    if (!wasEditing && relatedPlayerId && sentOffIds.has(relatedPlayerId)) {
       toast.error("Le joueur entrant ne peut pas être un joueur expulsé");
       return;
     }
 
-    setSaving(true);
-    const { error } = await supabase.from("match_events").insert({
-      event_id: eventId,
-      team_id: teamId,
+    const payload = {
       event_type: actualType,
       player_id: actualType === "opponent_own_goal" ? null : playerId,
       related_player_id: relatedPlayerId || null,
       minute,
       notes,
-      created_by: userId || null,
-    });
+    };
+
+    setSaving(true);
+    const { error } = wasEditing
+      ? await supabase.from("match_events").update(payload).eq("id", wasEditing.id)
+      : await supabase.from("match_events").insert({
+          ...payload,
+          event_id: eventId,
+          team_id: teamId,
+          created_by: userId || null,
+        });
     setSaving(false);
 
     if (error) {
-      toast.error(`Erreur lors de l'ajout : ${error.message}`);
+      toast.error(
+        `Erreur lors de ${wasEditing ? "la modification" : "l'ajout"} : ${error.message}`
+      );
       return;
     }
 
-    toast.success(`${EVENT_TYPE_CONFIG[actualType].label} ajouté`);
-    setDialogType(null);
+    toast.success(`${EVENT_TYPE_CONFIG[actualType].label} ${wasEditing ? "modifié" : "ajouté"}`);
+    closeDialog();
     fetchEvents();
     if (actualType === "goal" || actualType === "opponent_goal" || actualType === "own_goal" || actualType === "opponent_own_goal") {
       syncScore();
@@ -817,7 +830,9 @@ export function LiveMatchTracker({
     if (["goal", "yellow_card", "red_card", "substitution"].includes(actualType)) {
       syncStats();
     }
-    notifyLiveEvent(actualType, actualType === "opponent_own_goal" ? null : playerId, minute, relatedPlayerId);
+    if (!wasEditing) {
+      notifyLiveEvent(actualType, actualType === "opponent_own_goal" ? null : playerId, minute, relatedPlayerId);
+    }
   }
 
   async function handleDelete(id: string, eventType: string) {
@@ -986,9 +1001,24 @@ export function LiveMatchTracker({
   }
 
   function openDialog(type: LiveEventType) {
+    setEditingEvent(null);
     setMinute(startMs !== null ? String(currentMinute) : "");
     setOwnGoalSide("our");
     setDialogType(type);
+  }
+
+  function openEditDialog(ev: MatchEventRecord) {
+    const type = ev.event_type as LiveEventType;
+    setEditingEvent(ev);
+    setMinute(ev.minute !== null && ev.minute !== undefined ? String(ev.minute) : "");
+    setOwnGoalSide(type === "opponent_own_goal" ? "opponent" : "our");
+    // Les deux CSC partagent le même formulaire (sélecteur « notre joueur / joueur adverse »).
+    setDialogType(type === "opponent_own_goal" ? "own_goal" : type);
+  }
+
+  function closeDialog() {
+    setDialogType(null);
+    setEditingEvent(null);
   }
 
   function renderPlayerSelect(
@@ -996,7 +1026,8 @@ export function LiveMatchTracker({
     label: string,
     allowEmpty: boolean,
     emptyLabel = "Aucun",
-    candidateIds?: string[] | null
+    candidateIds?: string[] | null,
+    defaultValue = ""
   ) {
     const candidates = candidateIds
       ? playerList.filter((p) => candidateIds.includes(p.id))
@@ -1006,7 +1037,7 @@ export function LiveMatchTracker({
         <Label className="text-xs">{label}</Label>
         <select
           name={name}
-          defaultValue=""
+          defaultValue={defaultValue}
           className="flex h-9 w-full rounded-lg border border-input bg-transparent px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
         >
           {candidates.length === 0 && <option value="">Aucun disponible</option>}
@@ -1027,8 +1058,8 @@ export function LiveMatchTracker({
     <form id="live-event-form" className="space-y-4">
       {dialogType === "goal" && (
         <>
-          {renderPlayerSelect("player_id", "Buteur", false, "Aucun", onPitchCandidates)}
-          {renderPlayerSelect("related_player_id", "Passeur décisif (facultatif)", true, "Sans passeur", onPitchCandidates)}
+          {renderPlayerSelect("player_id", "Buteur", false, "Aucun", editMode ? undefined : onPitchCandidates, editingEvent?.player_id ?? "")}
+          {renderPlayerSelect("related_player_id", "Passeur décisif (facultatif)", true, "Sans passeur", editMode ? undefined : onPitchCandidates, editingEvent?.related_player_id ?? "")}
         </>
       )}
       {dialogType === "own_goal" && (
@@ -1062,7 +1093,7 @@ export function LiveMatchTracker({
             </button>
           </div>
           {ownGoalSide === "our" &&
-            renderPlayerSelect("player_id", "Joueur concerné", false, "Aucun", onPitchCandidates)}
+            renderPlayerSelect("player_id", "Joueur concerné", false, "Aucun", editMode ? undefined : onPitchCandidates, editingEvent?.player_id ?? "")}
         </div>
       )}
       {dialogType === "opponent_goal" && (
@@ -1071,7 +1102,7 @@ export function LiveMatchTracker({
         </p>
       )}
       {["yellow_card", "red_card", "injury"].includes(dialogType) &&
-        renderPlayerSelect("player_id", pickerLabel("joueur"), false, "Aucun", onPitchCandidates)}
+        renderPlayerSelect("player_id", pickerLabel("joueur"), false, "Aucun", editMode ? undefined : onPitchCandidates, editingEvent?.player_id ?? "")}
       {dialogType === "substitution" && (
         <>
           {lineupFilled && (
@@ -1084,8 +1115,8 @@ export function LiveMatchTracker({
               Expulsé(s) — non sélectionnables : {sentOffNames.join(", ")}
             </p>
           )}
-          {renderPlayerSelect("player_id", "Joueur sortant", false, "Aucun", subOutCandidates)}
-          {renderPlayerSelect("related_player_id", "Joueur entrant", false, "Aucun", subInCandidates)}
+          {renderPlayerSelect("player_id", "Joueur sortant", false, "Aucun", editMode ? undefined : subOutCandidates, editingEvent?.player_id ?? "")}
+          {renderPlayerSelect("related_player_id", "Joueur entrant", false, "Aucun", editMode ? undefined : subInCandidates, editingEvent?.related_player_id ?? "")}
         </>
       )}
       <div className="space-y-1.5">
@@ -1106,6 +1137,7 @@ export function LiveMatchTracker({
           <Label className="text-xs">Précisions (facultatif)</Label>
           <Input
             name="notes"
+            defaultValue={editingEvent?.notes ?? ""}
             placeholder="Ex : cheville, sortie préventive..."
             className="h-9"
           />
@@ -1298,15 +1330,26 @@ export function LiveMatchTracker({
                     {cfg?.shortLabel || ev.event_type}
                   </Badge>
                   {canEdit && (
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-7 w-7 text-muted-foreground hover:text-destructive shrink-0"
-                      onClick={() => handleDelete(ev.id, ev.event_type)}
-                      aria-label="Supprimer"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
+                    <>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7 text-muted-foreground hover:text-foreground shrink-0"
+                        onClick={() => openEditDialog(ev)}
+                        aria-label="Modifier"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7 text-muted-foreground hover:text-destructive shrink-0"
+                        onClick={() => handleDelete(ev.id, ev.event_type)}
+                        aria-label="Supprimer"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </>
                   )}
                 </div>
               );
@@ -1315,7 +1358,7 @@ export function LiveMatchTracker({
         )}
       </CardContent>
 
-      <Dialog open={dialogType !== null} onOpenChange={(open) => !open && setDialogType(null)}>
+      <Dialog open={dialogType !== null} onOpenChange={(open) => !open && closeDialog()}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -1323,7 +1366,7 @@ export function LiveMatchTracker({
                 const Icon = EVENT_TYPE_CONFIG[dialogType].icon;
                 return <Icon className={`h-5 w-5 ${EVENT_TYPE_CONFIG[dialogType].iconClass}`} />;
               })()}
-              Ajouter — {dialogType ? EVENT_TYPE_CONFIG[dialogType].label : ""}
+              {editMode ? "Modifier" : "Ajouter"} — {dialogType ? EVENT_TYPE_CONFIG[dialogType].label : ""}
             </DialogTitle>
           </DialogHeader>
           {dialogFields}
@@ -1331,7 +1374,7 @@ export function LiveMatchTracker({
             <Button
               size="sm"
               variant="ghost"
-              onClick={() => setDialogType(null)}
+              onClick={closeDialog}
               disabled={saving}
             >
               <CircleX className="h-3.5 w-3.5 mr-1" />

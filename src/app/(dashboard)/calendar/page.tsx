@@ -141,6 +141,7 @@ export default function CalendarPage() {
     opponent: "",
     recurrence: "Aucun" as Recurrence,
     convocation_lead_days: "3",
+    response_deadline: "",
     selected_player_ids: [] as string[],
     cycle_id: "",
     is_home: true,
@@ -396,6 +397,12 @@ export default function CalendarPage() {
     const endDate = form.end_date ? new Date(form.end_date) : null;
     const durationMs = endDate ? endDate.getTime() - eventDate.getTime() : null;
 
+    // La date limite de réponse est exprimée relativement à la 1re occurrence
+    // (ex. « J-1 20h ») puis décalée sur chacune des occurrences suivantes.
+    const deadlineOffsetMs = form.response_deadline
+      ? new Date(form.response_deadline).getTime() - eventDate.getTime()
+      : null;
+
     const rows = dates.map((d) => ({
       title: form.title,
       type: form.type,
@@ -409,6 +416,7 @@ export default function CalendarPage() {
       created_by: user?.id,
       team_id: currentTeam!.id,
       convocation_lead_days: parseInt(form.convocation_lead_days, 10) || 3,
+      response_deadline: deadlineOffsetMs !== null ? toUTCISOString(new Date(d.getTime() + deadlineOffsetMs)) : null,
       recurrence_group_id: recurrenceGroupId,
       cycle_id: form.cycle_id || null,
     }));
@@ -442,6 +450,7 @@ export default function CalendarPage() {
       opponent: "",
       recurrence: "Aucun",
       convocation_lead_days: "3",
+      response_deadline: "",
       selected_player_ids: [],
       cycle_id: "",
       is_home: true,
@@ -796,6 +805,20 @@ export default function CalendarPage() {
                     </p>
                   </div>
                 )}
+                <div className="space-y-2">
+                  <Label>Date limite de réponse</Label>
+                  <Input
+                    type="datetime-local"
+                    value={form.response_deadline}
+                    onChange={(e) => setForm({ ...form, response_deadline: e.target.value })}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Facultatif. Passé ce délai, les joueurs et parents ne peuvent plus répondre à la convocation (ils apparaissent en « Pas de réponse »).
+                    {form.recurrence !== "Aucun" && form.response_deadline
+                      ? " Ce délai se répète sur chaque occurrence."
+                      : ""}
+                  </p>
+                </div>
                 <Button type="submit" className="w-full bg-[var(--color-primary-blue)] text-white font-semibold">
                   Créer
                 </Button>
