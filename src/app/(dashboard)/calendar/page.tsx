@@ -191,7 +191,7 @@ export default function CalendarPage() {
     Promise.all([
       supabase
         .from("events")
-        .select("id, title, event_date, end_date, type, status, location, opponent, score_us, score_them, match_result, team_id, meeting_time, is_home")
+        .select("id, title, event_date, end_date, type, status, location, opponent, score_us, score_them, match_result, team_id, meeting_time, is_home, response_deadline")
         .in("team_id", ids)
         .order("event_date", { ascending: true }),
       supabase
