@@ -47,6 +47,7 @@ import { ConvocationsDialog } from "@/components/ConvocationsDialog";
 import { LocationPicker } from "@/components/calendar/LocationPicker";
 import { fetchTeamActivePlayers } from "@/lib/players";
 import { convocationSlotFor } from "@/lib/convocations";
+import { shiftDeadlineToOccurrence } from "@/lib/event-lock";
 import { clearQueryCache } from "@/lib/queryCache";
 import type { Event, Profile } from "@/types";
 import { OnboardingTip } from "@/components/OnboardingTips";
@@ -397,12 +398,8 @@ export default function CalendarPage() {
     const endDate = form.end_date ? new Date(form.end_date) : null;
     const durationMs = endDate ? endDate.getTime() - eventDate.getTime() : null;
 
-    // La date limite de réponse est exprimée relativement à la 1re occurrence
-    // (ex. « J-1 20h ») puis décalée sur chacune des occurrences suivantes.
-    const deadlineOffsetMs = form.response_deadline
-      ? new Date(form.response_deadline).getTime() - eventDate.getTime()
-      : null;
-
+    // Chaque occurrence garde SA propre date limite (seule l'heure de la
+    // journée est identique d'une occurrence à l'autre).
     const rows = dates.map((d) => ({
       title: form.title,
       type: form.type,
@@ -416,7 +413,7 @@ export default function CalendarPage() {
       created_by: user?.id,
       team_id: currentTeam!.id,
       convocation_lead_days: parseInt(form.convocation_lead_days, 10) || 3,
-      response_deadline: deadlineOffsetMs !== null ? toUTCISOString(new Date(d.getTime() + deadlineOffsetMs)) : null,
+      response_deadline: shiftDeadlineToOccurrence(eventDate, form.response_deadline, d),
       recurrence_group_id: recurrenceGroupId,
       cycle_id: form.cycle_id || null,
     }));

@@ -28,7 +28,7 @@
  *   - dates invalides => null, sans exception.
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
 
 import {
   isEventLocked,
@@ -36,6 +36,7 @@ import {
   getEventDurationMinutes,
   shiftEndDate,
   applyDurationToStart,
+  shiftDeadlineToOccurrence,
   EVENT_LOCK_GRACE_MS,
 } from "@/lib/event-lock";
 
@@ -368,5 +369,99 @@ describe("applyDurationToStart", () => {
     expect(new Date(end3 as string).getTime()).toBeGreaterThan(
       new Date(occurrence3Start).getTime()
     );
+  });
+});
+
+/**
+ * shiftDeadlineToOccurrence — chaque occurrence d'une série garde SA propre
+ * date limite ; seule l'heure de la journée est identique.
+ *
+ * Le décalage est exprimé en jours calendriers (et non en millisecondes) :
+ * un changement d'heure ne doit pas décaler l'échéance d'une heure.
+ */
+describe("shiftDeadlineToOccurrence", () => {
+  const PREV_TZ = process.env.TZ;
+  beforeAll(() => {
+    process.env.TZ = "Europe/Paris";
+  });
+  afterAll(() => {
+    if (PREV_TZ === undefined) delete process.env.TZ;
+    else process.env.TZ = PREV_TZ;
+  });
+
+  // Série hebdo de 3 séances, mardi 18h locale, avec une échéance « J-1 20h ».
+  // Le passage à l'heure d'hiver (25/10/2026) tombe entre les occurrences.
+  const REF = "2026-10-20T16:00:00.000Z"; // mar. 20/10 18:00 Paris (UTC+2)
+  const DEADLINE = "2026-10-19T18:00:00.000Z"; // lun. 19/10 20:00 Paris
+  const OCC2 = "2026-10-27T16:00:00.000Z"; // mar. 27/10 18:00 Paris (UTC+1)
+  const OCC3 = "2026-11-03T17:00:00.000Z"; // mar. 03/11 18:00 Paris (UTC+1)
+
+  const localHour = (iso: string) => new Date(iso).getHours();
+  const localDay = (iso: string) => new Date(iso).getDate();
+
+  // ==== CAS 1 — l'occurrence de référence reste inchangée ====
+  it("reproduit à l'identique l'échéance pour l'occurrence de référence", () => {
+    expect(shiftDeadlineToOccurrence(REF, DEADLINE, REF)).toBe(DEADLINE);
+  });
+
+  // ==== CAS 2 — chaque occurrence a sa PROPRE date limite ====
+  it("donne à chaque occurrence une échéance distincte (pas une seule date absolue)", () => {
+    const d1 = shiftDeadlineToOccurrence(REF, DEADLINE, REF) as string;
+    const d2 = shiftDeadlineToOccurrence(REF, DEADLINE, OCC2) as string;
+    const d3 = shiftDeadlineToOccurrence(REF, DEADLINE, OCC3) as string;
+
+    expect(d1).not.toBe(d2);
+    expect(d2).not.toBe(d3);
+    expect(d1).not.toBe(d3);
+  });
+
+  // ==== CAS 3 — seule l'HEURE est la même ====
+  it("conserve l'heure locale de l'échéance sur toutes les occurrences", () => {
+    const d1 = shiftDeadlineToOccurrence(REF, DEADLINE, REF) as string;
+    const d2 = shiftDeadlineToOccurrence(REF, DEADLINE, OCC2) as string;
+    const d3 = shiftDeadlineToOccurrence(REF, DEADLINE, OCC3) as string;
+
+    expect([localHour(d1), localHour(d2), localHour(d3)]).toEqual([20, 20, 20]);
+  });
+
+  // ==== CAS 4 — décalage en jours préservé (« J-1 » reste « J-1 ») ====
+  it("conserve le décalage en jours par rapport à chaque occurrence", () => {
+    const d2 = shiftDeadlineToOccurrence(REF, DEADLINE, OCC2) as string;
+    const d3 = shiftDeadlineToOccurrence(REF, DEADLINE, OCC3) as string;
+
+    // Échéance = jour civil précédant l'occurrence, même heure.
+    expect(localDay(d2)).toBe(localDay(OCC2) - 1);
+    expect(localDay(d3)).toBe(localDay(OCC3) - 1);
+  });
+
+  // ==== CAS 5 — NON-RÉGRESSION : traversée du changement d'heure ====
+  it("[non-régression] l'heure locale reste identique de part et d'autre du passage à l'heure d'hiver", () => {
+    const d1 = shiftDeadlineToOccurrence(REF, DEADLINE, REF) as string;
+    const d2 = shiftDeadlineToOccurrence(REF, DEADLINE, OCC2) as string;
+
+    // Avant (UTC+2) : 19/10 20:00 = 18:00Z. Après (UTC+1) : 26/10 20:00 = 19:00Z.
+    expect(d1).toBe("2026-10-19T18:00:00.000Z");
+    expect(d2).toBe("2026-10-26T19:00:00.000Z");
+  });
+
+  // ==== CAS 6 — échéance le JOUR MÊME (décalage 0 jour) ====
+  it("gère une échéance posée le jour même de l'occurrence", () => {
+    const sameDay = "2026-10-20T10:00:00.000Z"; // mar. 20/10 12:00 Paris
+    const d2 = shiftDeadlineToOccurrence(REF, sameDay, OCC2) as string;
+
+    expect(new Date(d2).getDate()).toBe(localDay(OCC2));
+    expect(localHour(d2)).toBe(12);
+  });
+
+  // ==== CAS 7 — ROBUSTESSE : entrées absentes/invalide => null, sans exception ====
+  it("retourne null sans exception quand une entrée est absente ou invalide", () => {
+    expect(() => shiftDeadlineToOccurrence(REF, DEADLINE, REF)).not.toThrow();
+    expect(shiftDeadlineToOccurrence(REF, DEADLINE, REF)).toBe(DEADLINE);
+    expect(shiftDeadlineToOccurrence(null, DEADLINE, OCC2)).toBeNull();
+    expect(shiftDeadlineToOccurrence(REF, null, OCC2)).toBeNull();
+    expect(shiftDeadlineToOccurrence(REF, DEADLINE, undefined)).toBeNull();
+    expect(shiftDeadlineToOccurrence("pas-une-date", DEADLINE, OCC2)).toBeNull();
+    expect(shiftDeadlineToOccurrence(REF, "pas-une-date", OCC2)).toBeNull();
+    expect(shiftDeadlineToOccurrence(REF, DEADLINE, "pas-une-date")).toBeNull();
   });
 });

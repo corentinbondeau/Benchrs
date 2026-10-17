@@ -85,6 +85,66 @@ export function isLockedForRole(
 }
 
 /**
+ * Recalcule la date limite de réponse pour une autre occurrence d'une série
+ * récurrente.
+ *
+ * Règle : chaque occurrence garde sa PROPRE échéance (sa date), seule l'heure
+ * de la journée reste la même. Ex. une séance le mardi à 18h avec « réponse
+ * avant J-1 20h » donne mardi prochain à 18h → réponse avant lundi prochain
+ * 20h, même si les occurrences n'ont pas toutes la même heure de début.
+ *
+ * Le décalage est exprimé en JOURS CALENDRIERS (et non en millisecondes) pour
+ * que l'heure locale reste identique de part et d'autre d'un changement
+ * d'heure.
+ *
+ * @param referenceEventDate  Début de l'occurrence de référence (celle dont la
+ *                            date limite est connue).
+ * @param chosenDeadline      Échéance choisie pour l'occurrence de référence.
+ * @param occurrenceDate      Début de l'occurrence cible.
+ * @returns ISO string, ou `null` si l'une des entrées est absente/invalide.
+ */
+export function shiftDeadlineToOccurrence(
+  referenceEventDate: string | Date | null | undefined,
+  chosenDeadline: string | Date | null | undefined,
+  occurrenceDate: string | Date | null | undefined
+): string | null {
+  if (!referenceEventDate || !chosenDeadline || !occurrenceDate) return null;
+
+  const ref = toValidDate(referenceEventDate);
+  const deadline = toValidDate(chosenDeadline);
+  const occ = toValidDate(occurrenceDate);
+  if (!ref || !deadline || !occ) return null;
+
+  const dayMs = 24 * 60 * 60 * 1000;
+  const dayDiff = Math.round(
+    (startOfLocalDay(deadline).getTime() - startOfLocalDay(ref).getTime()) / dayMs
+  );
+
+  const target = new Date(
+    occ.getFullYear(),
+    occ.getMonth(),
+    occ.getDate() + dayDiff,
+    deadline.getHours(),
+    deadline.getMinutes(),
+    deadline.getSeconds(),
+    0
+  );
+
+  if (Number.isNaN(target.getTime())) return null;
+  return target.toISOString();
+}
+
+/** Début de la journée locale (composants année/mois/jour). */
+function startOfLocalDay(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+function toValidDate(v: string | Date): Date | null {
+  const d = v instanceof Date ? v : new Date(v);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/**
  * Calcule la durée d'un évènement en minutes entre `eventDate` et `endDate`.
  * Retourne `null` si `endDate` est absente, invalide, ou antérieure/égale à
  * `eventDate` (incohérent).

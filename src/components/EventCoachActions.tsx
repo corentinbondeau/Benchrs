@@ -25,7 +25,7 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { clearQueryCache } from "@/lib/queryCache";
 import { LocationPicker } from "@/components/calendar/LocationPicker";
-import { isEventLocked, shiftEndDate, applyDurationToStart, getEventDurationMinutes } from "@/lib/event-lock";
+import { isEventLocked, shiftEndDate, applyDurationToStart, getEventDurationMinutes, shiftDeadlineToOccurrence } from "@/lib/event-lock";
 import type { Event } from "@/types";
 
 export type EventWithMeeting = Event & { meeting_time: string | null };
@@ -204,12 +204,13 @@ export function EventCoachActions({
     }
     setSaving(true);
     const supabase = createClient();
-    // Un report décale aussi la date limite de réponse (elle reste alignée sur
-    // l'événement).
-    const reportDeltaMs = new Date(reportDate).getTime() - new Date(event.event_date).getTime();
-    const shiftedDeadline = event.response_deadline
-      ? new Date(new Date(event.response_deadline).getTime() + reportDeltaMs).toISOString()
-      : null;
+    // Un report décale aussi la date limite de réponse : elle reste alignée
+    // sur l'événement en conservant son décalage en jours et son heure.
+    const shiftedDeadline = shiftDeadlineToOccurrence(
+      event.event_date,
+      event.response_deadline,
+      new Date(reportDate)
+    );
     const { error } = await supabase
       .from("events")
       .update({
@@ -266,12 +267,16 @@ export function EventCoachActions({
       is_home: isMatch ? editIsHome : null,
     };
 
-    // La date limite de réponse est exprimée relativement à la date de début de
-    // l'occurrence éditée, puis décalée sur les autres occurrences (périmètre
-    // « toutes les occurrences »).
-    const deadlineOffsetMs = editResponseDeadline
-      ? new Date(editResponseDeadline).getTime() - new Date(editDate).getTime()
-      : null;
+    // Chaque occurrence garde SA propre date limite (seule l'heure de la
+    // journée est identique). `shiftDeadlineToOccurrence` recale l'échéance de
+    // la référence sur la date de chaque autre occurrence.
+    const rowDeadline = (occurrenceDate: string) =>
+      editResponseDeadline
+        ? shiftDeadlineToOccurrence(editDate, editResponseDeadline, occurrenceDate)
+        : null;
+
+    let updatedCount = 0;
+    let skippedLocked = 0;
 
     if (scope === "all" && event.recurrence_group_id) {
       const deltaMs = new Date(editDate).getTime() - new Date(event.event_date).getTime();
@@ -284,16 +289,19 @@ export function EventCoachActions({
         if (groupRows) {
           for (const row of groupRows) {
             const shifted = new Date(new Date(row.event_date).getTime() + deltaMs).toISOString();
+            // Une occurrence passée garde son historique figé : on ne la
+            // décale pas (le trigger 080/081/105 refuserait le changement
+            // d'event_date et d'end_date et annulerait toute la série).
+            if (isEventLocked(row.event_date, row.end_date)) {
+              skippedLocked++;
+              continue;
+            }
             const shiftedEnd = row.end_date
               ? new Date(new Date(row.end_date).getTime() + deltaMs).toISOString()
               : null;
-            const rowDeadline =
-              deadlineOffsetMs !== null
-                ? new Date(new Date(row.event_date).getTime() + deltaMs + deadlineOffsetMs).toISOString()
-                : null;
             const { error } = await supabase
               .from("events")
-              .update({ ...patch, event_date: shifted, end_date: shiftedEnd, response_deadline: rowDeadline })
+              .update({ ...patch, event_date: shifted, end_date: shiftedEnd, response_deadline: rowDeadline(shifted) })
               .eq("id", row.id)
               .eq("team_id", event.team_id);
             if (error) {
@@ -301,27 +309,38 @@ export function EventCoachActions({
               setSaving(false);
               return;
             }
+            updatedCount++;
           }
         }
       } else {
         const durationMinutes = getEventDurationMinutes(editDate, editEndDate || null);
         const { data: groupRows } = await supabase
           .from("events")
-          .select("id, event_date")
+          .select("id, event_date, end_date")
           .eq("recurrence_group_id", event.recurrence_group_id)
           .eq("team_id", event.team_id);
         if (groupRows) {
           for (const row of groupRows) {
+            if (isEventLocked(row.event_date, row.end_date)) {
+              const { error: deadlineError } = await supabase
+                .from("events")
+                .update({ response_deadline: rowDeadline(row.event_date) })
+                .eq("id", row.id)
+                .eq("team_id", event.team_id);
+              if (deadlineError) {
+                toast.error(`Erreur lors de la modification : ${deadlineError.message}`);
+                setSaving(false);
+                return;
+              }
+              updatedCount++;
+              continue;
+            }
             const rowEndDate = editEndDate
               ? applyDurationToStart(row.event_date, durationMinutes)
               : null;
-            const rowDeadline =
-              deadlineOffsetMs !== null
-                ? new Date(new Date(row.event_date).getTime() + deadlineOffsetMs).toISOString()
-                : null;
             const { error } = await supabase
               .from("events")
-              .update({ ...patch, end_date: rowEndDate, response_deadline: rowDeadline })
+              .update({ ...patch, end_date: rowEndDate, response_deadline: rowDeadline(row.event_date) })
               .eq("id", row.id)
               .eq("team_id", event.team_id);
             if (error) {
@@ -329,8 +348,20 @@ export function EventCoachActions({
               setSaving(false);
               return;
             }
+            updatedCount++;
           }
         }
+      }
+
+      if (updatedCount === 0) {
+        toast.error("Aucune occurrence modifiable : toutes sont passées.");
+        setSaving(false);
+        return;
+      }
+      if (skippedLocked > 0) {
+        toast.warning(
+          `${skippedLocked} occurrence${skippedLocked > 1 ? "s" : ""} passée${skippedLocked > 1 ? "s" : ""} laissée${skippedLocked > 1 ? "s" : ""} intacte${skippedLocked > 1 ? "s" : ""} (planification verrouillée)`
+        );
       }
     } else {
       patch.event_date = new Date(editDate).toISOString();
@@ -367,7 +398,7 @@ export function EventCoachActions({
     setEditOpen(false);
     toast.success(
       scope === "all"
-        ? `Toutes les occurrences modifiées (${groupCount})`
+        ? `Toutes les occurrences modifiées (${updatedCount})`
         : "Événement modifié"
     );
     clearQueryCache();
@@ -428,16 +459,61 @@ export function EventCoachActions({
     setSaving(true);
     const supabase = createClient();
 
-    const q = supabase
+    // Périmètre « toutes les occurrences » : le trigger SQL
+    // `prevent_locked_event_delete` (migrations 080 → 081 → 105) rejette le lot
+    // ENTIER si une seule occurrence est passée. On supprime donc occurrence par
+    // occurrence, en laissant l'historique (les occurrences passées) intact.
+    if (scope === "all" && event.recurrence_group_id) {
+      const { data: groupRows } = await supabase
+        .from("events")
+        .select("id, event_date, end_date")
+        .eq("recurrence_group_id", event.recurrence_group_id)
+        .eq("team_id", event.team_id);
+
+      let deletedCount = 0;
+      let skippedLocked = 0;
+
+      for (const row of groupRows || []) {
+        if (isEventLocked(row.event_date, row.end_date)) {
+          skippedLocked++;
+          continue;
+        }
+        const { error } = await supabase
+          .from("events")
+          .delete()
+          .eq("id", row.id)
+          .eq("team_id", event.team_id);
+        if (error) {
+          setSaving(false);
+          toast.error(`Erreur lors de la suppression : ${error.message}`);
+          return;
+        }
+        deletedCount++;
+      }
+
+      setSaving(false);
+      setDeleteOpen(false);
+
+      if (deletedCount === 0) {
+        toast.error("Aucune occurrence supprimable : toutes sont passées.");
+        return;
+      }
+      if (skippedLocked > 0) {
+        toast.warning(
+          `${skippedLocked} occurrence${skippedLocked > 1 ? "s" : ""} passée${skippedLocked > 1 ? "s" : ""} laissée${skippedLocked > 1 ? "s" : ""} intacte${skippedLocked > 1 ? "s" : ""} (planification verrouillée)`
+        );
+      }
+      toast.success(`Occurrences supprimées (${deletedCount})`);
+      clearQueryCache();
+      router.push("/calendar");
+      return;
+    }
+
+    const { error } = await supabase
       .from("events")
       .delete()
+      .eq("id", event.id)
       .eq("team_id", event.team_id);
-    if (scope === "all" && event.recurrence_group_id) {
-      q.eq("recurrence_group_id", event.recurrence_group_id);
-    } else {
-      q.eq("id", event.id);
-    }
-    const { error } = await q;
 
     setSaving(false);
     setDeleteOpen(false);
@@ -447,9 +523,7 @@ export function EventCoachActions({
       return;
     }
 
-    toast.success(
-      scope === "all" ? `Toutes les occurrences supprimées (${groupCount})` : "Événement supprimé"
-    );
+    toast.success("Événement supprimé");
     clearQueryCache();
     router.push("/calendar");
   }
