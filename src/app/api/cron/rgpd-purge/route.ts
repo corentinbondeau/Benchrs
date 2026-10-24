@@ -6,7 +6,12 @@ export const dynamic = "force-dynamic";
 export async function GET(req: Request) {
   const authHeader = req.headers.get("authorization") || "";
   const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+
+  if (process.env.NODE_ENV === "production") {
+    if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+  } else if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -15,7 +20,7 @@ export async function GET(req: Request) {
 
   if (error) {
     console.error("[cron/rgpd-purge] error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Internal error" }, { status: 500 });
   }
 
   return NextResponse.json({ ok: true, result: data });
