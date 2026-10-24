@@ -8,6 +8,7 @@
 # ============================================================
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 
 import cv2
@@ -19,6 +20,65 @@ import config as cfg
 
 # ─── Modèle partagé (chargé une seule fois) ───
 _MODEL: YOLO | None = None
+
+# ─── Modèle ballon dédié (optionnel) ───
+_BALL_MODEL: YOLO | None = None
+_BALL_MODEL_IDS: list[int] | None = None
+
+
+def get_ball_model() -> YOLO | None:
+    """Retourne le 2e modèle ballon (football-ball). None si non configuré
+    ou si le fichier est absent (dégradation gracieuse → mono-modèle COCO)."""
+    global _BALL_MODEL, _BALL_MODEL_IDS
+    if cfg.BALL_MODEL_PATH:
+        if not os.path.exists(cfg.BALL_MODEL_PATH):
+            if not getattr(get_ball_model, "_warned", False):
+                print(
+                    f"[vision] BALL_MODEL_PATH introuvable ({cfg.BALL_MODEL_PATH}) "
+                    "→ pipeline COCO seul",
+                    flush=True,
+                )
+                get_ball_model._warned = True  # type: ignore[attr-defined]
+            return None
+        if _BALL_MODEL is None:
+            _BALL_MODEL = YOLO(cfg.BALL_MODEL_PATH)
+            # Le modèle dédié n'a qu'une classe « ball » (ou similaire) :
+            # on ne garde que celles dont le nom contient « ball ».
+            _BALL_MODEL_IDS = [
+                k for k, v in _BALL_MODEL.names.items()
+                if "ball" in str(v).lower()
+            ]
+        return _BALL_MODEL
+    return None
+
+
+def detect_ball2(frame: np.ndarray) -> list[tuple[float, float, float]]:
+    """Détections du 2e modèle ballon sur la frame (brutes, sans tracking).
+
+    Retourne [] immédiatement si BALL_MODEL_PATH est vide (pipeline
+    mono-modèle inchangé — aucun coût quand l'option est désactivée).
+    Coordonnées dans le repère de la frame passée (déjà redimensionnée).
+    """
+    m = get_ball_model()
+    if m is None:
+        return []
+    res = m.predict(
+        source=frame,
+        conf=cfg.BALL_MODEL_CONF,
+        imgsz=cfg.BALL_MODEL_IMGSZ,
+        augment=cfg.BALL_MODEL_AUGMENT,
+        verbose=False,
+        device=cfg.torch_device(),
+    )[0]
+    out: list[tuple[float, float, float]] = []
+    for box in res.boxes:
+        cid = int(box.cls[0])
+        if _BALL_MODEL_IDS and cid not in _BALL_MODEL_IDS:
+            continue
+        x1, y1, x2, y2 = box.xyxy[0].tolist()
+        out.append(((x1 + x2) / 2, (y1 + y2) / 2, float(box.conf[0])))
+    return out
+
 
 
 def get_model() -> YOLO:

@@ -100,13 +100,20 @@ export function proxy(request: NextRequest) {
     pathname === "/api/clubs/lookup-public";
 
   // Nom du cookie de session Supabase : sb-<project_ref>-auth-token.
-  // Dérivé de l'URL (pas de ref codé en dur, sinon un changement de
-  // projet Supabase casse silencieusement toute la détection de session).
+  // Dérivé de l'URL (pas de ref codé en dur). Fail closed si ref non détectable.
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
   const supabaseRef = supabaseUrl.match(/https:\/\/([^.]+)\./)?.[1];
-  const sessionToken = request.cookies.get(
-    supabaseRef ? `sb-${supabaseRef}-auth-token` : "sb-gxksycbwylhkhihcvddw-auth-token"
-  )?.value;
+  if (!supabaseRef) {
+    // Pas de ref détectable -> refuser l'accès aux routes protégées par défaut
+    if (!isApiAuth && !isPublicApi && !isAuthPage && !isPublicPage && !isAsset) {
+      if (isApiRoute) {
+        return withForceFullCookie(NextResponse.json({ error: "Configuration invalide" }, { status: 500 }));
+      }
+      return withForceFullCookie(NextResponse.redirect(new URL("/login", request.url)));
+    }
+    return withForceFullCookie(NextResponse.next());
+  }
+  const sessionToken = request.cookies.get(`sb-${supabaseRef}-auth-token`)?.value;
 
   const isLoggedIn = !!sessionToken;
 

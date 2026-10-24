@@ -104,12 +104,19 @@ export function MatchVideoDashboard({ job }: { job: VideoAnalysis }) {
   const passes = result.stats?.passes ?? { team1: 0, team2: 0 };
   const shots = result.stats?.shots ?? { team1: 0, team2: 0 };
   const shotsOnTarget = result.stats?.shots_on_target ?? { team1: 0, team2: 0 };
+  const physical = result.stats?.physical;
+  const structure = result.stats?.structure;
+  const pressure = result.stats?.pressure;
+  const possessionTimeline = Array.isArray(result.possession_timeline)
+    ? result.possession_timeline
+    : [];
   const timeline = Array.isArray(result.timeline) ? result.timeline : [];
   const meta = result.meta;
   const t1 = result.teams?.team1 ?? { label: "Équipe 1", color: "#3b82f6" };
   const t2 = result.teams?.team2 ?? { label: "Équipe 2", color: "#ef4444" };
   const totalShots = shots.team1 + shots.team2;
   const totalShotsOnTarget = shotsOnTarget.team1 + shotsOnTarget.team2;
+  const videoDuration = meta?.duration_sec ?? 0;
 
   return (
     <div className="space-y-4">
@@ -167,8 +174,153 @@ export function MatchVideoDashboard({ job }: { job: VideoAnalysis }) {
               />
             </span>
           </div>
+          {/* Chronologie de la possession : segments fusionnés sur la durée
+              de la vidéo (lecture « qui a tenu le ballon quand »). */}
+          {possessionTimeline.length > 0 && videoDuration > 0 && (
+            <div className="space-y-1">
+              <p className="text-[11px] font-medium text-muted-foreground">
+                Chronologie
+              </p>
+              <div className="relative h-3 w-full overflow-hidden rounded-full bg-muted">
+                {possessionTimeline.map((seg, i) => (
+                  <div
+                    key={i}
+                    className="absolute top-0 h-full"
+                    style={{
+                      left: `${Math.max(0, (seg.t0 / videoDuration) * 100)}%`,
+                      width: `${Math.max(0.5, ((seg.t1 - seg.t0) / videoDuration) * 100)}%`,
+                      backgroundColor:
+                        seg.team === "team1" ? t1.color : t2.color,
+                    }}
+                  />
+                ))}
+              </div>
+              <div className="flex justify-between text-[10px] text-muted-foreground">
+                <span>0:00</span>
+                <span>{formatVideoTime(videoDuration)}</span>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
+
+      {/* Physique & structure (analyses récentes uniquement) */}
+      {(physical || structure || pressure) && (
+        <Card>
+          <CardContent className="p-5 space-y-3">
+            <p className="text-sm font-semibold">
+              Physique &amp; structure
+              <span className="ml-2 text-[10px] font-normal text-muted-foreground">
+                estimation — comparative entre équipes
+              </span>
+            </p>
+            {physical && (
+              <div className="space-y-1.5">
+                <p className="text-[11px] font-medium text-muted-foreground">
+                  Physique
+                </p>
+                <div className="grid grid-cols-3 gap-2 text-center sm:grid-cols-5">
+                  <MetricRow
+                    header=""
+                    v1={`${physical.team1.distance_km.toFixed(2)} km`}
+                    v2={`${physical.team2.distance_km.toFixed(2)} km`}
+                    c1={t1.color}
+                    c2={t2.color}
+                  />
+                  <MetricRow
+                    header="Haute int."
+                    v1={`${physical.team1.high_intensity_km.toFixed(2)} km`}
+                    v2={`${physical.team2.high_intensity_km.toFixed(2)} km`}
+                    c1={t1.color}
+                    c2={t2.color}
+                  />
+                  <MetricRow
+                    header="Vitesse moy."
+                    v1={`${physical.team1.speed_avg_kmh.toFixed(1)} km/h`}
+                    v2={`${physical.team2.speed_avg_kmh.toFixed(1)} km/h`}
+                    c1={t1.color}
+                    c2={t2.color}
+                  />
+                  <MetricRow
+                    header="Vitesse max"
+                    v1={`${physical.team1.speed_max_kmh.toFixed(1)} km/h`}
+                    v2={`${physical.team2.speed_max_kmh.toFixed(1)} km/h`}
+                    c1={t1.color}
+                    c2={t2.color}
+                  />
+                  <MetricRow
+                    header="Tracks"
+                    v1={`${physical.team1.players_tracked}`}
+                    v2={`${physical.team2.players_tracked}`}
+                    c1={t1.color}
+                    c2={t2.color}
+                  />
+                </div>
+              </div>
+            )}
+            {structure && (
+              <div className="space-y-1.5">
+                <p className="text-[11px] font-medium text-muted-foreground">
+                  Structure du bloc
+                </p>
+                <div className="grid grid-cols-3 gap-2 text-center sm:grid-cols-4">
+                  <MetricRow
+                    header="Profondeur"
+                    v1={`${structure.team1.depth_m.toFixed(1)} m`}
+                    v2={`${structure.team2.depth_m.toFixed(1)} m`}
+                    c1={t1.color}
+                    c2={t2.color}
+                  />
+                  <MetricRow
+                    header="Largeur"
+                    v1={`${structure.team1.width_m.toFixed(1)} m`}
+                    v2={`${structure.team2.width_m.toFixed(1)} m`}
+                    c1={t1.color}
+                    c2={t2.color}
+                  />
+                  <MetricRow
+                    header="Compacité"
+                    v1={`${structure.team1.compactness_m.toFixed(1)} m`}
+                    v2={`${structure.team2.compactness_m.toFixed(1)} m`}
+                    c1={t1.color}
+                    c2={t2.color}
+                  />
+                  <MetricRow
+                    header="Joueurs visibles"
+                    v1={`${structure.team1.players_visible_avg.toFixed(1)}`}
+                    v2={`${structure.team2.players_visible_avg.toFixed(1)}`}
+                    c1={t1.color}
+                    c2={t2.color}
+                  />
+                </div>
+              </div>
+            )}
+            {pressure && (
+              <div className="space-y-1.5">
+                <p className="text-[11px] font-medium text-muted-foreground">
+                  Pression (distance au ballon)
+                </p>
+                <div className="grid grid-cols-2 gap-2 text-center">
+                  <MetricRow
+                    header="Dist. moy."
+                    v1={`${pressure.team1.avg_dist_m.toFixed(1)} m`}
+                    v2={`${pressure.team2.avg_dist_m.toFixed(1)} m`}
+                    c1={t1.color}
+                    c2={t2.color}
+                  />
+                  <MetricRow
+                    header="Sur le ballon"
+                    v1={`${pressure.team1.near_ball_avg.toFixed(1)}`}
+                    v2={`${pressure.team2.near_ball_avg.toFixed(1)}`}
+                    c1={t1.color}
+                    c2={t2.color}
+                  />
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Cartes stats */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -300,5 +452,31 @@ function StatCard({
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function MetricRow({
+  header,
+  v1,
+  v2,
+  c1,
+  c2,
+}: {
+  header: string;
+  v1: string;
+  v2: string;
+  c1: string;
+  c2: string;
+}) {
+  return (
+    <div className="rounded-lg bg-muted/40 p-2 space-y-0.5">
+      <p className="text-[10px] text-muted-foreground">{header}</p>
+      <p className="text-sm font-bold" style={{ color: c1 }}>
+        {v1}
+      </p>
+      <p className="text-sm font-bold" style={{ color: c2 }}>
+        {v2}
+      </p>
+    </div>
   );
 }

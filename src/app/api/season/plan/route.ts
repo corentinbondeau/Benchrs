@@ -56,11 +56,15 @@ export async function POST(req: Request) {
 
   let plan;
   try {
+    // Format en heure LOCALE : toISOString().slice(0,10) sur minuit local
+    // recule d'un jour hors UTC (1er août → 31 juillet à Paris).
+    const localIso = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
     plan = await generateSeasonPlan({
       teamName,
       season,
-      seasonStart: range.start.toISOString().slice(0, 10),
-      seasonEnd: range.end.toISOString().slice(0, 10),
+      seasonStart: localIso(range.start),
+      seasonEnd: localIso(range.end),
       prevSummary,
     });
   } catch (e) {

@@ -137,15 +137,32 @@ constant. Le champ `meta` du rapport expose `frame_stride`, `analysis_fps`,
 | `CALIB_FRAMES` | `20` | frames (réparties sur la vidéo) mesurées pour estimer le coût/frame et choisir le pas d'échantillonnage |
 | `PERSON_CONFIDENCE` | `0.25` | seuil détection **personne** |
 | `BALL_CONFIDENCE` | `0.05` | seuil détection **ballon** (bas : petit objet rapide) |
+| `BALL_MODEL_PATH` | *(vide)* | **2e détecteur ballon** (modèle dédié football-ball, ex. `yolo-football-ball-detection.pt`). Vide = désactivé (pipeline COCO seul). Renseigné = les candidats COCO et ball2 sont **fusionnés (union)** avant le suivi de trajectoire |
+| `BALL_MODEL_IMGSZ` | `1600` | résolution d'inférence du 2e modèle |
+| `BALL_MODEL_CONF` | `0.05` | seuil du 2e modèle (0.05 = meilleur rappel mesuré ; 0.15 nettoie mais perd ~8 pts de couverture) |
+| `BALL_MODEL_AUGMENT` | `false` | TTA du 2e modèle (coût ×2, couverture ~identique) |
+| `BALL_MERGE_RADIUS_FACTOR` | `0.5` | rayon de fusion des doublons COCO/ball2 (× hauteur joueur) |
 | `BALL_MAX_JUMP_FACTOR` | `1.50` | saut max du ballon (× hauteur joueur) pour suivre sa trajectoire |
 | `POSSESSION_RADIUS` | `140` | repli (px) si la hauteur d'un joueur est inconnue (possession/passes) |
 | `POSSESSION_RADIUS_FACTOR` | `1.8` | rayon d'une « touche » = FACTOR × hauteur d'un joueur (possession/passes, s'adapte au zoom) |
+| `PASS_CTRL_RADIUS_FACTOR` | `8.0` | rayon du (re)contrôle de passe = FACTOR × possession_radius — volontairement **large** (le receveur court vers le ballon) : l'asymétrie lâcher strict / recontrôle souple a été calibrée sur la vérité terrain (err 7→4 sur COCO) |
+| `PASS_CTRL_MAX_FRAME_FRACTION` | `0.45` | plafond du rayon de contrôle en fraction de la largeur de frame — en plan serré, `FACTOR × possession_radius` déborde du cadre et « tout le monde est à portée » |
+| `PASS_RADIUS_FACTOR` | `2.0` | rayon **strict** du lâcher (hystérésis) = FACTOR × possession_radius : le ballon n'est « quitté » que s'il dépasse aussi ce rayon |
+| `PASS_RELEASE_HOLD` | `3` | frames de confirmation du lâcher — évite de déclencher un vol sur un simple trou de détection du joueur |
+| `PASS_HOLD` | `1` | frames de confirmation d'un (re)contrôle de passe |
+| `PASS_MAX_FLIGHT_SEC` | `4.0` | durée max (s, temps mur) d'un vol de balle — au-delà, le ballon est perdu : un récontrôle plus tard n'est plus la même action |
+| `PASS_MIN_DIST_FACTOR` | `0.3` | distance min du vol (× hauteur joueur) pour valider une passe |
 | `SHOT_MAX_STEP_FACTOR` | `2.0` | saut max plausible du ballon (× hauteur joueur) pour un tir (écarte les faux positifs, garde les vrais tirs) |
 | `SHOT_GOAL_ZONE_FRACTION` | `0.35` | un tir doit être pris près du but attaqué : le ballon, à la frappe, est dans cette fraction (du bord) de la largeur du terrain |
+| `SHOT_Y_MARGIN_FACTOR` | `1.0` | rejet si la projection de la frappe en y sort de l'amplitude verticale du terrain (× amplitude) — la frappe part vers la touche, pas vers le but |
+| `SHOT_RETURN_MARGIN_FACTOR` | `1.0` | rejet si le ballon atteint le fond puis revient au-delà de (1.0 × reach) de la ligne — échange/dégagement, pas un tir |
 | `GOAL_OPENING_FACTOR` | `4.1` | largeur de but estimée = FACTOR × hauteur d'un joueur (bande verticale d'un but) |
 | `GOAL_REACH_FRACTION` | `0.05` | fraction de la largeur du terrain (depuis chaque extrémité) considérée comme « au but » (arrivée du ballon) |
 | `GOAL_ARRIVAL_MIN_SPEED_FACTOR` | `0.30` | vitesse minimale du ballon vers le but (× hauteur joueur, par frame) pour valider une arrivée |
 | `GOAL_ARRIVAL_WINDOW` | `3` | fenêtre (frames) de mesure de la vitesse d'arrivée du ballon |
+| `GOAL_MAX_STEP_FACTOR` | `1.5` | pas max plausible (× hauteur joueur, par frame) dans la fenêtre d'arrivée — au-delà = téléportation de détection, candidat but rejeté |
+| `GOAL_RETURN_GUARD_SEC` | `5.0` | durée (s) du garde-fou « le ballon revient en jeu » après une arrivée au fond |
+| `GOAL_RETURN_MARGIN_FACTOR` | `2.0` | marge (× zone « au but ») au-delà de laquelle un retour du ballon en jeu invalide le but |
 | `BALL_INTERP_MAX_GAP` | `15` | comblement des trous courts de la trajectoire du ballon (frames) — sinon la possession n'est mesurée que sur ~3 % de la vidéo |
 | `POSSESSION_MAX_LOST_SEC` | `0` | durée max (s) pendant laquelle le dernier possesseur garde la balle quand elle n'est plus détectée ; `0` = illimité (tous les moments en jeu comptent) |
 | `MIN_TRACK_SAMPLES_FOR_MODEL` | `3` | nombre minimal d'échantillons d'un track pour calibrer le k-means des couleurs (les tracks vus 1-2× faussaient les centroïdes) |
@@ -218,14 +235,26 @@ smartphone parfaitement exploitable :
    brute ; seules les personnes passent par ByteTrack (besoin d'IDs stables
    pour l'échantillonnage couleur).
 
-En complément, la trajectoire du ballon est **filtrée par continuité**
+En complément, la trajectoire du ballon est **suivie par continuité**
 (`select_ball_track`) : le détecteur produit des faux positifs isolés, et
 prendre à chaque frame la détection la plus confiante fait sauter la
-trajectoire de 900+ px (possession/tirs = bruit). On ne retient que la
-détection cohérente avec la position prédite (saut ≤
-`BALL_MAX_JUMP_FACTOR` × hauteur joueur), avec ré-acquisition après
-`BALL_REACQUIRE_FRAMES`. Les vitesses de tir ne sont mesurées qu'entre
-frames **consécutives** (un saut après un trou n'est pas une vitesse).
+trajectoire de 900+ px (possession/tirs = bruit). Le tracker maintient une
+vitesse par frame (`(détection − dernière position) / gap`), prédit la
+position suivante en **extrapolant** sur le trou, puis :
+- **ré-acquisition souple** : si le ballon n'est pas détecté, la détection la
+  plus confiante est acceptée dans un rayon `max_jump + max_speed × gap`
+  (vitesse max physique du ballon ≈ `0.5 × hauteur joueur × stride` par frame
+  analysée — au-delà, c'est une teleportation de détection) ;
+- **ré-acquisition stricte** : au-delà, la détection la plus proche de la
+  position prédite si elle est ≤ `max_jump` ;
+- **hard restart** : plus aucune détection pendant `reacquire × 4` frames →
+  le suivant repart à zéro (trou honnête plutôt que prédiction dérivee) ;
+- les trous ≤ `BALL_INTERP_MAX_GAP` sont ensuite interpolés pour la
+  possession/passes, mais **jamais** pour les tirs (une ligne droite
+  interpolée pourrait inventer une frappe).
+
+Les vitesses de tir ne sont mesurées qu'entre frames **consécutives** (un
+saut après un trou n'est pas une vitesse).
 
 > ⚠️ **`BALL_MAX_JUMP_FACTOR` trop bas = on rate les buts.** Un ballon
 > frappé (tir, centre, tête) parcourt en une frame bien plus que la hauteur
@@ -237,6 +266,37 @@ frames **consécutives** (un saut après un trou n'est pas une vitesse).
 > ⚠️ Après modification du worker, il faut **redémarrer** le démon et
 > **ré-analyser** la vidéo : un job déjà `completed` garde son ancien
 > `result` (aucun recalcul automatique).
+
+## Fiabilité ballon — union des deux détecteurs (`BALL_MODEL_PATH`)
+
+Le détecteur COCO (classe `sports ball`) et un **modèle ballon dédié**
+(`yolo-football-ball-detection.pt`) sont **complémentaires** : mesuré sur
+2 clips (cache `bench_cache.py --fill-ball-cache`) :
+
+| Clip | COCO | ball2 (modèle dédié) | **union** |
+|---|---|---|---|
+| grand-angle (854×480) | 67,5 % | 78,8 % | **82,4 %** |
+| plan serré (portrait) | 91,5 % | 16,2 % | **91,5 %** |
+
+Accord des deux capteurs sur les frames communes : **~89-91 %** (à ≤1,5×
+hauteur joueur) — le 2e modèle est donc fiable là où COCO manque, mais ne
+remplace pas COCO en plan serré. Conséquence : **les candidats sont
+fusionnés (union, dédoublonnage par `BALL_MERGE_RADIUS_FACTOR`)** avant le
+suivi de trajectoire ; sur le clip grand-angle la possession passe de
+27/73 (COCO seul) à ~58/42, et les faux « buts » de 3 à 1.
+
+Activation : `BALL_MODEL_PATH=<chemin .pt>` dans `.env` (le coût du 2e
+modèle est inclus dans la calibration du budget `ANALYSIS_MAX_SEC` ; il est
+mesuré à ~0,37 s/frame au total sur Mac MPS, sans stall grâce à
+`PYTORCH_MPS_HIGH_WATERMARK_RATIO=0.0`). Sans `BALL_MODEL_PATH`, le
+pipeline est strictement inchangé (mono-modèle COCO).
+
+> ⚠️ **Deux modèles dans le même process** (MPS) : le pool mémoire peut
+> saturer sur une machine à 16 Go. Symptôme = gel de plusieurs minutes
+> pendant `predict()`. Le fix watermark ci-dessus résout le cas courant ;
+> sinon, privilégier des passes séparées (`bench_cache.py
+> --fill-ball-cache` remplit le cache `ball2` sans jamais charger les deux
+> modèles ensemble).
 
 ## Métriques calculées (heuristiques 2D)
 
@@ -264,15 +324,39 @@ frames **consécutives** (un saut après un trou n'est pas une vitesse).
   `POSSESSION_MAX_LOST_SEC` (`0` = toute la vidéo) : **tous les moments en jeu
   sont ainsi comptés**. Le `measured_sec` remonté est la durée réellement
   attribuée (dénominateur du %) — on vise ~100 % de la durée de la vidéo.
-- **Passes** : on mémorise l'équipe qui **relâche** le ballon (le ballon sort
-  du rayon `POSSESSION_RADIUS_FACTOR × hauteur joueur`) ; quand il est de nouveau **contrôlé** par un
-  joueur de la **même équipe** après avoir parcouru au moins
-  `PASS_MIN_DIST_FACTOR × hauteur joueur`, c'est une passe complétée. Un
-  contrôle par l'adversaire = interception (pas une passe) : une passe est
-  donc toujours attribuée à une **seule** équipe, celle qui relâche et
-  recontrôle. Les transitions (vol confirmé / re-contrôle) sont validées sur
-  `POSSESSION_HOLD` frames : une fluctuation d'un seul frame du « joueur le
-  plus proche » ne crée plus de passe fantôme.
+- **Passes** : méthode « vol de balle » — à chaque fois que le ballon
+  **quitte** les joueurs (plus personne d'équipe connue dans le rayon de
+  contrôle `PASS_CTRL_RADIUS_FACTOR × possession_radius`, plafonné à
+  `PASS_CTRL_MAX_FRAME_FRACTION × largeur de frame`, confirmé
+  `PASS_RELEASE_HOLD` frames), on mémorise l'équipe ET le **track** du
+  joueur qui l'a relâché ; quand le ballon est de nouveau **contrôlé**
+  (rayon identique, confirmé `PASS_HOLD` frames) par la **même équipe**
+  après avoir parcouru au moins `PASS_MIN_DIST_FACTOR × hauteur joueur`,
+  c'est une passe complétée. Les deux rayons sont **asymétriques** : le
+  lâcher est strict (hystérésis `PASS_RADIUS_FACTOR`), le recontrôle est
+  large — le receveur court vers le ballon. Un contrôle par l'adversaire =
+  interception (pas une passe). Quatre garde-fous (calibrés sur la vérité
+  terrain d'une vidéo de match) :
+  - le **receveur doit être un track différent** de l'expéditeur (un ballon
+    qui rebondit sur le même joueur n'est pas une passe) ;
+  - un vol de plus de `PASS_MAX_FLIGHT_SEC` **s'annule** (temps mur : le
+    ballon est sorti du cadre / perdu — un récontrôle des secondes plus
+    tard n'est plus la même action ; l'ancien code comptabilisait des
+    « passes » de 13-40 s) ;
+  - le lâcher doit être **confirmé `PASS_RELEASE_HOLD` frames** (un trou
+    d'un frame ne déclenche pas de vol) ;
+  - les personnes d'**équipe inconnue** (arbitre, mauvaise classification)
+    sont ignorées : elles ne déclenchent ni vol ni passe et ne réinitialisent
+    pas le contrôleur (une fois, l'arbitre proche du ballon annulait toutes
+    les passes de l'équipe qui le jouait).
+
+  Vérité terrain d'une vidéo de match grand-angle (10 passes bleues, 2
+  passes blanc/noir) : la méthode comptée sur les détections du pipeline
+  donne 3/7 (COCO seul) et 5/6 (union COCO + modèle ballon) — le déficit en
+  passes bleues vient des bleus non détectés ou mal classés près du ballon,
+  pas du comptage. ⚠️ Sweep recalibré sur la vérité v1 (un seul clip) : les
+  seuils peuvent surajuster — revalider sur d'autres clips avec vérité
+  avant de bouger à nouveau.
 - **Tirs / cadrés** : un tir est très **conservateur** (haute précision,
   rappel limité) car le « but » n'est pas calibré : on l'estime au bord de
   l'image. Les « lignes de but » étant en réalité les bords de l'écran, tout
@@ -287,8 +371,21 @@ frames **consécutives** (un saut après un trou n'est pas une vitesse).
   saute puis revient, net ≈ 0). Le saut admissible est borné à
   `SHOT_MAX_STEP_FACTOR × hauteur joueur`. *Cadré* si le point d'impact est
   dans l'ouverture du but (≈ 4,1 × hauteur joueur) ; un dépassement franc de la
-  ligne est signalé comme **but probable**. En clair : mieux vaut **rater un
-  tir réel que d'en inventer un**.
+  ligne est signalé comme **but probable**, **sauf si le ballon revient
+  profondément en jeu dans les `GOAL_RETURN_GUARD_SEC` secondes** (garde-fou
+  identique à `detect_goals` : c'était un dégagement qui frôle la ligne
+  estimée). Deux garde-fous supplémentaires éliminent les faux tirs constatés
+  (vérité terrain : 0 tir sur le clip de référence) : (1) **projection hors
+  terrain** — si la frappe extrapolée (`y_hit`) finit au-delà de l'amplitude
+  verticale couverte par les joueurs (`SHOT_Y_MARGIN_FACTOR`), elle part vers
+  la touche, pas vers le but ; (2) **retour en jeu après fond** — si le ballon
+  atteint (ou frôle, zone élargie à `SHOT_NEAR_ZONE_FACTOR × reach`) la zone
+  du fond puis revient au-delà de `SHOT_RETURN_MARGIN_FACTOR × reach` de la
+  ligne dans `GOAL_RETURN_GUARD_SEC` secondes, c'est un échange/dégagement qui
+  finit au fond (un vrai tir sort et reste dehors, ou reste au filet). En
+  clair : mieux
+  vaut **rater un tir réel que d'en inventer un** — diagnostic rejets :
+  `SHOTS_DEBUG=1` imprime chaque tir accepté/rejeté et son motif.
 - **Buts (arrivée du ballon)** : le détecteur de tirs ci-dessus exige de voir
   la **frappe** — il rate les buts dont la frappe échappe à la détection (ballon
   masqué, tête, ballon déjà dans la surface, détection perdue au moment
@@ -297,14 +394,63 @@ frames **consécutives** (un saut après un trou n'est pas une vitesse).
   (`GOAL_ARRIVAL_MIN_SPEED_FACTOR × hauteur joueur`, mesurée sur
   `GOAL_ARRIVAL_WINDOW` frames) et dans l'ouverture du but
   (`GOAL_OPENING_FACTOR × hauteur joueur`), dans les `GOAL_REACH_FRACTION`
-  extrêmes de la largeur du terrain, il est retenu. Un but d'arrivée **proche**
-  d'un tir déjà détecté **promeut** ce tir en « but » (pas de doublon) ; sinon
-  il est ajouté à la timeline. Comme le tir, c'est une heuristique mono-caméra
-  (affiché « 🎯 But probable ») : les ballons finissant vite dans un coin
-  peuvent être surfacés à tort — mieux vaut un léger sur-signalement qu'un but
-  manqué.
+  extrêmes de la largeur du terrain, il est retenu. Deux garde-fous
+  éliminent les faux buts constatés sur clip réel (vérité terrain = 0 but) :
+  (1) **cohérence par pas** — aucun déplacement inter-échantillons (en
+  **distance euclidienne**, x ET y — une teleportation peut être purement
+  verticale) ne peut dépasser `GOAL_MAX_STEP_FACTOR × hauteur joueur` (sinon
+  c'est une téléportation de détection : ballon perdu puis relocalisé à
+  l'autre bout du terrain), (2) **garde retour en jeu** — si le ballon
+  réapparaît au-delà de `GOAL_RETURN_MARGIN_FACTOR × reach` de la ligne pendant
+  `GOAL_RETURN_GUARD_SEC` secondes après l'arrivée, c'était un dégagement qui
+  frôle la ligne et rebondit (un vrai but reste au filet ou disparaît de la
+  vue). Un but d'arrivée **proche** d'un tir déjà détecté **promeut** ce tir
+  en « but » (pas de doublon) ; sinon il est ajouté à la timeline. Heuristique
+  mono-caméra (affiché « 🎯 But probable ») — diagnostic rejets :
+  `GOALS_DEBUG=1` imprime chaque candidat accepté/rejeté et son motif.
 
 > Ces métriques sont des heuristiques mono-caméra non calibrées : la
 > qualité dépend fortement de l'angle de prise de vue (grand-angle
 > pleine largeur recommandé). Elles sont conçues pour être « assez
 > justes pour un rapport de match » et jamais présentées comme exactes.
+
+## Métriques physiques & structure (`tactics_metrics.py`)
+
+En plus des stats de balle (possession/passes/tirs), le rapport inclut des
+métriques **dérivées des tracks de joueurs** (signal robuste, pas la détection
+du ballon). Elles sont estimées en pixels puis converties en mètres via la
+hauteur apparente médiane d'un joueur (`PHYSICS_PLAYER_HEIGHT_M` ↔
+`median_player_h`) — **valeurs relatives** (comparaison entre équipes,
+tendances), pas des mesures GPS (pas d'homographie, la perspective comprime
+le fond).
+
+- **Physique** : distance parcourue, distance en haute intensité
+  (`HIGH_INTENSITY_KMH`), vitesse moyenne et vitesse max (p99) par équipe.
+  Garde-fous : un écart `PHYS_MAX_GAP_SEC` sans le track = fragmentation
+  ByteTrack ; une vitesse instantanée > `PHYS_MAX_SPEED_KMH` = boîte
+  glitchée (une simple borne en pixels échoue en haute cadence : à 50 fps,
+  3 × hauteur ≈ 1000 km/h autorisés). La vitesse max est bornée par
+  l'échantillonnage (stride) : la pointe est sous-estimée, c'est un ordre
+  de grandeur.
+- **Structure du bloc** : profondeur (amplitude p10→p90 le long de l'axe
+  principal), largeur (perpendiculaire), compacité (distance moyenne entre
+  coéquipiers), effectif visible moyen. Un bloc compact = repli défensif
+  serré ; une grande profondeur = équipe étalée entre offense et défense.
+  Les percentiles rejettent les joueurs isolés / hors-boîte.
+- **Pression** : distance moyenne des joueurs au ballon (plus bas = plus
+  souvent autour de la balle) + nb moyen de joueurs dans le rayon de
+  possession. Neutre si le ballon n'est pas détecté.
+- **Chronologie de possession** : segments fusionnés (`t0`, `t1`, équipe) —
+  les micro-segments < `POSSESSION_SEGMENT_MIN_SEC` sont absorbés dans le
+  voisin (clignotements d'hystérésis). Affiché comme une barre colorée sous
+  le % de possession dans le dashboard front.
+
+Ces champs sont **optionnels** dans le JSON (`stats.physical`,
+`stats.structure`, `stats.pressure`, `possession_timeline`) : les anciennes
+analyses stockées en base ne les contiennent pas — le front doit les traiter
+comme tels. Le worker les produit automatiquement à chaque analyse ; pour les
+ajouter à une ancienne vidéo, il faut la relancer (« Relancer » sur
+`/video-analysis`).
+
+`bench_pipeline.py` les imprime à chaque run (validation sans YOLO sur les
+caches `/tmp/benchrs_videos/*.pkl`).

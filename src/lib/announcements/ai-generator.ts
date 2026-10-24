@@ -99,7 +99,7 @@ ${ctx.points.length > 0 ? ctx.points.map((p) => `- ${POINTS_LABELS[p] ?? p}`).jo
 
 🛑 RÈGLES :
 1. Rédige UNIQUEMENT le corps de l'annonce (3 à 10 phrases), sans objet ni titre ni salutation d'introduction. Commence directement par la phrase d'ouverture.
-2. Rends les informations pratiques précises (date, heure, lieu, adversaire si match).
+2. Rends les informations pratiques précises (date, heure, lieu, adversaire si match). Reprends le lieu EXACTEMENT tel qu'indiqué ci-dessus (y compris un éventuel préfixe « Extérieur - » ou « Domicile - ») ; ne qualifie jamais le match de « domicile » ou « extérieur » si cette information n'est pas dans le lieu fourni.
 3. Termine par une phrase d'action claire (ex. « Merci de confirmer votre présence avant jeudi. »).
 4. Ne donne AUCUNE information qui n'est pas fournie ci-dessus : ne pas inventer d'heure, de lieu, de rendez-vous ou d'instruction.
 5. ${ctx.audience === "joueurs" ? "Utilise le tutoiement." : "Utilise le vouvoiement."}`;

@@ -20,6 +20,40 @@ export interface VideoAnalysisTimelineEvent {
   note: string;
 }
 
+// Métriques physiques par équipe (tactics_metrics.py). Calibration px → m
+// approximative via la hauteur apparente d'un joueur : valeurs RELATIVES
+// (comparaison entre équipes), pas des mesures GPS.
+export interface VideoAnalysisPhysical {
+  players_tracked: number;
+  distance_km: number;
+  high_intensity_km: number;
+  speed_avg_kmh: number;
+  speed_max_kmh: number; // p99 des vitesses (robuste aux glitchs de tracking)
+}
+
+// Structure du bloc : profondeur (axe principal), largeur, compacité,
+// effectif visible moyen — pour lire le repli / l'étagement des lignes.
+export interface VideoAnalysisStructure {
+  players_visible_avg: number;
+  depth_m: number;
+  width_m: number;
+  compactness_m: number;
+}
+
+// Pression indicative : distance moyenne des joueurs au ballon (plus bas =
+// plus souvent autour de la balle) et nb moyen de joueurs sur le ballon.
+export interface VideoAnalysisPressure {
+  avg_dist_m: number;
+  near_ball_avg: number;
+}
+
+// Segment de possession fusionné (micro-segments absorbés).
+export interface VideoAnalysisPossessionSegment {
+  t0: number;
+  t1: number;
+  team: "team1" | "team2";
+}
+
 export interface VideoAnalysisResult {
   schema_version: number;
   model: string;
@@ -48,7 +82,21 @@ export interface VideoAnalysisResult {
     passes: { team1: number; team2: number };
     shots: { team1: number; team2: number };
     shots_on_target: { team1: number; team2: number };
+    // Métriques enrichies (analyses récentes, absentes des anciennes).
+    physical?: {
+      team1: VideoAnalysisPhysical;
+      team2: VideoAnalysisPhysical;
+    };
+    structure?: {
+      team1: VideoAnalysisStructure;
+      team2: VideoAnalysisStructure;
+    };
+    pressure?: {
+      team1: VideoAnalysisPressure;
+      team2: VideoAnalysisPressure;
+    };
   };
+  possession_timeline?: VideoAnalysisPossessionSegment[];
   timeline: VideoAnalysisTimelineEvent[];
 }
 

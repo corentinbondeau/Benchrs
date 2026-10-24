@@ -83,7 +83,8 @@ ${buildSeasonContextBlock(ctx)}
 2. Ne donne pas de noms de joueurs autres que le meilleur buteur indiqué.
 3. Sois positif et rassembleur, jamais critique envers des joueurs.
 4. Si aucune donnée de match n'est disponible, parle de la vie du groupe et des prochains rendez-vous.
-5. Réponds uniquement avec le JSON, sans texte avant ni après.`;
+5. Dans la section résultats, cite au moins un adversaire réel parmi ceux du contexte. N'invente JAMAIS de nom d'adversaire ni de prochain match : si aucun match à venir n'est listé ci-dessus, évoque les prochains rendez-vous sans nom d'adversaire.
+6. Réponds uniquement avec le JSON, sans texte avant ni après.`;
 }
 
 export function buildStorybookPrompt(ctx: SeasonStatsContext): string {

@@ -10,6 +10,16 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# ─── Correctif MPS (macOS) ───────────────────────────────────
+# Sur MPS, l'allocateur de mémoire Metal sature au bout de ~100-200 frames
+# et le process RESTE BLOQUÉ plusieurs minutes sur un appel `predict()` (observé :
+# 175 frames en 9 s puis un gel de >4 min). Ce gel rendait aussi
+# `estimate_sec_per_frame` instable → `stride` NON déterministe d'un run à
+# l'autre. Désactiver le « high watermark » supprime totalement le gel (mesuré :
+# 400 frames en 24,7 s, stables). À poser AVANT tout import de torch / première
+# allocation MPS (`setdefault` = la variable d'env reste prioritaire si fournie).
+os.environ.setdefault("PYTORCH_MPS_HIGH_WATERMARK_RATIO", "0.0")
+
 
 def _int(name: str, default: int) -> int:
     return int(os.getenv(name, default))
@@ -68,6 +78,14 @@ AUGMENT = _bool("AUGMENT", True)
 CONFIDENCE = _float("CONFIDENCE", 0.25)
 PERSON_CONFIDENCE = _float("PERSON_CONFIDENCE", 0.25)
 BALL_CONFIDENCE = _float("BALL_CONFIDENCE", 0.05)
+# 2e détecteur ballon (modèle dédié football-ball). Optionnel.
+# Exemple : /tmp/benchrs_videos/yolo-football-ball-detection.pt
+BALL_MODEL_PATH = os.getenv("BALL_MODEL_PATH", "")
+BALL_MODEL_IMGSZ = _int("BALL_MODEL_IMGSZ", 1600)
+BALL_MODEL_CONF = _float("BALL_MODEL_CONF", 0.05)
+BALL_MODEL_AUGMENT = _bool("BALL_MODEL_AUGMENT", False)
+# Fusion des candidats ballon (COCO ∪ ball2)
+BALL_MERGE_RADIUS_FACTOR = _float("BALL_MERGE_RADIUS_FACTOR", 0.5)  # × hauteur joueur
 # Seuil brut passé au modèle : on descend au plus bas des deux pour ne
 # rien perdre, puis on filtre par classe dans le Tracker.
 DETECT_CONFIDENCE = min(PERSON_CONFIDENCE, BALL_CONFIDENCE)
@@ -130,10 +148,33 @@ POSSESSION_RADIUS = _float("POSSESSION_RADIUS", 140.0)     # px, repli si la hau
 # Rayon d'une « touche » (contrôle) = FACTOR × hauteur moyenne joueur.
 POSSESSION_RADIUS_FACTOR = _float("POSSESSION_RADIUS_FACTOR", 1.8)
 POSSESSION_HOLD = _int("POSSESSION_HOLD", 3)               # frames de confirmation avant changer de possesseur
-PASS_MIN_HOLD_SEC = _float("PASS_MIN_HOLD_SEC", 0.4)       # durée min de contrôle avant qu'un changement = une passe
+# ─── Passes (calibré sur vérité terrain v1 : bleues=10, blanc/noir=2) ───
+# Les rayons sont ASYMÉTRIQUES (sweep sur la vérité terrain : err 7→4 sur
+# COCO) : le LÂCHER est strict, le (RE)CONTRÔLE est large — le receveur
+# court vers le ballon et le but est de rattcher les actions même quand
+# aucun joueur n'est exactement dessus.
+# Rayon du (re)contrôle « le ballon est à portée » = FACTOR × possession_radius.
+PASS_CTRL_RADIUS_FACTOR = _float("PASS_CTRL_RADIUS_FACTOR", 8.0)
+# Plafond du rayon de contrôle en fraction de la largeur de frame : en plan
+# serré (h grand), FACTOR × possession_radius déborde du cadre et « tout le
+# monde est à portée » — on borne à la géométrie réelle de l'image.
+PASS_CTRL_MAX_FRAME_FRACTION = _float("PASS_CTRL_MAX_FRAME_FRACTION", 0.45)
+# Rayon du LÂCHER (hystérésis) : au-delà, le passeur a vraiment quitté le
+# ballon — ne pas déclarer un vol tant que le ballon reste proche d'un joueur.
+PASS_RADIUS_FACTOR = _float("PASS_RADIUS_FACTOR", 2.0)
+# Frames de confirmation du LÂCHER : 3 évite de déclencher un vol sur un
+# simple trou de détection du joueur.
+PASS_RELEASE_HOLD = _int("PASS_RELEASE_HOLD", 3)
+# Frames de confirmation d'un (re)contrôle de passe (1 = la transition vol →
+# contrôle est déjà un événement discret, inutile d'insister).
+PASS_HOLD = _int("PASS_HOLD", 1)
+# Durée max (s) d'un vol : au-delà, le ballon est sorti du cadre / perdu —
+# un récontrôle plus tard n'est plus la même action (un vieux code laissait
+# des « passes » de 13-40 s comptabilisées).
+PASS_MAX_FLIGHT_SEC = _float("PASS_MAX_FLIGHT_SEC", 4.0)
 # Distance min parcourue par le ballon (× hauteur moyenne joueur) entre le
-# relâchement par une équipe et le contrôle suivant, pour valider une passe.
-PASS_MIN_DIST_FACTOR = _float("PASS_MIN_DIST_FACTOR", 0.8)
+# relâchement et le contrôle suivant, pour valider une passe.
+PASS_MIN_DIST_FACTOR = _float("PASS_MIN_DIST_FACTOR", 0.3)
 SHOT_SPEED_RATIO = _float("SHOT_SPEED_RATIO", 0.35)        # vitesse du ballon / hauteur moyenne joueur (par frame)
 # Saut max plausible du ballon entre 2 frames (× hauteur joueur) : écarte les
 # faux positifs francs (ex. tête de joueur prise pour le ballon) sans rejeter
@@ -144,6 +185,22 @@ SHOT_MAX_STEP_FACTOR = _float("SHOT_MAX_STEP_FACTOR", 2.0)
 # Sans ce garde-fou, tout ballon rapide vers le bord de l'image (le seul « but »
 # estimable sans calibration) était compté comme tir → faux positifs en série.
 SHOT_GOAL_ZONE_FRACTION = _float("SHOT_GOAL_ZONE_FRACTION", 0.35)
+# Projection de la frappe hors de l'amplitude verticale (y) du terrain
+# couverte par les joueurs (× amplitude) : le ballon projeté finit bien
+# au-delà de la bande de jeu = la « frappe » part vers la touche, pas vers
+# le but (y_hit explose hors cadre) → faux tir rejeté.
+SHOT_Y_MARGIN_FACTOR = _float("SHOT_Y_MARGIN_FACTOR", 1.0)
+# Après une frappe, si le ballon atteint la zone du fond puis REVIENT
+# profondément en jeu (au-delà de MARGIN × reach de la ligne) dans
+# GOAL_RETURN_GUARD_SEC secondes, c'est un échange/dégagement qui finit au
+# fond — pas un tir isolé (un vrai tir sort et reste dehors, ou reste au
+# filet). Marge 1.0 pour les tirs (marge plus stricte que les buts) : un
+# retour même modeste signe une remise en jeu, pas la suite d'une frappe.
+SHOT_RETURN_MARGIN_FACTOR = _float("SHOT_RETURN_MARGIN_FACTOR", 1.0)
+# Largeur de la zone « près du fond » où un dégagement s'arrête souvent sans
+# entrer dans le reach strict (× reach) : atteindre cette zone PUIS revenir
+# en jeu = échange, pas un tir isolé.
+SHOT_NEAR_ZONE_FACTOR = _float("SHOT_NEAR_ZONE_FACTOR", 2.0)
 GOAL_OPENING_FACTOR = _float("GOAL_OPENING_FACTOR", 4.1)   # largeur de but ≈ 4,1 × hauteur moyenne d'un joueur
 # ─── Détection des BUTS (arrivée du ballon) ───
 # Le « tir » exige une frappe rapide repérée dans la zone du but — cela RATE les
@@ -160,6 +217,19 @@ GOAL_REACH_FRACTION = _float("GOAL_REACH_FRACTION", 0.05)
 GOAL_ARRIVAL_MIN_SPEED_FACTOR = _float("GOAL_ARRIVAL_MIN_SPEED_FACTOR", 0.30)
 # Fenêtre (frames analysées) sur laquelle est mesurée la vitesse d'arrivée.
 GOAL_ARRIVAL_WINDOW = _int("GOAL_ARRIVAL_WINDOW", 3)
+# Cohérence par PAS dans la fenêtre d'arrivée (× hauteur joueur, par frame
+# analysée) : un déplacement entre deux échantillons consécutifs au-delà de ce
+# seuil est une téléportation de détection (ballon perdu → relocalisé à
+# l'autre bout du terrain), pas une vraie trajectoire → faux but rejeté.
+# 1.5 ≈ 1100 px/s en vue grand-angle, largement au-dessus d'une vraie frappe.
+GOAL_MAX_STEP_FACTOR = _float("GOAL_MAX_STEP_FACTOR", 1.5)
+# Garde-fou « le ballon revient en jeu » : après l'arrivée au fond, si le
+# ballon réapparaît au-delà de GOAL_RETURN_MARGIN_FACTOR × reach au-delà de
+# la ligne (dans les GOAL_RETURN_GUARD_SEC secondes), c'était un
+# dégagement/clearance qui frôle la ligne puis rebondit, pas un but
+# (un vrai but reste dans le filet ou disparaît de la vue).
+GOAL_RETURN_GUARD_SEC = _float("GOAL_RETURN_GUARD_SEC", 5.0)
+GOAL_RETURN_MARGIN_FACTOR = _float("GOAL_RETURN_MARGIN_FACTOR", 2.0)
 # Suivi de trajectoire du ballon : le détecteur (COCO) produit beaucoup de
 # faux positifs isolés. On ne retient, frame à frame, que la détection
 # cohérente avec la trajectoire (distance de saut ≤ FACTOR × hauteur joueur),
@@ -189,6 +259,50 @@ POSSESSION_MAX_LOST_SEC = _float("POSSESSION_MAX_LOST_SEC", 0.0)
 # sous ce seuil sont quand même classés (par leur propre couleur).
 MIN_TRACK_SAMPLES_FOR_MODEL = _int("MIN_TRACK_SAMPLES_FOR_MODEL", 3)
 
+# ─── Signaux classiques du ballon (ball_cues.py) ────────────
+# Le ballon de football est un objet petit, CLAIR et ACHROMATIQUE sur le gazon.
+# Ces seuils bornent le candidat « pastille blanche compacte » hors joueur.
+WHITE_V_MIN = _int("WHITE_V_MIN", 165)      # V (0-255) min du « blanc exposé »
+WHITE_S_MAX = _int("WHITE_S_MAX", 70)       # S (0-255) max : gris/blanc non coloré
+# Taille de la pastille, en multiples de la hauteur apparente d'un joueur
+# (comme tous les seuils du pipeline → robuste au zoom / à la distance).
+BALL_BLOB_MIN_FACTOR = _float("BALL_BLOB_MIN_FACTOR", 0.12)   # diamètre min ≈ 0,12 h
+BALL_BLOB_MAX_FACTOR = _float("BALL_BLOB_MAX_FACTOR", 0.55)   # diamètre max ≈ 0,55 h
+BALL_BLOB_ASPECT_MAX = _float("BALL_BLOB_ASPECT_MAX", 1.9)    # rejette lignes/touches
+BALL_BLOB_MIN_FILL = _float("BALL_BLOB_MIN_FILL", 0.60)       # rejet des formes creuses
+# Circularité 4πA/P² (1 = disque) : LE test « c'est une boule ». Mesuré : à 0.70
+# les lignes de terrain morcelées et le décor disparaissent, le ballon reste.
+BALL_BLOB_MIN_CIRCULARITY = _float("BALL_BLOB_MIN_CIRCULARITY", 0.70)
+BALL_BLOB_MIN_SCORE = _float("BALL_BLOB_MIN_SCORE", 0.45)     # plancher de crédibilité
+BALL_BLOB_SCORE_CIRC_W = _float("BALL_BLOB_SCORE_CIRC_W", 0.60)
+BALL_BLOB_SCORE_FILL_W = _float("BALL_BLOB_SCORE_FILL_W", 0.40)
+
+# ─── Fusion des signaux ballon ──────────────────────────────
+# Un candidat classique et un détecteur COCO qui tombent DANS LA MÊME pastille
+# ne sont QU'UN ballon (sinon on double les comptes). Chevauchement accepté en
+# multiples du rayon.
+BALL_CUE_MERGE_RADIUS_FACTOR = _float("BALL_CUE_MERGE_RADIUS_FACTOR", 1.2)
+
+# ─── Métriques physiques & structure (tactics_metrics.py) ───
+# Conversion px → m via la hauteur apparente médiane d'un joueur
+# (1,85 m ↔ median_player_h px). Estimation RELATIVE (pas d'homographie) :
+# à comparer entre équipes, pas à lire comme une mesure GPS.
+PHYSICS_PLAYER_HEIGHT_M = _float("PHYSICS_PLAYER_HEIGHT_M", 1.85)
+# Vitesse au-delà de laquelle un déplacement compte en « haute intensité ».
+HIGH_INTENSITY_KMH = _float("HIGH_INTENSITY_KMH", 14.0)
+# Borne physique : un joueur (ou une boîte glitchée) ne peut pas « se déplacer »
+# plus vite que ça entre deux frames. Remplace un simple seuil en pixels, qui
+# échoue en haute cadence (à 50 fps, 3 × hauteur en px = ~1000 km/h autorisés).
+# 45 km/h = marge au-dessus du pic d'un joueur pro (~36) pour absorber le
+# bruit de centre de boîte ; au-delà = téléportation de détection.
+PHYS_MAX_SPEED_KMH = _float("PHYS_MAX_SPEED_KMH", 45.0)
+# Un track absent plus longtemps est une fragmentation ByteTrack (nouvel id)
+# : relier ses positions de part et d'autre inventerait un déplacement.
+PHYS_MAX_GAP_SEC = _float("PHYS_MAX_GAP_SEC", 1.2)
+# Timeline de possession : les segments plus courts que ça sont absorbés
+# dans le voisin (clignotements d'hystérésis) pour un rendu lisible.
+POSSESSION_SEGMENT_MIN_SEC = _float("POSSESSION_SEGMENT_MIN_SEC", 3.0)
+
 # Validation d'environnement : on échoue vite si la config est absente
 def check_config(require_supabase: bool = True) -> None:
     if require_supabase and (not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY):
@@ -198,3 +312,5 @@ def check_config(require_supabase: bool = True) -> None:
         )
     if not MODEL_NAME:
         raise RuntimeError("MODEL_NAME est requis")
+
+# (note: BALL_MODEL_PATH vide par défaut → pipeline n'utilise QUE COCO pour le ballon)

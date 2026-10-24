@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAuthUserDetailed, unauthorized, forbidden, isTeamMember, isTeamCoach } from "@/lib/api-auth";
-import { generateWeeklyChallenge, CHALLENGE_DIFFICULTIES } from "@/lib/challenges/ai-generator";
+import { CHALLENGE_DIFFICULTIES } from "@/lib/challenges/ai-generator";
+import { generateWeeklyChallenge } from "@/lib/challenges/challenge-generator";
 
 export const dynamic = "force-dynamic";
 

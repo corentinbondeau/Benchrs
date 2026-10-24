@@ -220,7 +220,7 @@ Règles :
 - Tu réponds UNIQUEMENT par un objet JSON valide (aucun texte avant/après, aucun bloc markdown) avec exactement cette structure :
 {
   "title": "titre du compte-rendu (ex: Compte-rendu du match du 15/02 contre ...)",
-  "summary": "paragraphe synthétique de 3 à 5 phrases résumant le match (contexte, tournant, résultat)",
+  "summary": "paragraphe synthétique de 3 à 5 phrases (3 minimum) résumant le match (contexte, tournant, résultat)",
   "points_forts": ["2 à 4 points forts collectifs observables"],
   "points_faibles": ["2 à 3 points à améliorer, formulés positivement"],
   "axes_progression": ["2 à 3 axes de travail concrets pour la prochaine séance"],

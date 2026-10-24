@@ -3,9 +3,9 @@ import { TACTICAL_PHASE_NAMES } from "@/lib/training/phases";
 import {
   EXPERTISE_LEVELS,
   FOOTBALL_SYSTEMS,
-  generateSessionWithAI,
   type ExpertiseLevel,
 } from "@/lib/training/ai-generator";
+import { generateSessionWithAI } from "@/lib/training/session-generator";
 import { renderSessionPdf } from "@/lib/training/pdf";
 import { getAuthUser, unauthorized, forbidden, isTeamMember } from "@/lib/api-auth";
 

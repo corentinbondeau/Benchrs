@@ -24,6 +24,7 @@
 from __future__ import annotations
 
 import math
+import os
 import time
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -36,6 +37,8 @@ from vision import (
     Box,
     FrameObjects,
     Tracker,
+    detect_ball2,
+    get_ball_model,
     get_model,
     hsv_distance,
     median_torso_color,
@@ -155,6 +158,12 @@ def classify_teams(
     _, _, centers = cv2.kmeans(
         colors, 2, None, crit, 5, cv2.KMEANS_PP_CENTERS
     )
+    # L'ordre des centroïdes retournés par k-means dépend de l'init
+    # aléatoire : sans canon, l'équipe 0 et l'équipe 1 s'échangent d'un
+    # run à l'autre (les stats par équipe deviennent non comparables).
+    # On ordonne par teinte HSV croissante — déterministe et cohérent.
+    if centers[0][0] > centers[1][0]:
+        centers = centers[::-1]
     c0, c1 = centers[0], centers[1]
 
     # Distance inter-centres : si les 2 équipes ont quasi la même
@@ -203,14 +212,14 @@ def possession_radius(median_player_h: float) -> float:
     return cfg.POSSESSION_RADIUS
 
 
-def build_possession(
+def possession_owners(
     records: list[FrameRecord],
     team_map: dict[int, int | None],
     model: TeamModel,
     fps: float,
     median_player_h: float,
-) -> tuple[float, float, float]:
-    """Possession (secondes + %) mesurée frame à frame.
+) -> list[int | None]:
+    """Séquence des équipes en possession, UNE entrée par frame.
 
     Règle : à chaque frame où le ballon est suivi, l'équipe du joueur le PLUS
     PROCHE du ballon est candidate au contrôle. On ne filtre PAS par un rayon :
@@ -224,14 +233,14 @@ def build_possession(
     cadre, masqué, ou détection joueurs momentanément vide), le DERNIER
     possesseur garde la possession (voir `POSSESSION_MAX_LOST_SEC`, 0 = illimité).
 
-    Le temps « mesuré » = durée totale où une possession est attribuée
-    (dénominateur du %).
+    Source unique de vérité pour `build_possession` ET le timeline de
+    possession (`tactics_metrics.possession_segments`) : les deux ne peuvent
+    pas diverger.
     """
-    t0 = t1 = 0.0
+    owners: list[int | None] = []
     owner: int | None = None
     pending: int | None = None
     pending_n = 0
-    frame_dt = 1.0 / fps if fps > 0 else 1.0 / 30.0
     lost_limit = (
         int(cfg.POSSESSION_MAX_LOST_SEC * fps)
         if cfg.POSSESSION_MAX_LOST_SEC > 0
@@ -278,10 +287,24 @@ def build_possession(
                 # (un ballon sorti du terrain ne doit pas compter indéfiniment).
                 owner = None
 
-        if owner == 0:
-            t0 += frame_dt
-        elif owner == 1:
-            t1 += frame_dt
+        owners.append(owner)
+
+    return owners
+
+
+def build_possession(
+    owners: list[int | None],
+    fps: float,
+) -> tuple[float, float, float]:
+    """Possession (secondes + %) à partir de la séquence des possesseurs
+    (`possession_owners`) — voir sa docstring pour la règle de calcul.
+
+    Le temps « mesuré » = durée totale où une possession est attribuée
+    (dénominateur du %).
+    """
+    frame_dt = 1.0 / fps if fps > 0 else 1.0 / 30.0
+    t0 = sum(1 for o in owners if o == 0) * frame_dt
+    t1 = sum(1 for o in owners if o == 1) * frame_dt
 
     total = t0 + t1
     pct0 = (t0 / total * 100.0) if total > 0 else 50.0
@@ -297,33 +320,55 @@ def count_passes(
     model: TeamModel,
     fps: float,
     median_player_h: float,
+    frame_width: float | None = None,
 ) -> tuple[int, int]:
     """Compte les passes complétées.
 
-    Méthode « vol de balle » : à chaque fois que le ballon QUITTE un joueur
-    (il sort du rayon de possession `POSSESSION_RADIUS`), on mémorise
-    l'équipe qui l'a relâché ; quand le ballon est de nouveau CONTROLA (par
-    un joueur à portée) par la MÊME équipe après avoir parcouru au moins
-    `PASS_MIN_DIST_FACTOR × hauteur joueur`, c'est une passe complétée.
-    Un contrôle par l'équipe adverse n'est PAS une passe (interception) — et
-    une passe ne peut donc JAMAIS être comptée pour les deux équipes : elle
-    appartient à l'équipe qui relâche ET recontrôle.
+    Méthode « vol de balle » : à chaque fois que le ballon QUITTE les
+    joueurs (plus aucun joueur d'équipe connue dans le rayon de contrôle
+    `PASS_CTRL_RADIUS_FACTOR × possession_radius`, plafonné à
+    `PASS_CTRL_MAX_FRAME_FRACTION × largeur de frame`, confirmé
+    `PASS_RELEASE_HOLD` frames), on mémorise l'équipe ET le track du joueur
+    qui l'a relâché ; quand le ballon est de nouveau contrôlé (rayon
+    identique, confirmé `PASS_HOLD` frames) par la MÊME équipe après avoir
+    parcouru au moins `PASS_MIN_DIST_FACTOR × hauteur joueur`, c'est une
+    passe complétée. Trois garde-fous :
+    - un contrôle par l'équipe adverse n'est PAS une passe (interception) ;
+    - le receveur doit être un **track différent** de l'expéditeur (un ballon
+      qui rebondit sur le même joueur n'est pas une passe) ;
+    - un vol qui dure plus de `PASS_MAX_FLIGHT_SEC` s'annule (le ballon est
+      sorti du cadre / perdu — un récontrôle des secondes plus tard n'est
+      pas la même action).
+    Le rayon strict `PASS_RADIUS_FACTOR × possession_radius` sert
+    d'hystérésis au lâcher (un ballon encore proche d'un joueur n'est pas
+    « quitté »).
 
-    De part et d'autre, les transitions sont **confirmées sur plusieurs frames**
-    (`POSSESSION_HOLD`) : un unique frame où le plus proche voisin change
-    d'équipe (bruit de détection) ne doit ni déclarer un « vol », ni valider un
-    re-contrôle — c'est ce qui faisait compter des passes fantômes.
+    Les personnes d'équipe inconnue (arbitre, mauvaise classification) sont
+    ignorées : elles ne déclenchent ni vol ni passe, et ne réinitialisent
+    pas le contrôleur (une fois, l'arbitre proche du ballon annulait toutes
+    les passes de l'équipe qui le jouait).
     """
+    base_r = possession_radius(median_player_h)
+    ctrl_r = cfg.PASS_CTRL_RADIUS_FACTOR * base_r
+    if frame_width and frame_width > 0:
+        ctrl_r = min(ctrl_r, cfg.PASS_CTRL_MAX_FRAME_FRACTION * frame_width)
+    rel_r = cfg.PASS_RADIUS_FACTOR * base_r
     min_travel = cfg.PASS_MIN_DIST_FACTOR * median_player_h
-    radius = possession_radius(median_player_h)
-    hold = max(1, cfg.POSSESSION_HOLD)
+    release_hold = max(1, cfg.PASS_RELEASE_HOLD)
+    hold = max(1, cfg.PASS_HOLD)
+    max_flight = cfg.PASS_MAX_FLIGHT_SEC  # secondes de temps mur
 
     controller: int | None = None      # équipe en contrôle confirmé
-    flying = False                     # le ballon a quitté le contrôle
+    controller_tid: int | None = None  # track du joueur en contrôle
+    flying = False
     release_pos: tuple[float, float] | None = None
+    release_tid: int | None = None
+    release_t: float | None = None     # temps mur du lâcher (timeout réel)
     last_ball: tuple[float, float] | None = None
-    out_n = 0                          # frames de suite hors de portée de tous
-    hold_team: int | None = None       # candidat au (re)contrôle
+    last_tid: int | None = None
+    out_n = 0
+    hold_team: int | None = None
+    hold_tid: int | None = None
     hold_n = 0
     passes: dict[int, int] = defaultdict(int)
 
@@ -332,49 +377,71 @@ def count_passes(
             continue
         bx, by = rec.ball
 
-        best: tuple[float, int] | None = None  # (dist, team)
+        if flying and release_t is not None:
+            if rec.t - release_t > max_flight:
+                flying = False  # vol expiré : ce n'est plus la même action
+                release_pos = None
+                release_tid = None
+                release_t = None
+
+        best: tuple[float, int, int] | None = None  # (dist, team, tid)
         for tid, person in rec.persons.items():
             team = person_team(tid, person, team_map, model)
             if team is None:
                 continue
             d = math.hypot(person.x - bx, person.y - by)
             if best is None or d < best[0]:
-                best = (d, team)
+                best = (d, team, tid)
 
-        near = best is not None and best[0] <= radius
+        near = best is not None and best[0] <= ctrl_r
 
         if near:
-            team = best[1]
-            if team == hold_team:
+            _, team, tid = best
+            if team == hold_team and tid == hold_tid:
                 hold_n += 1
             else:
-                hold_team = team
-                hold_n = 1
+                hold_team, hold_tid, hold_n = team, tid, 1
             if hold_n == hold:
-                # (Re)contrôle confirmé par cette équipe.
+                # (Re)contrôle confirmé.
                 if flying:
                     travel = (
                         math.hypot(bx - release_pos[0], by - release_pos[1])
                         if release_pos
                         else 0.0
                     )
-                    if team == controller and travel >= min_travel:
+                    if (
+                        team == controller
+                        and travel >= min_travel
+                        and tid != release_tid
+                    ):
                         passes[team] += 1
                     flying = False
                     release_pos = None
+                    release_tid = None
+                    release_t = None
                 controller = team
+                controller_tid = tid
                 out_n = 0
             if not flying:
                 last_ball = (bx, by)
+                last_tid = tid
         else:
             hold_team = None
+            hold_tid = None
             hold_n = 0
             if controller is not None:
-                out_n += 1
-                if not flying and out_n >= hold:
-                    # Vol confirmé : on mémorise d'où le ballon est parti.
-                    flying = True
-                    release_pos = last_ball if last_ball is not None else (bx, by)
+                # Hystérésis : le ballon n'est « quitté » que s'il dépasse
+                # aussi le rayon strict (ignoré quand ctrl_r >= rel_r).
+                left = best is None or best[0] > rel_r
+                if left:
+                    out_n += 1
+                    if not flying and out_n >= release_hold:
+                        flying = True
+                        release_pos = last_ball if last_ball is not None else (bx, by)
+                        release_tid = last_tid
+                        release_t = rec.t
+                else:
+                    out_n = 0
 
     return passes.get(0, 0), passes.get(1, 0)
 
@@ -548,21 +615,96 @@ def detect_shots(
         y_hit = s.y + vel_y * t_hit
         on_target = abs(y_hit - goal_center_y) <= goal_opening / 2
 
+        # (a) Projection hors amplitude verticale (y) du terrain : le ballon
+        # projeté finit bien au-delà de la bande de jeu couverte par les
+        # joueurs → la « frappe » part vers la touche, pas vers le but.
+        y_amp = max(all_py) - min(all_py)
+        if y_amp > 0 and abs(y_hit - goal_center_y) > cfg.SHOT_Y_MARGIN_FACTOR * y_amp:
+            if os.environ.get("SHOTS_DEBUG") == "1":
+                print(f"[shot?] t={s.t:.1f} REJET y_hit hors terrain "
+                      f"y_hit={y_hit:.0f} centre={goal_center_y:.0f} amp={y_amp:.0f}",
+                      flush=True)
+            continue
+
+        # (b) Atteinte (ou frôlement) du fond PUIS retour profond en jeu dans
+        # les secondes suivant la frappe : c'est un échange/dégagement qui
+        # finit près du fond, pas un tir isolé (un vrai tir sort et reste
+        # dehors, ou reste au filet). La zone « fond » est élargie à
+        # SHOT_NEAR_ZONE_FACTOR × reach : un dégagement s'arrête souvent à
+        # ~80 px du bord estimé sans vraiment entrer dans le reach strict —
+        # il faut quand même capter son retour en jeu.
+        reach_w = cfg.GOAL_REACH_FRACTION * (pitch_max_x - pitch_min_x)
+        look = int(cfg.GOAL_RETURN_GUARD_SEC * fps)
+        if vel_x < 0:
+            near_line = pitch_min_x + cfg.SHOT_NEAR_ZONE_FACTOR * reach_w
+            back_line = pitch_min_x + cfg.SHOT_RETURN_MARGIN_FACTOR * reach_w
+        else:
+            near_line = pitch_max_x - cfg.SHOT_NEAR_ZONE_FACTOR * reach_w
+            back_line = pitch_max_x - cfg.SHOT_RETURN_MARGIN_FACTOR * reach_w
+        reached_fond = False
+        returned = False
+        for o in order:
+            if o.idx <= a.idx:
+                continue
+            if o.idx > a.idx + look:
+                break
+            if (o.x <= near_line) if vel_x < 0 else (o.x >= near_line):
+                reached_fond = True
+            elif reached_fond and ((o.x > back_line) if vel_x < 0 else (o.x < back_line)):
+                returned = True
+                break
+        if returned:
+            if os.environ.get("SHOTS_DEBUG") == "1":
+                print(f"[shot?] t={s.t:.1f} REJET retour en jeu après fond "
+                      f"(zone={near_line:.0f} back_line={back_line:.0f} dans {look} frames)",
+                      flush=True)
+            continue
+
         # Équipe qui tire : le possesseur du moment
         team = possessor_team_at(
             frame_records, team_map, model, s.idx, median_player_h
         )
         team = team if team is not None else (0 if vel_x > 0 else 1)
 
-        # But probable : le ballon a dépassé franchement la ligne de but
+        # But probable : le ballon a dépassé franchement la ligne de but…
+        # …mais s'il revient profondément en jeu dans les secondes qui
+        # suivent, le « dépassement » était un dégagement qui frôle/croise la
+        # ligne estimée (bord de l'image), pas un but : on garde le tir.
         beyond = sample_from(s.idx + int(t_hit))
-        is_goal = bool(
-            beyond
-            and (beyond.x < pitch_min_x - 5 or beyond.x > pitch_max_x + 5)
-        )
+        is_goal = False
+        if beyond and (beyond.x < pitch_min_x - 5 or beyond.x > pitch_max_x + 5):
+            reach = cfg.GOAL_REACH_FRACTION * (pitch_max_x - pitch_min_x)
+            look = int(cfg.GOAL_RETURN_GUARD_SEC * fps)
+            if beyond.x < pitch_min_x - 5:
+                back_line = pitch_min_x + cfg.GOAL_RETURN_MARGIN_FACTOR * reach
+                returned = any(
+                    beyond.idx < o.idx <= beyond.idx + look and o.x > back_line
+                    for o in order
+                )
+            else:
+                back_line = pitch_max_x - cfg.GOAL_RETURN_MARGIN_FACTOR * reach
+                returned = any(
+                    beyond.idx < o.idx <= beyond.idx + look and o.x < back_line
+                    for o in order
+                )
+            is_goal = not returned
 
         event_type = "goal" if is_goal else "shot"
         side = "gauche" if vel_x < 0 else "droite"
+        if os.environ.get("SHOTS_DEBUG") == "1":
+            after = [o for o in order if a.idx <= o.idx <= a.idx + int(3 * fps)]
+            print(
+                f"[SHOT t={s.t:.1f}] {event_type} {side} cadré={on_target} "
+                f"hit=({s.x:.0f},{s.y:.0f}) vel=({vel_x:.1f},{vel_y:.1f}) "
+                f"step={step_len:.0f} mom={projected:.0f}/{momentum_factor * step_len:.0f} "
+                f"t_hit={t_hit:.0f} y_hit={y_hit:.0f}",
+                flush=True,
+            )
+            print(
+                f"  ±3s x={[round(o.x) for o in after[:18]]}"
+                f"{'…' if len(after) > 18 else ''} y={[round(o.y) for o in after[:18]]}",
+                flush=True,
+            )
         shots.append(
             {
                 "t": round(s.t, 1),
@@ -628,6 +770,7 @@ def detect_goals(
 
     goals: list[dict] = []
     last_goal_frame = -10**6
+    debug = os.environ.get("GOALS_DEBUG") == "1"
     for i in range(window, len(order)):
         cur = order[i]
         if cur.idx - last_goal_frame < cooldown:
@@ -638,17 +781,81 @@ def detect_goals(
             continue
         vx = (cur.x - prev.x) / span
         vy = (cur.y - prev.y) / span
-        if math.hypot(vx, vy) < min_speed:
+        speed = math.hypot(vx, vy)
+        if speed < min_speed:
+            if debug:
+                print(f"[goal?] t={cur.t:.1f} REJET vitesse {speed:.1f}<{min_speed:.1f} "
+                      f"span={span} pos=({cur.x:.0f},{cur.y:.0f})", flush=True)
+            continue
+        # Cohérence par PAS : un déplacement inter-échantillons au-delà du
+        # plausible physique = téléportation de détection (ballon perdu puis
+        # relocalisé à l'autre bout du terrain), pas une vraie trajectoire.
+        win = order[max(0, i - window): i + 1]
+        step_plaus = cfg.GOAL_MAX_STEP_FACTOR * median_player_h * step_scale
+        worst_step = 0.0
+        for k in range(len(win) - 1):
+            gap = win[k + 1].idx - win[k].idx
+            if gap <= 0:
+                continue
+            # Distance EUCLIDIENNE (x ET y) : une teleportation peut être
+            # purement verticale (Δx≈0, Δy=350 px) — ne mesurer que Δx
+            # la laissait passer.
+            worst_step = max(
+                worst_step,
+                math.hypot(win[k + 1].x - win[k].x, win[k + 1].y - win[k].y) / gap,
+            )
+        if worst_step > step_plaus:
+            if debug:
+                print(f"[goal?] t={cur.t:.1f} REJET pas incohérent "
+                      f"{worst_step:.0f}>{step_plaus:.0f} xs={[round(s.x) for s in win]}",
+                      flush=True)
             continue
         # Doit arriver DANS l'ouverture du but (bande verticale).
         if abs(cur.y - goal_center_y) > goal_opening / 2:
+            if debug:
+                print(f"[goal?] t={cur.t:.1f} REJET y hors ouverture "
+                      f"y={cur.y:.0f} centre={goal_center_y:.0f}", flush=True)
             continue
         if vx < 0 and cur.x <= pitch_min_x + reach:
             side, entry = "gauche", "entré"
         elif vx > 0 and cur.x >= pitch_max_x - reach:
             side, entry = "droite", "entré"
         else:
+            if debug:
+                print(f"[goal?] t={cur.t:.1f} REJET pas au fond "
+                      f"x={cur.x:.0f} (min={pitch_min_x:.0f} max={pitch_max_x:.0f} "
+                      f"reach={reach:.0f}) vx={vx:.1f}", flush=True)
             continue
+        # Garde-fou retour : si le ballon réapparaît profondément en jeu dans
+        # les secondes qui suivent, l'arrivée au fond était un dégagement qui
+        # frôle la ligne, pas un but (un vrai but reste au filet/disparaît).
+        look = int(cfg.GOAL_RETURN_GUARD_SEC * fps)
+        if side == "gauche":
+            back_line = pitch_min_x + cfg.GOAL_RETURN_MARGIN_FACTOR * reach
+            back = next(
+                (s for s in order
+                 if cur.idx < s.idx <= cur.idx + look and s.x > back_line),
+                None,
+            )
+        else:
+            back_line = pitch_max_x - cfg.GOAL_RETURN_MARGIN_FACTOR * reach
+            back = next(
+                (s for s in order
+                 if cur.idx < s.idx <= cur.idx + look and s.x < back_line),
+                None,
+            )
+        if back is not None:
+            if debug:
+                print(f"[goal?] t={cur.t:.1f} REJET retour en jeu "
+                      f"(x={back.x:.0f} au-delà de {back_line:.0f} à t={back.t:.1f})",
+                      flush=True)
+            continue
+
+        if debug:
+            print(f"[GOAL-ACCEPT] t={cur.t:.1f} cote={side} v={speed:.1f} "
+                  f"span={span} min_speed={min_speed:.1f} "
+                  f"ys={[round(s.y) for s in win]} xs={[round(s.x) for s in win]}",
+                  flush=True)
 
         team = possessor_team_at(frame_records, team_map, model, cur.idx, median_player_h)
         team = team if team is not None else (0 if vx > 0 else 1)
@@ -673,6 +880,8 @@ def select_ball_track(
     max_jump: float,
     fps: float,
     reacquire_frames: int | None = None,
+    hard_restart_frames: int | None = None,
+    max_speed: float | None = None,
 ) -> list[BallSample]:
     """Sélectionne UNE trajectoire de ballon cohérente frame à frame.
 
@@ -681,11 +890,39 @@ def select_ball_track(
     de 900 px et fausse tous les calculs (possessions, tirs). Ici on suit
     la détection la plus proche de la position PRÉDITE (position + vitesse),
     en rejetant les sauts > `max_jump`. Après `reacquire_frames` frames
-    sans ballon, on ré-acquiert la détection la plus confiante (le ballon
-    peut être sorti du cadre ou masqué un instant).
+    sans ballon, on tente une ré-acquisition PLAUSIBLE ; au-delà de
+    `hard_restart_frames`, la piste est considérée perdue et on repart à
+    zéro (trou honnête, pas une teleportation).
+
+    Trois règles évitent les « tracks polluées » (sauts de 500+ px entre
+    échantillons consécutifs) :
+
+    1. **La vitesse est par FRAME** : `vx = (chosen − prev) / step` où
+       `step` = nombre de frames écoulées depuis le dernier échantillon
+       accepté (trous compris). La prédiction est extrapolée sur `step`
+       frames (`prev + v × step`). Sans cette division, un trou de 5 frames
+       produisait une vitesse 5× trop grande, la prédiction partait à la
+       dérive, toutes les détections devenaient « trop loin » → cascade de
+       rejets → ré-acquisitions en série.
+    2. **La ré-acquisition est souple et PLAUSIBLE** : on ne reprend que la
+       détection la plus confiante parmi celles à distance ≤ `max_jump +
+       max_speed × step` de la prédiction (le ballon a pu aller vite pendant
+       le trou, pas traverser le terrain en 0,4 s). Aucune détection
+       plausible → on continue d'attendre.
+    3. **La ré-acquisition ne reprend PAS la vitesse** quand la détection
+       reprise est hors de portée (début de piste fraîche) : le déplacement
+       n'a aucun sens physique — en faire la nouvelle vitesse empoisonnait
+       la prédiction et créait des teleportations en chaîne.
     """
     if reacquire_frames is None:
         reacquire_frames = cfg.BALL_REACQUIRE_FRAMES
+    if hard_restart_frames is None:
+        hard_restart_frames = reacquire_frames * 4
+    if max_speed is None:
+        # ≈ 0.5 × hauteur joueur × stride (par frame analysée) : ~1× la
+        # vitesse d'une frappe rapide — au-delà, c'est une teleportation
+        # de détection, pas un déplacement de ballon.
+        max_speed = 0.5 * max_jump / cfg.BALL_MAX_JUMP_FACTOR
     samples: list[BallSample] = []
     prev: tuple[float, float] | None = None
     vx = vy = 0.0
@@ -694,21 +931,43 @@ def select_ball_track(
     for idx, dets in enumerate(candidates):
         if not dets:
             gap += 1
+            if prev is not None and gap >= hard_restart_frames:
+                prev = None  # piste perdue : trou honnête, repartir à zéro
             continue
 
         if prev is None:
             chosen = max(dets, key=lambda d: d[2])
         else:
-            px, py = prev[0] + vx, prev[1] + vy
+            step = gap + 1
+            px = prev[0] + vx * step
+            py = prev[1] + vy * step
             chosen = min(dets, key=lambda d: math.hypot(d[0] - px, d[1] - py))
             if math.hypot(chosen[0] - px, chosen[1] - py) > max_jump:
                 gap += 1
                 if gap < reacquire_frames:
+                    if gap >= hard_restart_frames:
+                        prev = None
                     continue
-                chosen = max(dets, key=lambda d: d[2])
+                # Ré-acquisition souple : parmi les détections encore
+                # physiquement plausibles, la plus confiante. Sinon attendre
+                # (ou restart si le trou est déjà très long). La vitesse
+                # implicite reste bornée par `radius / step` → pas de
+                # teleportation empoisonnante.
+                radius = max_jump + max_speed * step
+                plausible = [
+                    d for d in dets
+                    if math.hypot(d[0] - px, d[1] - py) <= radius
+                ]
+                if not plausible:
+                    if gap >= hard_restart_frames:
+                        prev = None
+                    continue
+                chosen = max(plausible, key=lambda d: d[2])
 
         if prev is not None:
-            vx, vy = chosen[0] - prev[0], chosen[1] - prev[1]
+            step = gap + 1
+            vx = (chosen[0] - prev[0]) / step
+            vy = (chosen[1] - prev[1]) / step
         prev = (chosen[0], chosen[1])
         gap = 0
         samples.append(BallSample(idx=idx, t=idx / fps, x=chosen[0], y=chosen[1]))
@@ -756,6 +1015,37 @@ def interpolate_ball_track(
     return out
 
 
+def merge_ball_candidates(
+    coco: list[list[tuple[float, float, float]]],
+    ball2: list[list[tuple[float, float, float]]] | None,
+    median_player_h: float,
+) -> list[list[tuple[float, float, float]]]:
+    """Fusionne les candidats ballon COCO et du 2e modèle (union), en
+    dédoublonnant par proximité (rayon = BALL_MERGE_RADIUS_FACTOR x
+    hauteur joueur, plancher 0.5 px). Retourne les candidats COCO si
+    `ball2` est vide/non fourni (pipeline mono-modèle inchangé)."""
+    if not ball2:
+        return [[(x, y, c) for x, y, c in d] for d in coco]
+    merge_r = cfg.BALL_MERGE_RADIUS_FACTOR * median_player_h
+    if merge_r < 0.5:
+        merge_r = 0.5
+    out: list[list[tuple[float, float, float]]] = []
+    for c, b in zip(coco, ball2):
+        cands = [(x, y, c) for x, y, c in c]
+        for bx, by, bc in b:
+            dup = False
+            for j, (cx, cy, cc) in enumerate(cands):
+                if math.hypot(bx - cx, by - cy) <= merge_r:
+                    dup = True
+                    if bc > cc:
+                        cands[j] = (bx, by, bc)
+                    break
+            if not dup:
+                cands.append((bx, by, bc))
+        out.append(cands)
+    return out
+
+
 # ─── Budget d'analyse : estimation du coût/frame ─────────────
 
 def estimate_sec_per_frame(
@@ -784,6 +1074,10 @@ def estimate_sec_per_frame(
         pass
 
     model = get_model()
+    # Si le 2e modèle ballon est configuré, il tourne sur CHAQUE frame
+    # analysée : son coût doit entrer dans la calibration (sinon le budget
+    # est sous-estimé et le stride choisi ne tiendra pas).
+    use_ball2 = bool(cfg.BALL_MODEL_PATH)
     times: list[float] = []
 
     def measure(frame: np.ndarray) -> None:
@@ -800,6 +1094,8 @@ def estimate_sec_per_frame(
             verbose=False,
             device=cfg.torch_device(),
         )
+        if use_ball2:
+            detect_ball2(frame)
         times.append(time.perf_counter() - t0)
 
     # Warmup (chargement du modèle) puis 1re mesure ignorée.
@@ -893,6 +1189,7 @@ def analyze_video(
     tracker = Tracker()
     records: list[FrameRecord] = []
     ball_candidates: list[list[tuple[float, float, float]]] = []
+    ball2_candidates: list[list[tuple[float, float, float]]] = []
     track_colors: dict[int, list[np.ndarray]] = defaultdict(list)
     median_heights: list[float] = []
 
@@ -967,6 +1264,9 @@ def analyze_video(
             )
         else:
             ball_candidates.append([])
+        # 2e détecteur ballon (optionnel, BALL_MODEL_PATH) : mêmes frames
+        # que COCO ; renvoie [] instantanément si non configuré.
+        ball2_candidates.append(detect_ball2(frame))
 
         records.append(record)
         idx += 1
@@ -999,20 +1299,44 @@ def analyze_video(
     ball_max_jump = cfg.BALL_MAX_JUMP_FACTOR * median_player_h * stride
     reacquire = max(1, cfg.BALL_REACQUIRE_FRAMES // stride)
     interp_gap = max(1, cfg.BALL_INTERP_MAX_GAP // stride)
+    # Union COCO ∪ modèle ballon dédié (si configuré) : les deux capteurs sont
+    # complémentaires (chacun manque ~10-30 % de frames que l'autre couvre),
+    # avec un accord ~90 % sur les frames communes. Sans BALL_MODEL_PATH,
+    # ball2_candidates est vide → les candidats COCO sont retournés tels quels.
+    merged_candidates = merge_ball_candidates(
+        ball_candidates, ball2_candidates, median_player_h
+    )
     ball_samples = select_ball_track(
-        ball_candidates, ball_max_jump, fps_eff, reacquire_frames=reacquire
+        merged_candidates, ball_max_jump, fps_eff, reacquire_frames=reacquire
     )
     ball_track = interpolate_ball_track(ball_samples, fps_eff, interp_gap)
     for s in ball_track:
         if 0 <= s.idx < len(records):
             records[s.idx].ball = (s.x, s.y)
 
-    pct0, pct1, meas_sec = build_possession(
-        records, team_map, team_model, fps_eff, median_player_h
+    # Import différé : tactics_metrics importe les dataclasses de ce module
+    # (FrameRecord, person_team…) — un import en tête de fichier serait un
+    # import circulaire.
+    from tactics_metrics import (
+        compute_physical,
+        compute_pressure,
+        compute_structure,
+        possession_segments,
     )
+
+    owners = possession_owners(records, team_map, team_model, fps_eff, median_player_h)
+    pct0, pct1, meas_sec = build_possession(owners, fps_eff)
     pass0, pass1 = count_passes(
-        records, team_map, team_model, fps_eff, median_player_h
+        records, team_map, team_model, fps_eff, median_player_h, frame_w
     )
+
+    # Métriques physiques / structure / pression : dérivées des tracks de
+    # joueurs (signal robuste), pas de la détection du ballon. Calibration
+    # px → m approximative (voir tactics_metrics) — valeurs relatives.
+    physical = compute_physical(records, team_map, team_model, median_player_h)
+    structure = compute_structure(records, team_map, team_model, median_player_h)
+    pressure = compute_pressure(records, team_map, team_model, median_player_h)
+    possession_timeline = possession_segments(owners, records)
 
     shots = detect_shots(
         ball_samples,
@@ -1077,6 +1401,10 @@ def analyze_video(
             "sec_per_frame": round(sec_per_frame, 3),
             "analysis_budget_sec": cfg.ANALYSIS_MAX_SEC,
             "timed_out": timed_out,
+            # 2e détecteur ballon (union COCO ∪ ball2) — null si désactivé
+            "ball_model": cfg.BALL_MODEL_PATH or None,
+            "ball2_frames": sum(1 for d in ball2_candidates if d),
+            "coco_ball_frames": sum(1 for d in ball_candidates if d),
         },
         "teams": {
             "team1": {
@@ -1097,7 +1425,14 @@ def analyze_video(
             "passes": {"team1": pass0, "team2": pass1},
             "shots": {"team1": shots0, "team2": shots1},
             "shots_on_target": {"team1": sot0, "team2": sot1},
+            # Métriques physiques / structure / pression (tactics_metrics).
+            # Absentes des anciennes analyses → le front doit les traiter
+            # comme optionnelles.
+            "physical": physical,
+            "structure": structure,
+            "pressure": pressure,
         },
+        "possession_timeline": possession_timeline,
         "timeline": shots[: cfg.MAX_TIMELINE],
     }
     return result

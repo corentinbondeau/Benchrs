@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAuthUserDetailed, unauthorized } from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { rateLimit, AUTH_LIMIT, clientKey } from "@/lib/rateLimit";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +13,7 @@ interface Collection {
 
 // Tables liées au compte, avec leur colonne d'appartenance (user_id, player_id, etc.)
 const COLLECTIONS: Collection[] = [
-  { table: "profiles", columns: "id, role, first_name, last_name, avatar_url, phone, date_of_birth, position, shirt_number, is_active, created_at", filters: [["id", "user"]] },
+  { table: "profiles", columns: "id, role, first_name, last_name, avatar_url, phone, date_of_birth, position, shirt_number, is_active, allergies, licence_number, emergency_contacts, medical_cert_expires_at, created_at, updated_at", filters: [["id", "user"]] },
   { table: "team_members", filters: [["user_id", "user"]] },
   { table: "parent_student", filters: [["parent_id", "user"], ["student_id", "user"]] },
   { table: "notifications", filters: [["user_id", "user"]] },
@@ -39,13 +40,29 @@ const COLLECTIONS: Collection[] = [
   { table: "team_polls", filters: [["created_by", "user"]] },
   { table: "season_plans", filters: [["created_by", "user"]] },
   { table: "quarterly_reports", filters: [["created_by", "user"], ["player_id", "user"]] },
+  { table: "user_consents", filters: [["user_id", "user"]] },
+  { table: "club_members", filters: [["user_id", "user"]] },
+  { table: "player_transfers", filters: [["requested_by", "user"]] },
 ];
 
 export async function GET(req: Request) {
+  if (!rateLimit(`account:export:${clientKey(req)}`, AUTH_LIMIT)) {
+    return NextResponse.json({ error: "Trop de tentatives" }, { status: 429 });
+  }
+
   const { user, reason } = await getAuthUserDetailed(req);
   if (!user) return unauthorized(reason);
 
   const admin = createAdminClient();
+
+  try {
+    await admin.from("rgpd_audit_logs").insert({
+      user_id: user.id,
+      actor_id: user.id,
+      action: "data_export_requested",
+      details: { email: user.email },
+    });
+  } catch {}
 
   const data: Record<string, unknown[]> = {};
 
@@ -53,11 +70,13 @@ export async function GET(req: Request) {
     COLLECTIONS.map(async (collection) => {
       const rows: unknown[] = [];
       for (const [column] of collection.filters) {
-        const { data: res } = await admin
-          .from(collection.table as "profiles")
-          .select(collection.columns ?? "*")
-          .eq(column, user.id);
-        if (res) rows.push(...(res as unknown[]));
+        try {
+          const { data: res } = await admin
+            .from(collection.table as "profiles")
+            .select(collection.columns ?? "*")
+            .eq(column, user.id);
+          if (res) rows.push(...(res as unknown[]));
+        } catch {}
       }
       return { table: collection.table, rows };
     })

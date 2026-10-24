@@ -72,6 +72,10 @@ function RegisterForm() {
   const [halfDuration, setHalfDuration] = useState(45);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [acceptTerms, setAcceptTerms] = useState(false);
+  const [acceptPrivacy, setAcceptPrivacy] = useState(false);
+  const [parentalConsent, setParentalConsent] = useState(false);
+  const [healthConsent, setHealthConsent] = useState(false);
   const [checking, setChecking] = useState(true);
   const router = useRouter();
 
@@ -135,6 +139,18 @@ function RegisterForm() {
   async function handleSubmitInfo(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+    if (!acceptTerms || !acceptPrivacy) {
+      setError("Vous devez accepter les CGU et la Politique de confidentialité.");
+      return;
+    }
+    if (formData.joinRole === "parent" && !parentalConsent) {
+      setError("Un consentement parental est requis pour l'inscription d'un responsable légal mineur.");
+      return;
+    }
+    if (!healthConsent) {
+      setError("Vous devez accepter le traitement des données de santé à des fins de secours.");
+      return;
+    }
 
     if (formData.password !== formData.confirmPassword) {
       setError("Les mots de passe ne correspondent pas");
@@ -742,13 +758,34 @@ function RegisterForm() {
             />
           </div>
         </CardContent>
-        <CardFooter className="flex flex-col gap-4">
-          <Button
-            type="submit"
-            className="w-full bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold"
-          >
-            Continuer
-          </Button>
+          <CardContent className="space-y-3 pb-0">
+            <label className="flex items-start gap-2 text-sm">
+              <input type="checkbox" checked={acceptTerms} onChange={(e) => setAcceptTerms(e.target.checked)} className="mt-0.5" />
+              <span>J&apos;accepte les <a href="/cgu" target="_blank" className="underline">CGU</a></span>
+            </label>
+            <label className="flex items-start gap-2 text-sm">
+              <input type="checkbox" checked={acceptPrivacy} onChange={(e) => setAcceptPrivacy(e.target.checked)} className="mt-0.5" />
+              <span>J&apos;accepte la <a href="/privacy" target="_blank" className="underline">Politique de confidentialité</a></span>
+            </label>
+            {formData.joinRole === "parent" && (
+              <label className="flex items-start gap-2 text-sm">
+                <input type="checkbox" checked={parentalConsent} onChange={(e) => setParentalConsent(e.target.checked)} className="mt-0.5" />
+                <span>Je confirme avoir l&apos;autorisation parentale / je suis le représentant légal et consens au traitement des données</span>
+              </label>
+            )}
+            <label className="flex items-start gap-2 text-sm">
+              <input type="checkbox" checked={healthConsent} onChange={(e) => setHealthConsent(e.target.checked)} className="mt-0.5" />
+              <span>J&apos;accepte le traitement des données de santé (allergies, contacts d&apos;urgence) à des fins de secours</span>
+            </label>
+          </CardContent>
+          <CardFooter className="flex flex-col gap-4">
+            <Button
+              type="submit"
+              className="w-full bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold"
+              disabled={!acceptTerms || !acceptPrivacy || !healthConsent || (formData.joinRole === "parent" && !parentalConsent)}
+            >
+              Continuer
+            </Button>
           <p className="text-sm text-muted-foreground text-center">
             Déjà un compte ?{" "}
             <Link href="/login" className="text-[var(--color-primary-blue)] hover:underline font-medium">

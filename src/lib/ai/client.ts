@@ -8,6 +8,8 @@
  *   AI_API_KEY  : clé d'API (Bearer token). Obligatoire pour Mistral/OpenAI,
  *                 ignorée pour Ollama local.
  *   AI_MODEL    : identifiant du modèle (défaut "mistral-small-latest")
+ *   AI_TIMEOUT_MS : timeout des requêtes en ms (défaut 120 000) — utile avec
+ *                   Ollama local dont les générations JSON longues dépassent 120s
  *
  * Retry : 1 retry automatique sur erreur serveur (>= 500), rate-limit (429)
  *         ou erreur réseau.
@@ -32,7 +34,9 @@ export async function callAI(
   const apiKey = process.env.AI_API_KEY || process.env.MISTRAL_API_KEY || "";
   const model = process.env.AI_MODEL || "mistral-small-latest";
   const temperature = options?.temperature ?? 0.7;
-  const timeoutMs = options?.timeout ?? 120_000;
+  // AI_TIMEOUT_MS : utile avec Ollama local (générations JSON longues >> 120s sur CPU)
+  const timeoutMs =
+    options?.timeout ?? Number(process.env.AI_TIMEOUT_MS || 120_000);
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
