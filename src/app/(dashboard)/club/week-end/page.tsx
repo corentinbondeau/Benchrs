@@ -91,9 +91,15 @@ export default function ClubWeekEndPage() {
 
   const load = useCallback(
     async (cid: string, winStart: Date) => {
-      const { data: teamsData } = await supabaseRef.current.from("teams").select("id, name").eq("club_id", cid);
-      const teams = ((teamsData || []) as { id: string; name: string }[]).map((t) => t.id);
-      const names = Object.fromEntries(((teamsData || []) as { id: string; name: string }[]).map((t) => [t.id, t.name]));
+      // Récupérer TOUTES les équipes du club par club_id
+      const { data: allTeams } = await supabaseRef.current
+        .from("teams")
+        .select("id, name")
+        .eq("club_id", cid);
+      
+      const teamsDataFinal = allTeams || [];
+      const teams = teamsDataFinal.map((t) => t.id);
+      const names = Object.fromEntries(teamsDataFinal.map((t) => [t.id, t.name]));
       if (teams.length === 0) return { events: [] as WeekendEvent[], teamNames: names, canSend: false };
 
       const start = mondayOf(winStart);
