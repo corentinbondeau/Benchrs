@@ -105,7 +105,7 @@ export const NAV_SECTIONS: { key: string; title: string; items: NavItem[] }[] = 
       { key: "rapport", href: "/club/rapport", label: "Rapport de saison", icon: FileText, clubOnly: true },
       { key: "annuaire", href: "/club/annuaire", label: "Annuaire", icon: BookUser, clubOnly: true },
       { key: "terrains", href: "/club/terrains", label: "Terrains", icon: MapPin, clubOnly: true },
-      { key: "clubhouse", href: "/club/clubhouse", label: "Club House", icon: Sofa, clubTeamOnly: true },
+      { key: "clubhouse", href: "/club/clubhouse", label: "Club House", icon: Sofa, clubOnly: true },
       { key: "mutations", href: "/club/mutations", label: "Mutations", icon: RefreshCw, clubOnly: true },
       { key: "clubfeed", href: "/club/feed", label: "Fil du club", icon: Newspaper, clubTeamOnly: true },
       { key: "equipment", href: "/club/equipment", label: "Équipements", icon: Shirt, clubOnly: true },
