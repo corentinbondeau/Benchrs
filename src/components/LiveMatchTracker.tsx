@@ -1299,7 +1299,9 @@ export function LiveMatchTracker({
           </p>
         ) : (
           <div className="relative space-y-1">
-            {events.map((ev) => {
+            {events
+              .filter((ev) => ev.event_type !== "substitution")
+              .map((ev) => {
               const cfg = EVENT_TYPE_CONFIG[ev.event_type as LiveEventType];
               const Icon = cfg?.icon || Activity;
               const { text, detail } = eventSummary(ev, playerList);
