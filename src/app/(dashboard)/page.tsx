@@ -124,14 +124,23 @@ export default function DashboardPage() {
   const { userRole, clubMemberships, currentTeam, teams } = useTeam();
   const router = useRouter();
   const isComiteOnly = clubMemberships.length > 0 && userRole === null;
+  const isCoach = userRole === "coach" || userRole === "owner";
 
   useEffect(() => {
     if (isComiteOnly) {
       router.replace("/club");
+      return;
     }
-  }, [isComiteOnly, router]);
+    if (isCoach && teams && teams.length > 1) {
+      router.replace("/multi");
+    }
+  }, [isComiteOnly, isCoach, teams, router]);
 
   if (isComiteOnly) {
+    return null;
+  }
+
+  if (isCoach && teams && teams.length > 1) {
     return null;
   }
 

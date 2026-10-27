@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useTeam } from "@/lib/team";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Calendar, Users, MapPin, Trophy, ArrowRight } from "lucide-react";
+import { Calendar, Users, MapPin, Trophy, ArrowRight, CheckCircle, XCircle, Clock, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 
@@ -16,6 +16,8 @@ type TeamSummary = {
   events: any[];
   matchCount: number;
   trainingCount: number;
+  attendances: Record<string, { present: number; late: number; absent: number; excused: number; total: number; noResponse: number }>;
+  convocationsNoResponse: number;
 };
 
 export default function MultiTeamHomePage() {
@@ -60,12 +62,46 @@ export default function MultiTeamHomePage() {
           .order("event_date", { ascending: true });
         
         const events = (evs || []) as any[];
+        const eventIds = events.map((e: any) => e.id);
+        
+        let attendances: Record<string, { present: number; late: number; absent: number; excused: number; total: number; noResponse: number }> = {};
+        let convocationsNoResponse = 0;
+        
+        if (eventIds.length > 0) {
+          const { data: att } = await supabase
+            .from("attendances")
+            .select("event_id, status")
+            .in("event_id", eventIds);
+          
+          const { data: members } = await supabase
+            .from("team_members")
+            .select("user_id")
+            .eq("team_id", team.id)
+            .in("role", ["player", "parent"]);
+          
+          const totalMembers = members?.length || 0;
+          
+          for (const ev of events) {
+            const evAtt = (att || []).filter((a: any) => a.event_id === ev.id);
+            const present = evAtt.filter((a: any) => a.status === "present").length;
+            const late = evAtt.filter((a: any) => a.status === "late").length;
+            const absent = evAtt.filter((a: any) => a.status === "absent").length;
+            const excused = evAtt.filter((a: any) => a.status === "excused").length;
+            const responded = present + late + absent + excused;
+            const noResponse = Math.max(0, totalMembers - responded);
+            attendances[ev.id] = { present, late, absent, excused, total: totalMembers, noResponse };
+            if (noResponse > 0) convocationsNoResponse += noResponse;
+          }
+        }
+        
         results.push({
           team_id: team.id,
           team_name: team.name,
           events,
           matchCount: events.filter(e => e.type === "match").length,
           trainingCount: events.filter(e => e.type === "training").length,
+          attendances,
+          convocationsNoResponse,
         });
       }
       setSummaries(results);
@@ -111,6 +147,12 @@ export default function MultiTeamHomePage() {
             <p className="text-sm text-muted-foreground">
               {summary.matchCount} match{summary.matchCount > 1 ? "s" : ""} • {summary.trainingCount} entraînement{summary.trainingCount > 1 ? "s" : ""}
             </p>
+            {summary.convocationsNoResponse > 0 && (
+              <div className="mt-2 flex items-center gap-2 text-xs text-amber-600 bg-amber-50 dark:bg-amber-950/20 px-2 py-1 rounded">
+                <Bell className="h-3 w-3" />
+                {summary.convocationsNoResponse} convocation{summary.convocationsNoResponse > 1 ? "s" : ""} sans réponse
+              </div>
+            )}
           </CardHeader>
           <CardContent className="space-y-2">
             {summary.events.length === 0 ? (
@@ -118,6 +160,7 @@ export default function MultiTeamHomePage() {
             ) : (
               summary.events.map((ev) => {
                 const date = new Date(ev.event_date);
+                const att = summary.attendances[ev.id];
                 return (
                   <button
                     key={ev.id}
@@ -145,6 +188,14 @@ export default function MultiTeamHomePage() {
                         <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
                           <MapPin className="h-3 w-3" /> {ev.location}
                         </p>
+                      )}
+                      {att && (
+                        <div className="flex items-center gap-3 mt-1 text-xs">
+                          <span className="flex items-center gap-1 text-green-600"><CheckCircle className="h-3 w-3" />{att.present}</span>
+                          <span className="flex items-center gap-1 text-orange-600"><Clock className="h-3 w-3" />{att.late}</span>
+                          <span className="flex items-center gap-1 text-red-600"><XCircle className="h-3 w-3" />{att.absent}</span>
+                          <span className="flex items-center gap-1 text-gray-500"><Clock className="h-3 w-3" />{att.noResponse} sans rép.</span>
+                        </div>
                       )}
                     </div>
                     <span className={`text-xs px-2 py-1 rounded-full ${ev.type === "match" ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700"}`}>
