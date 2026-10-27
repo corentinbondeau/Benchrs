@@ -73,9 +73,16 @@ export default function ClubWeekEndPage() {
       const { data: tms } = await supabaseRef.current.from("team_members").select("team_id").eq("user_id", user.id);
       const teamIds = (tms || []).map((t) => t.team_id);
       if (teamIds.length > 0) {
-        const { data: teams } = await supabaseRef.current.from("teams").select("id, club_id").in("id", teamIds);
-        const cid = (teams || []).find((t) => t.club_id)?.club_id;
-        if (cid) setClubId(cid);
+        const { data: teams } = await supabaseRef.current.from("teams").select("id, club_id").in("id", teamIds).not("club_id", "is", null);
+        if (teams && teams.length > 0 && teams[0].club_id) {
+          setClubId(teams[0].club_id);
+          return;
+        }
+      }
+      // Dernier recours: chercher n'importe quelle équipe avec un club_id
+      const { data: anyTeam } = await supabaseRef.current.from("teams").select("club_id").not("club_id", "is", null).limit(1);
+      if (anyTeam && anyTeam[0]?.club_id) {
+        setClubId(anyTeam[0].club_id);
       }
       setPageLoading(false);
     }
