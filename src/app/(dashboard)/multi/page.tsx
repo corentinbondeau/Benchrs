@@ -42,6 +42,7 @@ export default function MultiTeamHomePage() {
           .from("events")
           .select("id, title, type, event_date, opponent, location, status")
           .eq("team_id", team.id)
+          .neq("status", "cancelled")
           .gte("event_date", startOfWeek.toISOString())
           .lte("event_date", endOfWeek.toISOString())
           .order("event_date", { ascending: true });
