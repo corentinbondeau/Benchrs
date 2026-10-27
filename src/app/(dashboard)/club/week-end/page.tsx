@@ -239,7 +239,7 @@ export default function ClubWeekEndPage() {
             const team = teamNames[e.team_id] ?? "Équipe";
             const hasResult = e.status === "completed" || (e.score_us != null && e.score_them != null);
             return (
-              <Card key={e.id} className="cursor-pointer hover:bg-accent/40 transition" onClick={() => { try { localStorage.setItem("selectedTeamId", e.team_id); } catch {}; router.push(`/matches/${e.id}`); }}>
+              <Card key={e.id} className="cursor-pointer hover:bg-accent/40 transition" onClick={() => { try { localStorage.setItem("selectedTeamId", e.team_id); } catch {}; router.push(`/club/week-end/${e.id}`); }}>
                 <CardContent className="p-4 flex flex-wrap items-center gap-3">
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
