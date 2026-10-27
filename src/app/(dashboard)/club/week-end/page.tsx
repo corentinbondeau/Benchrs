@@ -6,10 +6,9 @@ import { createClient } from "@/lib/supabase/client";
 import { authFetch } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth";
 import { useTeam } from "@/lib/team";
-import { ClubPageShell } from "@/components/club/ClubPageShell";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import { CalendarDays, ChevronLeft, ChevronRight, MapPin, Send, Trophy } from "lucide-react";
 import { toast } from "sonner";
 
@@ -34,9 +33,7 @@ function mondayOf(date: Date): Date {
 }
 
 function formatDay(iso: string): string {
-  return new Intl.DateTimeFormat("fr-FR", { weekday: "long", day: "numeric", month: "long" }).format(
-    new Date(iso)
-  );
+  return new Intl.DateTimeFormat("fr-FR", { weekday: "long", day: "numeric", month: "long" }).format(new Date(iso));
 }
 
 function formatHour(iso: string): string {
@@ -55,19 +52,41 @@ export default function ClubWeekEndPage() {
   const [canSend, setCanSend] = useState(false);
   const [weekStart, setWeekStart] = useState<Date>(() => mondayOf(new Date()));
   const [sending, setSending] = useState(false);
+  const [clubId, setClubId] = useState<string | null>(null);
 
   const supabaseRef = useRef(createClient());
 
-  const clubId = currentTeam?.club_id || null;
-  const isCommittee = (clubMemberships?.length ?? 0) > 0;
+  useEffect(() => {
+    async function resolveClub() {
+      if (!user) return;
+      // Try from currentTeam first
+      if (currentTeam?.club_id) {
+        setClubId(currentTeam.club_id);
+        return;
+      }
+      // Try from club_memberships
+      if (clubMemberships && clubMemberships.length > 0) {
+        setClubId(clubMemberships[0].club_id);
+        return;
+      }
+      // Try from team_members -> teams
+      const { data: tms } = await supabaseRef.current.from("team_members").select("team_id").eq("user_id", user.id);
+      const teamIds = (tms || []).map((t) => t.team_id);
+      if (teamIds.length > 0) {
+        const { data: teams } = await supabaseRef.current.from("teams").select("id, club_id").in("id", teamIds);
+        const cid = (teams || []).find((t) => t.club_id)?.club_id;
+        if (cid) setClubId(cid);
+      }
+      setPageLoading(false);
+    }
+    resolveClub();
+  }, [user, currentTeam, clubMemberships]);
 
   const load = useCallback(
     async (cid: string, winStart: Date) => {
       const { data: teamsData } = await supabaseRef.current.from("teams").select("id, name").eq("club_id", cid);
       const teams = ((teamsData || []) as { id: string; name: string }[]).map((t) => t.id);
-      const names = Object.fromEntries(
-        ((teamsData || []) as { id: string; name: string }[]).map((t) => [t.id, t.name])
-      );
+      const names = Object.fromEntries(((teamsData || []) as { id: string; name: string }[]).map((t) => [t.id, t.name]));
       if (teams.length === 0) return { events: [] as WeekendEvent[], teamNames: names, canSend: false };
 
       const start = mondayOf(winStart);
@@ -83,22 +102,21 @@ export default function ClubWeekEndPage() {
         .lt("event_date", end.toISOString())
         .order("event_date", { ascending: true });
 
-      const rows = ((eventsData || []) as Record<string, unknown>[])
-        .map((e) => ({
-          id: e.id as string,
-          team_id: e.team_id as string,
-          type: "match" as const,
-          title: e.title as string,
-          opponent: (e.opponent as string | null) ?? null,
-          event_date: e.event_date as string,
-          location: (e.location as string | null) ?? null,
-          status: (e.status as WeekendEvent["status"]) ?? "upcoming",
-          score_us: (e.score_us as number | null) ?? null,
-          score_them: (e.score_them as number | null) ?? null,
-          match_result: (e.match_result as WeekendEvent["match_result"]) ?? null,
-        }));
+      const rows = ((eventsData || []) as Record<string, unknown>[]).map((e) => ({
+        id: e.id as string,
+        team_id: e.team_id as string,
+        type: "match" as const,
+        title: e.title as string,
+        opponent: (e.opponent as string | null) ?? null,
+        event_date: e.event_date as string,
+        location: (e.location as string | null) ?? null,
+        status: (e.status as WeekendEvent["status"]) ?? "upcoming",
+        score_us: (e.score_us as number | null) ?? null,
+        score_them: (e.score_them as number | null) ?? null,
+        match_result: (e.match_result as WeekendEvent["match_result"]) ?? null,
+      }));
 
-      let canSend = isCommittee;
+      let canSend = (clubMemberships?.length ?? 0) > 0;
       if (!canSend && user) {
         const { data: mine } = await supabaseRef.current
           .from("team_members")
@@ -111,7 +129,7 @@ export default function ClubWeekEndPage() {
 
       return { events: rows, teamNames: names, canSend };
     },
-    [user, isCommittee]
+    [user, clubMemberships]
   );
 
   useEffect(() => {
@@ -119,6 +137,7 @@ export default function ClubWeekEndPage() {
       setPageLoading(false);
       return;
     }
+    setPageLoading(true);
     load(clubId, weekStart).then((res) => {
       setEvents(res.events);
       setTeamNames(res.teamNames);
@@ -139,10 +158,7 @@ export default function ClubWeekEndPage() {
       const res = await authFetch("/api/clubs/weekend-recap", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          clubId,
-          weekStart: `${mondayOf(new Date()).toISOString().slice(0, 10)}`,
-        }),
+        body: JSON.stringify({ clubId, weekStart: `${mondayOf(new Date()).toISOString().slice(0, 10)}` }),
       });
       const data = (await res.json()) as { error?: string };
       if (!res.ok) {
@@ -157,6 +173,7 @@ export default function ClubWeekEndPage() {
 
   const matches = events.filter((e) => e.type === "match");
   const wins = matches.filter((m) => m.status === "completed" && m.match_result === "win").length;
+  const isCommittee = (clubMemberships?.length ?? 0) > 0;
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6 space-y-4">
@@ -164,7 +181,7 @@ export default function ClubWeekEndPage() {
         <div>
           <h1 className="text-xl font-bold flex items-center gap-2">
             <CalendarDays className="h-5 w-5" />
-            Le week-end du club
+            Week-end du club
           </h1>
           <p className="text-sm text-muted-foreground">Tous les matchs de toutes les équipes du club</p>
         </div>
@@ -181,31 +198,21 @@ export default function ClubWeekEndPage() {
           <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => changeWeek(-1)}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <p className="font-semibold text-sm">
-            Semaine du {formatDay(mondayOf(weekStart).toISOString())}
-          </p>
+          <p className="font-semibold text-sm">Semaine du {formatDay(mondayOf(weekStart).toISOString())}</p>
           <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => changeWeek(1)}>
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
         <div className="flex gap-1 text-xs">
-          <Badge variant="secondary">
-            {matches.length} match{matches.length > 1 ? "s" : ""}
-          </Badge>
+          <Badge variant="secondary">{matches.length} match{matches.length > 1 ? "s" : ""}</Badge>
           {wins > 0 && <Badge variant="default">{wins} victoire{wins > 1 ? "s" : ""}</Badge>}
         </div>
       </div>
 
       {pageLoading ? (
-        <Card>
-          <CardContent className="py-12 text-center text-muted-foreground">Chargement...</CardContent>
-        </Card>
+        <Card><CardContent className="py-12 text-center text-muted-foreground">Chargement...</CardContent></Card>
       ) : !clubId ? (
-        <Card>
-          <CardContent className="py-12 text-center text-muted-foreground">
-            Vous n'êtes rattaché à aucun club.
-          </CardContent>
-        </Card>
+        <Card><CardContent className="py-12 text-center text-muted-foreground">Vous n'êtes rattaché à aucun club.</CardContent></Card>
       ) : events.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
@@ -219,56 +226,31 @@ export default function ClubWeekEndPage() {
             const team = teamNames[e.team_id] ?? "Équipe";
             const hasResult = e.status === "completed" || (e.score_us != null && e.score_them != null);
             return (
-              <Card
-                key={e.id}
-                className="cursor-pointer hover:bg-accent/40 transition"
-                onClick={() => {
-                  try {
-                    localStorage.setItem("selectedTeamId", e.team_id);
-                  } catch {}
-                  router.push(`/matches/${e.id}`);
-                }}
-              >
+              <Card key={e.id} className="cursor-pointer hover:bg-accent/40 transition" onClick={() => { try { localStorage.setItem("selectedTeamId", e.team_id); } catch {}; router.push(`/matches/${e.id}`); }}>
                 <CardContent className="p-4 flex flex-wrap items-center gap-3">
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <Badge variant="default">
-                        <Trophy className="h-3 w-3 mr-1" />
-                        Match
-                      </Badge>
+                      <Badge variant="default"><Trophy className="h-3 w-3 mr-1" />Match</Badge>
                       <span className="text-sm font-semibold">{team}</span>
                     </div>
                     <p className="text-sm mt-1">
                       {e.opponent 
-                        ? e.location && e.location.toLowerCase().includes("domicile")
-                          ? `Domicile vs ${e.opponent}`
-                          : e.location && (e.location.toLowerCase().includes("extérieur") || e.location.toLowerCase().includes("exterieur"))
-                            ? `Extérieur vs ${e.opponent}`
-                            : `vs ${e.opponent}`
+                        ? e.location && e.location.toLowerCase().includes("domicile") ? `Domicile vs ${e.opponent}`
+                        : e.location && (e.location.toLowerCase().includes("extérieur") || e.location.toLowerCase().includes("exterieur")) ? `Extérieur vs ${e.opponent}`
+                        : `vs ${e.opponent}`
                         : e.title}
                     </p>
                     <p className="text-xs text-muted-foreground flex flex-wrap items-center gap-2">
                       {formatDay(e.event_date)} · {formatHour(e.event_date)}
                       {e.location && !e.location.toLowerCase().includes("domicile") && !e.location.toLowerCase().includes("extérieur") && !e.location.toLowerCase().includes("exterieur") && (
-                        <span className="inline-flex items-center gap-1">
-                          <MapPin className="h-3 w-3" />
-                          {e.location}
-                        </span>
+                        <span className="inline-flex items-center gap-1"><MapPin className="h-3 w-3" />{e.location}</span>
                       )}
                     </p>
                   </div>
                   {hasResult && e.score_us != null && (
                     <div className="flex items-center gap-2">
-                      {e.match_result && (
-                        <Badge
-                          variant={e.match_result === "win" ? "default" : e.match_result === "draw" ? "secondary" : "destructive"}
-                        >
-                          {RESULT_LABEL[e.match_result]}
-                        </Badge>
-                      )}
-                      <span className="font-bold tabular-nums">
-                        {e.score_us} - {e.score_them ?? 0}
-                      </span>
+                      {e.match_result && <Badge variant={e.match_result === "win" ? "default" : e.match_result === "draw" ? "secondary" : "destructive"}>{RESULT_LABEL[e.match_result]}</Badge>}
+                      <span className="font-bold tabular-nums">{e.score_us} - {e.score_them ?? 0}</span>
                     </div>
                   )}
                 </CardContent>
