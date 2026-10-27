@@ -346,7 +346,7 @@ function BottomNav() {
         { href: "/stats", label: "Perf", icon: BarChart3 },
       ]
     : [
-        { href: "/", label: "Accueil", icon: Home },
+        ...(userRole === "coach" || userRole === "owner" && teams.length > 1 ? [{ href: "/multi", label: "Accueil", icon: Home }] : [{ href: "/", label: "Accueil", icon: Home }]),
         { href: "/calendar", label: "Agenda", icon: Calendar },
         { href: "/roster", label: "Équipe", icon: Users },
         { href: "/stats", label: "Perf", icon: BarChart3 },

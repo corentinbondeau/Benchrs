@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useTeam } from "@/lib/team";
@@ -18,13 +19,24 @@ type TeamSummary = {
 };
 
 export default function MultiTeamHomePage() {
+  const router = useRouter();
   const { user } = useAuth();
-  const { teams, switchTeam, currentTeam } = useTeam();
+  const { teams, switchTeam, currentTeam, userRole } = useTeam();
   const [summaries, setSummaries] = useState<TeamSummary[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const isCoach = userRole === "coach" || userRole === "owner";
+  const isMultiCoach = isCoach && teams.length > 1;
+
   useEffect(() => {
-    if (!user?.id) return;
+    if (isCoach === undefined || teams === undefined) return;
+    if (!isMultiCoach) {
+      router.replace("/");
+    }
+  }, [isCoach, teams, isMultiCoach, router]);
+
+  useEffect(() => {
+    if (!user?.id || !isMultiCoach) return;
     const supabase = createClient();
     
     async function load() {
@@ -60,7 +72,11 @@ export default function MultiTeamHomePage() {
       setLoading(false);
     }
     load();
-  }, [user?.id, teams]);
+  }, [user?.id, teams, isMultiCoach]);
+
+  if (!isMultiCoach) {
+    return <div className="p-6 text-center text-muted-foreground">Redirection...</div>;
+  }
 
   if (loading) return <div className="p-6 text-center text-muted-foreground">Chargement...</div>;
 

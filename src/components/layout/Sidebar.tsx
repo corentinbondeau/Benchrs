@@ -289,7 +289,14 @@ function Sidebar() {
       <nav className="flex-1 overflow-y-auto py-3 px-3 space-y-1">
         {/* Primary: 5 main items always visible */}
         <div className="space-y-0.5">
-          {primaryNav.map((item) => {
+          {primaryNav
+            .filter((item) => {
+              if (item.href === "/multi") {
+                return (userRole === "coach" || userRole === "owner") && teams.length > 1;
+              }
+              return true;
+            })
+            .map((item) => {
             const active = isActive(item.href);
             const badge = item.href === CHAT_HREF ? unreadChat : 0;
             if (isComiteOnly && !["/", "/calendar", "/roster", "/stats"].includes(item.href)) return null;
