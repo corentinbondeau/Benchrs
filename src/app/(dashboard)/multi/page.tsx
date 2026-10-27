@@ -114,7 +114,13 @@ export default function MultiTeamHomePage() {
                   >
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-sm">
-                        {ev.type === "match" ? `Match vs ${ev.opponent || "?"}` : ev.title}
+                        {ev.type === "match" 
+                          ? ev.location && ev.location.toLowerCase().includes("domicile")
+                            ? `Domicile vs ${ev.opponent || "?"}`
+                            : ev.location && (ev.location.toLowerCase().includes("extérieur") || ev.location.toLowerCase().includes("exterieur"))
+                              ? `Extérieur vs ${ev.opponent || "?"}`
+                              : `Match vs ${ev.opponent || "?"}`
+                          : ev.title}
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {date.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })} à {date.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
