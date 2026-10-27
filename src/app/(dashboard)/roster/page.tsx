@@ -117,7 +117,7 @@ export default function RosterPage() {
       }
       for (const l of (links || []) as any[]) {
         if (!map[l.parent_id]) map[l.parent_id] = [];
-        const name = playerNames[l.student_id];
+        const name = playerNames[l.student_id || l.player_id];
         if (name && !map[l.parent_id].includes(name)) map[l.parent_id].push(name);
       }
       setParentLinks(map);
