@@ -12,7 +12,6 @@ import { PendingConvocations } from "@/components/dashboard/PendingConvocations"
 import QuickStats from "@/components/dashboard/QuickStats";
 import RecentResults from "@/components/dashboard/RecentResults";
 import { CoachWeekOverview } from "@/components/dashboard/CoachWeekOverview";
-import { CoachAllTeamsWeek } from "@/components/dashboard/CoachAllTeamsWeek";
 import { PlayerDashboard } from "@/components/dashboard/PlayerDashboard";
 import { ParentDashboard } from "@/components/dashboard/ParentDashboard";
 import { Card, CardContent } from "@/components/ui/card";
@@ -169,10 +168,6 @@ export default function DashboardPage() {
         <Suspense fallback={<ContentSkeleton />}>
           <PendingConvocations />
         </Suspense>
-      </ErrorBoundary>
-
-      <ErrorBoundary>
-        <CoachAllTeamsWeek />
       </ErrorBoundary>
 
       {/* P1: This week overview — events, availability, RPE, injuries */}
