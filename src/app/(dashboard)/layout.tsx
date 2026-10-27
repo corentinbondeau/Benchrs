@@ -31,7 +31,7 @@ export default function DashboardLayout({
             {!isMobile && <Sidebar />}
             <div className="flex flex-1 flex-col overflow-hidden min-w-0">
               <TopBar />
-              <main className="flex-1 overflow-y-auto overflow-x-clip">
+              <main id="main-content" className="flex-1 overflow-y-auto overflow-x-clip overscroll-y-contain">
                 <div className="page-container px-4 py-4 md:px-6 md:py-5 lg:px-8 lg:py-6 pb-24 lg:pb-8">
                   <div className="animate-[fadeIn_0.2s_ease-out]">
                     {children}

@@ -70,7 +70,7 @@ export const NAV_SECTIONS: { key: string; title: string; items: NavItem[] }[] = 
     items: [
       { key: "medical", href: "/medical", label: "Infirmerie", icon: Heart },
       { key: "carpooling", href: "/carpooling", label: "Covoiturage", icon: Car },
-      { key: "attendance", href: "/attendance", label: "Présences", icon: Users },
+      { key: "availability", href: "/availability", label: "Indisponibilités", icon: CalendarClock },
       { key: "tasks", href: "/tasks", label: "Tâches", icon: ListTodo },
       { key: "polls", href: "/polls", label: "Sondages", icon: Vote },
       { key: "gallery", href: "/gallery", label: "Galerie", icon: ImageIcon },
@@ -86,9 +86,7 @@ export const NAV_SECTIONS: { key: string; title: string; items: NavItem[] }[] = 
       { key: "tactics", href: "/tactics", label: "Tactique", icon: Swords, coachOnly: true },
       { key: "championship", href: "/championship", label: "Championnat", icon: Medal },
       { key: "adversaires", href: "/adversaires", label: "Adversaires", icon: Flag },
-      { key: "compare", href: "/stats/compare", label: "Comparer", icon: GitCompareArrows, coachOnly: true },
       { key: "drop", href: "/stats/drop", label: "Baisse de forme", icon: TrendingDown, coachOnly: true },
-      { key: "trophies", href: "/trophies", label: "Trophées", icon: Trophy },
       { key: "tournament", href: "/tournament", label: "Tournois", icon: Trophy },
       { key: "friendly", href: "/friendly-matches", label: "Matchs amicaux", icon: Handshake, coachOnly: true },
       { key: "video-analysis", href: "/video-analysis", label: "Analyse vidéo", icon: Clapperboard },

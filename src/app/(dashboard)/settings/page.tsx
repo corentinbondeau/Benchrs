@@ -82,8 +82,9 @@ export default function SettingsPage() {
   if (user?.profile && loadedProfileId !== user.profile.id) {
     const p = user.profile as Profile;
     setLoadedProfileId(user.profile.id);
-    setFirstName(p.first_name || "");
-    setLastName(p.last_name || "");
+    const cap = (x: string): string => x ? x.split(/(\s|-|')/).map((part: string, i: number)=> i%2===1? part : part ? part.charAt(0).toUpperCase()+part.slice(1).toLowerCase() : part).join("") : "";
+    setFirstName(cap(p.first_name || ""));
+    setLastName(cap(p.last_name || ""));
     setPhone(p.phone || "");
     setCity(p.city || "");
     setPosition(p.position || "");
@@ -316,7 +317,7 @@ export default function SettingsPage() {
               <Input
                 id="firstName"
                 value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
+                onChange={(e) => { const v = e.target.value; setFirstName(v.split(/(\s|-|')/).map((p,i)=> i%2===1? p : p ? p.charAt(0).toUpperCase()+p.slice(1).toLowerCase() : p).join("")); }}
               />
             </div>
             <div className="space-y-2">
@@ -324,7 +325,7 @@ export default function SettingsPage() {
               <Input
                 id="lastName"
                 value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
+                onChange={(e) => { const v = e.target.value; setLastName(v.split(/(\s|-|')/).map((p,i)=> i%2===1? p : p ? p.charAt(0).toUpperCase()+p.slice(1).toLowerCase() : p).join("")); }}
               />
             </div>
             <div className="space-y-2">

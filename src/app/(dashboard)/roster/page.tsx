@@ -6,7 +6,7 @@ import { authFetch } from "@/lib/api-client";
 import { useTeam } from "@/lib/team";
 import { useAuth } from "@/lib/auth";
 import Link from "next/link";
-import { Shield, Users, Baby, FileText, Download, Loader2, MessageCircle, UserPlus, MoreHorizontal } from "lucide-react";
+import { Shield, Users, Baby, FileText, Download, Loader2, MessageCircle, UserPlus, MoreHorizontal, GitCompareArrows } from "lucide-react";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/ui/empty-state";
 import type { Profile } from "@/types";
@@ -39,6 +39,7 @@ type AddPlayerForm = {
 
 import { POSITIONS } from "@/lib/positions";
 import { OnboardingTip } from "@/components/OnboardingTips";
+import { CompareDialog } from "./CompareDialog";
 
 export default function RosterPage() {
   const { user } = useAuth();
@@ -51,6 +52,7 @@ export default function RosterPage() {
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState<"csv" | "pdf" | null>(null);
   const [managing, setManaging] = useState(false);
+  const [compareOpen, setCompareOpen] = useState(false);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [addForm, setAddForm] = useState<AddPlayerForm>({
     firstName: "",
@@ -62,6 +64,7 @@ export default function RosterPage() {
     email: "",
   });
   const [addSaving, setAddSaving] = useState(false);
+  const [parentLinks, setParentLinks] = useState<Record<string, string[]>>({});
 
   useEffect(() => {
     if (!currentTeam) return;
@@ -94,14 +97,30 @@ export default function RosterPage() {
         .in("id", rows.map((r) => r.user_id))
         .order("last_name", { ascending: true });
 
-      setAllProfiles(
-        ((profiles as Profile[]) || []).map((p) => ({
-          ...p,
-          role: (roleMap[p.id] || p.role) as Profile["role"],
-        }))
-      );
+      const profList = ((profiles as Profile[]) || []).map((p) => ({
+        ...p,
+        role: (roleMap[p.id] || p.role) as Profile["role"],
+      }));
+      setAllProfiles(profList);
       setMemberIds(memberIdMap);
       setMuteStatuses(muteMap);
+      
+      // Load parent links
+      const { data: links } = await supabase
+        .from("parent_student")
+        .select("parent_id, student_id")
+        .eq("team_id", currentTeam!.id);
+      const map: Record<string, string[]> = {};
+      const playerNames: Record<string, string> = {};
+      for (const p of profList) {
+        if (p.role === "player") playerNames[p.id] = `${p.first_name || ""} ${p.last_name || ""}`.trim();
+      }
+      for (const l of (links || []) as any[]) {
+        if (!map[l.parent_id]) map[l.parent_id] = [];
+        const name = playerNames[l.student_id];
+        if (name && !map[l.parent_id].includes(name)) map[l.parent_id].push(name);
+      }
+      setParentLinks(map);
       setLoading(false);
     }
 
@@ -299,7 +318,11 @@ export default function RosterPage() {
                     </p>
                     <div className="flex items-center gap-1.5">
                       <p className="text-xs text-muted-foreground truncate">
-                        {isPlayer ? (profile.position || "Joueur") : section.label.slice(0, -1)}
+                        {profile.role === "parent"
+                          ? (parentLinks[profile.id]?.length ? `Parent de ${parentLinks[profile.id].join(", ")}` : "Parent")
+                          : isPlayer
+                          ? (profile.position || "Joueur")
+                          : section.label.slice(0, -1)}
                       </p>
                       {!isPlayer && profile.city && (
                         <span className="text-xs text-muted-foreground">· {profile.city}</span>
@@ -435,6 +458,16 @@ export default function RosterPage() {
           )}
         </div>
         <div className="flex flex-wrap items-center gap-2 shrink-0">
+          {(userRole === "coach" || userRole === "owner") && (
+            <button
+              type="button"
+              onClick={() => setCompareOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-muted/50 transition-colors"
+            >
+              <GitCompareArrows className="h-3.5 w-3.5" />
+              Comparer
+            </button>
+          )}
           {canAddPlayer && (
             <button
               type="button"
@@ -613,6 +646,7 @@ export default function RosterPage() {
           </form>
         </DialogContent>
       </Dialog>
+      <CompareDialog open={compareOpen} onOpenChange={setCompareOpen} profiles={allProfiles} />
     </div>
   );
 }

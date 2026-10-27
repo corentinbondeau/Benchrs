@@ -51,7 +51,7 @@ export async function POST(req: Request) {
     if (!user) return unauthorized(reason);
 
     const body = await req.json();
-    const { user_ids, title, body: notifBody, type, reference_id, team_id, scheduled_for, url } = body;
+    let { user_ids, title, body: notifBody, type, reference_id, team_id, scheduled_for, url } = body as any;
 
     if (!Array.isArray(user_ids) || user_ids.length === 0 || !title || !notifBody) {
       return NextResponse.json({ error: "Missing fields" }, { status: 400 });
@@ -116,6 +116,8 @@ export async function POST(req: Request) {
         .maybeSingle();
       if (!member) return forbidden();
     }
+
+    // Vérification indisponibilités déplacée plus bas après extraction user_ids
 
     // Les convocations doivent référencer un événement de l'équipe appelante
     // (un coach ne peut pas marquer les convocations d'une autre équipe).

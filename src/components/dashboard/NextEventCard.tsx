@@ -105,10 +105,10 @@ function NextEventCard() {
             ` - ${new Date(event.end_date).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`}
         </span>
         {event.location && (
-          <span className="flex items-center gap-1.5">
-            <MapPin className="h-3.5 w-3.5 shrink-0" />
-            <span className="truncate">{event.location}</span>
-          </span>
+          <div className="flex items-center gap-1.5 text-sm text-muted-foreground min-w-0">
+            <MapPin className="h-4 w-4 shrink-0" />
+            <span className="truncate max-w-[200px] sm:max-w-none">{event.location}</span>
+          </div>
         )}
       </div>
 

@@ -12,6 +12,7 @@ import { PendingConvocations } from "@/components/dashboard/PendingConvocations"
 import QuickStats from "@/components/dashboard/QuickStats";
 import RecentResults from "@/components/dashboard/RecentResults";
 import { CoachWeekOverview } from "@/components/dashboard/CoachWeekOverview";
+import { CoachAllTeamsWeek } from "@/components/dashboard/CoachAllTeamsWeek";
 import { PlayerDashboard } from "@/components/dashboard/PlayerDashboard";
 import { ParentDashboard } from "@/components/dashboard/ParentDashboard";
 import { Card, CardContent } from "@/components/ui/card";
@@ -96,7 +97,7 @@ function MatchDayBanner() {
     <Card className="border-[var(--color-gold)] bg-gradient-to-r from-amber-50 to-amber-100 dark:from-amber-950/20 dark:to-amber-950/10">
       <CardContent className="p-4 flex items-center gap-3">
         <Trophy className="h-6 w-6 text-[var(--color-gold)] shrink-0" />
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1 overflow-hidden">
           <p className="font-bold text-sm">Jour de match !</p>
           <p className="text-xs text-muted-foreground truncate">
             {matchToday.title || matchToday.opponent} —{" "}
@@ -168,6 +169,10 @@ export default function DashboardPage() {
         <Suspense fallback={<ContentSkeleton />}>
           <PendingConvocations />
         </Suspense>
+      </ErrorBoundary>
+
+      <ErrorBoundary>
+        <CoachAllTeamsWeek />
       </ErrorBoundary>
 
       {/* P1: This week overview — events, availability, RPE, injuries */}
