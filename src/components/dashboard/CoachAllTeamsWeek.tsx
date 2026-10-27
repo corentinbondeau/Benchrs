@@ -6,7 +6,6 @@ import { useAuth } from "@/lib/auth";
 import { useTeam } from "@/lib/team";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar, Users, MapPin } from "lucide-react";
-import { useRouter } from "next/navigation";
 
 type EventItem = {
   id: string;
@@ -114,14 +113,9 @@ export function CoachAllTeamsWeek() {
             <button
               key={ev.id}
               onClick={() => {
-                if (ev.team_id !== currentTeam?.id) {
-                  try {
-                    localStorage.setItem("selectedTeamId", ev.team_id);
-                  } catch {}
-                  // Force reload to switch team
-                  window.location.href = href;
-                  return;
-                }
+                try {
+                  localStorage.setItem("selectedTeamId", ev.team_id);
+                } catch {}
                 window.location.href = href;
               }}
               className="w-full text-left flex items-center justify-between p-3 rounded-lg border hover:bg-accent/50 transition"
@@ -151,7 +145,7 @@ export function CoachAllTeamsWeek() {
                 </div>
                 <p className="text-xs text-muted-foreground">présents</p>
               </div>
-            </Link>
+            </button>
           );
         })}
       </CardContent>
