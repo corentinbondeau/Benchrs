@@ -6,7 +6,7 @@ import { useAuth } from "@/lib/auth";
 import { useTeam } from "@/lib/team";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar, Users, MapPin } from "lucide-react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 type EventItem = {
   id: string;
@@ -111,7 +111,21 @@ export function CoachAllTeamsWeek() {
           const href = ev.type === "match" ? `/matches/${ev.id}` : `/trainings/${ev.id}`;
           const date = new Date(ev.event_date);
           return (
-            <Link key={ev.id} href={href} className="flex items-center justify-between p-3 rounded-lg border hover:bg-accent/50 transition">
+            <button
+              key={ev.id}
+              onClick={() => {
+                if (ev.team_id !== currentTeam?.id) {
+                  try {
+                    localStorage.setItem("selectedTeamId", ev.team_id);
+                  } catch {}
+                  // Force reload to switch team
+                  window.location.href = href;
+                  return;
+                }
+                window.location.href = href;
+              }}
+              className="w-full text-left flex items-center justify-between p-3 rounded-lg border hover:bg-accent/50 transition"
+            >
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">{ev.team_name}</span>
