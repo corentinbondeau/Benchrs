@@ -329,7 +329,7 @@ function SheetContentInner({ close }: { close: () => void }) {
 function BottomNav() {
   const pathname = usePathname();
   const { user } = useAuth();
-  const { currentTeam, userRole, clubMemberships } = useTeam();
+  const { currentTeam, userRole, clubMemberships, teams } = useTeam();
   const { total: unreadChat } = useChatUnread(currentTeam?.id, user?.id, userRole ?? undefined);
   const close = useCallback(() => {
     const closeBtn = document.querySelector<HTMLButtonElement>('[data-bottom-sheet-close]');
@@ -346,7 +346,7 @@ function BottomNav() {
         { href: "/stats", label: "Perf", icon: BarChart3 },
       ]
     : [
-        ...(userRole === "coach" || userRole === "owner" && teams.length > 1 ? [{ href: "/multi", label: "Accueil", icon: Home }] : [{ href: "/", label: "Accueil", icon: Home }]),
+        ...(((userRole === "coach" || userRole === "owner") && teams.length > 1) ? [{ href: "/multi", label: "Accueil", icon: Home }] : [{ href: "/", label: "Accueil", icon: Home }]),
         { href: "/calendar", label: "Agenda", icon: Calendar },
         { href: "/roster", label: "Équipe", icon: Users },
         { href: "/stats", label: "Perf", icon: BarChart3 },
