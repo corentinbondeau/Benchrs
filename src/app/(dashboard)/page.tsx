@@ -121,7 +121,7 @@ function MatchDayBanner() {
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  const { userRole, clubMemberships, currentTeam } = useTeam();
+  const { userRole, clubMemberships, currentTeam, teams } = useTeam();
   const router = useRouter();
   const isComiteOnly = clubMemberships.length > 0 && userRole === null;
 
