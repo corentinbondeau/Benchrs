@@ -73,6 +73,7 @@ export default function ClubWeekEndPage() {
       const names = Object.fromEntries(
         ((teamsData || []) as { id: string; name: string }[]).map((t) => [t.id, t.name])
       );
+      // Afficher tous les matchs de toutes les équipes du club (même si pas membre de toutes)
       if (teams.length === 0) return { events: [] as WeekendEvent[], teamNames: names, canSend: false };
 
       const start = mondayOf(winStart);
