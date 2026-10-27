@@ -62,6 +62,7 @@ export default function ClubhousePage() {
   const [clubs, setClubs] = useState<ClubData[]>([]);
   const [selectedClubId, setSelectedClubId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [canAccess, setCanAccess] = useState(true);
 
   // Calendrier : date sélectionnée (par défaut = aujourd'hui)
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
