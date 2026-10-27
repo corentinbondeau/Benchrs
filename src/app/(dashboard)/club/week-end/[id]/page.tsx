@@ -65,12 +65,12 @@ export default function ClubMatchDetailPage() {
   function eventLabel(ev: any) {
     const p = players[ev.player_id];
     const name = p ? `${p.first_name} ${p.last_name}` : "";
-    if (ev.event_type === "goal") return `But - ${name}`;
-    if (ev.event_type === "own_goal") return `But contre son camp - ${name}`;
-    if (ev.event_type === "opponent_own_goal") return `But contre son camp adverse`;
-    if (ev.event_type === "yellow_card") return `Carton jaune - ${name}`;
-    if (ev.event_type === "red_card") return `Carton rouge - ${name}`;
-    if (ev.event_type === "injury") return `Blessure - ${name}`;
+    if (ev.event_type === "goal") return `⚽ But - ${name}`;
+    if (ev.event_type === "own_goal") return `⚽ CSC - ${name}`;
+    if (ev.event_type === "opponent_own_goal") return `⚽ But adverse`;
+    if (ev.event_type === "yellow_card") return `🟨 Carton jaune - ${name}`;
+    if (ev.event_type === "red_card") return `🟥 Carton rouge - ${name}`;
+    if (ev.event_type === "injury") return `🩹 Blessure - ${name}`;
     return ev.event_type;
   }
 
