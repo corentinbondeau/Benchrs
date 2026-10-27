@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { authFetch } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth";
-import { useTeam } from "@/lib/team";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -44,7 +43,6 @@ const RESULT_LABEL: Record<"win" | "loss" | "draw", string> = { win: "V", loss: 
 
 export default function ClubWeekEndPage() {
   const { user } = useAuth();
-  const { currentTeam, clubMemberships } = useTeam();
   const router = useRouter();
   const [pageLoading, setPageLoading] = useState(true);
   const [events, setEvents] = useState<WeekendEvent[]>([]);
@@ -53,53 +51,42 @@ export default function ClubWeekEndPage() {
   const [weekStart, setWeekStart] = useState<Date>(() => mondayOf(new Date()));
   const [sending, setSending] = useState(false);
   const [clubId, setClubId] = useState<string | null>(null);
+  const [userTeamId, setUserTeamId] = useState<string | null>(null);
 
   const supabaseRef = useRef(createClient());
 
   useEffect(() => {
-    async function resolveClub() {
+    async function resolve() {
       if (!user) return;
-      // Try from currentTeam first
-      if (currentTeam?.club_id) {
-        setClubId(currentTeam.club_id);
-        return;
-      }
-      // Try from club_memberships
-      if (clubMemberships && clubMemberships.length > 0) {
-        setClubId(clubMemberships[0].club_id);
-        return;
-      }
-      // Try from team_members -> teams
+      // Récupérer toutes les équipes de l'utilisateur
       const { data: tms } = await supabaseRef.current.from("team_members").select("team_id").eq("user_id", user.id);
       const teamIds = (tms || []).map((t) => t.team_id);
-      if (teamIds.length > 0) {
-        const { data: teams } = await supabaseRef.current.from("teams").select("id, club_id").in("id", teamIds).not("club_id", "is", null);
-        if (teams && teams.length > 0 && teams[0].club_id) {
-          setClubId(teams[0].club_id);
-          return;
-        }
+      if (teamIds.length === 0) {
+        setPageLoading(false);
+        return;
       }
-      // Dernier recours: chercher n'importe quelle équipe avec un club_id
-      const { data: anyTeam } = await supabaseRef.current.from("teams").select("club_id").not("club_id", "is", null).limit(1);
-      if (anyTeam && anyTeam[0]?.club_id) {
-        setClubId(anyTeam[0].club_id);
+      setUserTeamId(teamIds[0]);
+      const { data: teams } = await supabaseRef.current.from("teams").select("id, club_id").in("id", teamIds).not("club_id", "is", null);
+      if (teams && teams.length > 0 && teams[0].club_id) {
+        setClubId(teams[0].club_id);
+        return;
+      }
+      // Chercher par club_members
+      const { data: cms } = await supabaseRef.current.from("club_members").select("club_id").eq("user_id", user.id);
+      if (cms && cms.length > 0) {
+        setClubId(cms[0].club_id);
+        return;
       }
       setPageLoading(false);
     }
-    resolveClub();
-  }, [user, currentTeam, clubMemberships]);
+    resolve();
+  }, [user]);
 
   const load = useCallback(
     async (cid: string, winStart: Date) => {
-      // Récupérer TOUTES les équipes du club par club_id
-      const { data: allTeams } = await supabaseRef.current
-        .from("teams")
-        .select("id, name")
-        .eq("club_id", cid);
-      
-      const teamsDataFinal = allTeams || [];
-      const teams = teamsDataFinal.map((t) => t.id);
-      const names = Object.fromEntries(teamsDataFinal.map((t) => [t.id, t.name]));
+      const { data: allTeams } = await supabaseRef.current.from("teams").select("id, name").eq("club_id", cid);
+      const teams = (allTeams || []).map((t) => t.id);
+      const names = Object.fromEntries((allTeams || []).map((t) => [t.id, t.name]));
       if (teams.length === 0) return { events: [] as WeekendEvent[], teamNames: names, canSend: false };
 
       const start = mondayOf(winStart);
@@ -129,27 +116,23 @@ export default function ClubWeekEndPage() {
         match_result: (e.match_result as WeekendEvent["match_result"]) ?? null,
       }));
 
-      let canSend = (clubMemberships?.length ?? 0) > 0;
-      if (!canSend && user) {
-        const { data: mine } = await supabaseRef.current
-          .from("team_members")
-          .select("team_id")
-          .eq("user_id", user.id)
-          .in("team_id", teams)
-          .in("role", ["coach", "owner"]);
-        canSend = (mine?.length ?? 0) > 0;
+      let canSend = false;
+      if (user) {
+        const { data: cms } = await supabaseRef.current.from("club_members").select("club_id").eq("user_id", user.id).eq("club_id", cid);
+        if (cms && cms.length > 0) canSend = true;
+        if (!canSend) {
+          const { data: mine } = await supabaseRef.current.from("team_members").select("role").eq("user_id", user.id).in("team_id", teams).in("role", ["coach", "owner"]);
+          canSend = (mine?.length ?? 0) > 0;
+        }
       }
 
       return { events: rows, teamNames: names, canSend };
     },
-    [user, clubMemberships]
+    [user]
   );
 
   useEffect(() => {
-    if (!clubId) {
-      setPageLoading(false);
-      return;
-    }
+    if (!clubId) { setPageLoading(false); return; }
     setPageLoading(true);
     load(clubId, weekStart).then((res) => {
       setEvents(res.events);
@@ -168,16 +151,9 @@ export default function ClubWeekEndPage() {
     if (!clubId) return;
     setSending(true);
     try {
-      const res = await authFetch("/api/clubs/weekend-recap", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clubId, weekStart: `${mondayOf(new Date()).toISOString().slice(0, 10)}` }),
-      });
+      const res = await authFetch("/api/clubs/weekend-recap", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ clubId, weekStart: `${mondayOf(new Date()).toISOString().slice(0, 10)}` }) });
       const data = (await res.json()) as { error?: string };
-      if (!res.ok) {
-        toast.error(data.error ?? "Envoi impossible");
-        return;
-      }
+      if (!res.ok) { toast.error(data.error ?? "Envoi impossible"); return; }
       toast.success("Récap du week-end envoyé aux familles");
     } finally {
       setSending(false);
@@ -185,54 +161,34 @@ export default function ClubWeekEndPage() {
   }
 
   const matches = events.filter((e) => e.type === "match");
-  const wins = matches.filter((m) => m.status === "completed" && m.match_result === "win").length;
-  const isCommittee = (clubMemberships?.length ?? 0) > 0;
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6 space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold flex items-center gap-2">
-            <CalendarDays className="h-5 w-5" />
-            Week-end du club
-          </h1>
-          <p className="text-sm text-muted-foreground">Tous les matchs de toutes les équipes du club</p>
+          <h1 className="text-xl font-bold flex items-center gap-2"><CalendarDays className="h-5 w-5" />Week-end du club</h1>
+          <p className="text-sm text-muted-foreground">Tous les matchs de toutes les équipes</p>
         </div>
-        {(isCommittee || canSend) && clubId && (
-          <Button size="sm" onClick={sendRecap} disabled={sending}>
-            <Send className="h-4 w-4 mr-1" />
-            {sending ? "Envoi…" : "Envoyer aux familles"}
-          </Button>
+        {canSend && clubId && (
+          <Button size="sm" onClick={sendRecap} disabled={sending}><Send className="h-4 w-4 mr-1" />{sending ? "Envoi…" : "Envoyer aux familles"}</Button>
         )}
       </div>
 
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => changeWeek(-1)}>
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
+          <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => changeWeek(-1)}><ChevronLeft className="h-4 w-4" /></Button>
           <p className="font-semibold text-sm">Semaine du {formatDay(mondayOf(weekStart).toISOString())}</p>
-          <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => changeWeek(1)}>
-            <ChevronRight className="h-4 w-4" />
-          </Button>
+          <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => changeWeek(1)}><ChevronRight className="h-4 w-4" /></Button>
         </div>
-        <div className="flex gap-1 text-xs">
-          <Badge variant="secondary">{matches.length} match{matches.length > 1 ? "s" : ""}</Badge>
-          {wins > 0 && <Badge variant="default">{wins} victoire{wins > 1 ? "s" : ""}</Badge>}
-        </div>
+        <Badge variant="secondary">{matches.length} match{matches.length > 1 ? "s" : ""}</Badge>
       </div>
 
       {pageLoading ? (
         <Card><CardContent className="py-12 text-center text-muted-foreground">Chargement...</CardContent></Card>
       ) : !clubId ? (
-        <Card><CardContent className="py-12 text-center text-muted-foreground">Vous n'êtes rattaché à aucun club.</CardContent></Card>
+        <Card><CardContent className="py-12 text-center text-muted-foreground">Aucun club trouvé</CardContent></Card>
       ) : events.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <CalendarDays className="h-8 w-8 mx-auto mb-3 text-muted-foreground" />
-            <p className="text-muted-foreground">Aucun match cette semaine.</p>
-          </CardContent>
-        </Card>
+        <Card><CardContent className="py-12 text-center"><CalendarDays className="h-8 w-8 mx-auto mb-3 text-muted-foreground" /><p className="text-muted-foreground">Aucun match cette semaine</p></CardContent></Card>
       ) : (
         <div className="space-y-3">
           {events.map((e) => {
@@ -247,11 +203,7 @@ export default function ClubWeekEndPage() {
                       <span className="text-sm font-semibold">{team}</span>
                     </div>
                     <p className="text-sm mt-1">
-                      {e.opponent 
-                        ? e.location && e.location.toLowerCase().includes("domicile") ? `Domicile vs ${e.opponent}`
-                        : e.location && (e.location.toLowerCase().includes("extérieur") || e.location.toLowerCase().includes("exterieur")) ? `Extérieur vs ${e.opponent}`
-                        : `vs ${e.opponent}`
-                        : e.title}
+                      {e.opponent ? (e.location?.toLowerCase().includes("domicile") ? `Domicile vs ${e.opponent}` : e.location?.toLowerCase().includes("extérieur") ? `Extérieur vs ${e.opponent}` : `vs ${e.opponent}`) : e.title}
                     </p>
                     <p className="text-xs text-muted-foreground flex flex-wrap items-center gap-2">
                       {formatDay(e.event_date)} · {formatHour(e.event_date)}
@@ -262,7 +214,6 @@ export default function ClubWeekEndPage() {
                   </div>
                   {hasResult && e.score_us != null && (
                     <div className="flex items-center gap-2">
-                      {e.match_result && <Badge variant={e.match_result === "win" ? "default" : e.match_result === "draw" ? "secondary" : "destructive"}>{RESULT_LABEL[e.match_result]}</Badge>}
                       <span className="font-bold tabular-nums">{e.score_us} - {e.score_them ?? 0}</span>
                     </div>
                   )}
