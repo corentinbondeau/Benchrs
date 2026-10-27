@@ -6,9 +6,10 @@ import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useTeam } from "@/lib/team";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Calendar, Users, MapPin, Trophy, ArrowRight, CheckCircle, XCircle, Clock, Bell } from "lucide-react";
+import { Calendar, Users, MapPin, Trophy, ArrowRight, CheckCircle, XCircle, Clock, Bell, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { toast } from "sonner";
 
 type TeamSummary = {
   team_id: string;
@@ -26,6 +27,7 @@ export default function MultiTeamHomePage() {
   const { teams, switchTeam, currentTeam, userRole } = useTeam();
   const [summaries, setSummaries] = useState<TeamSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [resending, setResending] = useState<string | null>(null);
 
   const isCoach = userRole === "coach" || userRole === "owner";
   const isMultiCoach = isCoach && teams.length > 1;
@@ -36,6 +38,31 @@ export default function MultiTeamHomePage() {
       router.replace("/");
     }
   }, [isCoach, teams, isMultiCoach, router]);
+
+  const handleResendConvocations = async (eventId: string, teamId: string) => {
+    setResending(eventId);
+    try {
+      const res = await fetch("/api/notifications/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          teamId,
+          type: "convocation",
+          referenceId: eventId,
+          sendToAll: true,
+        }),
+      });
+      if (res.ok) {
+        toast.success("Convocations relancées");
+      } else {
+        toast.error("Erreur lors du relancement");
+      }
+    } catch {
+      toast.error("Erreur lors du relancement");
+    } finally {
+      setResending(null);
+    }
+  };
 
   useEffect(() => {
     if (!user?.id || !isMultiCoach) return;
@@ -70,26 +97,34 @@ export default function MultiTeamHomePage() {
         if (eventIds.length > 0) {
           const { data: att } = await supabase
             .from("attendances")
-            .select("event_id, status")
+            .select("event_id, status, user_id")
             .in("event_id", eventIds);
           
-          const { data: members } = await supabase
+          const { data: players } = await supabase
             .from("team_members")
             .select("user_id")
             .eq("team_id", team.id)
-            .in("role", ["player", "parent"]);
+            .eq("role", "player");
           
-          const totalMembers = members?.length || 0;
+          const { data: profiles } = await supabase
+            .from("profiles")
+            .select("id")
+            .eq("team_id", team.id)
+            .eq("is_active", true);
+          
+          const activePlayerIds = new Set((profiles || []).map((p: any) => p.id));
+          const playerUserIds = new Set((players || []).filter((p: any) => activePlayerIds.has(p.user_id)).map((p: any) => p.user_id));
+          const totalPlayers = playerUserIds.size;
           
           for (const ev of events) {
-            const evAtt = (att || []).filter((a: any) => a.event_id === ev.id);
+            const evAtt = (att || []).filter((a: any) => a.event_id === ev.id && playerUserIds.has(a.user_id));
             const present = evAtt.filter((a: any) => a.status === "present").length;
             const late = evAtt.filter((a: any) => a.status === "late").length;
             const absent = evAtt.filter((a: any) => a.status === "absent").length;
             const excused = evAtt.filter((a: any) => a.status === "excused").length;
             const responded = present + late + absent + excused;
-            const noResponse = Math.max(0, totalMembers - responded);
-            attendances[ev.id] = { present, late, absent, excused, total: totalMembers, noResponse };
+            const noResponse = Math.max(0, totalPlayers - responded);
+            attendances[ev.id] = { present, late, absent, excused, total: totalPlayers, noResponse };
             if (noResponse > 0) convocationsNoResponse += noResponse;
           }
         }
@@ -190,11 +225,28 @@ export default function MultiTeamHomePage() {
                         </p>
                       )}
                       {att && (
-                        <div className="flex items-center gap-3 mt-1 text-xs">
-                          <span className="flex items-center gap-1 text-green-600"><CheckCircle className="h-3 w-3" />{att.present}</span>
-                          <span className="flex items-center gap-1 text-orange-600"><Clock className="h-3 w-3" />{att.late}</span>
-                          <span className="flex items-center gap-1 text-red-600"><XCircle className="h-3 w-3" />{att.absent}</span>
-                          <span className="flex items-center gap-1 text-gray-500"><Clock className="h-3 w-3" />{att.noResponse} sans rép.</span>
+                        <div className="flex items-center justify-between mt-1">
+                          <div className="flex items-center gap-3 text-xs">
+                            <span className="flex items-center gap-1 text-green-600"><CheckCircle className="h-3 w-3" />{att.present}</span>
+                            <span className="flex items-center gap-1 text-orange-600"><Clock className="h-3 w-3" />{att.late}</span>
+                            <span className="flex items-center gap-1 text-red-600"><XCircle className="h-3 w-3" />{att.absent}</span>
+                            <span className="flex items-center gap-1 text-gray-500"><Clock className="h-3 w-3" />{att.noResponse} sans rép.</span>
+                          </div>
+                          {att.noResponse > 0 && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-6 text-xs"
+                              disabled={resending === ev.id}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleResendConvocations(ev.id, summary.team_id);
+                              }}
+                            >
+                              <Send className="h-3 w-3 mr-1" />
+                              {resending === ev.id ? "Envoi..." : "Relancer"}
+                            </Button>
+                          )}
                         </div>
                       )}
                     </div>
