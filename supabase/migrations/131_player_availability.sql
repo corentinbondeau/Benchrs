@@ -26,7 +26,7 @@ CREATE POLICY "Members can view team availability" ON player_availability FOR SE
     )
     OR EXISTS (
       SELECT 1 FROM parent_student ps
-      WHERE ps.player_id = player_availability.player_id AND ps.parent_id = auth.uid()
+      WHERE ps.student_id = player_availability.player_id AND ps.parent_id = auth.uid()
     )
   );
 
@@ -36,14 +36,14 @@ CREATE POLICY "Player or parent can manage own availability" ON player_availabil
     auth.uid() = player_id
     OR EXISTS (
       SELECT 1 FROM parent_student ps
-      WHERE ps.player_id = player_availability.player_id AND ps.parent_id = auth.uid()
+      WHERE ps.student_id = player_availability.player_id AND ps.parent_id = auth.uid()
     )
   )
   WITH CHECK (
     auth.uid() = player_id
     OR EXISTS (
       SELECT 1 FROM parent_student ps
-      WHERE ps.player_id = player_availability.player_id AND ps.parent_id = auth.uid()
+      WHERE ps.student_id = player_availability.player_id AND ps.parent_id = auth.uid()
     )
   );
 
