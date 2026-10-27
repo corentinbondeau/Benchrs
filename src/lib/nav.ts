@@ -115,7 +115,7 @@ export const NAV_SECTIONS: { key: string; title: string; items: NavItem[] }[] = 
       { key: "urgences", href: "/club/urgences", label: "Cahier des urgences", icon: HeartPulse, clubOnly: true },
       { key: "evenements", href: "/club/evenements", label: "Événementiel", icon: Sparkles, clubTeamOnly: true },
       { key: "partenaires", href: "/club/partenaires", label: "Partenaires", icon: Handshake, clubOnly: true },
-      { key: "week-end", href: "/club/week-end", label: "Week-end du club", icon: CalendarDays, clubTeamOnly: true },
+      { key: "week-end", href: "/club/week-end", label: "Week-end du club", icon: CalendarDays, clubOnly: false, clubTeamOnly: false },
       { key: "sante", href: "/club/sante", label: "Santé", icon: HeartPulse, clubOnly: true },
       { key: "idees", href: "/club/idees", label: "Boîte à idées", icon: Lightbulb, clubTeamOnly: true },
       { key: "album", href: "/club/album", label: "Album souvenirs", icon: Camera, clubTeamOnly: true },
@@ -178,7 +178,7 @@ export const COMITE_ONLY_HREFS = new Set([
   "/club/urgences",
   "/club/evenements",
   "/club/partenaires",
-  "/club/week-end",
+
   "/club/sante",
   "/club/idees",
   "/club/album",
