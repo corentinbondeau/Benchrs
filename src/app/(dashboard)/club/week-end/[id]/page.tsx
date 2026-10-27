@@ -36,6 +36,7 @@ export default function ClubMatchDetailPage() {
         .select("*")
         .eq("event_id", matchId)
         .neq("event_type", "substitution")
+        .neq("event_type", "opponent_goal")
         .order("minute", { ascending: true });
       setEvents(evs || []);
 
