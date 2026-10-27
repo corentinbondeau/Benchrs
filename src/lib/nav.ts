@@ -139,10 +139,10 @@ export const MORE_NAV: NavItem[] = [
 
 /* ─── Espace principal : 5 raccourcis de premier plan ─── */
 export const PRIMARY_NAV: NavItem[] = [
-  { key: "dashboard", href: "/", label: "Accueil", icon: Home },
+  { key: "dashboard", href: "/multi", label: "Accueil", icon: Home },
+  { key: "team-home", href: "/", label: "Accueil Équipe", icon: Home },
   { key: "calendar", href: "/calendar", label: "Agenda", icon: Calendar },
   { key: "roster", href: "/roster", label: "Équipe", icon: Users },
-  { key: "stats", href: "/stats", label: "Performance", icon: BarChart3 },
   { key: "chat", href: "/chat", label: "Messages", icon: MessageSquare },
 ];
 
