@@ -42,20 +42,41 @@ export default function MultiTeamHomePage() {
   const handleResendConvocations = async (eventId: string, teamId: string) => {
     setResending(eventId);
     try {
-      const res = await fetch("/api/notifications/send", {
+      const { createClient } = await import("@/lib/supabase/client");
+      const supabase = createClient();
+      const { data: attendances } = await supabase
+        .from("attendances")
+        .select("user_id")
+        .eq("event_id", eventId);
+      
+      if (!attendances || attendances.length === 0) {
+        toast.error("Aucun joueur convoqué");
+        setResending(null);
+        return;
+      }
+      
+      const userIds = attendances.map((a: any) => a.user_id);
+      
+      const { authFetch } = await import("@/lib/api-client");
+      const res = await authFetch("/api/notifications/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          teamId,
+          team_id: teamId,
+          user_ids: userIds,
+          title: "Convocation (rappel)",
+          body: "Rappel de convocation pour cet événement",
           type: "convocation",
-          referenceId: eventId,
-          sendToAll: true,
+          reference_id: eventId,
+          url: `/events/${eventId}`,
         }),
       });
+      
       if (res.ok) {
         toast.success("Convocations relancées");
       } else {
-        toast.error("Erreur lors du relancement");
+        const data = await res.json().catch(() => ({}));
+        toast.error(data.error || "Erreur lors du relancement");
       }
     } catch {
       toast.error("Erreur lors du relancement");
