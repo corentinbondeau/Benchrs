@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { authFetch } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth";
@@ -47,6 +48,7 @@ const RESULT_LABEL: Record<"win" | "loss" | "draw", string> = { win: "V", loss: 
 export default function ClubWeekEndPage() {
   const { user } = useAuth();
   const { clubs, loading: clubsLoading } = useUserClubs();
+  const router = useRouter();
   const [requested, setRequested] = useState<string | null>(null);
   const [pageLoading, setPageLoading] = useState(true);
   const [events, setEvents] = useState<WeekendEvent[]>([]);
@@ -80,22 +82,30 @@ export default function ClubWeekEndPage() {
         .from("events")
         .select("id, team_id, type, title, opponent, event_date, location, status, score_us, score_them, match_result")
         .in("team_id", teams)
+        .eq("type", "match")
+        .neq("status", "cancelled")
         .gte("event_date", start.toISOString())
         .lt("event_date", end.toISOString())
         .order("event_date", { ascending: true });
-      const rows = ((eventsData || []) as Record<string, unknown>[]).map((e) => ({
-        id: e.id as string,
-        team_id: e.team_id as string,
-        type: (e.type as "match") ?? "match",
-        title: e.title as string,
-        opponent: (e.opponent as string | null) ?? null,
-        event_date: e.event_date as string,
-        location: (e.location as string | null) ?? null,
-        status: (e.status as WeekendEvent["status"]) ?? "upcoming",
-        score_us: (e.score_us as number | null) ?? null,
-        score_them: (e.score_them as number | null) ?? null,
-        match_result: (e.match_result as WeekendEvent["match_result"]) ?? null,
-      }));
+      const rows = ((eventsData || []) as Record<string, unknown>[])
+        .filter((e) => {
+          if (e.status === "completed") return true;
+          if (e.score_us !== null && e.score_them !== null) return true;
+          return false;
+        })
+        .map((e) => ({
+          id: e.id as string,
+          team_id: e.team_id as string,
+          type: "match" as const,
+          title: e.title as string,
+          opponent: (e.opponent as string | null) ?? null,
+          event_date: e.event_date as string,
+          location: (e.location as string | null) ?? null,
+          status: (e.status as WeekendEvent["status"]) ?? "upcoming",
+          score_us: (e.score_us as number | null) ?? null,
+          score_them: (e.score_them as number | null) ?? null,
+          match_result: (e.match_result as WeekendEvent["match_result"]) ?? null,
+        }));
 
       let canSend = false;
       if (user) {
@@ -157,13 +167,12 @@ export default function ClubWeekEndPage() {
   }
 
   const matches = events.filter((e) => e.type === "match");
-  const trainings = events.filter((e) => e.type === "training");
   const wins = matches.filter((m) => m.status === "completed" && m.match_result === "win").length;
 
   return (
     <ClubPageShell
       title="Le week-end du club"
-      subtitle="Tous les matchs et entraînements des équipes"
+      subtitle="Résultats des matchs de toutes les équipes du club"
       clubs={clubs}
       clubId={clubId}
       onChangeClub={onChangeClub}
@@ -195,9 +204,6 @@ export default function ClubWeekEndPage() {
             <Badge variant="secondary">
               {matches.length} match{matches.length > 1 ? "s" : ""}
             </Badge>
-            <Badge variant="outline">
-              {trainings.length} entraînement{trainings.length > 1 ? "s" : ""}
-            </Badge>
             {wins > 0 && <Badge variant="default">{wins} victoire{wins > 1 ? "s" : ""}</Badge>}
           </div>
         </div>
@@ -206,32 +212,35 @@ export default function ClubWeekEndPage() {
           <Card>
             <CardContent className="py-12 text-center">
               <CalendarDays className="h-8 w-8 mx-auto mb-3 text-muted-foreground" />
-              <p className="text-muted-foreground">Aucun événement cette semaine.</p>
+              <p className="text-muted-foreground">Aucun match avec résultat cette semaine.</p>
             </CardContent>
           </Card>
         ) : (
           <div className="space-y-3">
             {events.map((e) => {
-              const isMatch = e.type === "match";
               const team = teamNames[e.team_id] ?? "Équipe";
               return (
-                <Card key={e.id}>
+                <Card
+                  key={e.id}
+                  className="cursor-pointer hover:bg-accent/40 transition"
+                  onClick={() => {
+                    try {
+                      localStorage.setItem("selectedTeamId", e.team_id);
+                    } catch {}
+                    router.push(`/matches/${e.id}`);
+                  }}
+                >
                   <CardContent className="p-4 flex flex-wrap items-center gap-3">
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        {isMatch ? (
-                          <Badge variant="default">
-                            <Trophy className="h-3 w-3 mr-1" />
-                            Match
-                          </Badge>
-                        ) : (
-                          <Badge variant="secondary">Entraînement</Badge>
-                        )}
+                        <Badge variant="default">
+                          <Trophy className="h-3 w-3 mr-1" />
+                          Match
+                        </Badge>
                         <span className="text-sm font-semibold">{team}</span>
-                        {e.status === "cancelled" && <Badge variant="destructive">Annulé</Badge>}
                       </div>
                       <p className="text-sm mt-1">
-                        {isMatch && e.opponent ? `Face à ${e.opponent}` : e.title}
+                        {e.opponent ? `Face à ${e.opponent}` : e.title}
                       </p>
                       <p className="text-xs text-muted-foreground flex flex-wrap items-center gap-2">
                         {formatDay(e.event_date)} · {formatHour(e.event_date)}
@@ -243,7 +252,7 @@ export default function ClubWeekEndPage() {
                         )}
                       </p>
                     </div>
-                    {isMatch && e.status === "completed" && e.score_us != null && (
+                    {(e.status === "completed" || (e.score_us != null && e.score_them != null)) && e.score_us != null && (
                       <div className="flex items-center gap-2">
                         {e.match_result && (
                           <Badge
