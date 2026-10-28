@@ -78,7 +78,8 @@ interface DofaImportResult {
 /** Base de l'API DOFA (calendrier public d'une poule), ouverte dans un
  * nouvel onglet par le coach — jamais appelée depuis le serveur Benchrs
  * (bloquée par un pare-feu Akamai côté FFF pour toute requête serveur). */
-const DOFA_CALENDRIER_BASE = "https://api-dofa.fff.fr/api/compets";
+const DOFA_CALENDRIER_BASE =
+  (process.env.NEXT_PUBLIC_DOFA_BASE_URL || "https://api-dofa.prd-aws.fff.fr") + "/api/compets";
 
 /**
  * Extrait la liste de matchs d'un JSON DOFA collé : tableau nu OU enveloppe

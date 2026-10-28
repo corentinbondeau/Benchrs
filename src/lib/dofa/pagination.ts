@@ -12,7 +12,7 @@
  */
 
 /** Origine des URLs RELATIVES renvoyées par hydra:view (chemin `/api/...`). */
-const DOFA_API_ORIGIN = "https://api-dofa.fff.fr";
+const DOFA_API_ORIGIN = process.env.DOFA_BASE_URL || process.env.NEXT_PUBLIC_DOFA_BASE_URL || "https://api-dofa.prd-aws.fff.fr";
 
 export interface DofaPagination {
   /** Nombre total de matchs déclaré par l'API (`hydra:totalItems`), null si absent. */
