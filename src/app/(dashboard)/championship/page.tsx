@@ -106,6 +106,8 @@ export default function ChampionshipPage() {
   const [pouleDialogOpen, setPouleDialogOpen] = useState(false);
   const [pouleUrlInput, setPouleUrlInput] = useState("");
   const [pouleUrlEditing, setPouleUrlEditing] = useState(false);
+  const [clubName, setClubName] = useState("");
+  const [teamName, setTeamName] = useState("");
   const [pouleSaveError, setPouleSaveError] = useState<string | null>(null);
   const [pouleSaving, setPouleSaving] = useState(false);
   const [pasteInput, setPasteInput] = useState("");
@@ -190,6 +192,12 @@ export default function ChampionshipPage() {
   // triplet DOFA du championnat actuellement sélectionné. `parsePouleUrl`
   // donne un retour immédiat : une entrée invalide ne déclenche même pas
   // d'appel réseau.
+  function getEpreuvesSearchUrl() {
+    const q = [clubName, teamName].filter(Boolean).join(" ");
+    if (!q.trim()) return "https://epreuves.fff.fr/competition/";
+    return `https://epreuves.fff.fr/competition/recherche/resultats?term=${encodeURIComponent(q.trim())}`;
+  }
+
   async function handleSavePouleUrl() {
     if (!selected) {
       setPouleSaveError("Créez d'abord un championnat (bouton « Nouveau championnat »).");
@@ -606,6 +614,31 @@ export default function ChampionshipPage() {
                   <DialogTitle>Import DOFA — poule du championnat</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4">
+                  <div className="rounded-lg border p-3 space-y-3">
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium">Trouver ma poule rapidement</p>
+                      <p className="text-xs text-muted-foreground">Indique ton club et ton équipe pour ouvrir directement la bonne page sur epreuves.fff.fr</p>
+                    </div>
+                    <div className="grid gap-2">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Nom du club</Label>
+                        <Input value={clubName} onChange={(e) => setClubName(e.target.value)} placeholder="Ex. Etoile Club de Camphin" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Équipe / Catégorie</Label>
+                        <Input value={teamName} onChange={(e) => setTeamName(e.target.value)} placeholder="Ex. U18, Seniors, Féminines..." />
+                      </div>
+                    </div>
+                    <a href={getEpreuvesSearchUrl()} target="_blank" rel="noopener noreferrer">
+                      <Button variant="outline" className="w-full" disabled={!clubName.trim() && !teamName.trim()}>
+                        <ExternalLink className="h-4 w-4 mr-2" />
+                        Ouvrir epreuves.fff.fr avec ces infos
+                      </Button>
+                    </a>
+                    <p className="text-xs text-muted-foreground">
+                      Ouvre le lien → sélectionne ta poule → va dans "Tous les matchs" ou "Résultats" → copie le JSON (Ctrl+A/Ctrl+C) → colle-le dans "Coller le JSON" ci-dessous
+                    </p>
+                  </div>
                   {!selected ? (
                     <p className="text-sm text-muted-foreground">
                       Créez d&apos;abord un championnat (bouton « Nouveau championnat » ci-contre),
