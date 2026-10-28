@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Trophy, Medal, Plus, Loader2, Zap, AlertTriangle, ExternalLink, Users } from "lucide-react";
+import { Trophy, Medal, Plus, Loader2, Zap, AlertTriangle, ExternalLink, Users, Download } from "lucide-react";
 import { toast } from "sonner";
 import { parsePouleUrl } from "@/lib/dofa/poule-url";
 import { parseDofaMatches } from "@/lib/dofa/parse-matches";
@@ -616,28 +616,37 @@ export default function ChampionshipPage() {
                 <div className="space-y-4">
                   <div className="rounded-lg border p-3 space-y-3">
                     <div className="space-y-1">
-                      <p className="text-sm font-medium">Trouver ma poule rapidement</p>
-                      <p className="text-xs text-muted-foreground">Indique ton club et ton équipe pour ouvrir directement la bonne page sur epreuves.fff.fr</p>
+                      <p className="text-sm font-medium">Méthode rapide (recommandée)</p>
+                      <p className="text-xs text-muted-foreground">Installer le script userscript pour importer directement sans copier/coller</p>
                     </div>
-                    <div className="grid gap-2">
-                      <div className="space-y-1">
-                        <Label className="text-xs">Nom du club</Label>
-                        <Input value={clubName} onChange={(e) => setClubName(e.target.value)} placeholder="Ex. Etoile Club de Camphin" />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs">Équipe / Catégorie</Label>
-                        <Input value={teamName} onChange={(e) => setTeamName(e.target.value)} placeholder="Ex. U18, Seniors, Féminines..." />
-                      </div>
-                    </div>
-                    <a href={getEpreuvesSearchUrl()} target="_blank" rel="noopener noreferrer">
-                      <Button variant="outline" className="w-full" disabled={!clubName.trim() && !teamName.trim()}>
-                        <ExternalLink className="h-4 w-4 mr-2" />
-                        Ouvrir epreuves.fff.fr avec ces infos
+                    <a href="/benchrs-fff-import.user.js" download>
+                      <Button variant="default" className="w-full bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90">
+                        <Download className="h-4 w-4 mr-2" />
+                        Installer le userscript Benchrs
                       </Button>
                     </a>
                     <p className="text-xs text-muted-foreground">
-                      Ouvre le lien → sélectionne ta poule → va dans "Tous les matchs" ou "Résultats" → copie le JSON (Ctrl+A/Ctrl+C) → colle-le dans "Coller le JSON" ci-dessous
+                      Nécessite un gestionnaire comme Tampermonkey ou Violentmonkey. Une fois installé, configure-le depuis le bouton qui apparaît sur epreuves.fff.fr.
                     </p>
+                    <div className="border-t pt-3 space-y-2">
+                      <p className="text-xs font-medium">Ou méthode manuelle</p>
+                      <div className="grid gap-2">
+                        <div className="space-y-1">
+                          <Label className="text-xs">Nom du club</Label>
+                          <Input value={clubName} onChange={(e) => setClubName(e.target.value)} placeholder="Ex. Etoile Club de Camphin" />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Équipe / Catégorie</Label>
+                          <Input value={teamName} onChange={(e) => setTeamName(e.target.value)} placeholder="Ex. U18, Seniors, Féminines..." />
+                        </div>
+                      </div>
+                      <a href={getEpreuvesSearchUrl()} target="_blank" rel="noopener noreferrer">
+                        <Button variant="outline" className="w-full" disabled={!clubName.trim() && !teamName.trim()}>
+                          <ExternalLink className="h-4 w-4 mr-2" />
+                          Ouvrir epreuves.fff.fr avec ces infos
+                        </Button>
+                      </a>
+                    </div>
                   </div>
                   {!selected ? (
                     <p className="text-sm text-muted-foreground">
