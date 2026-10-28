@@ -369,6 +369,11 @@ function BottomNav() {
             <Link
               key={item.href}
               href={item.href}
+              onClick={() => {
+                if (item.href === "/" && (userRole === "coach" || userRole === "owner") && teams.length > 1) {
+                  sessionStorage.setItem("skipMultiRedirect", "1");
+                }
+              }}
               className={`relative flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] font-medium transition-colors ${
                 active
                   ? "text-white"

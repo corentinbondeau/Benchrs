@@ -131,16 +131,12 @@ export default function DashboardPage() {
       router.replace("/club");
       return;
     }
-    if (isCoach && teams && teams.length > 1) {
+    if (isCoach && teams && teams.length > 1 && !sessionStorage.getItem("skipMultiRedirect")) {
       router.replace("/multi");
     }
   }, [isComiteOnly, isCoach, teams, router]);
 
   if (isComiteOnly) {
-    return null;
-  }
-
-  if (isCoach && teams && teams.length > 1) {
     return null;
   }
 

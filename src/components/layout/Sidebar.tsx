@@ -301,6 +301,26 @@ function Sidebar() {
             const badge = item.href === CHAT_HREF ? unreadChat : 0;
             if (isComiteOnly && !["/", "/calendar", "/roster", "/stats"].includes(item.href)) return null;
 
+            if (item.href === "/" && (userRole === "coach" || userRole === "owner") && teams.length > 1) {
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => sessionStorage.setItem("skipMultiRedirect", "1")}
+                  className={`group flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13px] font-medium transition-all duration-150 ${
+                    active
+                      ? "bg-white/[0.12] text-white"
+                      : "text-white/55 hover:bg-white/[0.06] hover:text-white/90"
+                  }`}
+                >
+                  <span className="relative flex items-center justify-center w-5 h-5">
+                    <item.icon className={`h-[18px] w-[18px] ${active ? "text-[var(--color-primary-blue)]" : ""}`} />
+                  </span>
+                  {item.label}
+                </Link>
+              );
+            }
+
             return (
               <Link
                 key={item.href}
