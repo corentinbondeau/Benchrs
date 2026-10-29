@@ -8,12 +8,14 @@
  * la route proxy `/api/dofa-proxy` du serveur Benchrs qui relaie les appels
  * vers DOFA avec le Bearer token côté serveur.
  *
- * Le proxy est authentifié (cookie Supabase) et rate-limité (30 req/min).
+ * Le proxy est authentifié (Bearer Supabase) et rate-limité (30 req/min).
  */
+
+import { authFetch } from "@/lib/api-client";
 
 async function dofaFetch(path: string): Promise<unknown> {
   const proxyUrl = `/api/dofa-proxy?path=${encodeURIComponent(path)}`;
-  const res = await fetch(proxyUrl);
+  const res = await authFetch(proxyUrl);
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error(body?.error || `Proxy DOFA ${res.status}`);
