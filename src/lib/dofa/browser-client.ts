@@ -169,7 +169,7 @@ export async function fetchClubTeams(clNo: number): Promise<{ clubInfo: ClubInfo
   const data = await dofaFetch(`/api/clubs/${clubInfo.clNo}/equipes`);
   const items = normalize(data);
 
-  return items
+  const teams: ClubTeam[] = items
     .filter((item): item is Record<string, unknown> => item !== null && typeof item === "object")
     .map((item) => {
       const rawEngagements = Array.isArray(item.engagements) ? item.engagements : [];
