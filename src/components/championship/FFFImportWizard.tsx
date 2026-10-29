@@ -20,10 +20,12 @@ import { parseDofaMatches } from "@/lib/dofa/parse-matches";
 import { hasUsableDate } from "@/lib/dofa/parse-matches";
 import {
   fetchClubTeams,
+  searchClubByName,
   fetchAllPouleMatches,
   fetchPouleStandings,
   type ClubTeam,
   type ClubEngagement,
+  type ClubInfo,
 } from "@/lib/dofa/browser-client";
 
 // ─── Types ────────────────────────────────────────────────────────────────
@@ -149,85 +151,174 @@ function StepClub({
   onFound,
 }: {
   defaultClNo?: number;
-  onFound: (clNo: number, teams: ClubTeam[]) => void;
+  onFound: (clubInfo: ClubInfo, teams: ClubTeam[]) => void;
 }) {
-  const [clNoInput, setClNoInput] = useState(defaultClNo ? String(defaultClNo) : "");
+  const [searchInput, setSearchInput] = useState(defaultClNo ? String(defaultClNo) : "");
+  const [searchMode, setSearchMode] = useState<"number" | "name">("number");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [searchResults, setSearchResults] = useState<ClubInfo[] | null>(null);
 
-  async function handleSearch() {
-    const clNo = parseInt(clNoInput.trim(), 10);
-    if (isNaN(clNo) || clNo <= 0) {
-      setError("Entrez un numéro de club FFF valide (ex: 12152).");
+  function handleError(err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes("502") || msg.includes("indisponible") || msg.includes("injoignable")) {
+      setError(
+        "L'API de la FFF est temporairement indisponible — la FFF coupe régulièrement son API sans prévenir. " +
+          "Réessayez dans quelques heures ou demain."
+      );
+    } else if (msg.includes("Aucun club")) {
+      setError(msg);
+    } else if (msg.includes("403") || msg.includes("Failed to fetch")) {
+      setError("L'API de la FFF bloque les requêtes. Réessayez plus tard.");
+    } else {
+      setError(`Impossible de contacter l'API FFF (${msg}). Vérifiez votre connexion ou réessayez plus tard.`);
+    }
+  }
+
+  async function handleSearchByNumber() {
+    const num = parseInt(searchInput.trim(), 10);
+    if (isNaN(num) || num <= 0) {
+      setError("Entrez un numéro de club valide.");
       return;
     }
     setError(null);
+    setSearchResults(null);
     setLoading(true);
     try {
-      const teams = await fetchClubTeams(clNo);
+      const { clubInfo, teams } = await fetchClubTeams(num);
       if (teams.length === 0) {
-        setError(
-          "Aucune équipe trouvée pour ce numéro de club. Vérifiez le numéro sur fff.fr (il est dans l'URL de la page club)."
-        );
+        setError(`Club « ${clubInfo.name} » trouvé mais aucune équipe engagée cette saison.`);
         return;
       }
-      onFound(clNo, teams);
+      onFound(clubInfo, teams);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      if (msg.includes("502") || msg.includes("indisponible") || msg.includes("injoignable")) {
-        setError(
-          "L'API de la FFF est temporairement indisponible — la FFF coupe régulièrement son API sans prévenir. " +
-            "Réessayez dans quelques heures ou demain."
-        );
-      } else if (msg.includes("403") || msg.includes("Failed to fetch") || msg.includes("CORS")) {
-        setError(
-          "L'API de la FFF bloque les requêtes. La FFF coupe régulièrement son API. " +
-            "Réessayez plus tard."
-        );
-      } else {
-        setError(
-          `Impossible de contacter l'API FFF (${msg}). Vérifiez votre connexion ou réessayez plus tard.`
-        );
-      }
+      handleError(err);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleSearchByName() {
+    const q = searchInput.trim();
+    if (q.length < 2) {
+      setError("Entrez au moins 2 caractères.");
+      return;
+    }
+    setError(null);
+    setSearchResults(null);
+    setLoading(true);
+    try {
+      const results = await searchClubByName(q);
+      if (results.length === 0) {
+        setError(`Aucun club trouvé pour « ${q} ». Essayez avec le numéro d'affiliation.`);
+        return;
+      }
+      setSearchResults(results);
+    } catch (err) {
+      handleError(err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleSelectClub(club: ClubInfo) {
+    setError(null);
+    setSearchResults(null);
+    setLoading(true);
+    try {
+      const { clubInfo, teams } = await fetchClubTeams(club.clNo);
+      if (teams.length === 0) {
+        setError(`Club « ${clubInfo.name} » trouvé mais aucune équipe engagée cette saison.`);
+        return;
+      }
+      onFound(clubInfo, teams);
+    } catch (err) {
+      handleError(err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function handleSearch() {
+    if (searchMode === "name") {
+      handleSearchByName();
+    } else {
+      handleSearchByNumber();
     }
   }
 
   return (
     <div className="space-y-4">
       <div className="space-y-2">
-        <Label htmlFor="fff-club-no">Numéro de club FFF</Label>
-        <p className="text-xs text-muted-foreground">
-          Visible dans l'URL de votre club sur{" "}
-          <a
-            href="https://www.fff.fr"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="underline hover:text-foreground"
+        <div className="flex gap-2 mb-2">
+          <Button
+            variant={searchMode === "number" ? "secondary" : "outline"}
+            size="sm"
+            onClick={() => { setSearchMode("number"); setSearchResults(null); setError(null); }}
           >
-            fff.fr
-          </a>{" "}
-          (ex: <code className="bg-muted px-1 rounded">12152</code>)
-        </p>
+            Par numéro
+          </Button>
+          <Button
+            variant={searchMode === "name" ? "secondary" : "outline"}
+            size="sm"
+            onClick={() => { setSearchMode("name"); setSearchResults(null); setError(null); }}
+          >
+            Par nom
+          </Button>
+        </div>
+
+        <Label htmlFor="fff-club-search">
+          {searchMode === "number" ? "Numéro de club ou d'affiliation FFF" : "Nom du club"}
+        </Label>
+        {searchMode === "number" && (
+          <p className="text-xs text-muted-foreground">
+            Accepte le numéro d'affiliation (ex: <code className="bg-muted px-1 rounded">525816</code>)
+            ou le numéro interne FFF (ex: <code className="bg-muted px-1 rounded">10428</code>)
+          </p>
+        )}
         <div className="flex gap-2">
           <Input
-            id="fff-club-no"
-            type="number"
-            min="1"
-            value={clNoInput}
-            onChange={(e) => setClNoInput(e.target.value)}
+            id="fff-club-search"
+            type={searchMode === "number" ? "number" : "text"}
+            min={searchMode === "number" ? "1" : undefined}
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-            placeholder="Ex. 12152"
+            placeholder={searchMode === "number" ? "Ex. 525816" : "Ex. Camphin"}
             className="flex-1"
             disabled={loading}
           />
-          <Button onClick={handleSearch} disabled={loading || !clNoInput.trim()}>
+          <Button onClick={handleSearch} disabled={loading || !searchInput.trim()}>
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
             <span className="ml-1.5">Rechercher</span>
           </Button>
         </div>
       </div>
+
+      {/* Résultats de recherche par nom */}
+      {searchResults && searchResults.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-sm font-medium">{searchResults.length} club(s) trouvé(s) :</p>
+          <div className="space-y-1 max-h-60 overflow-y-auto">
+            {searchResults.map((club) => (
+              <button
+                key={club.clNo}
+                onClick={() => handleSelectClub(club)}
+                disabled={loading}
+                className="w-full text-left flex items-center justify-between p-3 rounded-lg border hover:bg-accent/50 transition text-sm"
+              >
+                <div>
+                  <p className="font-medium">{club.name}</p>
+                  <p className="text-xs text-muted-foreground">{club.shortName}</p>
+                </div>
+                <Badge variant="outline" className="text-xs shrink-0">
+                  n°{club.clNo}
+                </Badge>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {error && (
         <div
@@ -242,17 +333,8 @@ function StepClub({
       <div className="rounded-lg border bg-muted/30 p-3 text-xs text-muted-foreground space-y-1">
         <p className="font-medium text-foreground">Comment trouver mon numéro de club ?</p>
         <p>
-          Allez sur{" "}
-          <a
-            href="https://www.fff.fr/clubs"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="underline"
-          >
-            fff.fr/clubs
-          </a>
-          , cherchez votre club. Le numéro est dans l'URL :{" "}
-          <code className="bg-background px-1 rounded">fff.fr/clubs/12152-...</code>
+          Votre numéro d'affiliation FFF (6 chiffres, ex: 525816) se trouve sur votre licence
+          ou sur le site de votre district. Vous pouvez aussi chercher par nom ci-dessus.
         </p>
       </div>
     </div>
@@ -707,8 +789,8 @@ export function FFFImportWizard({
     }
   }
 
-  function handleClubFound(foundClNo: number, foundTeams: ClubTeam[]) {
-    setClNo(foundClNo);
+  function handleClubFound(clubInfo: ClubInfo, foundTeams: ClubTeam[]) {
+    setClNo(clubInfo.clNo);
     setTeams(foundTeams);
     setStep("competition");
   }

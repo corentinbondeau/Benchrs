@@ -67,13 +67,80 @@ export interface ClubTeam {
 
 // ─── API publique ──────────────────────────────────────────────────────────
 
+export interface ClubInfo {
+  clNo: number;
+  name: string;
+  shortName: string;
+}
+
+/**
+ * Résout un numéro de club : accepte le cl_no DOFA OU le numéro d'affiliation FFF.
+ *
+ * - Si < 100 000 → probablement un cl_no DOFA, on l'utilise directement
+ * - Si >= 100 000 → probablement un numéro d'affiliation, on cherche via /api/clubs?cl_cod=
+ *
+ * Retourne le cl_no DOFA et le nom du club.
+ */
+export async function resolveClubNumber(input: number): Promise<ClubInfo> {
+  // Les cl_no DOFA sont typiquement < 100 000, les numéros d'affiliation >= 100 000
+  if (input >= 100_000) {
+    // Recherche par numéro d'affiliation
+    const data = await dofaFetch(`/api/clubs?cl_cod=${input}`);
+    const items = normalize(data);
+    if (items.length === 0) {
+      throw new Error(`Aucun club trouvé avec le numéro d'affiliation ${input}`);
+    }
+    const club = items[0] as Record<string, unknown>;
+    const clNo = typeof club.cl_no === "number" ? club.cl_no : 0;
+    if (!clNo) throw new Error(`Club trouvé mais sans identifiant interne`);
+    return {
+      clNo,
+      name: typeof club.name === "string" ? club.name : "Club",
+      shortName: typeof club.short_name === "string" ? club.short_name : "Club",
+    };
+  }
+
+  // cl_no DOFA direct — vérifier qu'il existe
+  try {
+    const data = await dofaFetch(`/api/clubs/${input}`);
+    const club = data as Record<string, unknown>;
+    return {
+      clNo: input,
+      name: typeof club.name === "string" ? club.name : "Club",
+      shortName: typeof club.short_name === "string" ? club.short_name : "Club",
+    };
+  } catch {
+    throw new Error(`Aucun club trouvé avec le numéro ${input}`);
+  }
+}
+
+/**
+ * Recherche un club par nom.
+ * Endpoint : GET /api/clubs?filter={query}
+ */
+export async function searchClubByName(query: string): Promise<ClubInfo[]> {
+  const data = await dofaFetch(`/api/clubs?filter=${encodeURIComponent(query)}`);
+  const items = normalize(data);
+  return items
+    .filter((item): item is Record<string, unknown> => item !== null && typeof item === "object")
+    .map((club) => ({
+      clNo: typeof club.cl_no === "number" ? club.cl_no : 0,
+      name: typeof club.name === "string" ? club.name : "Club",
+      shortName: typeof club.short_name === "string" ? club.short_name : "Club",
+    }))
+    .filter((c) => c.clNo > 0)
+    .slice(0, 20);
+}
+
 /**
  * Liste les équipes et leurs engagements (championnats, coupes) d'un club FFF.
  *
- * Endpoint : GET /api/clubs/{clNo}/equipes.json?filter=
+ * Accepte un cl_no DOFA OU un numéro d'affiliation FFF (résolution automatique).
  */
-export async function fetchClubTeams(clNo: number): Promise<ClubTeam[]> {
-  const data = await dofaFetch(`/api/clubs/${clNo}/equipes.json?filter=`);
+export async function fetchClubTeams(clNo: number): Promise<{ clubInfo: ClubInfo; teams: ClubTeam[] }> {
+  // Résoudre le numéro si c'est un numéro d'affiliation
+  const clubInfo = await resolveClubNumber(clNo);
+  const data = await dofaFetch(`/api/clubs/${clubInfo.clNo}/equipes`);
   const items = normalize(data);
 
   return items
@@ -117,6 +184,8 @@ export async function fetchClubTeams(clNo: number): Promise<ClubTeam[]> {
         engagements,
       };
     });
+
+  return { clubInfo, teams };
 }
 
 /**

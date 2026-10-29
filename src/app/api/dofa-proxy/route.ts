@@ -25,7 +25,7 @@ const DOFA_BASES = [
  * Whitelist des chemins autorisés — seuls ces préfixes sont relayés.
  * Empêche l'utilisation du proxy comme open relay.
  */
-const ALLOWED_PREFIXES = ["/api/clubs/", "/api/compets/"];
+const ALLOWED_PREFIXES = ["/api/clubs", "/api/compets/"];
 
 function isAllowedPath(path: string): boolean {
   return ALLOWED_PREFIXES.some((prefix) => path.startsWith(prefix));
