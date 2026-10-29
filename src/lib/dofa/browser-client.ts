@@ -1,55 +1,23 @@
 "use client";
 
 /**
- * browser-client.ts — Client DOFA côté navigateur.
+ * browser-client.ts — Client DOFA côté navigateur via proxy Benchrs.
  *
- * L'API DOFA (api-dofa.prd-aws.fff.fr) est bloquée par Akamai pour toute
- * requête provenant d'un serveur (403). En revanche, les requêtes navigateur
- * passent. Ce module doit donc être exécuté EXCLUSIVEMENT côté client.
+ * L'API DOFA (api-dofa.prd-aws.fff.fr) bloque les requêtes navigateur (CORS)
+ * ET les requêtes serveur (Akamai 403 selon le réseau). Ce module passe par
+ * la route proxy `/api/dofa-proxy` du serveur Benchrs qui relaie les appels
+ * vers DOFA avec le Bearer token côté serveur.
  *
- * Le token Bearer est récupéré publiquement depuis fff.fr et mis en cache
- * 45 minutes (durée typique observée en prod).
+ * Le proxy est authentifié (cookie Supabase) et rate-limité (30 req/min).
  */
 
-const DOFA_BASE = "https://api-dofa.prd-aws.fff.fr";
-
-// Cache du token Bearer (session navigateur uniquement)
-let tokenCache: { token: string; exp: number } | null = null;
-
-async function getDofaToken(): Promise<string | null> {
-  if (tokenCache && tokenCache.exp > Date.now()) return tokenCache.token;
-  try {
-    const res = await fetch("https://www.fff.fr/api/dofa/token");
-    if (!res.ok) return null;
-    const contentType = res.headers.get("content-type") || "";
-    if (contentType.includes("text/html")) return null;
-    const data = await res.json().catch(() => ({}));
-    const token =
-      (typeof data?.token === "string" && data.token) ||
-      (typeof data?.access_token === "string" && data.access_token) ||
-      (typeof data?.jwt === "string" && data.jwt) ||
-      (typeof data?.bearer === "string" && data.bearer) ||
-      (data?.data && typeof data.data.token === "string" && data.data.token) ||
-      null;
-    if (token) {
-      tokenCache = { token, exp: Date.now() + 45 * 60_000 };
-      return token;
-    }
-  } catch {
-    // Pas de token disponible, on continuera sans Authorization
-  }
-  return null;
-}
-
 async function dofaFetch(path: string): Promise<unknown> {
-  const token = await getDofaToken();
-  const headers: Record<string, string> = {
-    Accept: "application/json",
-  };
-  if (token) headers["Authorization"] = `Bearer ${token}`;
-
-  const res = await fetch(`${DOFA_BASE}${path}`, { headers });
-  if (!res.ok) throw new Error(`DOFA ${res.status}`);
+  const proxyUrl = `/api/dofa-proxy?path=${encodeURIComponent(path)}`;
+  const res = await fetch(proxyUrl);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body?.error || `Proxy DOFA ${res.status}`);
+  }
   return res.json();
 }
 
