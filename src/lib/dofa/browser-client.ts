@@ -24,10 +24,21 @@ async function dofaFetch(path: string): Promise<unknown> {
     if (res.ok) {
       return await res.json();
     }
-    // 401/403 = problème d'auth Benchrs → on ne fallback pas
-    if (res.status === 401 || res.status === 403) {
+    // 401 = problème d'auth Benchrs → on ne fallback pas
+    if (res.status === 401) {
       const body = await res.json().catch(() => ({}));
       throw new Error(body?.error || `Non autorisé (${res.status})`);
+    }
+    // 403 du proxy = soit whitelist Benchrs, soit Akamai → lire le message
+    if (res.status === 403) {
+      const body = await res.json().catch(() => ({}));
+      const msg = body?.error || "";
+      // Si c'est le whitelist Benchrs ("Chemin non autorisé"), pas de fallback
+      if (msg.includes("non autorisé") || msg.includes("Chemin")) {
+        throw new Error(msg);
+      }
+      // Sinon c'est Akamai → fallback
+      console.warn(`[dofa] proxy 403 (Akamai), trying fallback...`);
     }
     // 502 = Akamai bloque le proxy → on tente le fallback
     console.warn(`[dofa] proxy returned ${res.status}, trying fallback...`);
@@ -39,14 +50,33 @@ async function dofaFetch(path: string): Promise<unknown> {
     console.warn("[dofa] proxy failed, trying fallback...", err);
   }
 
-  // Stratégie 2 : fallback via allorigins.win (proxy CORS public)
+  // Stratégie 2 : fallback via proxys CORS publics (essayés en cascade)
   const directUrl = `${DOFA_BASE}${path}`;
-  const fallbackUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(directUrl)}`;
-  const res = await fetch(fallbackUrl);
-  if (!res.ok) {
-    throw new Error(`L'API FFF est temporairement indisponible. Réessayez plus tard.`);
+  const corsProxies = [
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(directUrl)}`,
+    `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(directUrl)}`,
+  ];
+
+  for (const proxyUrl of corsProxies) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 8_000);
+      const res = await fetch(proxyUrl, { signal: controller.signal });
+      clearTimeout(timeout);
+      if (res.ok) {
+        const text = await res.text();
+        // Vérifier que c'est du JSON et pas une page HTML d'erreur
+        if (text.startsWith("{") || text.startsWith("[")) {
+          return JSON.parse(text);
+        }
+      }
+    } catch {
+      // Proxy indisponible, essayer le suivant
+      continue;
+    }
   }
-  return res.json();
+
+  throw new Error(`L'API FFF est temporairement indisponible. Réessayez plus tard.`);
 }
 
 /** Normalise les réponses Hydra ou tableau nu en tableau. */
