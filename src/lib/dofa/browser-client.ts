@@ -50,11 +50,37 @@ async function dofaFetch(path: string): Promise<unknown> {
     console.warn("[dofa] proxy failed, trying fallback...", err);
   }
 
-  // Stratégie 2 : fallback via proxys CORS publics (essayés en cascade)
+  // Stratégie 2 : appel direct depuis le navigateur (sans CORS headers)
+  // Certains endpoints DOFA répondent sans vérifier CORS, ça vaut le coup d'essayer
   const directUrl = `${DOFA_BASE}${path}`;
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8_000);
+    const res = await fetch(directUrl, {
+      signal: controller.signal,
+      headers: {
+        Accept: "application/ld+json, application/json",
+        "Sec-Ch-Ua": '"Chromium";v="130", "Google Chrome";v="130"',
+        "Sec-Ch-Ua-Mobile": "?0",
+        "Sec-Ch-Ua-Platform": '"macOS"',
+      },
+    });
+    clearTimeout(timeout);
+    if (res.ok) {
+      const text = await res.text();
+      if (text.startsWith("{") || text.startsWith("[")) {
+        return JSON.parse(text);
+      }
+    }
+  } catch {
+    // CORS bloqué ou réseau — continuer vers les proxys CORS
+  }
+
+  // Stratégie 3 : fallback via proxys CORS publics (essayés en cascade)
   const corsProxies = [
     `https://api.allorigins.win/raw?url=${encodeURIComponent(directUrl)}`,
     `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(directUrl)}`,
+    `https://corsproxy.io/?${encodeURIComponent(directUrl)}`,
   ];
 
   for (const proxyUrl of corsProxies) {
@@ -65,13 +91,11 @@ async function dofaFetch(path: string): Promise<unknown> {
       clearTimeout(timeout);
       if (res.ok) {
         const text = await res.text();
-        // Vérifier que c'est du JSON et pas une page HTML d'erreur
         if (text.startsWith("{") || text.startsWith("[")) {
           return JSON.parse(text);
         }
       }
     } catch {
-      // Proxy indisponible, essayer le suivant
       continue;
     }
   }

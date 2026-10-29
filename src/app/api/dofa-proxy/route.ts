@@ -4,12 +4,8 @@ import { rateLimit, clientKey } from "@/lib/rateLimit";
 
 export const dynamic = "force-dynamic";
 
-/**
- * Edge Runtime — les fonctions Edge tournent sur le CDN (Cloudflare/Vercel Edge)
- * avec des IP non-datacenter, ce qui évite le blocage Akamai WAF de la FFF
- * qui cible les IP AWS/GCP/Azure.
- */
-export const runtime = "edge";
+/** Force la région Paris (cdg1) — les IP européennes sont moins bloquées par Akamai FFF */
+export const preferredRegion = "cdg1";
 
 /**
  * URLs candidates de l'API DOFA — la FFF change régulièrement de domaine.
