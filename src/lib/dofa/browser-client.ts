@@ -3,102 +3,60 @@
 /**
  * browser-client.ts — Client DOFA côté navigateur.
  *
- * L'API DOFA (api-dofa.fff.fr) bloque CORS + certaines IP datacenter (Akamai WAF).
- * Stratégie en cascade :
- *   1. Proxy Benchrs (/api/dofa-proxy) — Edge Runtime, headers Chrome
- *   2. Fallback direct via allorigins.win — proxy CORS public
+ * L'API DOFA (api-dofa.fff.fr) bloque CORS + IP datacenter (Akamai WAF).
  *
- * Le proxy Benchrs est authentifié (Bearer Supabase) et rate-limité.
- * Le fallback allorigins ne nécessite pas d'auth (données DOFA publiques).
+ * Stratégie en cascade :
+ *   1. Cloudflare Worker dédié (benchrs-dofa-proxy.benchrs.workers.dev)
+ *      → IP Cloudflare non bloquées par Akamai, CORS activé
+ *   2. Proxy Benchrs (/api/dofa-proxy) — Vercel serverless (Paris)
+ *   3. Appel direct navigateur (si CORS pas vérifié par DOFA)
  */
 
 import { authFetch } from "@/lib/api-client";
 
+const CF_WORKER = process.env.NEXT_PUBLIC_DOFA_WORKER_URL || "https://benchrs-dofa-proxy.benchrs.workers.dev";
 const DOFA_BASE = "https://api-dofa.fff.fr";
 
+async function tryFetch(url: string, init?: RequestInit): Promise<unknown | null> {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10_000);
+    const res = await fetch(url, { ...init, signal: controller.signal });
+    clearTimeout(timeout);
+    if (!res.ok) return null;
+    const text = await res.text();
+    if (text.startsWith("{") || text.startsWith("[")) {
+      return JSON.parse(text);
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 async function dofaFetch(path: string): Promise<unknown> {
-  // Stratégie 1 : proxy Benchrs (Edge Runtime)
+  // Stratégie 1 : Cloudflare Worker (IP non-datacenter, CORS activé)
+  const cfResult = await tryFetch(`${CF_WORKER}${path}`);
+  if (cfResult !== null) return cfResult;
+
+  // Stratégie 2 : proxy Benchrs (Vercel serverless, région Paris)
   try {
     const proxyUrl = `/api/dofa-proxy?path=${encodeURIComponent(path)}`;
     const res = await authFetch(proxyUrl);
-    if (res.ok) {
-      return await res.json();
-    }
-    // 401 = problème d'auth Benchrs → on ne fallback pas
+    if (res.ok) return await res.json();
     if (res.status === 401) {
       const body = await res.json().catch(() => ({}));
-      throw new Error(body?.error || `Non autorisé (${res.status})`);
+      throw new Error(body?.error || `Non autorisé`);
     }
-    // 403 du proxy = soit whitelist Benchrs, soit Akamai → lire le message
-    if (res.status === 403) {
-      const body = await res.json().catch(() => ({}));
-      const msg = body?.error || "";
-      // Si c'est le whitelist Benchrs ("Chemin non autorisé"), pas de fallback
-      if (msg.includes("non autorisé") || msg.includes("Chemin")) {
-        throw new Error(msg);
-      }
-      // Sinon c'est Akamai → fallback
-      console.warn(`[dofa] proxy 403 (Akamai), trying fallback...`);
-    }
-    // 502 = Akamai bloque le proxy → on tente le fallback
-    console.warn(`[dofa] proxy returned ${res.status}, trying fallback...`);
   } catch (err) {
-    // Si c'est une erreur d'auth, on la remonte
-    if (err instanceof Error && (err.message.includes("Non autorisé") || err.message.includes("autorisé"))) {
-      throw err;
-    }
-    console.warn("[dofa] proxy failed, trying fallback...", err);
+    if (err instanceof Error && err.message.includes("autorisé")) throw err;
   }
 
-  // Stratégie 2 : appel direct depuis le navigateur (sans CORS headers)
-  // Certains endpoints DOFA répondent sans vérifier CORS, ça vaut le coup d'essayer
-  const directUrl = `${DOFA_BASE}${path}`;
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8_000);
-    const res = await fetch(directUrl, {
-      signal: controller.signal,
-      headers: {
-        Accept: "application/ld+json, application/json",
-        "Sec-Ch-Ua": '"Chromium";v="130", "Google Chrome";v="130"',
-        "Sec-Ch-Ua-Mobile": "?0",
-        "Sec-Ch-Ua-Platform": '"macOS"',
-      },
-    });
-    clearTimeout(timeout);
-    if (res.ok) {
-      const text = await res.text();
-      if (text.startsWith("{") || text.startsWith("[")) {
-        return JSON.parse(text);
-      }
-    }
-  } catch {
-    // CORS bloqué ou réseau — continuer vers les proxys CORS
-  }
-
-  // Stratégie 3 : fallback via proxys CORS publics (essayés en cascade)
-  const corsProxies = [
-    `https://api.allorigins.win/raw?url=${encodeURIComponent(directUrl)}`,
-    `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(directUrl)}`,
-    `https://corsproxy.io/?${encodeURIComponent(directUrl)}`,
-  ];
-
-  for (const proxyUrl of corsProxies) {
-    try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 8_000);
-      const res = await fetch(proxyUrl, { signal: controller.signal });
-      clearTimeout(timeout);
-      if (res.ok) {
-        const text = await res.text();
-        if (text.startsWith("{") || text.startsWith("[")) {
-          return JSON.parse(text);
-        }
-      }
-    } catch {
-      continue;
-    }
-  }
+  // Stratégie 3 : appel direct navigateur
+  const directResult = await tryFetch(`${DOFA_BASE}${path}`, {
+    headers: { Accept: "application/ld+json, application/json" },
+  });
+  if (directResult !== null) return directResult;
 
   throw new Error(`L'API FFF est temporairement indisponible. Réessayez plus tard.`);
 }
