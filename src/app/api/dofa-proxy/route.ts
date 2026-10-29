@@ -7,11 +7,10 @@ export const dynamic = "force-dynamic";
 
 /**
  * URLs candidates de l'API DOFA — la FFF change régulièrement de domaine.
- * On essaie dans l'ordre jusqu'à obtenir une réponse JSON valide.
+ * `api-dofa.fff.fr` est le domaine stable (oct. 2026) ; `prd-aws` est mort.
  */
 const DOFA_BASES = [
   process.env.DOFA_BASE_URL,
-  "https://api-dofa.prd-aws.fff.fr",
   "https://api-dofa.fff.fr",
 ].filter(Boolean) as string[];
 
@@ -60,9 +59,21 @@ export async function GET(req: Request) {
   }
 
   const token = await getDofaBearerToken();
+
+  // Headers Chrome complets — Akamai/WAF de la FFF bloque les requêtes
+  // qui n'ont pas les headers Sec-Ch-Ua (fingerprint navigateur).
   const headers: Record<string, string> = {
-    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
-    Accept: "application/json, application/ld+json",
+    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+    Accept: "application/ld+json, application/json",
+    "Accept-Language": "fr-FR,fr;q=0.9",
+    Origin: "https://www.fff.fr",
+    Referer: "https://www.fff.fr/",
+    "Sec-Fetch-Dest": "empty",
+    "Sec-Fetch-Mode": "cors",
+    "Sec-Fetch-Site": "same-site",
+    "Sec-Ch-Ua": '"Chromium";v="130", "Google Chrome";v="130"',
+    "Sec-Ch-Ua-Mobile": "?0",
+    "Sec-Ch-Ua-Platform": '"macOS"',
   };
   if (token) {
     headers["Authorization"] = `Bearer ${token}`;
