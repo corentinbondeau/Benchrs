@@ -174,10 +174,15 @@ function StepClub({
       onFound(clNo, teams);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      if (msg.includes("DOFA 403") || msg.includes("Failed to fetch") || msg.includes("CORS")) {
+      if (msg.includes("502") || msg.includes("indisponible") || msg.includes("injoignable")) {
         setError(
-          "L'API FFF n'est pas accessible depuis ce navigateur (CORS ou réseau). " +
-            "Utilisez le bouton « Import DOFA » classique (copier-coller) à la place."
+          "L'API de la FFF est temporairement indisponible — la FFF coupe régulièrement son API sans prévenir. " +
+            "Réessayez dans quelques heures ou demain."
+        );
+      } else if (msg.includes("403") || msg.includes("Failed to fetch") || msg.includes("CORS")) {
+        setError(
+          "L'API de la FFF bloque les requêtes. La FFF coupe régulièrement son API. " +
+            "Réessayez plus tard."
         );
       } else {
         setError(

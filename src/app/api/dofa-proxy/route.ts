@@ -5,7 +5,15 @@ import { rateLimit, clientKey } from "@/lib/rateLimit";
 
 export const dynamic = "force-dynamic";
 
-const DOFA_BASE = process.env.DOFA_BASE_URL || "https://api-dofa.prd-aws.fff.fr";
+/**
+ * URLs candidates de l'API DOFA — la FFF change régulièrement de domaine.
+ * On essaie dans l'ordre jusqu'à obtenir une réponse JSON valide.
+ */
+const DOFA_BASES = [
+  process.env.DOFA_BASE_URL,
+  "https://api-dofa.prd-aws.fff.fr",
+  "https://api-dofa.fff.fr",
+].filter(Boolean) as string[];
 
 /**
  * Whitelist des chemins autorisés — seuls ces préfixes sont relayés.
@@ -51,37 +59,46 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Chemin non autorisé" }, { status: 403 });
   }
 
-  try {
-    const token = await getDofaBearerToken();
-    const headers: Record<string, string> = {
-      "User-Agent": "Mozilla/5.0 (Benchrs Proxy) AppleWebKit/537.36",
-      Accept: "application/json, application/ld+json",
-    };
-    if (token) {
-      headers["Authorization"] = `Bearer ${token}`;
-    }
-
-    const url = `${DOFA_BASE}${decodedPath}`;
-    const res = await fetch(url, { method: "GET", headers });
-
-    if (!res.ok) {
-      return NextResponse.json(
-        { error: `DOFA returned HTTP ${res.status}` },
-        { status: res.status === 403 ? 502 : res.status }
-      );
-    }
-
-    const data = await res.json();
-    return NextResponse.json(data, {
-      headers: {
-        "Cache-Control": "private, max-age=60",
-      },
-    });
-  } catch (err) {
-    console.error("[dofa-proxy] error:", err);
-    return NextResponse.json(
-      { error: "Impossible de contacter l'API FFF" },
-      { status: 502 }
-    );
+  const token = await getDofaBearerToken();
+  const headers: Record<string, string> = {
+    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+    Accept: "application/json, application/ld+json",
+  };
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
   }
+
+  let lastError: string = "Impossible de contacter l'API FFF";
+
+  // Essaie chaque URL candidate — la FFF change régulièrement de domaine
+  for (const base of DOFA_BASES) {
+    const url = `${base}${decodedPath}`;
+    try {
+      const res = await fetch(url, {
+        method: "GET",
+        headers,
+        signal: AbortSignal.timeout(10_000),
+      });
+
+      // Vérifier que la réponse est du JSON et non une page HTML d'erreur FFF
+      const contentType = res.headers.get("content-type") || "";
+      if (!res.ok || contentType.includes("text/html")) {
+        lastError = `L'API FFF est temporairement indisponible (HTTP ${res.status} sur ${new URL(url).hostname}). La FFF coupe régulièrement son API — réessayez plus tard.`;
+        continue; // Essayer le domaine suivant
+      }
+
+      const data = await res.json();
+      return NextResponse.json(data, {
+        headers: { "Cache-Control": "private, max-age=60" },
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(`[dofa-proxy] ${base} failed:`, msg);
+      lastError = `L'API FFF est injoignable (${new URL(base).hostname}). La FFF coupe régulièrement son API — réessayez plus tard.`;
+      continue; // Essayer le domaine suivant
+    }
+  }
+
+  // Aucun domaine n'a fonctionné
+  return NextResponse.json({ error: lastError }, { status: 502 });
 }
