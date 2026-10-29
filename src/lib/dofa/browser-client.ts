@@ -1,24 +1,50 @@
 "use client";
 
 /**
- * browser-client.ts — Client DOFA côté navigateur via proxy Benchrs.
+ * browser-client.ts — Client DOFA côté navigateur.
  *
- * L'API DOFA (api-dofa.prd-aws.fff.fr) bloque les requêtes navigateur (CORS)
- * ET les requêtes serveur (Akamai 403 selon le réseau). Ce module passe par
- * la route proxy `/api/dofa-proxy` du serveur Benchrs qui relaie les appels
- * vers DOFA avec le Bearer token côté serveur.
+ * L'API DOFA (api-dofa.fff.fr) bloque CORS + certaines IP datacenter (Akamai WAF).
+ * Stratégie en cascade :
+ *   1. Proxy Benchrs (/api/dofa-proxy) — Edge Runtime, headers Chrome
+ *   2. Fallback direct via allorigins.win — proxy CORS public
  *
- * Le proxy est authentifié (Bearer Supabase) et rate-limité (30 req/min).
+ * Le proxy Benchrs est authentifié (Bearer Supabase) et rate-limité.
+ * Le fallback allorigins ne nécessite pas d'auth (données DOFA publiques).
  */
 
 import { authFetch } from "@/lib/api-client";
 
+const DOFA_BASE = "https://api-dofa.fff.fr";
+
 async function dofaFetch(path: string): Promise<unknown> {
-  const proxyUrl = `/api/dofa-proxy?path=${encodeURIComponent(path)}`;
-  const res = await authFetch(proxyUrl);
+  // Stratégie 1 : proxy Benchrs (Edge Runtime)
+  try {
+    const proxyUrl = `/api/dofa-proxy?path=${encodeURIComponent(path)}`;
+    const res = await authFetch(proxyUrl);
+    if (res.ok) {
+      return await res.json();
+    }
+    // 401/403 = problème d'auth Benchrs → on ne fallback pas
+    if (res.status === 401 || res.status === 403) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body?.error || `Non autorisé (${res.status})`);
+    }
+    // 502 = Akamai bloque le proxy → on tente le fallback
+    console.warn(`[dofa] proxy returned ${res.status}, trying fallback...`);
+  } catch (err) {
+    // Si c'est une erreur d'auth, on la remonte
+    if (err instanceof Error && (err.message.includes("Non autorisé") || err.message.includes("autorisé"))) {
+      throw err;
+    }
+    console.warn("[dofa] proxy failed, trying fallback...", err);
+  }
+
+  // Stratégie 2 : fallback via allorigins.win (proxy CORS public)
+  const directUrl = `${DOFA_BASE}${path}`;
+  const fallbackUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(directUrl)}`;
+  const res = await fetch(fallbackUrl);
   if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body?.error || `Proxy DOFA ${res.status}`);
+    throw new Error(`L'API FFF est temporairement indisponible. Réessayez plus tard.`);
   }
   return res.json();
 }
