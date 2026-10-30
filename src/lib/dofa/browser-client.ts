@@ -223,7 +223,7 @@ export async function fetchAllPouleMatches(
 ): Promise<unknown[]> {
   let allItems: unknown[] = [];
   let path: string | null =
-    `/api/compets/${cpNo}/phases/${phase}/poules/${poule}/matchs.json?filter=`;
+    `/api/compets/${cpNo}/phases/${phase}/poules/${poule}/matchs`;
   let pageIndex = 0;
 
   while (path) {
@@ -249,7 +249,7 @@ export async function fetchPouleStandings(
   poule: number
 ): Promise<unknown[]> {
   const data = await dofaFetch(
-    `/api/compets/${cpNo}/phases/${phase}/poules/${poule}/classement_journees.json?filter=`
+    `/api/compets/${cpNo}/phases/${phase}/poules/${poule}/classement_journees`
   );
   return normalize(data);
 }

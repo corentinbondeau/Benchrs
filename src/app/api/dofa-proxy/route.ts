@@ -36,10 +36,13 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Chemin non autorisé" }, { status: 403 });
   }
 
+  const fullUrl = `${SCALEWAY_PROXY}${decodedPath}`;
+  console.log(`[dofa-proxy] → ${fullUrl}`);
+
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 25_000);
-    const res = await fetch(`${SCALEWAY_PROXY}${decodedPath}`, {
+    const res = await fetch(fullUrl, {
       method: "GET",
       headers: { Accept: "application/json" },
       signal: controller.signal,
@@ -47,8 +50,10 @@ export async function GET(req: Request) {
     clearTimeout(timeout);
 
     const contentType = res.headers.get("content-type") || "";
+    console.log(`[dofa-proxy] ← HTTP ${res.status} (${contentType})`);
     if (!res.ok || contentType.includes("text/html")) {
       const body = await res.text().catch(() => "");
+      console.log(`[dofa-proxy] error body: ${body.slice(0, 200)}`);
       let error = `L'API FFF a répondu HTTP ${res.status}. Réessayez plus tard.`;
       try { error = JSON.parse(body).error || error; } catch {}
       return NextResponse.json({ error }, { status: 502 });
