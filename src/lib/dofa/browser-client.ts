@@ -13,11 +13,33 @@
 import { authFetch } from "@/lib/api-client";
 
 async function dofaFetch(path: string): Promise<unknown> {
-  const proxyUrl = `/api/dofa-proxy?path=${encodeURIComponent(path)}`;
-  const res = await authFetch(proxyUrl);
-  if (res.ok) return await res.json();
-  const body = await res.json().catch(() => ({}));
-  throw new Error(body?.error || `Erreur ${res.status}`);
+  const MAX_RETRIES = 3;
+  let lastError = "";
+
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    if (attempt > 0) {
+      // Attendre avant le retry (2s, puis 4s)
+      await new Promise((r) => setTimeout(r, attempt * 2000));
+    }
+
+    const proxyUrl = `/api/dofa-proxy?path=${encodeURIComponent(path)}`;
+    const res = await authFetch(proxyUrl);
+    if (res.ok) return await res.json();
+
+    const body = await res.json().catch(() => ({}));
+    lastError = body?.error || `Erreur ${res.status}`;
+
+    // 401/403 = erreur auth, pas de retry
+    if (res.status === 401 || res.status === 403) break;
+
+    // 502 (DOFA 404/503) = API instable, retry
+    if (res.status === 502) continue;
+
+    // Autre erreur, pas de retry
+    break;
+  }
+
+  throw new Error(lastError);
 }
 
 /** Normalise les réponses Hydra ou tableau nu en tableau. */
