@@ -13,7 +13,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Loader2, Search, Trophy, ChevronRight, CheckCircle2, AlertTriangle, Sparkles } from "lucide-react";
+import { Loader2, Search, Trophy, ChevronRight, CheckCircle2, AlertTriangle, Download } from "lucide-react";
 import { toast } from "sonner";
 import { authFetch } from "@/lib/api-client";
 import { parseDofaMatches } from "@/lib/dofa/parse-matches";
@@ -56,6 +56,23 @@ interface ImportSummary {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
+
+function categoryCodeLabel(code: string): string {
+  switch (code?.toUpperCase()) {
+    case "SEM": return "Seniors Masculins";
+    case "SEF": return "Seniors Féminines";
+    case "U19": return "U19 / U18";
+    case "U17": return "U17";
+    case "U15": return "U15 / U14";
+    case "U13": return "U13 / U12";
+    case "U15F": return "U15 Féminines";
+    case "U18F": return "U18 Féminines";
+    case "U13F": return "U13 Féminines";
+    case "FA": return "École de Football";
+    case "FL": return "Foot Loisirs";
+    default: return code || "Autre";
+  }
+}
 
 function competitionTypeLabel(type: string): string {
   switch (type?.toLowerCase()) {
@@ -345,11 +362,13 @@ function StepClub({
 
 function StepCompetition({
   clNo,
+  clubName,
   teams,
   onSelected,
   onBack,
 }: {
   clNo: number;
+  clubName: string;
   teams: ClubTeam[];
   onSelected: (selection: SelectedCompetition) => void;
   onBack: () => void;
@@ -366,7 +385,7 @@ function StepCompetition({
         >
           <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
           <p>
-            Aucun engagement trouvé pour le club <strong>{clNo}</strong>. Il se peut que
+            Aucun engagement trouvé pour le club <strong>{clubName || clNo}</strong>. Il se peut que
             la saison n'ait pas encore démarré ou que le numéro soit incorrect.
           </p>
         </div>
@@ -379,16 +398,19 @@ function StepCompetition({
 
   return (
     <div className="space-y-3">
-      <p className="text-sm text-muted-foreground">
-        Club <strong>{clNo}</strong> · {teams.length} équipe{teams.length > 1 ? "s" : ""} trouvée
-        {teams.length > 1 ? "s" : ""}. Cliquez sur la compétition à importer.
-      </p>
+      <div>
+        <p className="text-sm font-bold">{clubName}</p>
+        <p className="text-xs text-muted-foreground">
+          {clubName} · {teams.length} équipe{teams.length > 1 ? "s" : ""} trouvée
+          {teams.length > 1 ? "s" : ""}. Cliquez sur la compétition à importer.
+        </p>
+      </div>
 
       <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
         {Array.from(grouped.entries()).map(([category, categoryTeams]) => (
           <div key={category} className="space-y-1.5">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-1">
-              {category}
+              {categoryCodeLabel(category)}
             </p>
             {categoryTeams.map((team) =>
               team.engagements.map((eng) => (
@@ -409,7 +431,8 @@ function StepCompetition({
                   </div>
                   <p className="text-sm font-medium leading-tight">{eng.competitionName}</p>
                   <p className="text-xs text-muted-foreground">
-                    Compét. {eng.cpNo} · phase {eng.phase} · poule {eng.poule}
+                    {team.categoryLabel || categoryCodeLabel(team.categoryCode || "")}
+                    {team.number ? ` #${team.number}` : ""}
                   </p>
                 </button>
               ))
@@ -430,15 +453,19 @@ function StepCompetition({
 function StepImport({
   teamId,
   clNo,
+  clubName,
   selection,
   onBack,
   onDone,
+  onImportAnother,
 }: {
   teamId: string;
   clNo: number;
+  clubName: string;
   selection: SelectedCompetition;
   onBack: () => void;
   onDone: () => void;
+  onImportAnother: () => void;
 }) {
   const { engagement } = selection;
 
@@ -619,17 +646,20 @@ function StepImport({
 
   // Idle — bouton de démarrage
   if (phase === "idle") {
+    const teamLabel = selection.team.categoryLabel
+      || categoryCodeLabel(selection.team.categoryCode || "");
+    const teamSuffix = selection.team.number ? ` #${selection.team.number}` : "";
+
     return (
       <div className="space-y-4">
         <Card>
           <CardContent className="pt-4 space-y-1.5">
             <div className="flex items-center gap-2">
               <Trophy className="h-4 w-4 text-[var(--color-primary-blue)]" />
-              <span className="text-sm font-medium">{engagement.competitionName}</span>
+              <span className="text-sm font-semibold">{engagement.competitionName}</span>
             </div>
             <p className="text-xs text-muted-foreground pl-6">
-              Phase {engagement.phase} · Poule {engagement.poule}
-              {engagement.pouleName ? ` · ${engagement.pouleName}` : ""}
+              {teamLabel}{teamSuffix} · {clubName}
             </p>
             <div className="pl-6">
               <span
@@ -651,7 +681,7 @@ function StepImport({
             ← Retour
           </Button>
           <Button onClick={handleFetch} className="flex-1 bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90">
-            <Sparkles className="h-4 w-4 mr-1.5" />
+            <Download className="h-4 w-4 mr-1.5" />
             Charger les matchs
           </Button>
         </div>
@@ -663,7 +693,7 @@ function StepImport({
   if (phase === "fetching") {
     return (
       <div className="space-y-4 py-2">
-        <p className="text-sm font-medium">Chargement en cours…</p>
+        <p className="text-sm font-medium">Récupération des matchs depuis la FFF…</p>
         <ProgressBar value={progress} label={progressLabel} />
         <p className="text-xs text-muted-foreground">
           L'API FFF peut prendre quelques secondes. Ne fermez pas cette fenêtre.
@@ -674,6 +704,11 @@ function StepImport({
 
   // Preview — résumé avant import
   if (phase === "preview" && summary) {
+    const matchesWithScores = parsedMatches.filter(
+      (m) => m.homeScore !== null && m.awayScore !== null
+    );
+    const previewMatches = matchesWithScores.slice(0, 5);
+
     return (
       <div className="space-y-4">
         <div className="rounded-lg border bg-green-50 dark:bg-green-950/30 p-4 space-y-2">
@@ -708,6 +743,26 @@ function StepImport({
           )}
         </div>
 
+        {previewMatches.length > 0 && (
+          <div className="rounded-lg border bg-muted/30 p-3 space-y-1.5">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              Aperçu :
+            </p>
+            <div className="space-y-1">
+              {previewMatches.map((m, i) => {
+                const date = m.date
+                  ? new Date(m.date).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" })
+                  : "??/??";
+                return (
+                  <p key={i} className="text-xs font-mono text-foreground">
+                    {date} {m.homeTeam.shortName} {m.homeScore}-{m.awayScore} {m.awayTeam.shortName}
+                  </p>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         <div className="flex gap-2">
           <Button variant="outline" onClick={onBack} className="flex-1">
             ← Annuler
@@ -727,8 +782,8 @@ function StepImport({
   if (phase === "posting") {
     return (
       <div className="space-y-4 py-2">
-        <p className="text-sm font-medium">Enregistrement en cours…</p>
-        <ProgressBar value={70} label="Envoi des matchs au serveur Benchrs…" />
+        <p className="text-sm font-medium">Enregistrement dans Benchrs…</p>
+        <ProgressBar value={70} label="Enregistrement dans Benchrs…" />
       </div>
     );
   }
@@ -740,7 +795,7 @@ function StepImport({
         <div className="flex items-start gap-3 rounded-lg border border-green-300 bg-green-50 dark:bg-green-950/30 p-4">
           <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400 shrink-0 mt-0.5" />
           <div className="text-sm space-y-1">
-            <p className="font-semibold text-green-900 dark:text-green-100">Import réussi !</p>
+            <p className="font-semibold text-green-900 dark:text-green-100">Championnat importé avec succès !</p>
             <p className="text-green-800 dark:text-green-200">
               {importResult.imported} nouveau{importResult.imported > 1 ? "x" : ""} match
               {importResult.imported > 1 ? "s" : ""} importé{importResult.imported > 1 ? "s" : ""}.
@@ -763,6 +818,14 @@ function StepImport({
             )}
           </div>
         </div>
+        <Button
+          variant="outline"
+          onClick={onImportAnother}
+          className="w-full"
+        >
+          <Download className="h-4 w-4 mr-1.5" />
+          Importer un autre championnat
+        </Button>
       </div>
     );
   }
@@ -812,14 +875,21 @@ export function FFFImportWizard({
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<WizardStep>("club");
   const [clNo, setClNo] = useState<number | null>(defaultClNo ?? null);
+  const [clubName, setClubName] = useState<string>("");
   const [teams, setTeams] = useState<ClubTeam[]>([]);
   const [selection, setSelection] = useState<SelectedCompetition | null>(null);
 
   function resetWizard() {
     setStep("club");
     setClNo(defaultClNo ?? null);
+    setClubName("");
     setTeams([]);
     setSelection(null);
+  }
+
+  function resetToCompetition() {
+    setSelection(null);
+    setStep("competition");
   }
 
   function handleOpenChange(isOpen: boolean) {
@@ -832,6 +902,7 @@ export function FFFImportWizard({
 
   function handleClubFound(clubInfo: ClubInfo, foundTeams: ClubTeam[]) {
     setClNo(clubInfo.clNo);
+    setClubName(clubInfo.name);
     setTeams(foundTeams);
     setStep("competition");
   }
@@ -846,6 +917,15 @@ export function FFFImportWizard({
     // On garde le dialog ouvert pour afficher le résultat
   }
 
+  const dialogTitle =
+    step === "club"
+      ? "Importer depuis la FFF"
+      : step === "competition"
+      ? "Choisir la compétition"
+      : selection
+      ? `Importer — ${selection.engagement.competitionName}`
+      : "Importer depuis la FFF";
+
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger
@@ -853,13 +933,13 @@ export function FFFImportWizard({
           <Button className="bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90" />
         }
       >
-        <Sparkles className="h-4 w-4 mr-1" />
-        Importer depuis la FFF
+        <Download className="h-4 w-4 mr-1" />
+        Importer un championnat
       </DialogTrigger>
 
       <DialogContent className="sm:max-w-lg w-full">
         <DialogHeader>
-          <DialogTitle>Import FFF — Wizard</DialogTitle>
+          <DialogTitle>{dialogTitle}</DialogTitle>
         </DialogHeader>
 
         <StepIndicator current={step} />
@@ -874,6 +954,7 @@ export function FFFImportWizard({
         {step === "competition" && clNo && teams.length > 0 && (
           <StepCompetition
             clNo={clNo}
+            clubName={clubName}
             teams={teams}
             onSelected={handleCompetitionSelected}
             onBack={() => setStep("club")}
@@ -884,9 +965,11 @@ export function FFFImportWizard({
           <StepImport
             teamId={teamId}
             clNo={clNo}
+            clubName={clubName}
             selection={selection}
             onBack={() => setStep("competition")}
             onDone={handleImportDone}
+            onImportAnother={resetToCompetition}
           />
         )}
 
