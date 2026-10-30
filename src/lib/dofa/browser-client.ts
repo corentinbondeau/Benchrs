@@ -3,69 +3,21 @@
 /**
  * browser-client.ts — Client DOFA côté navigateur.
  *
- * L'API DOFA (api-dofa.fff.fr) bloque toutes les IP cloud (AWS, GCP, Cloudflare).
- * Seules les IP résidentielles passent le WAF.
+ * L'API DOFA (api-dofa.fff.fr) bloque toutes les IP cloud.
+ * Le navigateur appelle le proxy Vercel (/api/dofa-proxy) qui relaye
+ * vers un VPS Scaleway (IP non bloquée) qui appelle l'API DOFA.
  *
- * Stratégie :
- *   1. Appel DIRECT depuis le navigateur du coach (IP résidentielle)
- *      → Le navigateur ajoute automatiquement les Sec-* headers
- *      → Si CORS bloque, on passe au proxy
- *   2. Proxy externe configurable (NEXT_PUBLIC_DOFA_WORKER_URL)
- *   3. Proxy Benchrs (/api/dofa-proxy) — dernier recours
+ * Navigateur → Vercel → Scaleway VPS → api-dofa.fff.fr
  */
 
 import { authFetch } from "@/lib/api-client";
 
-const DOFA_BASE = "https://api-dofa.fff.fr";
-const EXTERNAL_PROXY = process.env.NEXT_PUBLIC_DOFA_WORKER_URL || "http://51.15.108.73:3456";
-
-async function tryFetch(url: string, init?: RequestInit): Promise<unknown | null> {
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10_000);
-    const res = await fetch(url, { ...init, signal: controller.signal });
-    clearTimeout(timeout);
-    if (!res.ok) return null;
-    const text = await res.text();
-    if (text.startsWith("{") || text.startsWith("[")) {
-      return JSON.parse(text);
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
 async function dofaFetch(path: string): Promise<unknown> {
-  // Stratégie 1 : appel DIRECT depuis le navigateur du coach
-  // Le navigateur a une IP résidentielle qui passe le WAF.
-  // Le navigateur ajoute automatiquement les vrais headers Sec-Ch-Ua.
-  // CORS peut bloquer mais ça vaut le coup d'essayer en premier.
-  const directResult = await tryFetch(`${DOFA_BASE}${path}`, {
-    headers: { Accept: "application/ld+json, application/json" },
-  });
-  if (directResult !== null) return directResult;
-
-  // Stratégie 2 : proxy externe (VPS, configurable)
-  if (EXTERNAL_PROXY) {
-    const extResult = await tryFetch(`${EXTERNAL_PROXY}${path}`);
-    if (extResult !== null) return extResult;
-  }
-
-  // Stratégie 3 : proxy Benchrs (Vercel, probablement bloqué mais on essaie)
-  try {
-    const proxyUrl = `/api/dofa-proxy?path=${encodeURIComponent(path)}`;
-    const res = await authFetch(proxyUrl);
-    if (res.ok) return await res.json();
-    if (res.status === 401) {
-      const body = await res.json().catch(() => ({}));
-      throw new Error(body?.error || `Non autorisé`);
-    }
-  } catch (err) {
-    if (err instanceof Error && err.message.includes("autorisé")) throw err;
-  }
-
-  throw new Error(`L'API FFF est temporairement indisponible. Réessayez plus tard.`);
+  const proxyUrl = `/api/dofa-proxy?path=${encodeURIComponent(path)}`;
+  const res = await authFetch(proxyUrl);
+  if (res.ok) return await res.json();
+  const body = await res.json().catch(() => ({}));
+  throw new Error(body?.error || `Erreur ${res.status}`);
 }
 
 /** Normalise les réponses Hydra ou tableau nu en tableau. */

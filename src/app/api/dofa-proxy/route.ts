@@ -8,13 +8,12 @@ export const dynamic = "force-dynamic";
 export const preferredRegion = "cdg1";
 
 /**
- * URLs candidates de l'API DOFA — la FFF change régulièrement de domaine.
- * On essaie dans l'ordre jusqu'à obtenir une réponse JSON valide.
+ * Le proxy Scaleway (IP non bloquée par la FFF) relaye vers l'API DOFA.
+ * En fallback, on essaie l'API DOFA directement (bloqué depuis Vercel mais on tente).
  */
 const DOFA_BASES = [
-  process.env.DOFA_BASE_URL,
+  process.env.DOFA_PROXY_URL || "http://51.15.108.73:3456",
   "https://api-dofa.fff.fr",
-  "https://api-dofa.prd-aws.fff.fr",
 ].filter(Boolean) as string[];
 
 /**
@@ -56,28 +55,12 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Chemin non autorisé" }, { status: 403 });
   }
 
-  // Headers Chrome complets — le WAF Akamai de la FFF bloque les requêtes
-  // sans fingerprint navigateur (Sec-Ch-Ua, Origin fff.fr, Sec-Fetch-*).
+  // Pas de headers spéciaux nécessaires : le premier proxy (Scaleway)
+  // ajoute lui-même les headers Chrome. Pour le fallback direct DOFA,
+  // on ajoute les headers nécessaires.
   const headers: Record<string, string> = {
-    "User-Agent":
-      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
-    Accept: "application/ld+json, application/json",
-    "Accept-Language": "fr-FR,fr;q=0.9",
-    Origin: "https://www.fff.fr",
-    Referer: "https://www.fff.fr/",
-    "Sec-Fetch-Dest": "empty",
-    "Sec-Fetch-Mode": "cors",
-    "Sec-Fetch-Site": "same-site",
-    "Sec-Ch-Ua": '"Chromium";v="130", "Google Chrome";v="130"',
-    "Sec-Ch-Ua-Mobile": "?0",
-    "Sec-Ch-Ua-Platform": '"macOS"',
+    Accept: "application/json, application/ld+json",
   };
-
-  // Bearer token optionnel (certains endpoints l'exigent pour les feuilles de match)
-  const tokenEnv = process.env.DOFA_BEARER_TOKEN;
-  if (tokenEnv) {
-    headers["Authorization"] = `Bearer ${tokenEnv}`;
-  }
 
   let lastError = "Impossible de contacter l'API FFF";
 
