@@ -16,6 +16,10 @@
  * Timeout : AbortController (défaut 120 000 ms)
  */
 
+export function isAIConfigured(): boolean {
+  return !!(process.env.AI_API_KEY || process.env.MISTRAL_API_KEY);
+}
+
 export async function callAI(
   systemPrompt: string,
   userMessage: string,
