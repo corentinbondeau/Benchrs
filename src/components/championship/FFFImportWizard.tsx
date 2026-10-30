@@ -536,6 +536,43 @@ function StepImport({
     setPhase("posting");
 
     try {
+      // 1. Créer le championnat s'il n'existe pas encore
+      const createRes = await authFetch("/api/championships", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: engagement.competitionName,
+          season: String(new Date().getFullYear()),
+          level: engagement.competitionType === "CH" || engagement.competitionType === "ch" ? "District" : null,
+          team_id: teamId,
+        }),
+      });
+      if (!createRes.ok) {
+        const err = await createRes.json().catch(() => ({}));
+        // Ignorer si le championnat existe déjà
+        if (!err?.error?.includes("existe")) {
+          setErrorMsg(err?.error || "Erreur lors de la création du championnat.");
+          setPhase("error");
+          return;
+        }
+      }
+      const championship = createRes.ok ? await createRes.json() : null;
+
+      // 2. Configurer la poule DOFA sur le championnat
+      if (championship?.id) {
+        await authFetch("/api/championships", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: championship.id,
+            cpNo: engagement.cpNo,
+            phase: engagement.phase,
+            poule: engagement.poule,
+          }),
+        });
+      }
+
+      // 3. Ingérer les matchs
       const res = await authFetch("/api/championships/dofa/ingest", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
