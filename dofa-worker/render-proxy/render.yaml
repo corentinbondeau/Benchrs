@@ -1,0 +1,13 @@
+services:
+  - type: web
+    runtime: node
+    name: benchrs-dofa-proxy
+    plan: free
+    region: frankfurt
+    buildCommand: ""
+    startCommand: node server.mjs
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: ALLOWED_ORIGINS
+        value: "*"

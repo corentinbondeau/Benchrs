@@ -1,7 +1,11 @@
 import { normalizeDofaCollection } from "./normalize";
 import { parseDofaMatches, type DofaMatch } from "./parse-matches";
+import { getDofaBearerToken } from "./auth";
 
-const DOFA_BASE_URL = process.env.DOFA_BASE_URL || "https://api-dofa.fff.fr";
+const DOFA_BASE_URL =
+  process.env.DOFA_BASE_URL ||
+  process.env.NEXT_PUBLIC_DOFA_BASE_URL ||
+  "https://api-dofa.prd-aws.fff.fr";
 
 /**
  * Erreur typée levée lorsque la source DOFA est injoignable ou refuse la
@@ -36,12 +40,19 @@ async function fetchDOFA(path: string): Promise<unknown> {
 
   let res: Response;
   try {
+    const headers: Record<string, string> = {
+      "User-Agent": "Mozilla/5.0 (Benchrs) AppleWebKit/537.36",
+      Accept: "application/json, application/ld+json",
+    };
+
+    const token = await getDofaBearerToken();
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
     res = await fetch(url, {
       method: "GET",
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Benchrs) AppleWebKit/537.36",
-        Accept: "application/json",
-      },
+      headers,
     });
   } catch (err) {
     const originalMessage = err instanceof Error ? err.message : String(err);
