@@ -127,11 +127,16 @@ export default function DashboardPage() {
   const isCoach = userRole === "coach" || userRole === "owner";
 
   useEffect(() => {
+    const skipRedirect = sessionStorage.getItem("skipMultiRedirect");
+    if (skipRedirect) {
+      sessionStorage.removeItem("skipMultiRedirect");
+      return;
+    }
     if (isComiteOnly) {
       router.replace("/club");
       return;
     }
-    if (isCoach && teams && teams.length > 1 && !sessionStorage.getItem("skipMultiRedirect")) {
+    if (isCoach && teams && teams.length > 1) {
       router.replace("/multi");
     }
   }, [isComiteOnly, isCoach, teams, router]);
