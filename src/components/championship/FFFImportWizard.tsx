@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -448,6 +448,7 @@ function StepImport({
   const [summary, setSummary] = useState<ImportSummary | null>(null);
   const [parsedMatches, setParsedMatches] = useState<ReturnType<typeof parseDofaMatches>>([]);
   const [officialStandings, setOfficialStandings] = useState<unknown[] | null>(null);
+  const rawMatchesRef = useRef<unknown[]>([]);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [importResult, setImportResult] = useState<{
     imported: number;
@@ -491,7 +492,10 @@ function StepImport({
       setProgress(95);
       setProgressLabel("Analyse des matchs…");
 
-      // Parser les matchs
+      // Stocker les matchs bruts pour l'envoi à la route d'ingestion
+      rawMatchesRef.current = rawMatches;
+
+      // Parser les matchs pour l'aperçu
       const matches = parseDofaMatches(rawMatches);
       const withScores = matches.filter(
         (m) => m.homeScore !== null && m.awayScore !== null
@@ -540,7 +544,7 @@ function StepImport({
           cpNo: engagement.cpNo,
           phase: engagement.phase,
           poule: engagement.poule,
-          matches: parsedMatches,
+          matches: rawMatchesRef.current,
           officialStandings: officialStandings ?? undefined,
         }),
       });
