@@ -17,7 +17,7 @@
 import { authFetch } from "@/lib/api-client";
 
 const DOFA_BASE = "https://api-dofa.fff.fr";
-const EXTERNAL_PROXY = process.env.NEXT_PUBLIC_DOFA_WORKER_URL || "";
+const EXTERNAL_PROXY = process.env.NEXT_PUBLIC_DOFA_WORKER_URL || "http://51.15.108.73:3456";
 
 async function tryFetch(url: string, init?: RequestInit): Promise<unknown | null> {
   try {
