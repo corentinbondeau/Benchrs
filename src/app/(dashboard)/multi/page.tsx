@@ -44,39 +44,103 @@ export default function MultiTeamHomePage() {
     try {
       const { createClient } = await import("@/lib/supabase/client");
       const supabase = createClient();
-      const { data: attendances } = await supabase
-        .from("attendances")
-        .select("user_id")
-        .eq("event_id", eventId);
-      
-      if (!attendances || attendances.length === 0) {
-        toast.error("Aucun joueur convoqué");
-        setResending(null);
-        return;
-      }
-      
-      const userIds = attendances.map((a: any) => a.user_id);
-      
-      const { authFetch } = await import("@/lib/api-client");
-      const res = await authFetch("/api/notifications/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          team_id: teamId,
-          user_ids: userIds,
-          title: "Convocation (rappel)",
-          body: "Rappel de convocation pour cet événement",
-          type: "convocation",
-          reference_id: eventId,
-          url: `/events/${eventId}`,
-        }),
-      });
-      
-      if (res.ok) {
-        toast.success("Convocations relancées");
+
+      // 1. Chercher s'il y a un sondage de disponibilité en cours pour cet événement
+      const { data: availabilityRecords } = await supabase
+        .from("match_availability")
+        .select("id")
+        .eq("event_id", eventId)
+        .limit(1);
+
+      const hasPoll = (availabilityRecords && availabilityRecords.length > 0);
+
+      if (hasPoll) {
+        // Relancer le sondage: notifier les joueurs qui n'ont pas encore répondu
+        const { data: attendances } = await supabase
+          .from("attendances")
+          .select("user_id")
+          .eq("event_id", eventId);
+
+        if (!attendances || attendances.length === 0) {
+          toast.error("Aucun joueur convoqué");
+          setResending(null);
+          return;
+        }
+
+        // Joueurs qui ont déjà répondu au sondage
+        const { data: respondents } = await supabase
+          .from("match_availability")
+          .select("player_id")
+          .eq("event_id", eventId);
+
+        const respondedPlayerIds = new Set((respondents || []).map((r: any) => r.player_id));
+        const userIds = (attendances || [])
+          .map((a: any) => a.user_id)
+          .filter((id: string) => !respondedPlayerIds.has(id));
+
+        if (userIds.length === 0) {
+          toast.info("Tous les joueurs ont déjà répondu au sondage");
+          setResending(null);
+          return;
+        }
+
+        const { authFetch } = await import("@/lib/api-client");
+        const res = await authFetch("/api/notifications/send", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            team_id: teamId,
+            user_ids: userIds,
+            title: "Sondage de disponibilité (rappel)",
+            body: "Veuillez confirmer votre disponibilité pour cet événement",
+            type: "availability_poll",
+            reference_id: eventId,
+            url: `/matches/${eventId}`,
+          }),
+        });
+
+        if (res.ok) {
+          toast.success("Sondage relancé aux joueurs n'ayant pas répondu");
+        } else {
+          const data = await res.json().catch(() => ({}));
+          toast.error(data.error || "Erreur lors du relancement du sondage");
+        }
       } else {
-        const data = await res.json().catch(() => ({}));
-        toast.error(data.error || "Erreur lors du relancement");
+        // Relancer les convocations normalement
+        const { data: attendances } = await supabase
+          .from("attendances")
+          .select("user_id")
+          .eq("event_id", eventId);
+
+        if (!attendances || attendances.length === 0) {
+          toast.error("Aucun joueur convoqué");
+          setResending(null);
+          return;
+        }
+
+        const userIds = attendances.map((a: any) => a.user_id);
+
+        const { authFetch } = await import("@/lib/api-client");
+        const res = await authFetch("/api/notifications/send", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            team_id: teamId,
+            user_ids: userIds,
+            title: "Convocation (rappel)",
+            body: "Rappel de convocation pour cet événement",
+            type: "convocation",
+            reference_id: eventId,
+            url: `/events/${eventId}`,
+          }),
+        });
+
+        if (res.ok) {
+          toast.success("Convocations relancées");
+        } else {
+          const data = await res.json().catch(() => ({}));
+          toast.error(data.error || "Erreur lors du relancement");
+        }
       }
     } catch {
       toast.error("Erreur lors du relancement");
