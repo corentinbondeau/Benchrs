@@ -142,6 +142,8 @@ export interface Event {
   convocation_lead_days?: number | null;
   response_deadline?: string | null;
   is_home?: boolean | null;
+  auto_convocation_delay_days?: number | null;
+  auto_convocation_player_ids?: string[] | null;
   created_at: string;
   updated_at: string;
 }

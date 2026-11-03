@@ -160,6 +160,9 @@ export function EventCoachActions({
   const [editResponseDeadline, setEditResponseDeadline] = useState(() =>
     toDatetimeLocalValueOrEmpty(event.response_deadline)
   );
+  const [editAutoConvocationDelayDays, setEditAutoConvocationDelayDays] = useState<string>("");
+  const [editAutoConvocationPlayerIds, setEditAutoConvocationPlayerIds] = useState<string[]>([]);
+  const [availablePlayers, setAvailablePlayers] = useState<{ id: string; name: string }[]>([]);
 
   useEffect(() => {
     if (!event.recurrence_group_id) return;
@@ -176,7 +179,7 @@ export function EventCoachActions({
 
   const hasRecurrences = groupCount > 1;
 
-  function openEdit() {
+  async function openEdit() {
     setScope("single");
     setEditTitle(event.title);
     setEditDate(toDatetimeLocalValue(event.event_date));
@@ -186,6 +189,27 @@ export function EventCoachActions({
     setEditOpponent(event.opponent || "");
     setEditIsHome(event.is_home !== false);
     setEditResponseDeadline(toDatetimeLocalValueOrEmpty(event.response_deadline));
+    setEditAutoConvocationDelayDays(String(event.auto_convocation_delay_days || 0));
+    setEditAutoConvocationPlayerIds(event.auto_convocation_player_ids || []);
+
+    // Load available players for this team
+    const supabase = createClient();
+    const { data: players } = await supabase
+      .from("profiles")
+      .select("id, first_name, last_name")
+      .in("id", 
+        (await supabase.from("team_members").select("user_id").eq("team_id", event.team_id)).data?.map((m) => m.user_id) || []
+      );
+    
+    if (players) {
+      setAvailablePlayers(
+        players.map((p: any) => ({
+          id: p.id,
+          name: `${p.first_name || ""} ${p.last_name || ""}`.trim(),
+        }))
+      );
+    }
+
     setEditOpen(true);
   }
 
@@ -266,6 +290,12 @@ export function EventCoachActions({
       opponent: isMatch && editOpponent.trim() ? editOpponent.trim() : null,
       is_home: isMatch ? editIsHome : null,
     };
+
+    // Add auto-convocation settings only for recurrence edits
+    if (scope === "all" && hasRecurrences) {
+      patch.auto_convocation_delay_days = parseInt(editAutoConvocationDelayDays || "0") || 0;
+      patch.auto_convocation_player_ids = editAutoConvocationPlayerIds;
+    }
 
     // Chaque occurrence garde SA propre date limite (seule l'heure de la
     // journée est identique). `shiftDeadlineToOccurrence` recale l'échéance de
@@ -743,6 +773,61 @@ export function EventCoachActions({
                   </SelectContent>
                 </Select>
               </div>
+            )}
+            {/* Auto-convocation settings (visible only for recurrence edits) */}
+            {scope === "all" && hasRecurrences && (
+              <>
+                <div className="border-t pt-4 mt-4">
+                  <h3 className="text-sm font-semibold mb-3">Convocations automatiques</h3>
+                  
+                  <div className="space-y-2">
+                    <Label>Délai avant l'événement (jours)</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      max="30"
+                      value={editAutoConvocationDelayDays}
+                      onChange={(e) => setEditAutoConvocationDelayDays(e.target.value)}
+                      placeholder="Ex: 3 (envoyer 3 jours avant)"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Si 0, pas de convocation automatique. Sinon, envoie {editAutoConvocationDelayDays || "N"} jour(s) avant l'événement.
+                    </p>
+                  </div>
+
+                  {parseInt(editAutoConvocationDelayDays || "0") > 0 && (
+                    <div className="space-y-2 mt-3">
+                      <Label>Joueurs à convoquer automatiquement</Label>
+                      <div className="border rounded-md p-2 max-h-48 overflow-y-auto space-y-1">
+                        {availablePlayers.length === 0 ? (
+                          <p className="text-xs text-muted-foreground p-2">Aucun joueur dans cette équipe</p>
+                        ) : (
+                          availablePlayers.map((player) => (
+                            <label key={player.id} className="flex items-center gap-2 p-1 hover:bg-muted rounded cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={editAutoConvocationPlayerIds.includes(player.id)}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setEditAutoConvocationPlayerIds([...editAutoConvocationPlayerIds, player.id]);
+                                  } else {
+                                    setEditAutoConvocationPlayerIds(editAutoConvocationPlayerIds.filter((id) => id !== player.id));
+                                  }
+                                }}
+                                className="w-4 h-4"
+                              />
+                              <span className="text-sm">{player.name}</span>
+                            </label>
+                          ))
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {editAutoConvocationPlayerIds.length} joueur(s) sélectionné(s)
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </>
             )}
             <div className="flex gap-2 pt-1">
               <Button

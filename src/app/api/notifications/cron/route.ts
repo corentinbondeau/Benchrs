@@ -34,6 +34,8 @@ export async function GET(req: Request) {
         new Date().getDay() === 1 ? sendWeeklyDigest(supabase, now) : Promise.resolve(0),
         // Alertes d'échéances
         sendExpiryAlerts(supabase, now),
+        // Convocations automatiques (délai configurable)
+        sendAutoConvocations(supabase, now),
         // Relances auto de convocation
         sendAttendanceReminders(supabase, now),
         // Alerte équité du temps de jeu (lundi uniquement)
@@ -47,7 +49,7 @@ export async function GET(req: Request) {
       ]);
 
   // Logger les erreurs individuelles des étapes parallèles
-  const labels = ["rappels", "digests", "echeances", "relances", "equite", "cotisations", "felicitations", "relances_seance"];
+  const labels = ["rappels", "digests", "echeances", "auto_convocations", "relances", "equite", "cotisations", "felicitations", "relances_seance"];
   for (let i = 0; i < creationResults.length; i++) {
     if (creationResults[i].status === "rejected") {
       console.error(`[notifications/cron] ${labels[i]} error:`, (creationResults[i] as PromiseRejectedResult).reason);
@@ -64,11 +66,12 @@ export async function GET(req: Request) {
         rappels: getCount(0),
         digests: getCount(1),
         echeances: getCount(2),
-        relances: getCount(3),
-        equite: getCount(4),
-        cotisations: getCount(5),
-        felicitations: getCount(6),
-        relances_seance: getCount(7),
+        auto_convocations: getCount(3),
+        relances: getCount(4),
+        equite: getCount(5),
+        cotisations: getCount(6),
+        felicitations: getCount(7),
+        relances_seance: getCount(8),
       };
 
   // --- ÉTAPE FINALE — Livrer les notifications créées pendant ce cycle ---
@@ -442,6 +445,130 @@ async function sendExpiryAlerts(supabase: ReturnType<typeof createAdminClient>, 
       }
     }
   }
+}
+
+// ---------- Convocations automatiques (délai configurable) ----------
+/**
+ * Envoie les convocations automatiques pour les événements dont la date
+ * correspond à (event_date - auto_convocation_delay_days).
+ * 
+ * Les notifications sont envoyées aux joueurs dans auto_convocation_player_ids
+ * ET à leurs parents respectifs.
+ * 
+ * Idempotent: utilise un reference_id unique pour éviter les doublons.
+ */
+async function sendAutoConvocations(supabase: ReturnType<typeof createAdminClient>, now: string): Promise<number> {
+  let convocationsSent = 0;
+
+  // Récupère TOUS les événements avec auto_convocation_delay_days > 0
+  const { data: eventsWithAutoConv } = await supabase
+    .from("events")
+    .select("id, team_id, type, title, opponent, event_date, auto_convocation_delay_days, auto_convocation_player_ids")
+    .in("status", ["upcoming", "ongoing"])
+    .gt("auto_convocation_delay_days", 0);
+
+  if (!eventsWithAutoConv) return 0;
+
+  for (const ev of eventsWithAutoConv as {
+    id: string;
+    team_id: string | null;
+    type: string;
+    title: string;
+    opponent: string | null;
+    event_date: string;
+    auto_convocation_delay_days: number | null;
+    auto_convocation_player_ids: string[] | null;
+  }[]) {
+    if (!ev.team_id || !ev.auto_convocation_delay_days || (ev.auto_convocation_player_ids || []).length === 0) {
+      continue;
+    }
+
+    // Calcule si aujourd'hui = (event_date - delay)
+    const eventDate = new Date(ev.event_date);
+    const targetConvocationDate = new Date(eventDate);
+    targetConvocationDate.setDate(targetConvocationDate.getDate() - ev.auto_convocation_delay_days);
+
+    // Normalisé à minuit pour la comparaison
+    const today = new Date(now);
+    today.setHours(0, 0, 0, 0);
+    targetConvocationDate.setHours(0, 0, 0, 0);
+
+    if (today.getTime() !== targetConvocationDate.getTime()) {
+      continue; // Pas le bon jour pour envoyer cette convocation
+    }
+
+    const whitelist = (ev.auto_convocation_player_ids || []) as string[];
+    if (whitelist.length === 0) continue;
+
+    // Récupère les parents des joueurs dans la whitelist
+    const { data: links } = await supabase
+      .from("parent_student")
+      .select("student_id, parent_id")
+      .eq("team_id", ev.team_id)
+      .in("student_id", whitelist);
+    
+    const parentMap = new Map<string, string[]>();
+    for (const link of links || []) {
+      const studentId = (link as { student_id: string; parent_id: string }).student_id;
+      const parentId = (link as { student_id: string; parent_id: string }).parent_id;
+      if (!parentMap.has(studentId)) {
+        parentMap.set(studentId, []);
+      }
+      parentMap.get(studentId)!.push(parentId);
+    }
+
+    // Crée les notifications (une par user_id: joueur ou parent)
+    const isMatch = ev.type === "match";
+    const dateLabel = new Date(ev.event_date).toLocaleDateString("fr-FR", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+    });
+    const hour = new Date(ev.event_date).toLocaleTimeString("fr-FR", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+    for (const playerId of whitelist) {
+      const refId = `auto_conv:${ev.id}:${playerId}`;
+
+      // Vérifie si déjà envoyé (idempotence)
+      const { data: existing } = await supabase
+        .from("notifications")
+        .select("id")
+        .eq("type", "convocation")
+        .eq("reference_id", refId)
+        .limit(1)
+        .maybeSingle();
+      
+      if (existing) continue;
+
+      // Destinataires: le joueur + ses parents
+      const targetUserIds = [playerId, ...(parentMap.get(playerId) || [])];
+      const notificationRows = targetUserIds.map((userId) => ({
+        user_id: userId,
+        team_id: ev.team_id,
+        type: "convocation",
+        title: `Convocation${isMatch && ev.opponent ? ` — ${ev.opponent}` : ""}`,
+        body: `${isMatch ? "Match" : "Entraînement"} ${dateLabel} à ${hour}. Merci de confirmer votre présence.`,
+        reference_id: refId,
+        url: isMatch ? `/matches/${ev.id}` : `/trainings/${ev.id}`,
+        scheduled_for: now,
+      }));
+
+      const { error } = await supabase
+        .from("notifications")
+        .insert(notificationRows);
+
+      if (error) {
+        console.error(`[notifications/cron] auto_convocation insert error for event ${ev.id}:`, error);
+      } else {
+        convocationsSent += targetUserIds.length;
+      }
+    }
+  }
+
+  return convocationsSent;
 }
 
 // ---------- Relances auto de convocation ----------
