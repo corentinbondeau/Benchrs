@@ -45,11 +45,28 @@ export default function MultiTeamHomePage() {
       const { createClient } = await import("@/lib/supabase/client");
       const supabase = createClient();
 
+      // Récupérer l'événement pour connaître son type (match ou training)
+      const { data: event } = await supabase
+        .from("events")
+        .select("type")
+        .eq("id", eventId)
+        .eq("team_id", teamId)
+        .single();
+
+      if (!event) {
+        toast.error("Événement non trouvé");
+        setResending(null);
+        return;
+      }
+
+      const isMatch = event.type === "match";
+
       // 1. Chercher s'il y a un sondage de disponibilité en cours pour cet événement
       const { data: availabilityRecords } = await supabase
         .from("match_availability")
         .select("id")
         .eq("event_id", eventId)
+        .eq("team_id", teamId)
         .limit(1);
 
       const hasPoll = (availabilityRecords && availabilityRecords.length > 0);
@@ -59,7 +76,8 @@ export default function MultiTeamHomePage() {
         const { data: attendances } = await supabase
           .from("attendances")
           .select("user_id")
-          .eq("event_id", eventId);
+          .eq("event_id", eventId)
+          .eq("team_id", teamId);
 
         if (!attendances || attendances.length === 0) {
           toast.error("Aucun joueur convoqué");
@@ -71,7 +89,8 @@ export default function MultiTeamHomePage() {
         const { data: respondents } = await supabase
           .from("match_availability")
           .select("player_id")
-          .eq("event_id", eventId);
+          .eq("event_id", eventId)
+          .eq("team_id", teamId);
 
         const respondedPlayerIds = new Set((respondents || []).map((r: any) => r.player_id));
         const userIds = (attendances || [])
@@ -93,9 +112,9 @@ export default function MultiTeamHomePage() {
             user_ids: userIds,
             title: "Sondage de disponibilité (rappel)",
             body: "Veuillez confirmer votre disponibilité pour cet événement",
-            type: "availability_poll",
+            type: "availability_reminder",
             reference_id: eventId,
-            url: `/matches/${eventId}`,
+            url: isMatch ? `/matches/${eventId}` : `/trainings/${eventId}`,
           }),
         });
 
@@ -110,7 +129,8 @@ export default function MultiTeamHomePage() {
         const { data: attendances } = await supabase
           .from("attendances")
           .select("user_id")
-          .eq("event_id", eventId);
+          .eq("event_id", eventId)
+          .eq("team_id", teamId);
 
         if (!attendances || attendances.length === 0) {
           toast.error("Aucun joueur convoqué");
@@ -131,7 +151,7 @@ export default function MultiTeamHomePage() {
             body: "Rappel de convocation pour cet événement",
             type: "convocation",
             reference_id: eventId,
-            url: `/events/${eventId}`,
+            url: isMatch ? `/matches/${eventId}` : `/trainings/${eventId}`,
           }),
         });
 
@@ -142,7 +162,8 @@ export default function MultiTeamHomePage() {
           toast.error(data.error || "Erreur lors du relancement");
         }
       }
-    } catch {
+    } catch (error) {
+      console.error("Erreur dans handleResendConvocations:", error);
       toast.error("Erreur lors du relancement");
     } finally {
       setResending(null);

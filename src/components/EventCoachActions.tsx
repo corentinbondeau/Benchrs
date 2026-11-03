@@ -192,22 +192,30 @@ export function EventCoachActions({
     setEditAutoConvocationDelayDays(String(event.auto_convocation_delay_days || 0));
     setEditAutoConvocationPlayerIds(event.auto_convocation_player_ids || []);
 
-    // Load available players for this team
+    // Load available players for this team (only players, not coaches)
     const supabase = createClient();
-    const { data: players } = await supabase
-      .from("profiles")
-      .select("id, first_name, last_name")
-      .in("id", 
-        (await supabase.from("team_members").select("user_id").eq("team_id", event.team_id)).data?.map((m) => m.user_id) || []
-      );
+    const { data: teamMembers } = await supabase
+      .from("team_members")
+      .select("user_id")
+      .eq("team_id", event.team_id)
+      .eq("role", "player");
     
-    if (players) {
-      setAvailablePlayers(
-        players.map((p: any) => ({
-          id: p.id,
-          name: `${p.first_name || ""} ${p.last_name || ""}`.trim(),
-        }))
-      );
+    const playerIds = (teamMembers || []).map((m: any) => m.user_id);
+    
+    if (playerIds.length > 0) {
+      const { data: players } = await supabase
+        .from("profiles")
+        .select("id, first_name, last_name")
+        .in("id", playerIds);
+      
+      if (players) {
+        setAvailablePlayers(
+          players.map((p: any) => ({
+            id: p.id,
+            name: `${p.first_name || ""} ${p.last_name || ""}`.trim(),
+          }))
+        );
+      }
     }
 
     setEditOpen(true);
