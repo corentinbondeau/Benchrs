@@ -24,13 +24,13 @@ export function FontSizeControl() {
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Buttons */}
-        <div className="flex gap-2 flex-wrap">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {sizes.map(({ level, label }) => (
             <Button
               key={level}
               onClick={() => changeFontSize(level)}
               variant={fontSize === level ? "default" : "outline"}
-              className="flex-1 min-w-fit"
+              className="w-full"
             >
               {label}
             </Button>
@@ -39,7 +39,7 @@ export function FontSizeControl() {
 
         {/* Preview */}
         <div
-          className="p-4 border rounded-lg bg-muted/50 text-center transition-all"
+          className="p-4 border rounded-lg bg-card text-foreground text-center transition-all"
           style={{ fontSize: `calc(1rem * var(--font-size-multiplier))` }}
         >
           Ceci est un aperçu du texte

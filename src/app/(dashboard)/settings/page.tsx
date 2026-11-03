@@ -599,7 +599,7 @@ export default function SettingsPage() {
               href={`/link-child?teamId=${currentTeam?.id}`}
               className="w-full"
             >
-              <Button className="w-full bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold">
+              <Button className="w-full">
                 Lier mon enfant
               </Button>
             </Link>
