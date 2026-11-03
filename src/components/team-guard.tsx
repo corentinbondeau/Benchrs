@@ -6,7 +6,7 @@ import { useTeam } from "@/lib/team";
 import { ContentSkeleton } from "@/components/ui/content-skeleton";
 import { TeamThemeApplier } from "@/components/layout/TeamThemeApplier";
 
-export function TeamGuard({ children }: { children: React.ReactNode }) {
+function TeamGuardContent({ children }: { children: React.ReactNode }) {
   const { teams, clubMemberships, loading } = useTeam();
   const router = useRouter();
   const pathname = usePathname();
@@ -44,4 +44,12 @@ export function TeamGuard({ children }: { children: React.ReactNode }) {
   }
 
   return <TeamThemeApplier>{children}</TeamThemeApplier>;
+}
+
+export function TeamGuard({ children }: { children: React.ReactNode }) {
+  return (
+    <TeamGuardContent>
+      {children}
+    </TeamGuardContent>
+  );
 }
