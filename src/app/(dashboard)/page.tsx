@@ -132,24 +132,18 @@ export default function DashboardPage() {
     if (redirectProcessed) return;
     
     const skipRedirect = sessionStorage.getItem("skipMultiRedirect");
-    console.log("[Dashboard] skipMultiRedirect flag:", skipRedirect);
     if (skipRedirect) {
-      console.log("[Dashboard] Skipping multi-redirect");
       sessionStorage.removeItem("skipMultiRedirect");
       setRedirectProcessed(true);
       return;
     }
     
-    console.log("[Dashboard] Redirect logic: isComiteOnly=", isComiteOnly, "isCoach=", isCoach, "teams.length=", teams?.length);
-    
     if (isComiteOnly) {
-      console.log("[Dashboard] Redirecting to /club");
       router.replace("/club");
       setRedirectProcessed(true);
       return;
     }
     if (isCoach && teams && teams.length > 1) {
-      console.log("[Dashboard] Redirecting to /multi (multi-coach)");
       router.replace("/multi");
       setRedirectProcessed(true);
       return;
