@@ -192,9 +192,8 @@ export default function MultiTeamHomePage() {
                 variant="outline"
                 onClick={() => {
                   localStorage.setItem("selectedTeamId", summary.team_id);
-                  sessionStorage.setItem("skipMultiRedirect", "true");
                   switchTeam(summary.team_id);
-                  window.location.href = "/";
+                  router.push("/?from=multi");
                 }}
               >
                 Aller à l'accueil équipe
