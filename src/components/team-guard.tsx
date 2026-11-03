@@ -1,19 +1,23 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useRouter, usePathname } from "next/navigation";
 import { useTeam } from "@/lib/team";
 import { ContentSkeleton } from "@/components/ui/content-skeleton";
 import { TeamThemeApplier } from "@/components/layout/TeamThemeApplier";
 
-function TeamGuardContent({ children }: { children: React.ReactNode }) {
+export function TeamGuard({ children }: { children: React.ReactNode }) {
   const { teams, clubMemberships, loading } = useTeam();
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
+  const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
-    if (loading) return;
+    setIsMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isMounted || loading) return;
 
     // Pas d'équipe du tout → créer une équipe
     if (teams.length === 0 && clubMemberships.length === 0) {
@@ -22,10 +26,14 @@ function TeamGuardContent({ children }: { children: React.ReactNode }) {
     }
 
     // Si on vient de /multi (query param from=multi), ne pas rediriger
-    const fromMulti = searchParams.get("from") === "multi";
-    
-    if (fromMulti) {
-      return;
+    // Vérifier le param dans l'URL courante
+    if (typeof window !== "undefined") {
+      const searchParams = new URLSearchParams(window.location.search);
+      const fromMulti = searchParams.get("from") === "multi";
+      
+      if (fromMulti) {
+        return;
+      }
     }
 
     // Plusieurs équipes ET pas déjà sur /multi → rediriger vers /multi
@@ -33,7 +41,7 @@ function TeamGuardContent({ children }: { children: React.ReactNode }) {
       router.replace("/multi");
       return;
     }
-  }, [loading, teams, clubMemberships, router, pathname, searchParams]);
+  }, [isMounted, loading, teams, clubMemberships, router, pathname]);
 
   if (loading) {
     return <ContentSkeleton />;
@@ -44,12 +52,4 @@ function TeamGuardContent({ children }: { children: React.ReactNode }) {
   }
 
   return <TeamThemeApplier>{children}</TeamThemeApplier>;
-}
-
-export function TeamGuard({ children }: { children: React.ReactNode }) {
-  return (
-    <TeamGuardContent>
-      {children}
-    </TeamGuardContent>
-  );
 }
