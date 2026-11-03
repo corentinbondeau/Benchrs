@@ -20,7 +20,12 @@ export function TeamGuard({ children }: { children: React.ReactNode }) {
       const searchParams = new URLSearchParams(window.location.search);
       const hasFromMulti = searchParams.get("from") === "multi";
       setFromMulti(hasFromMulti);
-      console.log("[TeamGuard] Initial URL check - fromMulti:", hasFromMulti);
+      
+      // Si from=multi, sauvegarder dans sessionStorage pour persister à travers les reloads
+      if (hasFromMulti) {
+        sessionStorage.setItem("fromMulti", "true");
+        console.log("[TeamGuard] Set fromMulti flag in sessionStorage");
+      }
     }
   }, []);
 
@@ -33,9 +38,14 @@ export function TeamGuard({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // Si fromMulti est true (lu au mount), ne pas rediriger vers /multi
-    if (fromMulti) {
-      console.log("[TeamGuard] Skipping multi-redirect because fromMulti was true at mount");
+    // Vérifier si fromMulti est true (soit du state, soit du sessionStorage)
+    const shouldSkipMultiRedirect = fromMulti || 
+      (typeof window !== "undefined" && sessionStorage.getItem("fromMulti") === "true");
+    
+    if (shouldSkipMultiRedirect) {
+      console.log("[TeamGuard] Skipping multi-redirect");
+      // Nettoyer le flag après l'avoir utilisé
+      sessionStorage.removeItem("fromMulti");
       return;
     }
 
