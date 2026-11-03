@@ -193,8 +193,8 @@ export default function MultiTeamHomePage() {
                 onClick={() => {
                   localStorage.setItem("selectedTeamId", summary.team_id);
                   switchTeam(summary.team_id);
-                  console.log("[Multi] Redirecting to home with from=multi, team:", summary.team_id);
-                  window.location.href = "/?from=multi";;
+                  sessionStorage.setItem("skipMultiRedirect", "true");
+                  window.location.href = "/";
                 }}
               >
                 Aller à l'accueil équipe
