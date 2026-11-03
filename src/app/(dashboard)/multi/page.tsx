@@ -72,54 +72,24 @@ export default function MultiTeamHomePage() {
       const hasPoll = (availabilityRecords && availabilityRecords.length > 0);
 
       if (hasPoll) {
-        // Relancer le sondage: notifier les joueurs qui n'ont pas encore répondu
-        const { data: attendances } = await supabase
-          .from("attendances")
-          .select("user_id")
-          .eq("event_id", eventId)
-          .eq("team_id", teamId);
-
-        if (!attendances || attendances.length === 0) {
-          toast.error("Aucun joueur convoqué");
-          setResending(null);
-          return;
-        }
-
-        // Joueurs qui ont déjà répondu au sondage
-        const { data: respondents } = await supabase
-          .from("match_availability")
-          .select("player_id")
-          .eq("event_id", eventId)
-          .eq("team_id", teamId);
-
-        const respondedPlayerIds = new Set((respondents || []).map((r: any) => r.player_id));
-        const userIds = (attendances || [])
-          .map((a: any) => a.user_id)
-          .filter((id: string) => !respondedPlayerIds.has(id));
-
-        if (userIds.length === 0) {
-          toast.info("Tous les joueurs ont déjà répondu au sondage");
-          setResending(null);
-          return;
-        }
-
+        // Relancer le sondage de disponibilité via l'API dédiée
         const { authFetch } = await import("@/lib/api-client");
-        const res = await authFetch("/api/notifications/send", {
+        const res = await authFetch("/api/matches/availability/notify", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            team_id: teamId,
-            user_ids: userIds,
-            title: "Sondage de disponibilité (rappel)",
-            body: "Veuillez confirmer votre disponibilité pour cet événement",
-            type: "availability_reminder",
-            reference_id: eventId,
-            url: isMatch ? `/matches/${eventId}` : `/trainings/${eventId}`,
+            eventId,
+            teamId,
           }),
         });
 
         if (res.ok) {
-          toast.success("Sondage relancé aux joueurs n'ayant pas répondu");
+          const data = await res.json();
+          if (data.recipients === 0) {
+            toast.info("Tous les joueurs ont déjà répondu au sondage");
+          } else {
+            toast.success(`Sondage relancé à ${data.recipients} joueur(s)`);
+          }
         } else {
           const data = await res.json().catch(() => ({}));
           toast.error(data.error || "Erreur lors du relancement du sondage");
