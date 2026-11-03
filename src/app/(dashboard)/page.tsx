@@ -128,7 +128,9 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const skipRedirect = sessionStorage.getItem("skipMultiRedirect");
+    console.log("[Dashboard] skipMultiRedirect flag:", skipRedirect);
     if (skipRedirect) {
+      console.log("[Dashboard] Skipping multi-redirect");
       sessionStorage.removeItem("skipMultiRedirect");
       return;
     }
