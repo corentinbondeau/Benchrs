@@ -77,6 +77,7 @@
    ============================================================ */
 :root {
   --radius: 0.625rem;
+  --font-size-multiplier: 1;
 
   /* Backgrounds */
   --background: #F6F8FB;
@@ -195,19 +196,34 @@
 
   /* Typography scale */
   h1 {
-    font-size: 2rem;       /* 32px */
+    font-size: calc(2rem * var(--font-size-multiplier));       /* 32px */
     line-height: 2.375rem; /* 38px */
     font-weight: 700;
   }
   h2 {
-    font-size: 1.5rem;     /* 24px */
+    font-size: calc(1.5rem * var(--font-size-multiplier));     /* 24px */
     line-height: 1.875rem; /* 30px */
     font-weight: 700;
   }
   h3 {
-    font-size: 1.125rem;   /* 18px */
+    font-size: calc(1.125rem * var(--font-size-multiplier));   /* 18px */
     line-height: 1.5rem;   /* 24px */
     font-weight: 600;
+  }
+  
+  /* Body text scales */
+  p,
+  span,
+  a,
+  label,
+  button,
+  li,
+  small {
+    font-size: calc(1rem * var(--font-size-multiplier));
+  }
+  
+  small {
+    font-size: calc(0.875rem * var(--font-size-multiplier));
   }
 }
 

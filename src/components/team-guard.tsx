@@ -11,8 +11,12 @@ export function TeamGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
-    if (!loading && teams.length === 0 && clubMemberships.length === 0) {
+    if (loading) return;
+
+    // Pas d'équipe du tout → créer une équipe
+    if (teams.length === 0 && clubMemberships.length === 0) {
       router.replace("/create-team");
+      return;
     }
   }, [loading, teams, clubMemberships, router]);
 

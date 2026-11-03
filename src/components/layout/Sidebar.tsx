@@ -1,6 +1,8 @@
 "use client";
 
 import Image from "next/image";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
 import { useTeam } from "@/lib/team";
 import { authFetch } from "@/lib/api-client";
@@ -45,7 +47,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { toast } from "sonner";
 import { memo, useState } from "react";
 
 /* ─── Primary nav: 5 main spaces ─── */
@@ -128,6 +129,7 @@ function NavSection({
 
 function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const { user, signOut } = useAuth();
   const { currentTeam, teams, switchTeam, userRole, clubMemberships } = useTeam();
   const isCoach = userRole === "coach" || userRole === "owner";
@@ -143,6 +145,12 @@ function Sidebar() {
   const [inviteCode, setInviteCode] = useState("");
   const [joinRole, setJoinRole] = useState<"player" | "parent">("player");
   const [creating, setCreating] = useState(false);
+
+  const handleTeamChange = (teamId: string) => {
+    switchTeam(teamId);
+    toast.success("Équipe changée");
+    router.push("/");
+  };
 
   const initials = user?.profile
     ? `${user.profile.first_name?.[0] || ""}${user.profile.last_name?.[0] || ""}`
@@ -259,11 +267,11 @@ function Sidebar() {
             )}
             <div className="flex-1 min-w-0">
               {teams.length > 1 ? (
-                <select
-                  value={currentTeam.id}
-                  onChange={(e) => switchTeam(e.target.value)}
-                  className="w-full bg-transparent text-sm font-semibold text-white appearance-none cursor-pointer truncate focus:outline-none"
-                >
+               <select
+                   value={currentTeam.id}
+                   onChange={(e) => handleTeamChange(e.target.value)}
+                   className="w-full bg-transparent text-sm font-semibold text-white appearance-none cursor-pointer truncate focus:outline-none"
+                 >
                   {teams.map((team) => (
                     <option key={team.id} value={team.id} className="bg-[var(--color-navy)] text-white">
                       {team.club?.name ? `${team.club.name} - ` : ""}{team.name}

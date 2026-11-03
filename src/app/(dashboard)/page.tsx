@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect } from "react";
+import { Suspense, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
@@ -123,23 +123,34 @@ export default function DashboardPage() {
   const { user } = useAuth();
   const { userRole, clubMemberships, currentTeam, teams } = useTeam();
   const router = useRouter();
+  const [redirectProcessed, setRedirectProcessed] = useState(false);
   const isComiteOnly = clubMemberships.length > 0 && userRole === null;
   const isCoach = userRole === "coach" || userRole === "owner";
 
   useEffect(() => {
+    // Only process redirects once
+    if (redirectProcessed) return;
+    
     const skipRedirect = sessionStorage.getItem("skipMultiRedirect");
     if (skipRedirect) {
       sessionStorage.removeItem("skipMultiRedirect");
+      setRedirectProcessed(true);
       return;
     }
+    
     if (isComiteOnly) {
       router.replace("/club");
+      setRedirectProcessed(true);
       return;
     }
     if (isCoach && teams && teams.length > 1) {
       router.replace("/multi");
+      setRedirectProcessed(true);
+      return;
     }
-  }, [isComiteOnly, isCoach, teams, router]);
+    
+    setRedirectProcessed(true);
+  }, [redirectProcessed, isComiteOnly, isCoach, teams, router]);
 
   if (isComiteOnly) {
     return null;

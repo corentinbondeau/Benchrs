@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 import { authFetch } from "@/lib/api-client";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
+import { FontSizeControl } from "@/components/FontSizeControl";
 import { toast } from "sonner";
 import { NOTIFICATION_TYPES } from "@/lib/notificationTypes";
 import {
@@ -568,6 +569,19 @@ export default function SettingsPage() {
       </Card>
 
       {/* Lien parent → enfant */}
+
+      {/* Accessibility - Font Size */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <span>👁️</span>
+            Accessibilité
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <FontSizeControl />
+        </CardContent>
+      </Card>
       {userRole === "parent" && (
         <Card>
           <CardHeader>
@@ -585,7 +599,7 @@ export default function SettingsPage() {
               href={`/link-child?teamId=${currentTeam?.id}`}
               className="w-full"
             >
-              <Button className="w-full bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90 font-semibold">
+              <Button className="w-full">
                 Lier mon enfant
               </Button>
             </Link>

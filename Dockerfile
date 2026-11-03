@@ -1,29 +1,33 @@
-# Stage 1: Dependencies
-FROM node:22-alpine AS deps
-WORKDIR /app
-COPY package.json package-lock.json ./
-RUN npm ci --ignore-scripts
+# ============================================================
+# Benchrs — Production Dockerfile
+# Multi-stage build pour optimiser la taille image
+# ============================================================
 
-# Stage 2: Build
+FROM node:22-alpine AS dependencies
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --only=production
+
 FROM node:22-alpine AS builder
 WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
+COPY package*.json ./
+RUN npm ci
 COPY . .
-# Dummy env vars for Next.js build (replaced at runtime)
-ENV NEXT_PUBLIC_SUPABASE_URL=https://placeholder.supabase.co
-ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=placeholder-key
 RUN npm run build
 
-# Stage 3: Runner
-FROM node:22-alpine AS runner
+FROM node:22-alpine
 WORKDIR /app
-ENV NODE_ENV=production
-RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nextjs
+
+# Copier dépendances de production
+COPY --from=dependencies /app/node_modules ./node_modules
+COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-USER nextjs
-EXPOSE 8080
-ENV PORT=8080
-ENV HOSTNAME="0.0.0.0"
-CMD ["node", "server.js"]
+COPY --from=builder /app/package*.json ./
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
+  CMD node -e "require('http').get('http://localhost:3000/api/health', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"
+
+EXPOSE 3000
+ENV NODE_ENV=production
+CMD ["npm", "start"]
