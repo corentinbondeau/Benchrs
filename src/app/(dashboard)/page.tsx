@@ -146,11 +146,15 @@ export default function DashboardPage() {
     // Don't redirect if we just skipped due to flag
     if (!skipFlagProcessed) return;
     
+    console.log("[Dashboard] Redirect logic: isComiteOnly=", isComiteOnly, "isCoach=", isCoach, "teams.length=", teams?.length);
+    
     if (isComiteOnly) {
+      console.log("[Dashboard] Redirecting to /club");
       router.replace("/club");
       return;
     }
     if (isCoach && teams && teams.length > 1) {
+      console.log("[Dashboard] Redirecting to /multi (multi-coach)");
       router.replace("/multi");
     }
   }, [skipFlagProcessed, isComiteOnly, isCoach, teams, router]);
