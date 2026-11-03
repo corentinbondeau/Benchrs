@@ -1,25 +1,45 @@
-# Context Docker Cog (root) : on n'embarque que le code du pipeline.
+# Build artifacts
 node_modules
 .next
 out
-legacy-app
-public
+.vercel
+
+# Development
+.git
+.github
+.env.local
+.env.*.local
+.vscode
+.idea
+*.log
+
+# Tests
 e2e
 playwright-report
 test-results
-.vercel
-.github
-ai-service/.venv
-ai-service/.env
-ai-service/__pycache__
-src
-supabase
-.proxy
-vercel.json
-next.config.ts
-package.json
-package-lock.json
-tsconfig.json
-.eslintrc.json
-AGENTS.md
+*.test.ts
+*.spec.ts
+
+# Documentation
 README.md
+AGENTS.md
+*.md
+
+# AI Service dev
+ai-service/.venv
+ai-service/__pycache__
+ai-service/.env
+
+# Legacy
+legacy-app
+.proxy
+
+# Include important files (these need to be explicitly copied):
+# package.json ✓ (needed)
+# package-lock.json ✓ (needed)
+# tsconfig.json ✓ (needed)
+# next.config.ts ✓ (needed)
+# .eslintrc.json (optional)
+# src/ ✓ (needed)
+# public/ ✓ (needed)
+# supabase/ (optional, migrations)
