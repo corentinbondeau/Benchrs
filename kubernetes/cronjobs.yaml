@@ -1,0 +1,137 @@
+---
+# ============================================================
+# CronJob — Notifications (14:00 UTC daily)
+# ============================================================
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: benchrs-notifications-cron
+  namespace: benchrs-prod
+  labels:
+    app: benchrs
+spec:
+  schedule: "0 14 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 3
+      template:
+        spec:
+          serviceAccountName: benchrs-cronjob
+          containers:
+          - name: curl
+            image: curlimages/curl:8.4.0
+            imagePullPolicy: IfNotPresent
+            command:
+            - /bin/sh
+            - -c
+            - |
+              echo "[CronJob] Starting notifications cron at $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+              curl -X POST \
+                -H "Content-Type: application/json" \
+                --retry 3 \
+                --retry-delay 2 \
+                --max-time 300 \
+                http://benchrs:80/api/notifications/cron
+              echo "[CronJob] Finished notifications cron at $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+            resources:
+              requests:
+                cpu: 100m
+                memory: 64Mi
+              limits:
+                cpu: 200m
+                memory: 128Mi
+          restartPolicy: OnFailure
+
+---
+# ============================================================
+# CronJob — RGPD Purge (03:00 UTC Sunday)
+# ============================================================
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: benchrs-rgpd-purge-cron
+  namespace: benchrs-prod
+  labels:
+    app: benchrs
+spec:
+  schedule: "0 3 * * 0"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 3
+      template:
+        spec:
+          serviceAccountName: benchrs-cronjob
+          containers:
+          - name: curl
+            image: curlimages/curl:8.4.0
+            imagePullPolicy: IfNotPresent
+            command:
+            - /bin/sh
+            - -c
+            - |
+              echo "[CronJob] Starting RGPD purge cron at $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+              curl -X POST \
+                -H "Content-Type: application/json" \
+                --retry 3 \
+                --retry-delay 2 \
+                --max-time 300 \
+                http://benchrs:80/api/cron/rgpd-purge
+              echo "[CronJob] Finished RGPD purge cron at $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+            resources:
+              requests:
+                cpu: 100m
+                memory: 64Mi
+              limits:
+                cpu: 200m
+                memory: 128Mi
+          restartPolicy: OnFailure
+
+---
+# ============================================================
+# ServiceAccount for CronJobs
+# ============================================================
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: benchrs-cronjob
+  namespace: benchrs-prod
+  labels:
+    app: benchrs
+
+---
+# ============================================================
+# Role for CronJobs (minimal permissions)
+# ============================================================
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: benchrs-cronjob
+  namespace: benchrs-prod
+rules:
+- apiGroups: [""]
+  resources: ["pods", "pods/log"]
+  verbs: ["get", "list", "watch"]
+
+---
+# ============================================================
+# RoleBinding for CronJobs
+# ============================================================
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: benchrs-cronjob
+  namespace: benchrs-prod
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: benchrs-cronjob
+subjects:
+- kind: ServiceAccount
+  name: benchrs-cronjob
+  namespace: benchrs-prod
