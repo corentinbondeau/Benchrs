@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect } from "react";
+import { Suspense, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
@@ -123,17 +123,29 @@ export default function DashboardPage() {
   const { user } = useAuth();
   const { userRole, clubMemberships, currentTeam, teams } = useTeam();
   const router = useRouter();
+  const [skipFlagProcessed, setSkipFlagProcessed] = useState(false);
   const isComiteOnly = clubMemberships.length > 0 && userRole === null;
   const isCoach = userRole === "coach" || userRole === "owner";
 
   useEffect(() => {
+    // Only check skipMultiRedirect once, on first mount
+    if (skipFlagProcessed) return;
+    
     const skipRedirect = sessionStorage.getItem("skipMultiRedirect");
     console.log("[Dashboard] skipMultiRedirect flag:", skipRedirect);
     if (skipRedirect) {
       console.log("[Dashboard] Skipping multi-redirect");
       sessionStorage.removeItem("skipMultiRedirect");
+      setSkipFlagProcessed(true);
       return;
     }
+    setSkipFlagProcessed(true);
+  }, [skipFlagProcessed]);
+
+  useEffect(() => {
+    // Don't redirect if we just skipped due to flag
+    if (!skipFlagProcessed) return;
+    
     if (isComiteOnly) {
       router.replace("/club");
       return;
@@ -141,7 +153,7 @@ export default function DashboardPage() {
     if (isCoach && teams && teams.length > 1) {
       router.replace("/multi");
     }
-  }, [isComiteOnly, isCoach, teams, router]);
+  }, [skipFlagProcessed, isComiteOnly, isCoach, teams, router]);
 
   if (isComiteOnly) {
     return null;
