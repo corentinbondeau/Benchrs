@@ -172,6 +172,7 @@ function StepClub({
 }) {
   const [searchInput, setSearchInput] = useState(defaultClNo ? String(defaultClNo) : "");
   const [searchMode, setSearchMode] = useState<"number" | "name">("number");
+  const [selectedRegion, setSelectedRegion] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchResults, setSearchResults] = useState<ClubInfo[] | null>(null);
@@ -223,11 +224,15 @@ function StepClub({
       setError("Entrez au moins 2 caractères.");
       return;
     }
+    if (!selectedRegion) {
+      setError("Sélectionnez d'abord une région.");
+      return;
+    }
     setError(null);
     setSearchResults(null);
     setLoading(true);
     try {
-      const results = await searchClubByName(q);
+      const results = await searchClubByName(q, selectedRegion);
       if (results.length === 0) {
         setError(`Aucun club trouvé pour « ${q} ». Essayez avec le numéro d'affiliation.`);
         return;
@@ -285,6 +290,42 @@ function StepClub({
             Par nom
           </Button>
         </div>
+
+        {/* Sélecteur de région (visible seulement en mode "par nom") */}
+        {searchMode === "name" && (
+          <div>
+            <Label htmlFor="fff-region-select">Région</Label>
+            <select
+              id="fff-region-select"
+              value={selectedRegion || ""}
+              onChange={(e) => setSelectedRegion(e.target.value ? Number(e.target.value) : null)}
+              className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground"
+              disabled={loading}
+            >
+              <option value="">Sélectionnez une région</option>
+              <option value="122">AUVERGNE-RHONE-ALPES</option>
+              <option value="51">BOURGOGNE - FRANCHE COMTE</option>
+              <option value="103">BRETAGNE</option>
+              <option value="34">CENTRE-V.L.</option>
+              <option value="49">CORSE</option>
+              <option value="62">GRAND EST</option>
+              <option value="132">GUADELOUPE</option>
+              <option value="137">GUYANE</option>
+              <option value="87">HAUTS-DE-FRANCE</option>
+              <option value="155">LIGUE ST MARTIN</option>
+              <option value="139">MARTINIQUE</option>
+              <option value="147">MAYOTTE</option>
+              <option value="71">MEDITERRANEE</option>
+              <option value="98">NORMANDIE</option>
+              <option value="4">NOUVELLE-AQUITAINE</option>
+              <option value="77">OCCITANIE</option>
+              <option value="109">PARIS IDF</option>
+              <option value="13">PAYS DE LA LOIRE</option>
+              <option value="145">REUNION</option>
+              <option value="149">ST-PIERRE & MIQUELON</option>
+            </select>
+          </div>
+        )}
 
         <Label htmlFor="fff-club-search">
           {searchMode === "number" ? "Numéro de club ou d'affiliation FFF" : "Nom du club"}

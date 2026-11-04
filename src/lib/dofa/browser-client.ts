@@ -134,15 +134,21 @@ export async function resolveClubNumber(input: number): Promise<ClubInfo> {
 }
 
 /**
- * Recherche un club par nom.
- * ATTENTION: L'API DOFA ne semble pas supporter ce paramètre de recherche.
- * Utilisez resolveClubNumber() avec le numéro d'affiliation à la place.
- * Endpoint : GET /api/clubs?name={query} (tentative)
+ * Recherche un club par nom dans une région spécifique.
+ * L'API DOFA demande le filtrage par région (ligue).
+ * Endpoint : GET /api/clubs?ligue={liqueId}&name={query}
  */
-export async function searchClubByName(query: string): Promise<ClubInfo[]> {
+export async function searchClubByName(query: string, liqueId?: number): Promise<ClubInfo[]> {
   try {
-    // Essayez d'abord avec le paramètre 'name'
-    const data = await dofaFetch(`/api/clubs?name=${encodeURIComponent(query)}`);
+    // Construire l'URL avec le filtre régional
+    const params = new URLSearchParams();
+    if (liqueId) {
+      params.append("ligue", String(liqueId));
+    }
+    params.append("name", query);
+    
+    const path = `/api/clubs?${params.toString()}`;
+    const data = await dofaFetch(path);
     const items = normalize(data);
     const results = items
       .filter((item): item is Record<string, unknown> => item !== null && typeof item === "object")
@@ -159,12 +165,13 @@ export async function searchClubByName(query: string): Promise<ClubInfo[]> {
     }
     return results;
   } catch (err) {
-    // La recherche par nom n'est pas disponible dans l'API DOFA
-    // L'utilisateur doit utiliser le numéro d'affiliation
+    // La recherche a échoué
     const msg = err instanceof Error ? err.message : String(err);
-    console.error("[searchClubByName] Failed with 'name' param:", msg);
+    console.error("[searchClubByName] Failed:", msg);
     throw new Error(
-      "La recherche par nom de club n'est pas disponible. Utilisez le numéro d'affiliation (à 5-6 chiffres) à la place."
+      liqueId
+        ? "Aucun club trouvé dans cette région avec ce nom."
+        : "La recherche par nom de club n'est pas disponible. Utilisez le numéro d'affiliation (à 5-6 chiffres) à la place."
     );
   }
 }
