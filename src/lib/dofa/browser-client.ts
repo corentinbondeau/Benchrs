@@ -135,20 +135,38 @@ export async function resolveClubNumber(input: number): Promise<ClubInfo> {
 
 /**
  * Recherche un club par nom.
- * Endpoint : GET /api/clubs?name={query}
+ * ATTENTION: L'API DOFA ne semble pas supporter ce paramètre de recherche.
+ * Utilisez resolveClubNumber() avec le numéro d'affiliation à la place.
+ * Endpoint : GET /api/clubs?name={query} (tentative)
  */
 export async function searchClubByName(query: string): Promise<ClubInfo[]> {
-  const data = await dofaFetch(`/api/clubs?name=${encodeURIComponent(query)}`);
-  const items = normalize(data);
-  return items
-    .filter((item): item is Record<string, unknown> => item !== null && typeof item === "object")
-    .map((club) => ({
-      clNo: typeof club.cl_no === "number" ? club.cl_no : 0,
-      name: typeof club.name === "string" ? club.name : "Club",
-      shortName: typeof club.short_name === "string" ? club.short_name : "Club",
-    }))
-    .filter((c) => c.clNo > 0)
-    .slice(0, 20);
+  try {
+    // Essayez d'abord avec le paramètre 'name'
+    const data = await dofaFetch(`/api/clubs?name=${encodeURIComponent(query)}`);
+    const items = normalize(data);
+    const results = items
+      .filter((item): item is Record<string, unknown> => item !== null && typeof item === "object")
+      .map((club) => ({
+        clNo: typeof club.cl_no === "number" ? club.cl_no : 0,
+        name: typeof club.name === "string" ? club.name : "Club",
+        shortName: typeof club.short_name === "string" ? club.short_name : "Club",
+      }))
+      .filter((c) => c.clNo > 0)
+      .slice(0, 20);
+    
+    if (results.length === 0) {
+      throw new Error("Aucun résultat");
+    }
+    return results;
+  } catch (err) {
+    // La recherche par nom n'est pas disponible dans l'API DOFA
+    // L'utilisateur doit utiliser le numéro d'affiliation
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[searchClubByName] Failed with 'name' param:", msg);
+    throw new Error(
+      "La recherche par nom de club n'est pas disponible. Utilisez le numéro d'affiliation (à 5-6 chiffres) à la place."
+    );
+  }
 }
 
 /**

@@ -183,6 +183,8 @@ function StepClub({
         "L'API de la FFF est temporairement indisponible — la FFF coupe régulièrement son API sans prévenir. " +
           "Réessayez dans quelques heures ou demain."
       );
+    } else if (msg.includes("numéro d'affiliation")) {
+      setError(msg);
     } else if (msg.includes("Aucun club")) {
       setError(msg);
     } else if (msg.includes("403") || msg.includes("Failed to fetch")) {
