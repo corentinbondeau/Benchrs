@@ -135,10 +135,10 @@ export async function resolveClubNumber(input: number): Promise<ClubInfo> {
 
 /**
  * Recherche un club par nom.
- * Endpoint : GET /api/clubs?filter={query}
+ * Endpoint : GET /api/clubs?name={query}
  */
 export async function searchClubByName(query: string): Promise<ClubInfo[]> {
-  const data = await dofaFetch(`/api/clubs?filter=${encodeURIComponent(query)}`);
+  const data = await dofaFetch(`/api/clubs?name=${encodeURIComponent(query)}`);
   const items = normalize(data);
   return items
     .filter((item): item is Record<string, unknown> => item !== null && typeof item === "object")
