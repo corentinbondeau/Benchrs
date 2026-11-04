@@ -68,8 +68,6 @@ function databaseErrorResponse(context: string, error: { code?: string; message?
 
 interface IngestRequestBody {
   teamId?: string;
-  dofaClNo?: number;
-  dofaTeamNumber?: number;
   cpNo?: number;
   phase?: number;
   poule?: number;
@@ -80,8 +78,6 @@ function isValidRequestShape(
   body: IngestRequestBody
 ): body is Required<Pick<IngestRequestBody, "teamId" | "cpNo" | "phase" | "poule">> & {
   matches: unknown;
-  dofaClNo?: number;
-  dofaTeamNumber?: number;
 } {
   return (
     typeof body.teamId === "string" &&
@@ -109,25 +105,7 @@ export async function POST(req: Request) {
     );
   }
 
-  // Si dofaClNo et dofaTeamNumber sont fournis, cherche l'équipe qui correspond
-  let targetTeamId = body.teamId;
-  
-  if (body.dofaClNo !== undefined && body.dofaTeamNumber !== undefined) {
-    const supabase = createAdminClient();
-    const { data: matchingTeam } = await supabase
-      .from("teams")
-      .select("id")
-      .eq("dofa_cl_no", body.dofaClNo)
-      .eq("dofa_team_number", body.dofaTeamNumber)
-      .maybeSingle();
-    
-    if (matchingTeam) {
-      targetTeamId = matchingTeam.id;
-    }
-    // Si pas de match trouvé, on utilise le teamId fourni (fallback)
-  }
-
-  if (!(await isTeamCoach(user.id, targetTeamId))) {
+  if (!(await isTeamCoach(user.id, body.teamId))) {
     return forbidden();
   }
 
@@ -148,7 +126,7 @@ export async function POST(req: Request) {
   const { data: championship, error: championshipError } = await supabase
     .from("championships")
     .select("id, last_imported_at, dofa_cl_no, dofa_team_number")
-    .eq("team_id", targetTeamId)
+    .eq("team_id", body.teamId)
     .eq("dofa_cp_no", body.cpNo)
     .eq("dofa_phase", body.phase)
     .maybeSingle();
@@ -334,20 +312,20 @@ export async function POST(req: Request) {
     try {
       switch (action.action) {
         case "create": {
-           const { data: inserted, error: insertError } = await supabase
-             .from("events")
-             .insert({
-               team_id: targetTeamId,
-               type: action.event.type,
-               title: `Match vs ${action.event.opponent}`,
-               event_date: action.event.event_date,
-               opponent: action.event.opponent,
-               location: action.event.location,
-               is_home: action.event.is_home,
-               created_by: user.id,
-             })
-             .select("id")
-             .single();
+          const { data: inserted, error: insertError } = await supabase
+            .from("events")
+            .insert({
+              team_id: body.teamId,
+              type: action.event.type,
+              title: `Match vs ${action.event.opponent}`,
+              event_date: action.event.event_date,
+              opponent: action.event.opponent,
+              location: action.event.location,
+              is_home: action.event.is_home,
+              created_by: user.id,
+            })
+            .select("id")
+            .single();
 
           if (insertError || !inserted) {
             throw insertError ?? new Error("Insertion d'événement sans résultat");
