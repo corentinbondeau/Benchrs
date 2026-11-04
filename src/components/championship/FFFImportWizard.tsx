@@ -20,7 +20,6 @@ import { parseDofaMatches } from "@/lib/dofa/parse-matches";
 import { hasUsableDate } from "@/lib/dofa/parse-matches";
 import {
   fetchClubTeams,
-  searchClubByName,
   fetchAllPouleMatches,
   fetchPouleStandings,
   type ClubTeam,
@@ -171,7 +170,6 @@ function StepClub({
   onFound: (clubInfo: ClubInfo, teams: ClubTeam[]) => void;
 }) {
   const [searchInput, setSearchInput] = useState(defaultClNo ? String(defaultClNo) : "");
-  const [searchMode, setSearchMode] = useState<"number" | "name">("number");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchResults, setSearchResults] = useState<ClubInfo[] | null>(null);
@@ -217,29 +215,6 @@ function StepClub({
     }
   }
 
-  async function handleSearchByName() {
-    const q = searchInput.trim();
-    if (q.length < 2) {
-      setError("Entrez au moins 2 caractères.");
-      return;
-    }
-    setError(null);
-    setSearchResults(null);
-    setLoading(true);
-    try {
-      const results = await searchClubByName(q);
-      if (results.length === 0) {
-        setError(`Aucun club trouvé pour « ${q} ». Essayez avec le numéro d'affiliation.`);
-        return;
-      }
-      setSearchResults(results);
-    } catch (err) {
-      handleError(err);
-    } finally {
-      setLoading(false);
-    }
-  }
-
   async function handleSelectClub(club: ClubInfo) {
     setError(null);
     setSearchResults(null);
@@ -258,63 +233,33 @@ function StepClub({
     }
   }
 
-  function handleSearch() {
-    if (searchMode === "name") {
-      handleSearchByName();
-    } else {
-      handleSearchByNumber();
-    }
-  }
-
   return (
     <div className="space-y-4">
       <div className="space-y-2">
-        <div className="flex gap-2 mb-2">
-          <Button
-            variant={searchMode === "number" ? "secondary" : "outline"}
-            size="sm"
-            onClick={() => { setSearchMode("number"); setSearchResults(null); setError(null); }}
-          >
-            Par numéro
-          </Button>
-          <Button
-            variant={searchMode === "name" ? "secondary" : "outline"}
-            size="sm"
-            onClick={() => { setSearchMode("name"); setSearchResults(null); setError(null); }}
-          >
-            Par nom
-          </Button>
-        </div>
-
-        {/* Sélecteur de région - NOTA: API DOFA retourne clubs de toute la France */}
-        {searchMode === "name" && (
-          <p className="text-xs text-amber-600 dark:text-amber-400 mb-2">
-            ⚠️ La recherche retourne des clubs de toute la France avec ce nom. Vérifiez le numéro DOFA du club.
-          </p>
-        )}
-
+        {/* Mode de recherche: par numéro uniquement */}
         <Label htmlFor="fff-club-search">
-          {searchMode === "number" ? "Numéro de club ou d'affiliation FFF" : "Nom du club"}
+          Numéro de club ou d'affiliation FFF
         </Label>
-        {searchMode === "number" && (
-          <p className="text-xs text-muted-foreground">
-            Accepte le numéro d'affiliation (ex: <code className="bg-muted px-1 rounded">525816</code>)
-            ou le numéro interne FFF (ex: <code className="bg-muted px-1 rounded">10428</code>)
-          </p>
-        )}
+        <p className="text-xs text-muted-foreground">
+          Accepte le numéro d'affiliation (ex: <code className="bg-muted px-1 rounded">525816</code>)
+          ou le numéro interne FFF (ex: <code className="bg-muted px-1 rounded">10428</code>)
+        </p>
+        <p className="text-xs text-amber-600 dark:text-amber-400">
+          💡 Trouvez votre numéro: demandez à votre district, sur votre licence, ou en appelant votre ligue régionale.
+        </p>
         <div className="flex gap-2">
           <Input
             id="fff-club-search"
-            type={searchMode === "number" ? "number" : "text"}
-            min={searchMode === "number" ? "1" : undefined}
+            type="number"
+            min="1"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-            placeholder={searchMode === "number" ? "Ex. 525816" : "Ex. Camphin"}
+            placeholder="Ex. 525816"
             className="flex-1"
             disabled={loading}
           />
-          <Button onClick={handleSearch} disabled={loading || !searchInput.trim()}>
+          <Button onClick={() => handleSearchByNumber()} disabled={loading || !searchInput.trim()}>
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
             <span className="ml-1.5">Rechercher</span>
           </Button>
