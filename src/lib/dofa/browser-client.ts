@@ -134,30 +134,39 @@ export async function resolveClubNumber(input: number): Promise<ClubInfo> {
 }
 
 /**
- * Recherche un club par nom dans une région spécifique.
- * L'API DOFA demande le filtrage par région (ligue).
- * Endpoint : GET /api/clubs?ligue={liqueId}&name={query}
+ * Recherche un club par nom.
+ * L'API DOFA retourne TOUS les clubs avec ce nom, peu importe la région.
+ * Pour filtrer par région, l'utilisateur doit chercher un nom spécifique + région.
+ * Endpoint : GET /api/clubs?name={query}
  */
 export async function searchClubByName(query: string, liqueId?: number): Promise<ClubInfo[]> {
   try {
-    // Construire l'URL avec le filtre régional
+    // L'API DOFA ignore le paramètre 'ligue', donc on le retire
+    // Les résultats incluent clubs de toute la France
     const params = new URLSearchParams();
-    if (liqueId) {
-      params.append("ligue", String(liqueId));
-    }
     params.append("name", query);
     
     const path = `/api/clubs?${params.toString()}`;
+    console.log("[searchClubByName] Calling API with path:", path, "liqueId:", liqueId);
     const data = await dofaFetch(path);
+    console.log("[searchClubByName] API response count:", Array.isArray(data) ? data.length : (data && typeof data === "object" && "hydra:member" in data) ? (data as any)["hydra:member"]?.length : 0);
+    
     const items = normalize(data);
+    
+    // Si l'utilisateur a sélectionné une région, essayer de filtrer côté client
+    // (mais c'est une recherche approximative car on n'a pas le champ ligue dans tous les cas)
     const results = items
       .filter((item): item is Record<string, unknown> => item !== null && typeof item === "object")
       .map((club) => ({
         clNo: typeof club.cl_no === "number" ? club.cl_no : 0,
         name: typeof club.name === "string" ? club.name : "Club",
         shortName: typeof club.short_name === "string" ? club.short_name : "Club",
+        liqueId: typeof club.ligue_id === "number" ? club.ligue_id : 
+                 typeof club.ligue === "number" ? club.ligue : undefined,
       }))
       .filter((c) => c.clNo > 0)
+      // Filtrer par région côté client si on a l'info
+      .filter((c) => !liqueId || c.liqueId === liqueId || !c.liqueId)
       .slice(0, 20);
     
     if (results.length === 0) {
