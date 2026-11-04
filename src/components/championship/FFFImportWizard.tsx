@@ -41,12 +41,11 @@ interface FFFImportWizardProps {
   defaultClNo?: number;
 }
 
-type WizardStep = "club" | "competition" | "team-selection" | "import";
+type WizardStep = "club" | "competition" | "import";
 
 interface SelectedCompetition {
   team: ClubTeam;
   engagement: ClubEngagement;
-  selectedBenchrsTeamId?: string;
 }
 
 interface ImportSummary {
@@ -449,83 +448,7 @@ function StepCompetition({
   );
 }
 
-// ─── Étape 3 — Sélection de l'équipe Benchrs ──────────────────────────────
-
-function StepTeamSelection({
-  selection,
-  benchrsTeams,
-  onSelected,
-  onBack,
-  isLoading,
-}: {
-  selection: SelectedCompetition;
-  benchrsTeams: { id: string; name: string }[];
-  onSelected: (teamId: string) => void;
-  onBack: () => void;
-  isLoading: boolean;
-}) {
-  const dofaTeamLabel = selection.team.categoryLabel || categoryCodeLabel(selection.team.categoryCode || "");
-  const dofaTeamSuffix = selection.team.number ? ` #${selection.team.number}` : "";
-
-  if (isLoading) {
-    return (
-      <div className="space-y-4 py-4">
-        <p className="text-sm font-medium">Chargement de vos équipes…</p>
-        <Loader2 className="h-5 w-5 animate-spin" />
-      </div>
-    );
-  }
-
-  if (benchrsTeams.length === 0) {
-    return (
-      <div className="space-y-4">
-        <div
-          role="alert"
-          className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/30 p-3 text-sm text-amber-800 dark:text-amber-200"
-        >
-          <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
-          <p>
-            Aucune équipe Benchrs trouvée. Créez d'abord une équipe avant d'importer un championnat.
-          </p>
-        </div>
-        <Button variant="outline" onClick={onBack} className="w-full">
-          ← Retour
-        </Button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-4">
-      <div>
-        <p className="text-sm font-medium">
-          Quelle équipe Benchrs corresponds à {dofaTeamLabel}{dofaTeamSuffix} ?
-        </p>
-        <p className="text-xs text-muted-foreground mt-1">
-          Sélectionnez votre équipe Benchrs pour lier les matchs du championnat FFF.
-        </p>
-      </div>
-
-      <div className="space-y-2 max-h-72 overflow-y-auto">
-        {benchrsTeams.map((team) => (
-          <button
-            key={team.id}
-            onClick={() => onSelected(team.id)}
-            className="w-full text-left rounded-lg border bg-card hover:bg-muted/50 transition-colors p-3"
-          >
-            <p className="text-sm font-medium">{team.name}</p>
-          </button>
-        ))}
-      </div>
-
-      <Button variant="outline" onClick={onBack} className="w-full">
-        ← Retour
-      </Button>
-    </div>
-  );
-}
-
-// ─── Étape 4 — Import automatique ─────────────────────────────────────────
+// ─── Étape 3 — Import automatique ─────────────────────────────────────────
 
 function StepImport({
   teamId,
@@ -955,8 +878,6 @@ export function FFFImportWizard({
   const [clubName, setClubName] = useState<string>("");
   const [teams, setTeams] = useState<ClubTeam[]>([]);
   const [selection, setSelection] = useState<SelectedCompetition | null>(null);
-  const [benchrsTeams, setBenchrsTeams] = useState<{ id: string; name: string }[]>([]);
-  const [loadingTeams, setLoadingTeams] = useState(false);
 
   function resetWizard() {
     setStep("club");
@@ -964,7 +885,6 @@ export function FFFImportWizard({
     setClubName("");
     setTeams([]);
     setSelection(null);
-    setBenchrsTeams([]);
   }
 
   function resetToCompetition() {
@@ -987,36 +907,8 @@ export function FFFImportWizard({
     setStep("competition");
   }
 
-  async function handleCompetitionSelected(sel: SelectedCompetition) {
+  function handleCompetitionSelected(sel: SelectedCompetition) {
     setSelection(sel);
-    setLoadingTeams(true);
-    
-    try {
-      // Charger les équipes Benchrs de l'utilisateur
-      const supabase = (await import("@/lib/supabase/client")).createClient();
-      const { data: userTeams } = await supabase
-        .from("teams")
-        .select("id, name")
-        .order("name");
-      
-      setBenchrsTeams(userTeams || []);
-    } catch (err) {
-      console.error("Erreur lors du chargement des équipes:", err);
-      setBenchrsTeams([]);
-    } finally {
-      setLoadingTeams(false);
-    }
-    
-    setStep("team-selection");
-  }
-
-  async function handleTeamSelected(selectedTeamId: string) {
-    if (selection) {
-      setSelection({
-        ...selection,
-        selectedBenchrsTeamId: selectedTeamId,
-      });
-    }
     setStep("import");
   }
 
@@ -1030,8 +922,6 @@ export function FFFImportWizard({
       ? "Importer depuis la FFF"
       : step === "competition"
       ? "Choisir la compétition"
-      : step === "team-selection"
-      ? "Sélectionner votre équipe"
       : selection
       ? `Importer — ${selection.engagement.competitionName}`
       : "Importer depuis la FFF";
@@ -1071,23 +961,13 @@ export function FFFImportWizard({
           />
         )}
 
-        {step === "team-selection" && selection && (
-          <StepTeamSelection
-            selection={selection}
-            benchrsTeams={benchrsTeams}
-            onSelected={handleTeamSelected}
-            onBack={() => setStep("competition")}
-            isLoading={loadingTeams}
-          />
-        )}
-
         {step === "import" && clNo && selection && (
           <StepImport
-            teamId={selection.selectedBenchrsTeamId || teamId}
+            teamId={teamId}
             clNo={clNo}
             clubName={clubName}
             selection={selection}
-            onBack={() => setStep("team-selection")}
+            onBack={() => setStep("competition")}
             onDone={handleImportDone}
             onImportAnother={resetToCompetition}
           />
