@@ -429,7 +429,42 @@ export async function DELETE(req: Request) {
     return forbidden();
   }
 
-  // Supprimer le championship (cascade ON DELETE sur championship_standings)
+  // 1. Récupérer tous les événements liés à ce championnat
+  const { data: standingsWithEvents, error: standingsError } = await supabase
+    .from("championship_standings")
+    .select("event_id")
+    .eq("championship_id", championshipId)
+    .not("event_id", "is", null);
+
+  if (standingsError) {
+    console.error("[championships/DELETE] Erreur lecture standings:", standingsError);
+    return NextResponse.json(
+      { error: "Failed to fetch related events" },
+      { status: 500 }
+    );
+  }
+
+  // 2. Supprimer les événements
+  const eventIds = (standingsWithEvents ?? [])
+    .map((s: { event_id: string | null }) => s.event_id)
+    .filter((id): id is string => id !== null);
+
+  if (eventIds.length > 0) {
+    const { error: deleteEventsError } = await supabase
+      .from("events")
+      .delete()
+      .in("id", eventIds);
+
+    if (deleteEventsError) {
+      console.error("[championships/DELETE] Erreur suppression events:", deleteEventsError);
+      return NextResponse.json(
+        { error: "Failed to delete related events" },
+        { status: 500 }
+      );
+    }
+  }
+
+  // 3. Supprimer le championship (cascade ON DELETE sur championship_standings)
   const { error: deleteError } = await supabase
     .from("championships")
     .delete()
