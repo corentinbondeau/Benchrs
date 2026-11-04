@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Trophy, Medal, Plus, Loader2, AlertTriangle } from "lucide-react";
+import { Trophy, Medal, Plus, Loader2, AlertTriangle, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import type { DofaJournee } from "@/lib/dofa/poule-journees";
 import { currentSeasonLabel } from "@/lib/goals";
@@ -62,6 +62,9 @@ export default function ChampionshipPage() {
   const [createSeason, setCreateSeason] = useState(() => currentSeasonLabel());
   const [createLevel, setCreateLevel] = useState("");
   const [creating, setCreating] = useState(false);
+
+  // État pour le dialog de suppression
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   const teamId = currentTeam?.id;
   const loadChampionships = useCallback(async (): Promise<Championship[]> => {
@@ -121,6 +124,29 @@ export default function ChampionshipPage() {
       toast.error("Erreur lors de la sauvegarde");
     } finally {
       setCreating(false);
+    }
+  }
+
+  async function handleDeleteChampionship(id: string) {
+    try {
+      const res = await authFetch(`/api/championships?id=${id}`, {
+        method: "DELETE",
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Erreur lors de la suppression");
+      }
+
+      toast.success("Championnat supprimé");
+      const data = await authFetch(`/api/championships?team_id=${currentTeam!.id}`).then((r) => r.json());
+      setChampionships(data);
+      if (selectedId === id) {
+        setSelectedId(data.length > 0 ? data[0].id : "");
+      }
+      setDeleteDialogOpen(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erreur lors de la suppression");
     }
   }
 
@@ -249,49 +275,86 @@ export default function ChampionshipPage() {
             <>
             <Card>
               <CardHeader>
-                <CardTitle className="text-base flex items-center gap-2 flex-wrap">
-                  <Medal className="h-4 w-4" />
-                  Classement — {selected.name}
-                  {sortedTeams.length > 0 && (
-                    selected.standings_source === "official" ? (
+                <div className="flex items-start justify-between gap-4">
+                  <CardTitle className="text-base flex items-center gap-2 flex-wrap">
+                    <Medal className="h-4 w-4" />
+                    Classement — {selected.name}
+                    {sortedTeams.length > 0 && (
+                      selected.standings_source === "official" ? (
+                        <Badge
+                          variant="outline"
+                          className="ml-auto text-xs border-green-400 text-green-800 dark:border-green-600 dark:text-green-200"
+                        >
+                          Classement officiel
+                        </Badge>
+                      ) : selected.standings_coverage === "partial" ? (
+                        <Badge
+                          variant="outline"
+                          className="ml-auto text-xs border-amber-400 text-amber-800 dark:text-amber-200"
+                        >
+                          Classement partiel
+                        </Badge>
+                      ) : (
+                        <Badge
+                          variant="outline"
+                          className="ml-auto text-xs"
+                          title="Le classement officiel FFF n'est pas encore accessible (service bloqué côté FFF) : ce classement est calculé à partir des résultats saisis."
+                        >
+                          Classement calculé
+                        </Badge>
+                      )
+                    )}
+                    {isCoach && selected.dofa_cp_no == null && (
+                      <Badge variant="outline" className="text-xs">
+                        Poule FFF non configurée
+                      </Badge>
+                    )}
+                    {isCoach && selected.dofa_cp_no != null && selected.dofa_cl_no == null && (
                       <Badge
                         variant="outline"
-                        className="ml-auto text-xs border-green-400 text-green-800 dark:border-green-600 dark:text-green-200"
+                        className="text-xs border-amber-400 text-amber-800 dark:text-amber-200"
+                        title="L'agenda ne peut pas être alimenté automatiquement tant que vous n'avez pas choisi votre équipe."
                       >
-                        Classement officiel
+                        Équipe non choisie — agenda non alimenté
                       </Badge>
-                    ) : selected.standings_coverage === "partial" ? (
-                      <Badge
-                        variant="outline"
-                        className="ml-auto text-xs border-amber-400 text-amber-800 dark:text-amber-200"
-                      >
-                        Classement partiel
-                      </Badge>
-                    ) : (
-                      <Badge
-                        variant="outline"
-                        className="ml-auto text-xs"
-                        title="Le classement officiel FFF n'est pas encore accessible (service bloqué côté FFF) : ce classement est calculé à partir des résultats saisis."
-                      >
-                        Classement calculé
-                      </Badge>
-                    )
+                    )}
+                  </CardTitle>
+                  {isCoach && (
+                    <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+                      <DialogTrigger>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Supprimer le championnat</DialogTitle>
+                        </DialogHeader>
+                        <p className="text-sm text-muted-foreground">
+                          Êtes-vous sûr de vouloir supprimer le championnat <strong>{selected.name}</strong> ?
+                        </p>
+                        <p className="text-sm text-destructive">
+                          Cette action supprimera également tous les matchs et résultats associés. Cette action est irréversible.
+                        </p>
+                        <div className="flex justify-end gap-2 mt-6">
+                          <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
+                            Annuler
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            onClick={() => handleDeleteChampionship(selected.id)}
+                          >
+                            Supprimer
+                          </Button>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
                   )}
-                  {isCoach && selected.dofa_cp_no == null && (
-                    <Badge variant="outline" className="text-xs">
-                      Poule FFF non configurée
-                    </Badge>
-                  )}
-                  {isCoach && selected.dofa_cp_no != null && selected.dofa_cl_no == null && (
-                    <Badge
-                      variant="outline"
-                      className="text-xs border-amber-400 text-amber-800 dark:text-amber-200"
-                      title="L'agenda ne peut pas être alimenté automatiquement tant que vous n'avez pas choisi votre équipe."
-                    >
-                      Équipe non choisie — agenda non alimenté
-                    </Badge>
-                  )}
-                </CardTitle>
+                </div>
               </CardHeader>
               <CardContent>
                 {sortedTeams.length === 0 ? (

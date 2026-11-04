@@ -377,20 +377,71 @@ export async function PATCH(req: Request) {
     .update(updatePayload)
     .eq("id", id)
     .select()
-    .single();
+     .single();
 
-  if (error) {
-    // Contrainte d'unicité (team_id, dofa_cp_no, dofa_phase, dofa_poule) :
-    // cette poule est déjà attachée à un autre championnat de l'équipe.
-    if (error.code === "23505") {
-      return NextResponse.json(
-        { error: "Cette poule est déjà configurée pour un autre championnat de cette équipe." },
-        { status: 409 }
-      );
-    }
-    console.error("[championships/PATCH] Erreur Supabase (update):", error);
-    return NextResponse.json({ error: GENERIC_PATCH_ERROR_MESSAGE }, { status: 400 });
+   if (error) {
+     // Contrainte d'unicité (team_id, dofa_cp_no, dofa_phase, dofa_poule) :
+     // cette poule est déjà attachée à un autre championnat de l'équipe.
+     if (error.code === "23505") {
+       return NextResponse.json(
+         { error: "Cette poule est déjà configurée pour un autre championnat de cette équipe." },
+         { status: 409 }
+       );
+     }
+     console.error("[championships/PATCH] Erreur Supabase (update):", error);
+     return NextResponse.json({ error: GENERIC_PATCH_ERROR_MESSAGE }, { status: 400 });
+   }
+
+   return NextResponse.json(data);
+}
+
+export async function DELETE(req: Request) {
+  const user = await getAuthUser(req);
+  if (!user) return unauthorized();
+
+  const { searchParams } = new URL(req.url);
+  const championshipId = searchParams.get("id");
+
+  if (!championshipId || typeof championshipId !== "string") {
+    return NextResponse.json(
+      { error: "Championship ID is required" },
+      { status: 400 }
+    );
   }
 
-  return NextResponse.json(data);
+  const supabase = createAdminClient();
+
+  // Vérifier que le championship appartient à une équipe du coach
+  const { data: championship, error: fetchError } = await supabase
+    .from("championships")
+    .select("team_id")
+    .eq("id", championshipId)
+    .maybeSingle();
+
+  if (fetchError || !championship) {
+    return NextResponse.json(
+      { error: "Championship not found" },
+      { status: 404 }
+    );
+  }
+
+  if (!(await isTeamCoach(user.id, championship.team_id as string))) {
+    return forbidden();
+  }
+
+  // Supprimer le championship (cascade ON DELETE sur championship_standings)
+  const { error: deleteError } = await supabase
+    .from("championships")
+    .delete()
+    .eq("id", championshipId);
+
+  if (deleteError) {
+    console.error("[championships/DELETE] Erreur Supabase:", deleteError);
+    return NextResponse.json(
+      { error: "Failed to delete championship" },
+      { status: 500 }
+    );
+  }
+
+  return NextResponse.json({ success: true });
 }
