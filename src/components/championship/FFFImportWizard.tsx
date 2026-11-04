@@ -605,6 +605,8 @@ function StepImport({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           teamId,
+          selectedTeamClNo: clNo,
+          selectedTeamNumber: selection.team.number,
           cpNo: engagement.cpNo,
           phase: engagement.phase,
           poule: engagement.poule,

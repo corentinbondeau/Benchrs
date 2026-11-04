@@ -68,6 +68,8 @@ function databaseErrorResponse(context: string, error: { code?: string; message?
 
 interface IngestRequestBody {
   teamId?: string;
+  selectedTeamClNo?: number;
+  selectedTeamNumber?: number;
   cpNo?: number;
   phase?: number;
   poule?: number;
@@ -78,6 +80,8 @@ function isValidRequestShape(
   body: IngestRequestBody
 ): body is Required<Pick<IngestRequestBody, "teamId" | "cpNo" | "phase" | "poule">> & {
   matches: unknown;
+  selectedTeamClNo?: number;
+  selectedTeamNumber?: number;
 } {
   return (
     typeof body.teamId === "string" &&
@@ -290,9 +294,10 @@ export async function POST(req: Request) {
     })
     .filter((r): r is ExistingEventRecord => r !== null);
 
+  // Utiliser l'équipe sélectionnée par l'utilisateur (ou fallback au championship)
   const coachTeam: TeamIdentity = {
-    clNo: championship.dofa_cl_no as number,
-    number: championship.dofa_team_number as number,
+    clNo: body.selectedTeamClNo ?? (championship.dofa_cl_no as number),
+    number: body.selectedTeamNumber ?? (championship.dofa_team_number as number),
   };
 
   const plan = planEventSync(validation.matches, existingEventRecords, Date.now(), coachTeam);
