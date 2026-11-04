@@ -254,7 +254,7 @@ function StepClub({
             min="1"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+            onKeyDown={(e) => e.key === "Enter" && handleSearchByNumber()}
             placeholder="Ex. 525816"
             className="flex-1"
             disabled={loading}
