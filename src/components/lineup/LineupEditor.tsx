@@ -5,6 +5,8 @@ import { createClient } from "@/lib/supabase/client";
 import { authFetch } from "@/lib/api-client";
 import { useTeam } from "@/lib/team";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -108,10 +110,13 @@ export function LineupEditor({
   const [saving, setSaving] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [loadedFormationId, setLoadedFormationId] = useState<string | null>(null);
-  const [pickingSlot, setPickingSlot] = useState<string | null>(null);
-  const [captainId, setCaptainId] = useState<string | null>(null);
-  const [muteStatusMap, setMuteStatusMap] = useState<Record<string, string | null>>({});
-  const [visibility, setVisibility] = useState<FicheVisibility>("team");
+   const [pickingSlot, setPickingSlot] = useState<string | null>(null);
+   const [captainId, setCaptainId] = useState<string | null>(null);
+   const [muteStatusMap, setMuteStatusMap] = useState<Record<string, string | null>>({});
+   const [visibility, setVisibility] = useState<FicheVisibility>("team");
+   const [showCreatePlayer, setShowCreatePlayer] = useState(false);
+   const [createdPlayers, setCreatedPlayers] = useState<Profile[]>([]);
+   const [newPlayerForm, setNewPlayerForm] = useState({ first_name: "", last_name: "", shirt_number: "" });
 
   // Formations disponibles pour le format courant
   const availableFormationNames = FORMATIONS_BY_FORMAT[matchFormat] ?? FORMATIONS_BY_FORMAT[11];
@@ -123,8 +128,9 @@ export function LineupEditor({
     ...Object.values(benchAssignments),
   ]);
 
-  const availablePlayers = presentPlayers.filter((p) => !assignedPlayerIds.has(p.id));
-  const benchSize = Math.max(0, presentPlayers.length - matchFormat);
+   const availablePlayers = presentPlayers.filter((p) => !assignedPlayerIds.has(p.id));
+   const allAvailablePlayers = [...availablePlayers, ...createdPlayers.filter((p) => !assignedPlayerIds.has(p.id))];
+   const benchSize = Math.max(0, presentPlayers.length - matchFormat);
 
   // Noms d'affichage : Prénom seul si unique, Prénom + initiale(s) du nom si homonymes
   const displayNameMap = useMemo(() => {
@@ -482,7 +488,32 @@ export function LineupEditor({
   const selectedEvent = events.find((e) => e.id === selectedEventId);
 
   function playerById(id: string) {
-    return presentPlayers.find((p) => p.id === id);
+    return presentPlayers.find((p) => p.id === id) || createdPlayers.find((p) => p.id === id);
+  }
+
+  function handleCreatePlayer() {
+    if (!newPlayerForm.first_name.trim() || !newPlayerForm.last_name.trim()) {
+      toast.error("Nom et prénom requis");
+      return;
+    }
+    
+    const newPlayer: Profile = {
+      id: `temp-${Date.now()}`,
+      first_name: newPlayerForm.first_name,
+      last_name: newPlayerForm.last_name,
+      shirt_number: newPlayerForm.shirt_number ? parseInt(newPlayerForm.shirt_number) : null,
+      email: null,
+      phone_number: null,
+      date_of_birth: null,
+      position: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    } as Profile;
+    
+    setCreatedPlayers((prev) => [...prev, newPlayer]);
+    setNewPlayerForm({ first_name: "", last_name: "", shirt_number: "" });
+    setShowCreatePlayer(false);
+    toast.success(`${newPlayer.first_name} ${newPlayer.last_name} créé`);
   }
 
   if (!currentTeam) {
@@ -677,24 +708,36 @@ export function LineupEditor({
             )}
 
             {/* Joueurs disponibles (draggable) */}
-            {isCoach && availablePlayers.length > 0 && (
+            {isCoach && allAvailablePlayers.length > 0 && (
               <div>
                 <h4 className="text-sm font-semibold mb-2">Joueurs disponibles</h4>
                 <div className="flex flex-wrap gap-1.5">
-                  {availablePlayers.map((p) => (
+                  {allAvailablePlayers.map((p) => (
                     <div
                       key={p.id}
                       draggable
                       onDragStart={(e) => onDragStartPlayer(e, p.id)}
-                      className="flex items-center gap-1.5 rounded-full border bg-muted/50 px-2.5 py-1 text-xs cursor-grab active:cursor-grabbing hover:bg-accent transition-colors"
+                      className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs cursor-grab active:cursor-grabbing hover:bg-accent transition-colors ${p.id.startsWith("temp-") ? "bg-blue-50 border-blue-200" : "bg-muted/50"}`}
                       title={`${dn(p.id)} — glissez sur le terrain ou le banc`}
                     >
                       <span className="font-bold">{p.shirt_number ?? "?"}</span>
                       <span className="truncate max-w-[80px]">{dn(p.id)}</span>
+                      {p.id.startsWith("temp-") && <span className="text-[9px] text-blue-600 ml-1">📝</span>}
                     </div>
                   ))}
                 </div>
               </div>
+            )}
+            
+            {isCoach && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowCreatePlayer(true)}
+                className="w-full"
+              >
+                + Créer un joueur
+              </Button>
             )}
           </div>
         </div>
@@ -811,7 +854,67 @@ export function LineupEditor({
             {Object.keys(assignments).length}/{matchFormat} postes attribués
           </p>
         </div>
-      )}
+       )}
+
+      {/* Create player dialog */}
+      <Dialog open={showCreatePlayer} onOpenChange={setShowCreatePlayer}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-base">Créer un joueur</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="firstname" className="text-sm">Prénom</Label>
+              <Input
+                id="firstname"
+                type="text"
+                placeholder="Ex: Jean"
+                value={newPlayerForm.first_name}
+                onChange={(e) => setNewPlayerForm((p) => ({ ...p, first_name: e.target.value }))}
+                className="mt-1.5"
+              />
+            </div>
+            <div>
+              <Label htmlFor="lastname" className="text-sm">Nom</Label>
+              <Input
+                id="lastname"
+                type="text"
+                placeholder="Ex: Dupont"
+                value={newPlayerForm.last_name}
+                onChange={(e) => setNewPlayerForm((p) => ({ ...p, last_name: e.target.value }))}
+                className="mt-1.5"
+              />
+            </div>
+            <div>
+              <Label htmlFor="shirtnumber" className="text-sm">Numéro de maillot</Label>
+              <Input
+                id="shirtnumber"
+                type="number"
+                min="0"
+                max="99"
+                placeholder="Ex: 10"
+                value={newPlayerForm.shirt_number}
+                onChange={(e) => setNewPlayerForm((p) => ({ ...p, shirt_number: e.target.value }))}
+                className="mt-1.5"
+              />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button
+                variant="outline"
+                onClick={() => setShowCreatePlayer(false)}
+              >
+                Annuler
+              </Button>
+              <Button
+                onClick={handleCreatePlayer}
+                className="bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90"
+              >
+                Créer
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
