@@ -21,11 +21,14 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Generate a unique temporary email (won't be used but required by DB schema)
+  const tempEmail = `temp-${Date.now()}-${Math.random().toString(36).slice(2)}@temp.local`;
+
   // Create a profile entry for the new player
   const { data: newProfile, error: profileError } = await supabase
     .from("profiles")
     .insert({
-      email: null,
+      email: tempEmail,
       phone_number: null,
       date_of_birth: null,
       position: null,
@@ -48,7 +51,10 @@ export async function POST(req: NextRequest) {
   if (profileError) {
     console.error("Error creating profile:", profileError);
     return NextResponse.json(
-      { error: "Failed to create player" },
+      { 
+        error: "Failed to create player",
+        details: profileError.message || JSON.stringify(profileError)
+      },
       { status: 500 }
     );
   }
