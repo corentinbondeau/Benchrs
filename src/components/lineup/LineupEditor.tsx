@@ -133,14 +133,14 @@ export function LineupEditor({
    const availablePlayers = allPlayers.filter((p) => !assignedPlayerIds.has(p.id));
    const benchSize = Math.max(0, presentPlayers.length - matchFormat);
 
-  // Noms d'affichage : Prénom seul si unique, Prénom + initiale(s) du nom si homonymes
-  const displayNameMap = useMemo(() => {
-    const m = new Map<string, string>();
-    for (const p of presentPlayers) {
-      m.set(p.id, buildDisplayName(p, presentPlayers));
-    }
-    return m;
-  }, [presentPlayers]);
+   // Noms d'affichage : Prénom seul si unique, Prénom + initiale(s) du nom si homonymes
+   const displayNameMap = useMemo(() => {
+     const m = new Map<string, string>();
+     for (const p of allPlayers) {
+       m.set(p.id, buildDisplayName(p, allPlayers));
+     }
+     return m;
+   }, [allPlayers]);
   const dn = (id: string) => displayNameMap.get(id) ?? "";
 
   function assignToSlot(slotKey: string, playerId: string) {
