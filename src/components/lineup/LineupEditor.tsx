@@ -522,6 +522,7 @@ export function LineupEditor({
       }
 
       const newPlayer = (await profileRes.json()) as Profile;
+      console.log("Created player:", { id: newPlayer.id, name: `${newPlayer.first_name} ${newPlayer.last_name}` });
 
       // Step 2: Mark player as present for this event
       const attendRes = await authFetch("/api/players/attendance", {
@@ -531,10 +532,13 @@ export function LineupEditor({
           player_id: newPlayer.id,
         }),
       });
+      console.log("Attendance response:", { status: attendRes.status, ok: attendRes.ok });
 
       if (!attendRes.ok) {
         const error = await attendRes.json().catch(() => null);
-        throw new Error(error?.error || "Erreur lors du marquage du joueur");
+        const errorMsg = error?.details || error?.error || "Erreur lors du marquage du joueur";
+        console.error("Attendance error:", error);
+        throw new Error(errorMsg);
       }
 
       // Step 3: Add to presentPlayers so it shows immediately
