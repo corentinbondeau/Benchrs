@@ -22,10 +22,30 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Generate a unique ID for the temporary player (UUID only)
-  const playerId = crypto.randomUUID();
+  // Step 1: Create an auth user first (required for profiles foreign key)
+  const tempEmail = `temp-${crypto.randomUUID().slice(0, 8)}@benchrs.app`;
+  const tempPassword = crypto.randomUUID();
 
-  // Create a profile entry for the new player (minimal fields)
+  const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+    email: tempEmail,
+    password: tempPassword,
+    email_confirm: true,
+  });
+
+  if (authError || !authData.user) {
+    console.error("Error creating auth user:", authError);
+    return NextResponse.json(
+      {
+        error: "Failed to create auth user",
+        details: authError?.message || "Unknown error",
+      },
+      { status: 500 }
+    );
+  }
+
+  const playerId = authData.user.id;
+
+  // Step 2: Create a profile entry for the new player
   const { data: newProfile, error: profileError } = await supabase
     .from("profiles")
     .insert({
@@ -44,10 +64,33 @@ export async function POST(req: NextRequest) {
 
   if (profileError) {
     console.error("Error creating profile:", profileError);
+    // Rollback: delete the auth user
+    await supabase.auth.admin.deleteUser(playerId);
     return NextResponse.json(
-      { 
-        error: "Failed to create player",
-        details: profileError.message || JSON.stringify(profileError)
+      {
+        error: "Failed to create player profile",
+        details: profileError.message || JSON.stringify(profileError),
+      },
+      { status: 500 }
+    );
+  }
+
+  // Step 3: Add player to team_members
+  const { error: memberError } = await supabase.from("team_members").insert({
+    team_id,
+    user_id: playerId,
+    role: "player",
+  });
+
+  if (memberError) {
+    console.error("Error adding to team:", memberError);
+    // Rollback: delete profile and auth user
+    await supabase.from("profiles").delete().eq("id", playerId);
+    await supabase.auth.admin.deleteUser(playerId);
+    return NextResponse.json(
+      {
+        error: "Failed to add player to team",
+        details: memberError.message,
       },
       { status: 500 }
     );
