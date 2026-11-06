@@ -516,7 +516,9 @@ export function LineupEditor({
 
       if (!profileRes.ok) {
         const error = await profileRes.json().catch(() => null);
-        throw new Error(error?.error || "Erreur lors de la création du joueur");
+        const errorMsg = error?.details || error?.error || "Erreur lors de la création du joueur";
+        console.error("Player creation error:", error);
+        throw new Error(errorMsg);
       }
 
       const newPlayer = (await profileRes.json()) as Profile;
