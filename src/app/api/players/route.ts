@@ -22,8 +22,8 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Generate a unique ID for the temporary player
-  const playerId = `temp-${crypto.randomUUID()}`;
+  // Generate a unique ID for the temporary player (UUID only)
+  const playerId = crypto.randomUUID();
 
   // Create a profile entry for the new player (minimal fields)
   const { data: newProfile, error: profileError } = await supabase
