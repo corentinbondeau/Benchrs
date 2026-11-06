@@ -497,7 +497,7 @@ export function LineupEditor({
       return;
     }
     
-    const newPlayer: Profile = {
+    const newPlayer = {
       id: `temp-${Date.now()}`,
       first_name: newPlayerForm.first_name,
       last_name: newPlayerForm.last_name,
@@ -506,8 +506,14 @@ export function LineupEditor({
       phone_number: null,
       date_of_birth: null,
       position: null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      role: "player" as const,
+      avatar_url: null,
+      phone: null,
+      is_active: true,
+      vma: null,
+      vmi: null,
+      licence_expires_at: null,
+      medical_cert_expires_at: null,
     } as Profile;
     
     setCreatedPlayers((prev) => [...prev, newPlayer]);
