@@ -28,7 +28,10 @@ export async function POST(req: NextRequest) {
   if (attendanceError) {
     console.error("Error creating attendance:", attendanceError);
     return NextResponse.json(
-      { error: "Failed to mark player as present" },
+      {
+        error: "Failed to mark player as present",
+        details: attendanceError.message || JSON.stringify(attendanceError),
+      },
       { status: 500 }
     );
   }
