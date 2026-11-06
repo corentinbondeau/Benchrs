@@ -1,10 +1,11 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
 
 /**
  * Create a temporary player for a team
  * 
- * Note: Created players (with no email) are automatically deleted every Monday
+ * Note: Created players are automatically deleted every Monday
  * via the /api/cron/reset-players cron job. This allows coaches to create
  * ad-hoc players for tests, reserves, etc., without cluttering the database.
  */
@@ -21,29 +22,22 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Generate a unique temporary email (won't be used but required by DB schema)
-  const tempEmail = `temp-${Date.now()}-${Math.random().toString(36).slice(2)}@temp.local`;
+  // Generate a unique ID for the temporary player
+  const playerId = `temp-${crypto.randomUUID()}`;
 
-  // Create a profile entry for the new player
+  // Create a profile entry for the new player (minimal fields)
   const { data: newProfile, error: profileError } = await supabase
     .from("profiles")
     .insert({
-      email: tempEmail,
-      phone_number: null,
-      date_of_birth: null,
-      position: null,
-      first_name,
-      last_name,
-      shirt_number: shirt_number ? parseInt(shirt_number) : null,
+      id: playerId,
       role: "player",
-      avatar_url: null,
-      phone: null,
+      first_name: first_name.trim(),
+      last_name: last_name.trim(),
+      shirt_number: shirt_number ? parseInt(shirt_number) : null,
       is_active: true,
       team_id,
-      vma: null,
-      vmi: null,
-      licence_expires_at: null,
-      medical_cert_expires_at: null,
+      date_of_birth: null,
+      position: null,
     })
     .select()
     .single();
