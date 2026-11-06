@@ -115,21 +115,20 @@ export function LineupEditor({
    const [muteStatusMap, setMuteStatusMap] = useState<Record<string, string | null>>({});
    const [visibility, setVisibility] = useState<FicheVisibility>("team");
    const [showCreatePlayer, setShowCreatePlayer] = useState(false);
-   const [createdPlayers, setCreatedPlayers] = useState<Profile[]>([]);
    const [newPlayerForm, setNewPlayerForm] = useState({ first_name: "", last_name: "", shirt_number: "" });
+   const [creatingPlayer, setCreatingPlayer] = useState(false);
 
   // Formations disponibles pour le format courant
   const availableFormationNames = FORMATIONS_BY_FORMAT[matchFormat] ?? FORMATIONS_BY_FORMAT[11];
   const currentPositions = ALL_FORMATIONS[formationName] || ALL_FORMATIONS[availableFormationNames[0]] || ALL_FORMATIONS["4-3-3"];
   const showFormation = showFormationPicker ?? showEventPicker;
 
-  const assignedPlayerIds = new Set([
-    ...Object.values(assignments),
-    ...Object.values(benchAssignments),
-  ]);
+   const assignedPlayerIds = new Set([
+     ...Object.values(assignments),
+     ...Object.values(benchAssignments),
+   ]);
 
    const availablePlayers = presentPlayers.filter((p) => !assignedPlayerIds.has(p.id));
-   const allAvailablePlayers = [...availablePlayers, ...createdPlayers.filter((p) => !assignedPlayerIds.has(p.id))];
    const benchSize = Math.max(0, presentPlayers.length - matchFormat);
 
   // Noms d'affichage : Prénom seul si unique, Prénom + initiale(s) du nom si homonymes
@@ -488,41 +487,69 @@ export function LineupEditor({
   const selectedEvent = events.find((e) => e.id === selectedEventId);
 
   function playerById(id: string) {
-    return presentPlayers.find((p) => p.id === id) || createdPlayers.find((p) => p.id === id);
+    return presentPlayers.find((p) => p.id === id);
   }
 
-  function handleCreatePlayer() {
+  async function handleCreatePlayer() {
     if (!newPlayerForm.first_name.trim() || !newPlayerForm.last_name.trim()) {
       toast.error("Nom et prénom requis");
       return;
     }
-    
-    const newPlayer = {
-      id: `temp-${Date.now()}`,
-      first_name: newPlayerForm.first_name,
-      last_name: newPlayerForm.last_name,
-      shirt_number: newPlayerForm.shirt_number ? parseInt(newPlayerForm.shirt_number) : null,
-      email: null,
-      phone_number: null,
-      date_of_birth: null,
-      position: null,
-      role: "player" as const,
-      avatar_url: null,
-      phone: null,
-      is_active: true,
-      vma: null,
-      vmi: null,
-      licence_expires_at: null,
-      medical_cert_expires_at: null,
-      team_id: currentTeam?.id || null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    } as Profile;
-    
-    setCreatedPlayers((prev) => [...prev, newPlayer]);
-    setNewPlayerForm({ first_name: "", last_name: "", shirt_number: "" });
-    setShowCreatePlayer(false);
-    toast.success(`${newPlayer.first_name} ${newPlayer.last_name} créé`);
+
+    if (!currentTeam || !selectedEventId) {
+      toast.error("Équipe ou match manquant");
+      return;
+    }
+
+    setCreatingPlayer(true);
+    try {
+      // Step 1: Create player in profiles table
+      const profileRes = await authFetch("/api/players", {
+        method: "POST",
+        body: JSON.stringify({
+          team_id: currentTeam.id,
+          first_name: newPlayerForm.first_name,
+          last_name: newPlayerForm.last_name,
+          shirt_number: newPlayerForm.shirt_number || null,
+        }),
+      });
+
+      if (!profileRes.ok) {
+        const error = await profileRes.json().catch(() => null);
+        throw new Error(error?.error || "Erreur lors de la création du joueur");
+      }
+
+      const newPlayer = (await profileRes.json()) as Profile;
+
+      // Step 2: Mark player as present for this event
+      const attendRes = await authFetch("/api/players/attendance", {
+        method: "POST",
+        body: JSON.stringify({
+          event_id: selectedEventId,
+          player_id: newPlayer.id,
+        }),
+      });
+
+      if (!attendRes.ok) {
+        const error = await attendRes.json().catch(() => null);
+        throw new Error(error?.error || "Erreur lors du marquage du joueur");
+      }
+
+      // Step 3: Add to presentPlayers so it shows immediately
+      setPresentPlayers((prev) => [...prev, newPlayer]);
+      setNewPlayerForm({ first_name: "", last_name: "", shirt_number: "" });
+      setShowCreatePlayer(false);
+      toast.success(
+        `${newPlayer.first_name} ${newPlayer.last_name} créé et ajouté à la composition`
+      );
+    } catch (error) {
+      console.error("Error creating player:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Erreur lors de la création"
+      );
+    } finally {
+      setCreatingPlayer(false);
+    }
   }
 
   if (!currentTeam) {
@@ -717,21 +744,20 @@ export function LineupEditor({
             )}
 
             {/* Joueurs disponibles (draggable) */}
-            {isCoach && allAvailablePlayers.length > 0 && (
+            {isCoach && availablePlayers.length > 0 && (
               <div>
                 <h4 className="text-sm font-semibold mb-2">Joueurs disponibles</h4>
                 <div className="flex flex-wrap gap-1.5">
-                  {allAvailablePlayers.map((p) => (
+                  {availablePlayers.map((p) => (
                     <div
                       key={p.id}
                       draggable
                       onDragStart={(e) => onDragStartPlayer(e, p.id)}
-                      className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs cursor-grab active:cursor-grabbing hover:bg-accent transition-colors ${p.id.startsWith("temp-") ? "bg-blue-50 border-blue-200" : "bg-muted/50"}`}
+                      className="flex items-center gap-1.5 rounded-full border bg-muted/50 px-2.5 py-1 text-xs cursor-grab active:cursor-grabbing hover:bg-accent transition-colors"
                       title={`${dn(p.id)} — glissez sur le terrain ou le banc`}
                     >
                       <span className="font-bold">{p.shirt_number ?? "?"}</span>
                       <span className="truncate max-w-[80px]">{dn(p.id)}</span>
-                      {p.id.startsWith("temp-") && <span className="text-[9px] text-blue-600 ml-1">📝</span>}
                     </div>
                   ))}
                 </div>
@@ -911,14 +937,16 @@ export function LineupEditor({
               <Button
                 variant="outline"
                 onClick={() => setShowCreatePlayer(false)}
+                disabled={creatingPlayer}
               >
                 Annuler
               </Button>
               <Button
                 onClick={handleCreatePlayer}
+                disabled={creatingPlayer}
                 className="bg-[var(--color-primary-blue)] text-white hover:bg-[var(--color-primary-blue)]/90"
               >
-                Créer
+                {creatingPlayer ? "Création..." : "Créer"}
               </Button>
             </div>
           </div>
