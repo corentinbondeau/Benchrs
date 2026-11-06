@@ -1,6 +1,13 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NextRequest, NextResponse } from "next/server";
 
+/**
+ * Create a temporary player for a team
+ * 
+ * Note: Created players (with no email) are automatically deleted every Monday
+ * via the /api/cron/reset-players cron job. This allows coaches to create
+ * ad-hoc players for tests, reserves, etc., without cluttering the database.
+ */
 export async function POST(req: NextRequest) {
   const supabase = createAdminClient();
 
