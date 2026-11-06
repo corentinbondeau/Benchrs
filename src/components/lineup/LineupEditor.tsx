@@ -514,6 +514,9 @@ export function LineupEditor({
       vmi: null,
       licence_expires_at: null,
       medical_cert_expires_at: null,
+      team_id: currentTeam?.id || null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     } as Profile;
     
     setCreatedPlayers((prev) => [...prev, newPlayer]);
