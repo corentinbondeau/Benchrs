@@ -5,11 +5,11 @@ export async function POST(req: NextRequest) {
   const supabase = createAdminClient();
 
   const body = await req.json();
-  const { event_id, player_id } = body;
+  const { event_id, player_id, team_id } = body;
 
-  if (!event_id || !player_id) {
+  if (!event_id || !player_id || !team_id) {
     return NextResponse.json(
-      { error: "Missing required fields: event_id, player_id" },
+      { error: "Missing required fields: event_id, player_id, team_id" },
       { status: 400 }
     );
   }
@@ -20,6 +20,7 @@ export async function POST(req: NextRequest) {
     .insert({
       event_id,
       user_id: player_id,
+      team_id,
       status: "present",
     })
     .select()

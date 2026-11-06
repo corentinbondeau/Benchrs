@@ -530,6 +530,7 @@ export function LineupEditor({
         body: JSON.stringify({
           event_id: selectedEventId,
           player_id: newPlayer.id,
+          team_id: currentTeam.id,
         }),
       });
       console.log("Attendance response:", { status: attendRes.status, ok: attendRes.ok });
